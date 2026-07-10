@@ -5,8 +5,14 @@ Phase 1：server / binding / world / prune 方法。
 from __future__ import annotations
 
 from palchronicle.config import BindingConfig, HistoryConfig, ServerConfig
-from palchronicle.domain.enums import IdConfidence, LeaveReason, SessionStatus
-from palchronicle.domain.models import PlayerIdentity, PlayerSession, World, WorldMetric
+from palchronicle.domain.enums import IdConfidence, LeaveReason, PingBucket, SessionStatus
+from palchronicle.domain.models import (
+    PlayerIdentity,
+    PlayerObservation,
+    PlayerSession,
+    World,
+    WorldMetric,
+)
 from palchronicle.infrastructure.clock import Clock
 from palchronicle.infrastructure.database import Database
 
@@ -317,3 +323,38 @@ class Repository:
             (world_id,),
         )
         return [self._row_to_session(r) for r in rows]
+
+    # ---- observations ----
+    async def insert_observation(self, o: PlayerObservation) -> None:
+        await self._db.execute_write(
+            """
+            INSERT INTO player_observations
+                (world_id, player_key, observed_at, level, ping_bucket,
+                 building_count, guild_key, companion_class, position_cell)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (o.world_id, o.player_key, o.observed_at, o.level, str(o.ping_bucket),
+             o.building_count, o.guild_key, o.companion_class, o.position_cell),
+        )
+
+    async def latest_observation(self, world_id: str, player_key: str) -> PlayerObservation | None:
+        rows = await self._db.query(
+            """
+            SELECT world_id, player_key, observed_at, level, ping_bucket,
+                   building_count, guild_key, companion_class, position_cell
+            FROM player_observations
+            WHERE world_id = ? AND player_key = ?
+            ORDER BY observed_at DESC LIMIT 1
+            """,
+            (world_id, player_key),
+        )
+        if not rows:
+            return None
+        r = rows[0]
+        return PlayerObservation(
+            observed_at=r["observed_at"], world_id=r["world_id"],
+            player_key=r["player_key"], name="", level=r["level"],
+            ping_bucket=PingBucket(r["ping_bucket"]),
+            building_count=r["building_count"], guild_key=r["guild_key"],
+            position_cell=r["position_cell"], companion_class=r["companion_class"],
+        )
