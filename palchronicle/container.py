@@ -59,6 +59,7 @@ class Container:
 
         repo = Repository(self._db, self._clock)
         self._repo = repo
+        self.repo = repo
         await repo.sync_servers(self._cfg.servers)
         await repo.seed_bindings(self._cfg.group_bindings)
         ready_ids = {s.server_id for s in self._cfg.servers if s.ready}
@@ -101,6 +102,10 @@ class Container:
             on_response=self._on_response, rng_seed=None, fetcher=self._fetch,
         )
         await self._scheduler.start()
+
+    def snapshot_service_for(self, server_id: str) -> SnapshotService:
+        """返回指定服务器的 SnapshotService（集成测试与内部采集回调共用）。"""
+        return self._snapshot
 
     async def _fetch(self, server_id: str, endpoint: EndpointName) -> RestResponse:
         client = self._rest_clients[server_id]
