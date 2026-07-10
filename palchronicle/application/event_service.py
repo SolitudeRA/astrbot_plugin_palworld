@@ -59,3 +59,15 @@ class EventService:
             dedup,
             {"old": old, "new": new},
         )
+
+    async def new_player(self, world: World, player_key: str) -> None:
+        dedup = self.dedup_key(world.world_id, EventType.NEW_PLAYER, player_key)
+        await self._emit(
+            world, EventType.NEW_PLAYER, "player", player_key, dedup, {}
+        )
+
+    async def new_guild(self, world: World, guild_key: str) -> None:
+        dedup = self.dedup_key(world.world_id, EventType.NEW_GUILD, guild_key)
+        await self._emit(
+            world, EventType.NEW_GUILD, "guild", guild_key, dedup, {}
+        )

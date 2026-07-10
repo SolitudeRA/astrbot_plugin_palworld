@@ -76,3 +76,33 @@ async def test_level_down_emits_nothing(tmp_path):
         assert rows == []
     finally:
         await db.close()
+
+
+async def test_new_player_emits_once_and_dedups(tmp_path):
+    svc, repo, db, _ = await _make(tmp_path)
+    try:
+        await svc.new_player(_world(), "pk1")
+        await svc.new_player(_world(), "pk1")  # duplicate
+        rows = await repo.list_events("s1:guid:0")
+        assert len(rows) == 1
+        assert rows[0].event_type == EventType.NEW_PLAYER
+        assert rows[0].subject_type == "player"
+        assert rows[0].subject_key == "pk1"
+        assert rows[0].dedup_key == "s1:guid:0|NEW_PLAYER|pk1"
+    finally:
+        await db.close()
+
+
+async def test_new_guild_emits_once_and_dedups(tmp_path):
+    svc, repo, db, _ = await _make(tmp_path)
+    try:
+        await svc.new_guild(_world(), "gk1")
+        await svc.new_guild(_world(), "gk1")
+        rows = await repo.list_events("s1:guid:0")
+        assert len(rows) == 1
+        assert rows[0].event_type == EventType.NEW_GUILD
+        assert rows[0].subject_type == "guild"
+        assert rows[0].subject_key == "gk1"
+        assert rows[0].dedup_key == "s1:guid:0|NEW_GUILD|gk1"
+    finally:
+        await db.close()
