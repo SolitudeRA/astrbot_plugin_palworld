@@ -91,6 +91,64 @@ class EventService:
             {"value": value},
         )
 
+    async def base_events(
+        self, world: World, updates: list["BaseUpdate"]
+    ) -> None:
+        for u in updates:
+            if u.is_new and u.confidence != Confidence.LOW:
+                dedup = self.dedup_key(
+                    world.world_id, EventType.NEW_BASE, u.base_key
+                )
+                await self._emit(
+                    world,
+                    EventType.NEW_BASE,
+                    "base",
+                    u.base_key,
+                    dedup,
+                    {
+                        "guild_key": u.guild_key,
+                        "worker_count": u.worker_count,
+                        "confidence": u.confidence.value,
+                    },
+                    confidence=u.confidence,
+                )
+            if u.is_vanished:
+                dedup = self.dedup_key(
+                    world.world_id,
+                    EventType.BASE_VANISHED,
+                    u.base_key,
+                    world.current_day,
+                )
+                await self._emit(
+                    world,
+                    EventType.BASE_VANISHED,
+                    "base",
+                    u.base_key,
+                    dedup,
+                    {"first_missing_day": world.current_day},
+                )
+            if u.prev_worker_count is not None:
+                prev = u.prev_worker_count
+                cur = u.worker_count
+                threshold = max(3, int(prev * 0.2))
+                if abs(cur - prev) >= threshold:
+                    bucket = "up" if cur > prev else "down"
+                    dedup = self.dedup_key(
+                        world.world_id,
+                        EventType.WORKER_DELTA,
+                        u.base_key,
+                        world.current_day,
+                        bucket,
+                    )
+                    await self._emit(
+                        world,
+                        EventType.WORKER_DELTA,
+                        "base",
+                        u.base_key,
+                        dedup,
+                        {"prev": prev, "cur": cur},
+                    )
+
     async def world_day(self, world: World, days: int) -> None:
         for m in self.MILESTONES:
             if days >= m:
