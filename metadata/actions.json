@@ -16,5 +16,18 @@
   "EPalActionType::Eat": "eating",
   "EPalAIActionType::EatFromFoodBox": "eating",
   "EPalActionType::Down": "incapacitated",
-  "EPalAIActionType::Incapacitated": "incapacitated"
+  "EPalAIActionType::Incapacitated": "incapacitated",
+  "Work": "working",
+  "Working": "working",
+  "Move": "moving",
+  "Moving": "moving",
+  "Idle": "idle",
+  "Combat": "combat",
+  "Attack": "combat",
+  "Sleep": "sleeping",
+  "Sleeping": "sleeping",
+  "Eat": "eating",
+  "Eating": "eating",
+  "Incapacitated": "incapacitated",
+  "Downed": "incapacitated"
 }

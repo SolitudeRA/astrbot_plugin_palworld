@@ -9,5 +9,6 @@
   "ServerPlayerMaxNum": {"label_zh": "最大玩家数", "unit": "人"},
   "GuildPlayerMaxNum": {"label_zh": "公会人数上限", "unit": "人"},
   "BaseCampMaxNum": {"label_zh": "据点数量上限", "unit": "个"},
+  "BaseCampMaxNumInGuild": {"label_zh": "公会据点上限", "unit": "个"},
   "DeathPenalty": {"label_zh": "死亡惩罚", "unit": "", "enum_map": {"None": "无", "Item": "掉落物品", "ItemAndEquipment": "掉落物品与装备", "All": "全部掉落"}}
 }

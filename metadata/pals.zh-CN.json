@@ -8,5 +8,12 @@
   "PalDataParameter/WaterRay": {"pal_number": 68, "name_zh": "海鳐", "name_en": "Celaray", "element_types": ["water"], "rarity": 2, "metadata_version": "0.1"},
   "PalDataParameter/ElecPanda": {"pal_number": 90, "name_zh": "闪电熊猫", "name_en": "Grizzbolt", "element_types": ["electric"], "rarity": 4, "metadata_version": "0.1"},
   "PalDataParameter/IceFox": {"pal_number": 100, "name_zh": "极寒狐", "name_en": "Frostallion", "element_types": ["ice"], "rarity": 5, "metadata_version": "0.1"},
-  "PalDataParameter/DragonJet": {"pal_number": 111, "name_zh": "喷气龙", "name_en": "Jetragon", "element_types": ["dragon"], "rarity": 5, "metadata_version": "0.1"}
+  "PalDataParameter/DragonJet": {"pal_number": 111, "name_zh": "喷气龙", "name_en": "Jetragon", "element_types": ["dragon"], "rarity": 5, "metadata_version": "0.1"},
+  "SheepBall": {"pal_number": 40, "name_zh": "绵绵羊", "name_en": "Lamball", "element_types": ["neutral"], "rarity": 1, "metadata_version": "0.1"},
+  "Lamball": {"pal_number": 40, "name_zh": "绵绵羊", "name_en": "Lamball", "element_types": ["neutral"], "rarity": 1, "metadata_version": "0.1"},
+  "Foxparks": {"pal_number": 33, "name_zh": "火绒狐", "name_en": "Foxparks", "element_types": ["fire"], "rarity": 1, "metadata_version": "0.1"},
+  "Cattiva": {"pal_number": 2, "name_zh": "喵咪嘟", "name_en": "Cattiva", "element_types": ["neutral"], "rarity": 1, "metadata_version": "0.1"},
+  "PinkCat": {"pal_number": 2, "name_zh": "喵咪嘟", "name_en": "Cattiva", "element_types": ["neutral"], "rarity": 1, "metadata_version": "0.1"},
+  "Chikipi": {"pal_number": 11, "name_zh": "咕咕鸡", "name_en": "Chikipi", "element_types": ["neutral"], "rarity": 1, "metadata_version": "0.1"},
+  "Pengullet": {"pal_number": 71, "name_zh": "企丸丸", "name_en": "Pengullet", "element_types": ["water"], "rarity": 2, "metadata_version": "0.1"}
 }
