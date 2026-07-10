@@ -5,7 +5,8 @@ Phase 1：server / binding / world / prune 方法。
 from __future__ import annotations
 
 from palchronicle.config import BindingConfig, HistoryConfig, ServerConfig
-from palchronicle.domain.models import World, WorldMetric
+from palchronicle.domain.enums import IdConfidence
+from palchronicle.domain.models import PlayerIdentity, World, WorldMetric
 from palchronicle.infrastructure.clock import Clock
 from palchronicle.infrastructure.database import Database
 
@@ -214,4 +215,44 @@ class Repository:
             " VALUES (?, ?, 1)"
             " ON CONFLICT(class_name) DO UPDATE SET count = count + 1",
             [(c, now) for c in classes],
+        )
+
+    # ---- players ----
+    async def upsert_player(self, p: PlayerIdentity) -> None:
+        await self._db.execute_write(
+            """
+            INSERT INTO players
+                (player_key, world_id, latest_name, first_seen_at, last_seen_at,
+                 latest_level, latest_guild_key, id_confidence)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(player_key, world_id) DO UPDATE SET
+                latest_name = excluded.latest_name,
+                last_seen_at = excluded.last_seen_at,
+                latest_level = excluded.latest_level,
+                latest_guild_key = excluded.latest_guild_key,
+                id_confidence = excluded.id_confidence
+            """,
+            (p.player_key, p.world_id, p.latest_name, p.first_seen_at,
+             p.last_seen_at, p.latest_level, p.latest_guild_key, str(p.id_confidence)),
+        )
+
+    async def get_player_by_name(self, world_id: str, name: str) -> PlayerIdentity | None:
+        rows = await self._db.query(
+            """
+            SELECT player_key, world_id, latest_name, first_seen_at, last_seen_at,
+                   latest_level, latest_guild_key, id_confidence
+            FROM players WHERE world_id = ? AND latest_name = ?
+            ORDER BY last_seen_at DESC LIMIT 1
+            """,
+            (world_id, name),
+        )
+        if not rows:
+            return None
+        r = rows[0]
+        return PlayerIdentity(
+            player_key=r["player_key"], world_id=r["world_id"],
+            latest_name=r["latest_name"], first_seen_at=r["first_seen_at"],
+            last_seen_at=r["last_seen_at"], latest_level=r["latest_level"],
+            latest_guild_key=r["latest_guild_key"],
+            id_confidence=IdConfidence(r["id_confidence"]),
         )
