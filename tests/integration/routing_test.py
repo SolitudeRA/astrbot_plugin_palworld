@@ -1,0 +1,65 @@
+import pytest
+
+from palchronicle.config import parse_config
+from palchronicle.container import Container
+from palchronicle.infrastructure.clock import FakeClock
+from tests.integration.conftest import _FakeRest, _FakeSched, make_config
+
+UMO = "aiocqhttp:GroupMessage:123456"
+
+
+def config_two_servers_with_seed() -> dict:
+    cfg = make_config(access_mode="restricted")
+    cfg["servers"] = [
+        {"name": "alpha", "enabled": True, "base_url": "http://127.0.0.1:8212",
+         "username": "admin", "password": "pw", "timeout": 10, "verify_tls": False, "timezone": ""},
+        {"name": "beta", "enabled": True, "base_url": "http://127.0.0.1:8213",
+         "username": "admin", "password": "pw", "timeout": 10, "verify_tls": False, "timezone": ""},
+    ]
+    cfg["group_bindings"] = [{"umo": UMO, "server": "alpha", "active": True}]
+    return cfg
+
+
+@pytest.fixture
+async def routed(tmp_path):
+    """（container, cfg）双服务器 restricted 路由夹具，预设 alpha 为 active。
+
+    注入 fake rest/scheduler 工厂（conftest 先例），避免真实 HTTP 与调度器非确定性；
+    验证 seed-only 不覆盖运行时 use 与每 umo active 唯一性端到端成立。
+    """
+    clock = FakeClock(start=1_700_000_000)
+    cfg = parse_config(config_two_servers_with_seed(), env={})
+    container = Container(
+        config=cfg, data_dir=tmp_path, clock=clock,
+        rest_factory=lambda s, clk: _FakeRest(),
+        scheduler_factory=lambda **k: _FakeSched(),
+    )
+    await container.start()
+    try:
+        yield container, cfg
+    finally:
+        await container.stop()
+
+
+async def test_seed_only_does_not_override_runtime_use(routed):
+    container, cfg = routed
+    # 预设让 alpha 为 active；运行时管理员 /pal use beta
+    await container.routing.use(UMO, "beta")
+    assert await container.repo.get_binding_active(UMO) == "beta"
+
+    # 再次触发一次 seed（模拟重载后 start 再次播种）→ 不得把 active 覆盖回 alpha
+    await container.repo.seed_bindings(cfg.group_bindings)
+    assert await container.repo.get_binding_active(UMO) == "beta", "seed 覆盖了运行时 use"
+    # alpha 仍在 allowed 集合（预设授权保留），但 active 归 beta
+    assert "alpha" in await container.repo.get_allowed(UMO)
+    assert "beta" in await container.repo.get_allowed(UMO)
+
+
+async def test_active_uniqueness_per_umo(routed):
+    container, cfg = routed
+    await container.routing.use(UMO, "alpha")
+    await container.routing.use(UMO, "beta")
+    # 每 umo 至多一个 active
+    rows = await container.db.query(
+        "SELECT server_id FROM group_servers WHERE umo=? AND active=1", (UMO,))
+    assert [r[0] for r in rows] == ["beta"]
