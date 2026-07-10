@@ -1,0 +1,107 @@
+{
+  "servers": {
+    "type": "template_list",
+    "description": "Palworld 服务器列表（网页可添加多个；name 需唯一）",
+    "hint": "密码建议填环境变量名(password_env)而非明文；明文会落盘到 data/config/",
+    "default": [],
+    "templates": {
+      "server": {
+        "name": "Palworld 服务器",
+        "display_item": "name",
+        "items": {
+          "name": { "type": "string", "description": "服务器名称（唯一标识，勿含空格/冒号/@）", "default": "" },
+          "enabled": { "type": "bool", "description": "是否启用", "default": true },
+          "base_url": { "type": "string", "description": "REST API 地址", "default": "http://127.0.0.1:8212" },
+          "username": { "type": "string", "description": "Basic Auth 用户名", "default": "admin" },
+          "password": { "type": "string", "description": "密码（明文，与 password_env 二选一）", "default": "" },
+          "password_env": { "type": "string", "description": "密码环境变量名（推荐，与 password 二选一）", "default": "" },
+          "timeout": { "type": "int", "description": "请求超时(秒)", "default": 10 },
+          "verify_tls": { "type": "bool", "description": "校验 TLS 证书（http 忽略）", "default": true },
+          "timezone": { "type": "string", "description": "该服务器时区（IANA，如 Asia/Tokyo；留空用全局）", "default": "" }
+        }
+      }
+    }
+  },
+  "routing": {
+    "type": "object",
+    "description": "群↔服务器 路由与访问控制",
+    "items": {
+      "access_mode": { "type": "string", "description": "restricted=群需管理员授权; open=任意群任意服务器", "default": "restricted", "options": ["restricted", "open"] },
+      "default_server": { "type": "string", "description": "全局默认服务器 name（群未指定且未绑定时的兜底）", "default": "" }
+    }
+  },
+  "group_bindings": {
+    "type": "template_list",
+    "description": "预设 群→服务器 授权（可选，等价于管理员 /pal use）",
+    "default": [],
+    "templates": {
+      "binding": {
+        "name": "绑定",
+        "display_item": "umo",
+        "items": {
+          "umo": { "type": "string", "description": "会话标识 unified_msg_origin，如 aiocqhttp:GroupMessage:123456", "default": "" },
+          "server": { "type": "string", "description": "服务器 name", "default": "" },
+          "active": { "type": "bool", "description": "设为该群活动服务器", "default": true }
+        }
+      }
+    }
+  },
+  "polling": {
+    "type": "object",
+    "description": "轮询间隔（全局，逐服务器套用）",
+    "items": {
+      "metrics_seconds": { "type": "int", "description": "metrics 轮询间隔(秒)", "default": 30 },
+      "players_seconds": { "type": "int", "description": "players 轮询间隔(秒)", "default": 30 },
+      "info_seconds": { "type": "int", "description": "info 轮询间隔(秒)", "default": 600 },
+      "settings_seconds": { "type": "int", "description": "settings 轮询间隔(秒)", "default": 1800 },
+      "game_data_seconds": { "type": "int", "description": "game-data 轮询间隔(秒)", "default": 120 },
+      "jitter_ratio": { "type": "float", "description": "间隔抖动比例", "default": 0.10 },
+      "max_concurrency": { "type": "int", "description": "全局在途 HTTP 请求上限", "default": 6 }
+    }
+  },
+  "world": {
+    "type": "object",
+    "description": "世界与展示",
+    "items": {
+      "timezone": { "type": "string", "description": "全局时区(IANA)", "default": "Asia/Tokyo" },
+      "locale": { "type": "string", "description": "文案语言", "default": "zh-CN", "options": ["zh-CN"] },
+      "fps_smooth": { "type": "int", "description": "FPS ≥ 此值=流畅", "default": 50 },
+      "fps_moderate": { "type": "int", "description": "FPS ≥ 此值=一般", "default": 35 },
+      "fps_laggy": { "type": "int", "description": "FPS < 此值=卡顿", "default": 20 }
+    }
+  },
+  "bases": {
+    "type": "object",
+    "description": "据点推导参数",
+    "items": {
+      "enabled": { "type": "bool", "description": "启用据点/PalBox 推导", "default": true },
+      "assignment_radius": { "type": "int", "description": "据点归属半径", "default": 5000 },
+      "ambiguity_ratio": { "type": "float", "description": "最近/次近距离差比阈值", "default": 0.20 },
+      "confirmation_samples": { "type": "int", "description": "建据点所需一致次数", "default": 3 },
+      "position_grid_size": { "type": "int", "description": "坐标量化网格边长", "default": 2000 },
+      "z_weight": { "type": "float", "description": "Z 轴距离权重", "default": 0.5 }
+    }
+  },
+  "privacy": {
+    "type": "object",
+    "description": "隐私与脱敏",
+    "items": {
+      "mode": { "type": "string", "description": "strict/balanced/advanced", "default": "balanced", "options": ["strict", "balanced", "advanced"] },
+      "public_exact_ping": { "type": "bool", "description": "公开精确 Ping", "default": false },
+      "public_positions": { "type": "bool", "description": "公开坐标", "default": false },
+      "ping_good_ms": { "type": "int", "description": "Ping ≤ 此值=优秀", "default": 60 },
+      "ping_ok_ms": { "type": "int", "description": "Ping ≤ 此值=正常，超过=偏高", "default": 120 },
+      "uncertain_timeout": { "type": "int", "description": "uncertain 会话超时收敛(秒)", "default": 900 }
+    }
+  },
+  "history": {
+    "type": "object",
+    "description": "保留清理天数",
+    "items": {
+      "raw_metrics_days": { "type": "int", "description": "原始指标保留天数", "default": 7 },
+      "aggregate_days": { "type": "int", "description": "预聚合保留天数", "default": 90 },
+      "session_days": { "type": "int", "description": "会话保留天数", "default": 365 },
+      "observation_days": { "type": "int", "description": "观察保留天数", "default": 180 }
+    }
+  }
+}
