@@ -1,0 +1,6 @@
+[
+  {"tick": 0, "endpoint": "players", "payload": {"players": [{"userId": "steam_00001", "name": "Akari", "level": 21, "ping": 44.0, "building_count": 12}]}},
+  {"tick": 30, "endpoint": "players", "payload": null},
+  {"tick": 60, "endpoint": "players", "payload": null},
+  {"tick": 120, "endpoint": "players", "payload": {"players": [{"userId": "steam_00001", "name": "Akari", "level": 21, "ping": 44.0, "building_count": 12}]}}
+]
