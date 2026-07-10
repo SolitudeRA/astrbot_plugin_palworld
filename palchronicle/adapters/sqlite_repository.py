@@ -188,3 +188,30 @@ class Repository:
             world_day=r["world_day"],
             basecamp_count=r["basecamp_count"],
         )
+
+    async def peak_online(self, world_id: str, since: int | None = None) -> int:
+        if since is None:
+            rows = await self._db.query(
+                "SELECT MAX(online_players) AS peak FROM world_metrics"
+                " WHERE world_id = ?",
+                (world_id,),
+            )
+        else:
+            rows = await self._db.query(
+                "SELECT MAX(online_players) AS peak FROM world_metrics"
+                " WHERE world_id = ? AND observed_at >= ?",
+                (world_id, since),
+            )
+        peak = rows[0]["peak"] if rows else None
+        return int(peak) if peak is not None else 0
+
+    async def upsert_unknown_classes(self, classes: list[str]) -> None:
+        if not classes:
+            return
+        now = self._clock.now()
+        await self._db.executemany_write(
+            "INSERT INTO unknown_classes (class_name, first_seen_at, count)"
+            " VALUES (?, ?, 1)"
+            " ON CONFLICT(class_name) DO UPDATE SET count = count + 1",
+            [(c, now) for c in classes],
+        )
