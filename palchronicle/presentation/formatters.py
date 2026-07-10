@@ -1,10 +1,10 @@
 from __future__ import annotations
 
-from palchronicle.config import SkippedServer
+from palchronicle.config import SkippedServer, WorldConfig
 from palchronicle.domain.enums import Confidence, PingBucket
 from palchronicle.presentation.dtos import (
     BaseDetailDTO, BaseDTO, EventDTO, GuildDetailDTO, GuildDTO,
-    OnlineDTO, ServerStatusRow,
+    OnlineDTO, RulesDTO, ServerStatusRow, StatusDTO, WorldSummaryDTO,
 )
 from palchronicle.presentation.locale import L
 
@@ -132,4 +132,64 @@ def format_help(topic: str | None, is_admin: bool) -> str:
     if is_admin:
         lines.append("")
         lines.extend(_HELP_ADMIN_EXTRA)
+    return "\n".join(lines)
+
+
+def format_status(dto: StatusDTO, cfg: WorldConfig) -> str:
+    if dto.degraded:
+        return format_degraded(dto.last_ok, dto.updated_at)
+    lines = [
+        f"世界：{dto.world_name} · 第 {dto.world_day} 天",
+        f"在线：{dto.online}/{dto.max_players} 人 · 今日最高 {dto.peak_online_today}",
+        f"据点：{dto.basecamp_count}（官方指标）",
+        f"性能：FPS {dto.fps:.0f}（{dto.smoothness_label}） · 帧时间 {dto.frame_time:.1f}ms",
+    ]
+    if dto.players:
+        lines.append("在线玩家：")
+        lines.extend(f"  · {n} Lv{lv}" for n, lv, _ in dto.players)
+    return "\n".join(lines)
+
+
+def format_world(dto: WorldSummaryDTO) -> str:
+    lines = [
+        f"世界概览 · 第 {dto.world_day} 天 · 在线 {dto.online} 人",
+        f"角色 {dto.players} · 随行 {dto.otomo} · 工作帕鲁 {dto.base_pal} · "
+        f"野生 {dto.wild} · NPC {dto.npc}",
+        f"PalBox {dto.palbox} · 公会 {dto.guilds}",
+        f"FPS 瞬时 {dto.fps:.0f} / 平均 {dto.average_fps:.0f}",
+    ]
+    if dto.wild_top:
+        top = "、".join(f"{w.name}×{w.count}" for w in dto.wild_top)
+        lines.append(f"当前野生帕鲁 Top（仅当前快照）：{top}")
+    return "\n".join(lines)
+
+
+def format_rules(dto: RulesDTO) -> str:
+    lines = ["世界规则："]
+    for r in dto.rows:
+        lines.append(f"· {r.label}：{r.value}")
+    if dto.advanced_note:
+        lines.append(f"注：{dto.advanced_note}")
+    return "\n".join(lines)
+
+
+def format_today(dto) -> str:
+    if getattr(dto, "is_empty", False):
+        return L("empty_day")
+    hours = dto.total_online_seconds // 3600
+    lines = [
+        f"今日日报 · {dto.day}",
+        f"世界天数：第 {dto.world_day_start} → {dto.world_day_end} 天",
+        f"活跃玩家 {dto.active_players} · 最高同时在线 {dto.peak_online} · 累计观察在线 {hours} 小时",
+    ]
+    if dto.records:
+        lines.append("今日纪录：")
+        lines.extend(f"  · {r}" for r in dto.records)
+    if dto.level_events:
+        lines.append("玩家成长：")
+        lines.extend(f"  · {e}" for e in dto.level_events)
+    if dto.base_events:
+        lines.append("据点变化：")
+        lines.extend(f"  · {e}" for e in dto.base_events)
+    lines.append(dto.summary)
     return "\n".join(lines)
