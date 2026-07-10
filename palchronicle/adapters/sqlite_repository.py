@@ -5,6 +5,7 @@ Phase 1：server / binding / world / prune 方法。
 from __future__ import annotations
 
 import json
+import sqlite3
 
 from palchronicle.config import BindingConfig, HistoryConfig, ServerConfig
 from palchronicle.domain.enums import (
@@ -23,6 +24,7 @@ from palchronicle.domain.models import (
     PlayerObservation,
     PlayerSession,
     World,
+    WorldEvent,
     WorldMetric,
 )
 from palchronicle.infrastructure.clock import Clock
@@ -505,3 +507,29 @@ class Repository:
             average_level=r["average_level"], average_hp_ratio=r["average_hp_ratio"],
             action_distribution=json.loads(r["action_distribution_json"]),
         )
+
+    # ---- world events ----
+    async def insert_event(self, e: WorldEvent) -> bool:
+        try:
+            await self._db.execute_write(
+                """INSERT INTO world_events
+                   (world_id, event_type, subject_type, subject_key,
+                    occurred_at, confirmed_at, payload_json, visibility,
+                    confidence, dedup_key)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                (
+                    e.world_id,
+                    e.event_type.value,
+                    e.subject_type,
+                    e.subject_key,
+                    e.occurred_at,
+                    e.confirmed_at,
+                    json.dumps(e.payload, ensure_ascii=False, sort_keys=True),
+                    e.visibility,
+                    e.confidence.value,
+                    e.dedup_key,
+                ),
+            )
+            return True
+        except sqlite3.IntegrityError:
+            return False
