@@ -3,6 +3,7 @@ import pytest
 from palchronicle.config import parse_config
 from palchronicle.container import Container
 from palchronicle.infrastructure.clock import FakeClock
+from palchronicle.presentation.server_arg import ArgError, parse_arg
 from tests.integration.conftest import _FakeRest, _FakeSched, make_config
 
 UMO = "aiocqhttp:GroupMessage:123456"
@@ -63,3 +64,38 @@ async def test_active_uniqueness_per_umo(routed):
     rows = await container.db.query(
         "SELECT server_id FROM group_servers WHERE umo=? AND active=1", (UMO,))
     assert [r[0] for r in rows] == ["beta"]
+
+
+def test_parse_arg_strips_trailing_server_and_keeps_spaced_name():
+    # "/pal guild Sunset Valley @beta" → name="Sunset Valley", override="beta"
+    parsed = parse_arg("/pal guild Sunset Valley @beta", subcommand="guild")
+    assert parsed.name == "Sunset Valley"
+    assert parsed.server_override == "beta"
+
+
+def test_parse_arg_no_server_override():
+    parsed = parse_arg("/pal guild Noema Alliance", subcommand="guild")
+    assert parsed.name == "Noema Alliance"
+    assert parsed.server_override is None
+
+
+def test_parse_arg_multiple_trailing_at_is_illegal():
+    with pytest.raises(ArgError):
+        parse_arg("/pal guild Name @alpha @beta", subcommand="guild")
+
+
+async def test_restricted_denies_then_allows_after_use(routed):
+    container, cfg = routed
+    umo = "aiocqhttp:GroupMessage:999"  # 无任何绑定的新群
+
+    # restricted 下未授权 → resolve 返回 error（拒绝），server 为 None
+    denied = await container.routing.resolve(umo, override="alpha", is_group=True)
+    assert denied.server is None
+    assert denied.error is not None
+
+    # 管理员 /pal use alpha 授权后 → resolve 命中 alpha
+    await container.routing.use(umo, "alpha")
+    allowed = await container.routing.resolve(umo, override=None, is_group=True)
+    assert allowed.error is None
+    assert allowed.server is not None
+    assert allowed.server.server_id == "alpha"
