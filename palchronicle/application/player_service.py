@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from palchronicle.adapters.privacy_filter import bucketize_ping, hash_user_id
-from palchronicle.domain.enums import IdConfidence, LeaveReason, SessionStatus
+from palchronicle.domain.enums import IdConfidence, LeaveReason, SessionStatus, UnitType
 from palchronicle.domain.models import (
     PlayerIdentity, PlayerObservation, PlayerRow, PlayerSession, PlayersSnapshot, World,
 )
@@ -28,6 +28,19 @@ class PlayerService:
     @staticmethod
     def player_key(salt: bytes, world_id: str, raw_user_id: str) -> str:
         return hash_user_id(salt, world_id, raw_user_id)
+
+    @staticmethod
+    def link_companions(gd) -> dict[str, str]:
+        owners = {a.instance_id for a in gd.characters
+                  if a.unit_type == UnitType.PLAYER and a.instance_id}
+        result: dict[str, str] = {}
+        for a in gd.characters:
+            if a.unit_type != UnitType.OTOMO:
+                continue
+            owner = a.trainer_instance_id
+            if owner and owner in owners and owner not in result and a.pal_class:
+                result[owner] = a.pal_class
+        return result
 
     _HEALTH_TOLERANCE = 1.5
 
