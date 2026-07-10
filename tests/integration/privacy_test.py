@@ -82,3 +82,30 @@ async def test_db_has_no_ip_no_raw_id_no_password_no_raw_ping(harness):
     assert "ping" not in col_names
     # 单元格精确匹配：避免 HMAC 十六进制串误伤子串扫描（controller 裁定 1）
     assert not any(c in RAW_PING_CELLS for c in cells), "DB 含原始 ping 值"
+
+
+async def test_strict_mode_persists_no_bases_no_palboxes(harness_strict):
+    container, server, clock, snap = harness_strict
+    world = await snap.ingest_info(server, ok(load_fixture("normal_world", "info")))
+    # 即便 game-data 含 PalBox 与据点帕鲁，strict 下也连续多帧不落 base/palbox
+    for _ in range(4):
+        clock.advance(30)
+        await snap.ingest_game_data(world, ok(load_fixture("normal_world", "game-data")))
+
+    assert await container.repo.list_palboxes(world.world_id) == []
+    assert await container.repo.list_bases(world.world_id, include_low=True, include_hidden=True) == []
+    baseobs = await container.db.query("SELECT COUNT(*) AS c FROM base_observations")
+    assert baseobs[0]["c"] == 0
+
+
+async def test_strict_mode_position_cell_all_null(harness_strict):
+    container, server, clock, snap = harness_strict
+    world = await snap.ingest_info(server, ok(load_fixture("normal_world", "info")))
+    await snap.ingest_players(world, ok(load_fixture("normal_world", "players")))
+    await snap.ingest_game_data(world, ok(load_fixture("normal_world", "game-data")))
+    clock.advance(30)
+    await snap.ingest_players(world, ok(load_fixture("normal_world", "players")))
+
+    rows = await container.db.query("SELECT position_cell FROM player_observations")
+    assert rows, "应有观察记录"
+    assert all(r["position_cell"] is None for r in rows)

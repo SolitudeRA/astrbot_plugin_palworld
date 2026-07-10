@@ -81,6 +81,29 @@ async def harness(tmp_path):
 
 
 @pytest.fixture
+async def harness_strict(tmp_path):
+    """返回 (container, server_config, clock, snap_service) 的 strict 隐私模式夹具。
+
+    与 `harness` 同构（fake rest/scheduler 工厂），仅 privacy.mode="strict"；
+    验证 strict 下 redact_game_data 上游脱敏使据点/PalBox 零持久化、坐标全 NULL。
+    """
+    clock = FakeClock(start=1_700_000_000)
+    cfg = parse_config(make_config(mode="strict"), env={})
+    container = Container(
+        config=cfg, data_dir=tmp_path, clock=clock,
+        rest_factory=lambda s, clk: _FakeRest(),
+        scheduler_factory=lambda **k: _FakeSched(),
+    )
+    await container.start()
+    server = cfg.servers[0]
+    snap = container.snapshot_service_for(server.server_id)
+    try:
+        yield container, server, clock, snap
+    finally:
+        await container.stop()
+
+
+@pytest.fixture
 async def harness_two(tmp_path):
     """返回 (container, cfg, clock) 双服务器采集夹具（alpha/beta）。
 

@@ -40,6 +40,9 @@ class BaseService:
         self._base_missing: dict[str, int] = {}
 
     async def apply(self, world: World, gd: GameDataSnapshot) -> list[BaseUpdate]:
+        if not self._cfg.enabled:
+            return []  # 配置停用据点模块; strict 隐私由上游 redact_game_data 结构性保证 (spec §15)
+
         from palchronicle.domain.enums import ActionCategory, UnitType
         from palchronicle.domain.models import Base, BaseObservation
 
