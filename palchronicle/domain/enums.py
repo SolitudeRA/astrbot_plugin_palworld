@@ -7,3 +7,11 @@ from enum import StrEnum
 class AccessMode(StrEnum):
     RESTRICTED = "restricted"
     OPEN = "open"
+
+
+class EndpointName(StrEnum):
+    INFO = "info"
+    METRICS = "metrics"
+    PLAYERS = "players"
+    SETTINGS = "settings"
+    GAME_DATA = "game_data"
