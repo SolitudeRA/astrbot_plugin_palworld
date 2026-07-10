@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import asyncio
+
 from palchronicle.adapters.palworld_rest import RestResponse
 from palchronicle.config import AppConfig, ServerConfig
-from palchronicle.domain.models import World, WorldMetric
+from palchronicle.domain.models import GameDataSnapshot, World, WorldMetric
 from palchronicle.infrastructure.clock import Clock
 
 
@@ -110,11 +112,17 @@ class SnapshotService:
         if not resp.ok or resp.data is None:
             return  # 保留基础状态, 不误判
         now = self._clock.now()
-        gd = self._normalizer.normalize_game_data(resp.data, now, self._meta)
+
+        def _compute() -> GameDataSnapshot:
+            gd = self._normalizer.normalize_game_data(resp.data, now, self._meta)
+            return self._privacy.redact_game_data(
+                gd, world.world_id, self._salt, self._cfg.privacy
+            )
+
+        gd = await asyncio.to_thread(_compute)
         if gd.unknown_classes:
             await self._repo.upsert_unknown_classes(gd.unknown_classes)
-        gd = self._privacy.redact_game_data(
-            gd, world.world_id, self._salt, self._cfg.privacy
-        )
         await self._guilds.apply(world, gd)
-        await self._bases.apply(world, gd)
+        updates = await self._bases.apply(world, gd)
+        if self._events is not None:
+            await self._events.base_events(world, updates)

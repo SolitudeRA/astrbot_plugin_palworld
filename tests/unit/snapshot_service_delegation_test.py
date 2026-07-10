@@ -41,6 +41,9 @@ class SpyAgg:
         self.applied.append((world.world_id, gd))
         return []
 
+    async def base_events(self, world, updates):
+        return None
+
 
 def _cfg(mode="balanced"):
     return AppConfig(
