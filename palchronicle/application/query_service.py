@@ -1,17 +1,26 @@
 from __future__ import annotations
 
+from datetime import datetime, timezone as _tz
+from zoneinfo import ZoneInfo
+
 from palchronicle.adapters.sqlite_repository import Repository
 from palchronicle.config import AppConfig
-from palchronicle.domain.models import World
+from palchronicle.domain.models import Base, BaseObservation, World
 from palchronicle.infrastructure.cache import TTLCache
 from palchronicle.infrastructure.clock import Clock
-from palchronicle.presentation.dtos import OnlineDTO, OnlinePlayerRow, StatusDTO
+from palchronicle.presentation.dtos import (
+    BaseDetailDTO, BaseDTO, EventDTO, GuildDTO, OnlineDTO, OnlinePlayerRow, StatusDTO,
+)
 
 _STATUS_TTL = 15
 _ONLINE_TTL = 15
 
 
 class QueryService:
+    _GUILDS_TTL = 90
+    _BASES_TTL = 90
+    _EVENTS_TTL = 15
+
     def __init__(
         self, repo: Repository, cache: TTLCache, cfg: AppConfig, meta, clock: Clock, settings_cache
     ) -> None:
@@ -92,3 +101,138 @@ class QueryService:
         dto = OnlineDTO(rows=rows, updated_at=self._clock.now(), degraded=False)
         self._cache.set(key, dto, _ONLINE_TTL)
         return dto
+
+    def _server_day_start(self, world: World) -> int:
+        tz_name = self._cfg.world.timezone or "UTC"
+        try:
+            tz = ZoneInfo(tz_name)
+        except Exception:
+            tz = _tz.utc
+        now = datetime.fromtimestamp(self._clock.now(), tz)
+        midnight = now.replace(hour=0, minute=0, second=0, microsecond=0)
+        return int(midnight.timestamp())
+
+    @staticmethod
+    def _activity_score(o: BaseObservation) -> float:
+        active_ratio = o.active_count / max(o.worker_count, 1)
+        total = sum(o.action_distribution.values()) or 1
+        known = sum(v for k, v in o.action_distribution.items() if k != "unknown")
+        known_ratio = known / total
+        return round(100 * (0.75 * active_ratio + 0.25 * known_ratio), 2)
+
+    @staticmethod
+    def _health_score(o: BaseObservation) -> float:
+        return round(100 * (0.8 * o.average_hp_ratio + 0.2 * 1.0), 2)
+
+    async def guilds(self, world: World) -> list[GuildDTO]:
+        key = f"guilds:{world.world_id}"
+        cached = self._cache.get(key)
+        if cached is not None:
+            return cached
+        guilds = await self._repo.list_guilds(world.world_id)
+        dtos = [
+            GuildDTO(
+                name=g.latest_name, observed_members=g.observed_member_count,
+                palbox=g.palbox_count, base_pals=g.base_pal_count, active_7d=0,
+            )
+            for g in guilds
+        ]
+        self._cache.set(key, dtos, self._GUILDS_TTL)
+        return dtos
+
+    async def _bases_indexed(self, world: World) -> list[tuple[int, Base]]:
+        bases = await self._repo.list_bases(world.world_id)
+        return list(enumerate(bases, start=1))
+
+    async def bases(self, world: World) -> list[BaseDTO]:
+        key = f"bases:{world.world_id}"
+        cached = self._cache.get(key)
+        if cached is not None:
+            return cached
+        guild_names = {g.guild_key: g.latest_name for g in await self._repo.list_guilds(world.world_id)}
+        dtos = [
+            BaseDTO(
+                index=i, display_name=b.display_name or f"BASE-{i}",
+                guild_name=guild_names.get(b.guild_key), confidence=b.confidence,
+                worker_count=0,
+            )
+            for i, b in await self._bases_indexed(world)
+        ]
+        self._cache.set(key, dtos, self._BASES_TTL)
+        return dtos
+
+    async def base(self, world: World, key_or_index: str) -> BaseDetailDTO | None:
+        indexed = await self._bases_indexed(world)
+        guild_names = {g.guild_key: g.latest_name for g in await self._repo.list_guilds(world.world_id)}
+        target = None
+        token = key_or_index.strip()
+        if token.startswith("#"):
+            try:
+                idx = int(token[1:])
+            except ValueError:
+                return None
+            for i, b in indexed:
+                if i == idx:
+                    target = b
+                    break
+        else:
+            for _, b in indexed:
+                if (b.display_name and b.display_name == token) or guild_names.get(b.guild_key) == token:
+                    target = b
+                    break
+        if target is None:
+            return None
+        obs = await self._repo.latest_base_observation(world.world_id, target.base_key)
+        worker = obs.worker_count if obs else 0
+        active = obs.active_count if obs else 0
+        avg_level = obs.average_level if obs else 0.0
+        avg_hp = obs.average_hp_ratio if obs else 0.0
+        dist = obs.action_distribution if obs else {}
+        return BaseDetailDTO(
+            display_name=target.display_name or "BASE",
+            guild_name=guild_names.get(target.guild_key),
+            confidence=target.confidence, palbox_count=1,
+            worker_count=worker, active_count=active, average_level=avg_level,
+            average_hp_ratio=avg_hp, action_distribution=dist,
+            activity_score=self._activity_score(obs) if obs else 0.0,
+            health_score=self._health_score(obs) if obs else 0.0,
+        )
+
+    async def events(self, world: World, today_only: bool) -> list[EventDTO]:
+        key = f"events:{world.world_id}:{int(today_only)}"
+        cached = self._cache.get(key)
+        if cached is not None:
+            return cached
+        since = self._server_day_start(world) if today_only else None
+        events = await self._repo.list_events(world.world_id, since=since, limit=20)
+        dtos = [
+            EventDTO(
+                occurred_at=e.occurred_at, event_type=e.event_type.value,
+                summary=_event_summary(e),
+            )
+            for e in events
+        ]
+        self._cache.set(key, dtos, self._EVENTS_TTL)
+        return dtos
+
+
+def _event_summary(e) -> str:
+    from palchronicle.domain.enums import EventType as _ET
+    p = e.payload or {}
+    if e.event_type is _ET.PLAYER_LEVEL_UP:
+        return f"玩家升级 Lv{p.get('old', '?')}→Lv{p.get('new', '?')}"
+    if e.event_type is _ET.NEW_PLAYER:
+        return "新玩家加入世界"
+    if e.event_type is _ET.NEW_GUILD:
+        return f"新公会出现：{p.get('name', e.subject_key)}"
+    if e.event_type is _ET.NEW_BASE:
+        return f"新据点确认：{p.get('name', e.subject_key)}"
+    if e.event_type is _ET.BASE_VANISHED:
+        return "据点已连续多次未被观察到"
+    if e.event_type is _ET.WORKER_DELTA:
+        return f"据点工作帕鲁数量变化：{p.get('prev', '?')}→{p.get('cur', '?')}"
+    if e.event_type is _ET.WORLD_DAY_MILESTONE:
+        return f"世界推进至第 {p.get('milestone', '?')} 天"
+    if e.event_type is _ET.ONLINE_RECORD:
+        return f"在线人数刷新纪录：{p.get('value', '?')} 人"
+    return e.event_type.value
