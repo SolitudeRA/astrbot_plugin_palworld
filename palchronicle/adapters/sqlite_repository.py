@@ -264,6 +264,24 @@ class Repository:
              p.last_seen_at, p.latest_level, p.latest_guild_key, str(p.id_confidence)),
         )
 
+    async def get_player(self, world_id: str, player_key: str) -> PlayerIdentity | None:
+        rows = await self._db.query(
+            "SELECT player_key, world_id, latest_name, first_seen_at, last_seen_at,"
+            " latest_level, latest_guild_key, id_confidence"
+            " FROM players WHERE world_id = ? AND player_key = ?",
+            (world_id, player_key),
+        )
+        if not rows:
+            return None
+        r = rows[0]
+        return PlayerIdentity(
+            player_key=r["player_key"], world_id=r["world_id"],
+            latest_name=r["latest_name"], first_seen_at=r["first_seen_at"],
+            last_seen_at=r["last_seen_at"], latest_level=r["latest_level"],
+            latest_guild_key=r["latest_guild_key"],
+            id_confidence=IdConfidence(r["id_confidence"]),
+        )
+
     async def get_player_by_name(self, world_id: str, name: str) -> PlayerIdentity | None:
         rows = await self._db.query(
             """
