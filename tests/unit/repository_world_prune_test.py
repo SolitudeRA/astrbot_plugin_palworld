@@ -1,5 +1,3 @@
-import json
-
 import pytest
 
 from palchronicle.adapters.sqlite_repository import Repository
