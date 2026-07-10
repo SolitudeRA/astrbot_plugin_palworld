@@ -3,7 +3,15 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import Any
 
-from palchronicle.domain.models import InfoSnapshot, MetricsSnapshot
+from palchronicle.adapters.metadata_repository import MetadataRepository
+from palchronicle.domain.enums import ActionCategory, UnitType
+from palchronicle.domain.models import (
+    CharacterActor,
+    GameDataSnapshot,
+    InfoSnapshot,
+    MetricsSnapshot,
+    PalBoxActor,
+)
 
 _TRUE_STRINGS = frozenset({"true", "1", "yes", "on"})
 
@@ -99,3 +107,110 @@ def normalize_players(raw: Mapping, now: int) -> list[dict]:
             }
         )
     return rows
+
+
+_UNIT_TYPE_BY_VALUE = {ut.value.lower(): ut for ut in UnitType}
+
+
+def _parse_unit_type(raw_type) -> UnitType:
+    if not raw_type:
+        return UnitType.UNKNOWN
+    return _UNIT_TYPE_BY_VALUE.get(str(raw_type).lower(), UnitType.UNKNOWN)
+
+
+def _opt_int(v):
+    if v is None or v == "":
+        return None
+    return _as_int(v)
+
+
+def _opt_coord(v):
+    if v is None or v == "":
+        return None
+    return _as_float(v)
+
+
+def _character_list(raw: Mapping) -> list:
+    value = ci_get(raw, "characters", "Characters", default=[])
+    return value if isinstance(value, list) else []
+
+
+def _palbox_list(raw: Mapping) -> list:
+    value = ci_get(raw, "palboxes", "PalBoxes", default=[])
+    return value if isinstance(value, list) else []
+
+
+def _register_class_if_unknown(pal_class, meta: MetadataRepository) -> None:
+    if pal_class:
+        # pal_name 内部对未知 class 登记入 unknown_classes
+        meta.pal_name(str(pal_class))
+
+
+def normalize_game_data(
+    raw: Mapping, now: int, meta: MetadataRepository
+) -> GameDataSnapshot:
+    characters: list[CharacterActor] = []
+    for item in _character_list(raw):
+        if not isinstance(item, Mapping):
+            continue
+        pal_class = ci_get(item, "class", "pal_class", default=None)
+        _register_class_if_unknown(pal_class, meta)
+        characters.append(
+            CharacterActor(
+                unit_type=_parse_unit_type(ci_get(item, "type", "unittype", "unit_type")),
+                instance_id=ci_get(item, "instanceid", "instance_id", default=None),
+                nickname=ci_get(item, "nickname", "nick_name", "name", default=None),
+                trainer_instance_id=ci_get(
+                    item, "trainerinstanceid", "trainer_instance_id", default=None
+                ),
+                trainer_nickname=ci_get(
+                    item, "trainernickname", "trainer_nickname", default=None
+                ),
+                player_userid=ci_get(item, "userid", "user_id", default=None),
+                level=_opt_int(ci_get(item, "level", default=None)),
+                hp=_opt_int(ci_get(item, "hp", default=None)),
+                max_hp=_opt_int(ci_get(item, "maxhp", "max_hp", default=None)),
+                guild_id=ci_get(item, "guildid", "guild_id", default=None),
+                guild_name=ci_get(item, "guildname", "guild_name", default=None),
+                pal_class=str(pal_class) if pal_class else None,
+                action=meta.action_category(ci_get(item, "action", default=None)),
+                ai_action=meta.action_category(
+                    ci_get(item, "aiaction", "ai_action", default=None)
+                ),
+                x=_opt_coord(ci_get(item, "locationx", "x", default=None)),
+                y=_opt_coord(ci_get(item, "locationy", "y", default=None)),
+                z=_opt_coord(ci_get(item, "locationz", "z", default=None)),
+                is_active=str_bool(ci_get(item, "isactive", "is_active", default=False)),
+            )
+        )
+
+    palboxes: list[PalBoxActor] = []
+    for item in _palbox_list(raw):
+        if not isinstance(item, Mapping):
+            continue
+        pal_class = ci_get(item, "class", "pal_class", default=None)
+        _register_class_if_unknown(pal_class, meta)
+        x = ci_get(item, "locationx", "x", default=None)
+        y = ci_get(item, "locationy", "y", default=None)
+        z = ci_get(item, "locationz", "z", default=None)
+        if x in (None, "") or y in (None, "") or z in (None, ""):
+            continue
+        palboxes.append(
+            PalBoxActor(
+                guild_id=ci_get(item, "guildid", "guild_id", default=None),
+                guild_name=ci_get(item, "guildname", "guild_name", default=None),
+                pal_class=str(pal_class) if pal_class else None,
+                x=_as_float(x),
+                y=_as_float(y),
+                z=_as_float(z),
+            )
+        )
+
+    return GameDataSnapshot(
+        observed_at=now,
+        fps=_as_float(ci_get(raw, "serverfps", "fps")),
+        average_fps=_as_float(ci_get(raw, "averagefps", "average_fps")),
+        characters=characters,
+        palboxes=palboxes,
+        unknown_classes=meta.take_unknown_classes(),
+    )
