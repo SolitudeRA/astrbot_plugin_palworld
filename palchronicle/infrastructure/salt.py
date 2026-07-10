@@ -20,7 +20,9 @@ def load_or_create_salt(data_dir: Path) -> bytes:
         return path.read_bytes()
     salt = secrets.token_bytes(32)
     # 先以 0600 打开再写，避免生成瞬间的宽权限窗口（POSIX）。
-    fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    # O_BINARY（Windows）避免文本模式把 salt 里的 0x0A 翻译成 0x0D0A 而损坏二进制。
+    flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_BINARY", 0)
+    fd = os.open(path, flags, 0o600)
     try:
         os.write(fd, salt)
     finally:
