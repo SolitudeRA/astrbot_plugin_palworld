@@ -99,3 +99,43 @@ async def test_restricted_denies_then_allows_after_use(routed):
     assert allowed.error is None
     assert allowed.server is not None
     assert allowed.server.server_id == "alpha"
+
+
+async def test_dangling_binding_after_server_removed_falls_back(tmp_path):
+    clock = FakeClock(start=1_700_000_000)
+    umo = "aiocqhttp:GroupMessage:555"
+
+    # 第一次启动：alpha + beta，授权并激活 beta
+    cfg1 = parse_config(config_two_servers_with_seed(), env={})
+    c1 = Container(
+        config=cfg1, data_dir=tmp_path, clock=clock,
+        rest_factory=lambda s, clk: _FakeRest(),
+        scheduler_factory=lambda **k: _FakeSched(),
+    )
+    await c1.start()
+    await c1.routing.use(umo, "beta")
+    assert (await c1.repo.get_binding_active(umo)) == "beta"
+    await c1.stop()
+
+    # 第二次启动：配置删除 beta（仅剩 alpha）→ 复用同一 data_dir（绑定表保留）
+    raw2 = config_two_servers_with_seed()
+    raw2["servers"] = [s for s in raw2["servers"] if s["name"] == "alpha"]
+    raw2["group_bindings"] = []  # 不再预设
+    cfg2 = parse_config(raw2, env={})
+    c2 = Container(
+        config=cfg2, data_dir=tmp_path, clock=clock,
+        rest_factory=lambda s, clk: _FakeRest(),
+        scheduler_factory=lambda **k: _FakeSched(),
+    )
+    await c2.start()
+    try:
+        # 本群 active 指向已消失的 beta → 视为未绑定，走兜底（error 非空，server 为 None），不崩溃
+        res = await c2.routing.resolve(umo, override=None, is_group=True)
+        assert res.server is None
+        assert res.error is not None
+        # 显式 @beta 指向不存在/未就绪 → 明确提示（error 非空）
+        res2 = await c2.routing.resolve(umo, override="beta", is_group=True)
+        assert res2.server is None
+        assert res2.error is not None
+    finally:
+        await c2.stop()
