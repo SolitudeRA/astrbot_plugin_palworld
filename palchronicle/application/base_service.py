@@ -25,6 +25,9 @@ class BaseUpdate:
     prev_worker_count: int | None
 
 
+_VANISH_MISSES = 3
+
+
 class BaseService:
     def __init__(self, repo, cfg, clock, salt: bytes):
         self._repo = repo
@@ -33,6 +36,8 @@ class BaseService:
         self._salt = salt
         self._confirm: dict[str, int] = {}
         self._anchor_xy: dict[str, tuple[float, float, float]] = {}
+        # 连续缺失计数：base_key -> streak；达到 _VANISH_MISSES 触发消失（spec §11）
+        self._base_missing: dict[str, int] = {}
 
     async def apply(self, world: World, gd: GameDataSnapshot) -> list[BaseUpdate]:
         from palchronicle.domain.enums import ActionCategory, UnitType
@@ -123,6 +128,33 @@ class BaseService:
                 average_hp_ratio=avg_hp, action_distribution=dist,
                 is_new=is_new, is_vanished=False, prev_worker_count=prev_worker,
             ))
+
+        # 据点消失检测（spec §11）：本轮聚合到帕鲁的 base 视为在场；
+        # 已落库 base 连续 _VANISH_MISSES 次缺失 → 发一次 BASE_VANISHED。
+        # apply() 仅在 game-data 健康时被调用（SnapshotService 守卫），
+        # 且 base_key 以 world_id 键入 → worldguid 变更天然隔离，两前置条件结构性成立。
+        present_base_keys = {
+            self.base_key(world.world_id, pk) for pk in agg.keys()
+        }
+        persisted = await self._repo.list_bases(
+            world.world_id, include_low=True, include_hidden=True
+        )
+        for b in persisted:
+            if b.base_key in present_base_keys:
+                self._base_missing.pop(b.base_key, None)
+                continue
+            streak = self._base_missing.get(b.base_key, 0) + 1
+            if streak >= _VANISH_MISSES:
+                updates.append(BaseUpdate(
+                    base_key=b.base_key, world_id=world.world_id,
+                    palbox_key=b.palbox_key, guild_key=b.guild_key,
+                    confidence=b.confidence, worker_count=0, active_count=0,
+                    average_level=0.0, average_hp_ratio=0.0, action_distribution={},
+                    is_new=False, is_vanished=True, prev_worker_count=None,
+                ))
+                self._base_missing.pop(b.base_key, None)
+            else:
+                self._base_missing[b.base_key] = streak
         return updates
 
     @staticmethod

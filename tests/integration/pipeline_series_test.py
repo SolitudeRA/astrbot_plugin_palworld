@@ -107,3 +107,69 @@ async def test_uncertain_session_reused_on_recovery(harness):
     assert min(s.joined_at for s in recovered) == joined_at_before
     # 无悬空 uncertain：开着的会话总数仍为 2
     assert len(recovered) == 2
+
+
+async def _gd_with_base(worker_dx: float = 0.0):
+    """一个 G-1 公会、PalBox + 一只据点帕鲁的 game-data；worker_dx 抖动坐标。
+
+    键名 characters（非 actors）——normalizer 仅读取 characters（6.2 已裁定先例）。
+    """
+    return {
+        "fps": 58, "average_fps": 55.0,
+        "characters": [
+            {"unit_type": "BaseCampPal", "pal_class": "SheepBall", "Level": 8, "HP": 180, "MaxHP": 200,
+             "GuildID": "G-1", "action": "Work", "AI_Action": "Work",
+             "LocationX": 100.0 + worker_dx, "LocationY": 200.0, "LocationZ": 0.0, "IsActive": "true"},
+        ],
+        "palboxes": [{"GuildID": "G-1", "GuildName": "Noema",
+                      "LocationX": 110.0 + worker_dx, "LocationY": 205.0, "LocationZ": 0.0}],
+    }
+
+
+async def test_palbox_jitter_does_not_create_duplicate(harness):
+    container, server, clock, snap = harness
+    world = await _boot_world(snap, server, clock)
+    # 抖动幅度 < position_grid_size(2000) → 最近邻匹配，同一 palbox_key
+    for dx in (0.0, 5.0, -8.0, 12.0):
+        clock.advance(30)
+        await snap.ingest_game_data(world, ok(await _gd_with_base(dx)))
+    palboxes = await container.repo.list_palboxes(world.world_id)
+    assert len(palboxes) == 1  # 抖动未误建新 PalBox
+
+
+async def test_new_base_persisted_before_event(harness):
+    container, server, clock, snap = harness
+    world = await _boot_world(snap, server, clock)
+    # 连续 confirmation_samples(3) 次一致归属 → 建 base + 发 NEW_BASE
+    for _ in range(3):
+        clock.advance(30)
+        await snap.ingest_game_data(world, ok(await _gd_with_base()))
+
+    bases = await container.repo.list_bases(world.world_id, include_low=True, include_hidden=True)
+    assert len(bases) == 1
+    base_key = bases[0].base_key
+
+    events = await container.repo.list_events(world.world_id, since=None, limit=50)
+    new_base = [e for e in events if e.event_type == EventType.NEW_BASE]
+    assert len(new_base) == 1
+    # 事件引用的 base_key 已在 bases 表存在（先落 base 再发事件）
+    assert new_base[0].subject_key == base_key
+
+
+async def test_base_vanished_after_missing(harness):
+    container, server, clock, snap = harness
+    world = await _boot_world(snap, server, clock)
+    for _ in range(3):
+        clock.advance(30)
+        await snap.ingest_game_data(world, ok(await _gd_with_base()))
+    assert len(await container.repo.list_bases(world.world_id, include_low=True, include_hidden=True)) == 1
+
+    # 连续 >=3 次健康 game-data 中该据点缺失 → BASE_VANISHED
+    empty_gd = {"fps": 58, "average_fps": 55.0, "characters": [], "palboxes": []}
+    for _ in range(3):
+        clock.advance(30)
+        await snap.ingest_game_data(world, ok(empty_gd))
+
+    events = await container.repo.list_events(world.world_id, since=None, limit=50)
+    vanished = [e for e in events if e.event_type == EventType.BASE_VANISHED]
+    assert len(vanished) == 1
