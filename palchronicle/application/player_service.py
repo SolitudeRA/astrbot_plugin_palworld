@@ -91,3 +91,24 @@ class PlayerService:
                 self._missing.pop(mkey, None)
             else:
                 self._missing[mkey] = streak
+
+    async def mark_uncertain(self, world: World) -> None:
+        for sess in await self._repo.list_open_sessions(world.world_id):
+            if sess.status == SessionStatus.ACTIVE:
+                sess.status = SessionStatus.UNCERTAIN
+                await self._repo.update_session(sess)
+
+    async def sweep_uncertain(self, world: World) -> None:
+        now = self._clock.now()
+        timeout = self._cfg.privacy.uncertain_timeout
+        for sess in await self._repo.list_open_sessions(world.world_id):
+            if sess.status != SessionStatus.UNCERTAIN:
+                continue
+            if now - sess.last_confirmed_at > timeout:
+                sess.status = SessionStatus.CLOSED
+                sess.leave_reason = LeaveReason.WORLD_OFFLINE
+                sess.left_at = now
+                await self._repo.update_session(sess)
+
+    async def recover_on_start(self, world: World) -> None:
+        self._missing.clear()
