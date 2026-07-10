@@ -61,3 +61,41 @@ def normalize_metrics(raw: Mapping, now: int) -> MetricsSnapshot:
         basecamp_count=_as_int(ci_get(raw, "basecampnum", "basecamp_count")),
         days=_as_int(ci_get(raw, "days", "serversdaytime", "world_day")),
     )
+
+
+def _player_list(raw) -> list:
+    if isinstance(raw, list):
+        return raw
+    if isinstance(raw, Mapping):
+        value = ci_get(raw, "players", default=[])
+        if isinstance(value, list):
+            return value
+    return []
+
+
+def _opt_float(v):
+    if v is None or v == "":
+        return None
+    return _as_float(v)
+
+
+def normalize_players(raw: Mapping, now: int) -> list[dict]:
+    rows: list[dict] = []
+    for item in _player_list(raw):
+        if not isinstance(item, Mapping):
+            continue
+        rows.append(
+            {
+                "userId": ci_get(item, "userid", "user_id", default=None),
+                "playerId": ci_get(item, "playerid", "player_id", default=None),
+                "name": str(ci_get(item, "name", default="") or ""),
+                "level": _as_int(ci_get(item, "level", default=0)),
+                "ping": _opt_float(ci_get(item, "ping", default=None)),
+                "building_count": _as_int(
+                    ci_get(item, "building_count", "buildingcount", default=0)
+                ),
+                "ip": ci_get(item, "ip", default=None),
+                "accountName": ci_get(item, "accountname", "account_name", default=None),
+            }
+        )
+    return rows
