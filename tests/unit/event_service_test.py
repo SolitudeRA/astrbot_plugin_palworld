@@ -106,3 +106,50 @@ async def test_new_guild_emits_once_and_dedups(tmp_path):
         assert rows[0].dedup_key == "s1:guid:0|NEW_GUILD|gk1"
     finally:
         await db.close()
+
+
+async def test_world_day_crosses_single_milestone(tmp_path):
+    svc, repo, db, _ = await _make(tmp_path)
+    try:
+        await svc.world_day(_world(), 105)
+        rows = await repo.list_events("s1:guid:0")
+        assert len(rows) == 1
+        ev = rows[0]
+        assert ev.event_type == EventType.WORLD_DAY_MILESTONE
+        assert ev.subject_type == "world"
+        assert ev.payload == {"day": 105, "milestone": 100}
+        assert ev.dedup_key == "s1:guid:0|WORLD_DAY_MILESTONE|100"
+    finally:
+        await db.close()
+
+
+async def test_world_day_milestone_unique_no_duplicate(tmp_path):
+    svc, repo, db, _ = await _make(tmp_path)
+    try:
+        await svc.world_day(_world(), 100)
+        await svc.world_day(_world(), 150)  # still only past 100
+        rows = await repo.list_events("s1:guid:0")
+        assert len(rows) == 1
+        assert rows[0].payload["milestone"] == 100
+    finally:
+        await db.close()
+
+
+async def test_world_day_crosses_multiple_at_once(tmp_path):
+    svc, repo, db, _ = await _make(tmp_path)
+    try:
+        await svc.world_day(_world(), 370)  # >=100,200,365
+        rows = await repo.list_events("s1:guid:0")
+        milestones = sorted(r.payload["milestone"] for r in rows)
+        assert milestones == [100, 200, 365]
+    finally:
+        await db.close()
+
+
+async def test_world_day_below_first_milestone_emits_nothing(tmp_path):
+    svc, repo, db, _ = await _make(tmp_path)
+    try:
+        await svc.world_day(_world(), 42)
+        assert await repo.list_events("s1:guid:0") == []
+    finally:
+        await db.close()

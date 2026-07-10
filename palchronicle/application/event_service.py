@@ -8,6 +8,8 @@ from palchronicle.infrastructure.clock import Clock
 
 
 class EventService:
+    MILESTONES: tuple[int, ...] = (100, 200, 365, 500, 1000, 2000)
+
     def __init__(self, repo: Repository, clock: Clock) -> None:
         self._repo = repo
         self._clock = clock
@@ -71,3 +73,18 @@ class EventService:
         await self._emit(
             world, EventType.NEW_GUILD, "guild", guild_key, dedup, {}
         )
+
+    async def world_day(self, world: World, days: int) -> None:
+        for m in self.MILESTONES:
+            if days >= m:
+                dedup = self.dedup_key(
+                    world.world_id, EventType.WORLD_DAY_MILESTONE, m
+                )
+                await self._emit(
+                    world,
+                    EventType.WORLD_DAY_MILESTONE,
+                    "world",
+                    world.world_id,
+                    dedup,
+                    {"milestone": m, "day": days},
+                )
