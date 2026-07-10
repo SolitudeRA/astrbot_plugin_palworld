@@ -97,3 +97,32 @@ async def test_daily_natural_day_boundary_excludes_prev_day(tmp_path):
         assert not any("pk_prev" in r for r in rep.records)
     finally:
         await db.close()
+
+
+async def test_daily_empty_day_reports_calm(tmp_path):
+    report, repo, events, clock, db = await _make(tmp_path)
+    try:
+        w = _world()
+        rep = await report.daily(w, day="2026-07-10")
+        assert rep.is_empty is True
+        assert rep.summary == "平静的一天"
+        assert rep.level_events == []
+        assert rep.base_events == []
+        assert rep.records == []
+        assert rep.active_players == 0
+        assert rep.peak_online == 0
+        assert rep.total_online_seconds == 0
+    finally:
+        await db.close()
+
+
+async def test_daily_none_day_uses_clock_local_date(tmp_path):
+    report, repo, events, clock, db = await _make(tmp_path)
+    try:
+        w = _world()
+        # clock at NOON of 2026-07-10 local (Asia/Tokyo) → day resolves to that date
+        rep = await report.daily(w, day=None)
+        assert rep.day == "2026-07-10"
+        assert rep.world_day_start == DAY_START_UTC
+    finally:
+        await db.close()
