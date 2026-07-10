@@ -5,7 +5,7 @@ Phase 1：server / binding / world / prune 方法。
 from __future__ import annotations
 
 from palchronicle.config import BindingConfig, HistoryConfig, ServerConfig
-from palchronicle.domain.models import World
+from palchronicle.domain.models import World, WorldMetric
 from palchronicle.infrastructure.clock import Clock
 from palchronicle.infrastructure.database import Database
 
@@ -155,3 +155,36 @@ class Repository:
                 (session_cutoff,),
             )
             # world_events / daily_aggregates 长期保留（spec §9.3）。
+
+    # ---- metrics ----
+    async def insert_metric(self, m: WorldMetric) -> None:
+        await self._db.execute_write(
+            "INSERT INTO world_metrics"
+            " (world_id, observed_at, fps, frame_time, online_players,"
+            "  world_day, basecamp_count)"
+            " VALUES (?, ?, ?, ?, ?, ?, ?)",
+            (
+                m.world_id, m.observed_at, m.fps, m.frame_time,
+                m.online_players, m.world_day, m.basecamp_count,
+            ),
+        )
+
+    async def latest_metric(self, world_id: str) -> WorldMetric | None:
+        rows = await self._db.query(
+            "SELECT world_id, observed_at, fps, frame_time, online_players,"
+            " world_day, basecamp_count FROM world_metrics"
+            " WHERE world_id = ? ORDER BY observed_at DESC LIMIT 1",
+            (world_id,),
+        )
+        if not rows:
+            return None
+        r = rows[0]
+        return WorldMetric(
+            world_id=r["world_id"],
+            observed_at=r["observed_at"],
+            fps=r["fps"],
+            frame_time=r["frame_time"],
+            online_players=r["online_players"],
+            world_day=r["world_day"],
+            basecamp_count=r["basecamp_count"],
+        )
