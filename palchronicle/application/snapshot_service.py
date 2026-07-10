@@ -22,6 +22,9 @@ class SnapshotService:
         guilds,
         bases,
         events,
+        *,
+        shared_settings: dict | None = None,
+        shared_world: dict | None = None,
     ) -> None:
         self._repo = repo
         self._normalizer = normalizer_mod
@@ -35,6 +38,8 @@ class SnapshotService:
         self._bases = bases
         self._events = events
         self._settings_cache: dict[str, dict] = {}
+        self._shared_settings = shared_settings
+        self._shared_world = shared_world
         # key=world_id, value=(candidate, streak, baseline_peak)
         self._online_streak: dict[str, tuple[int, int, int]] = {}
 
@@ -112,6 +117,9 @@ class SnapshotService:
             "data": dict(resp.data),
             "observed_at": self._clock.now(),
         }
+        # 与 QueryService.rules 共享的原始 settings 映射, 按 server_id 键入
+        if self._shared_settings is not None:
+            self._shared_settings[world.server_id] = dict(resp.data)
 
     def get_settings(self, world_id: str) -> dict | None:
         return self._settings_cache.get(world_id)
@@ -139,6 +147,9 @@ class SnapshotService:
             )
 
         gd = await asyncio.to_thread(_compute)
+        # 隐私: 仅共享已脱敏的快照给 QueryService.world_summary, 按 server_id 键入
+        if self._shared_world is not None:
+            self._shared_world[world.server_id] = gd
         if gd.unknown_classes:
             await self._repo.upsert_unknown_classes(gd.unknown_classes)
         await self._guilds.apply(world, gd)

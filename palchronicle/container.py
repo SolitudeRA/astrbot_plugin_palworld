@@ -80,6 +80,7 @@ class Container:
         self._snapshot = SnapshotService(
             repo, _normalizer_mod, _privacy_mod, meta, salt, self._cfg, self._clock,
             players, guilds, bases, events,
+            shared_settings=self._settings_cache, shared_world=self._world_cache,
         )
         self.report = ReportService(repo, self._cfg, self._clock)
         self.routing = RoutingService(repo, self._cfg)
