@@ -9,7 +9,8 @@ from palchronicle.domain.models import Base, BaseObservation, World
 from palchronicle.infrastructure.cache import TTLCache
 from palchronicle.infrastructure.clock import Clock
 from palchronicle.presentation.dtos import (
-    BaseDetailDTO, BaseDTO, EventDTO, GuildDTO, OnlineDTO, OnlinePlayerRow, StatusDTO,
+    BaseDetailDTO, BaseDTO, EventDTO, GuildDTO, OnlineDTO, OnlinePlayerRow, RuleRow,
+    RulesDTO, StatusDTO, WildTopRow, WorldSummaryDTO,
 )
 
 _STATUS_TTL = 15
@@ -22,7 +23,8 @@ class QueryService:
     _EVENTS_TTL = 15
 
     def __init__(
-        self, repo: Repository, cache: TTLCache, cfg: AppConfig, meta, clock: Clock, settings_cache
+        self, repo: Repository, cache: TTLCache, cfg: AppConfig, meta, clock: Clock,
+        settings_cache, world_cache=None, report=None,
     ) -> None:
         self._repo = repo
         self._cache = cache
@@ -30,6 +32,8 @@ class QueryService:
         self._meta = meta
         self._clock = clock
         self._settings_cache = settings_cache
+        self._world_cache = world_cache if world_cache is not None else {}
+        self._report = report
 
     def _smoothness_label(self, fps: float) -> str:
         w = self._cfg.world
@@ -214,6 +218,70 @@ class QueryService:
         ]
         self._cache.set(key, dtos, self._EVENTS_TTL)
         return dtos
+
+    async def rules(self, world: World) -> RulesDTO:
+        key = f"rules:{world.world_id}"
+        cached = self._cache.get(key)
+        if cached is not None:
+            return cached
+        raw = self._settings_cache.get(world.server_id, {})
+        rows: list[RuleRow] = []
+        for field, value in raw.items():
+            label, unit = self._meta.setting_label(field)
+            rows.append(RuleRow(label=label, value=f"{value}{unit}"))
+        advanced_note = None
+        if self._cfg.privacy.mode == "advanced":
+            advanced_note = "advanced 隐私模式暂按 balanced 生效。"
+        elif self._cfg.privacy.mode == "strict":
+            advanced_note = "strict 隐私模式下据点模块停用。"
+        dto = RulesDTO(rows=rows, updated_at=self._clock.now(), advanced_note=advanced_note)
+        self._cache.set(key, dto, 1800)
+        return dto
+
+    async def world_summary(self, world: World) -> WorldSummaryDTO:
+        key = f"world:{world.world_id}"
+        cached = self._cache.get(key)
+        if cached is not None:
+            return cached
+        gd = self._world_cache.get(world.server_id)
+        metric = await self._repo.latest_metric(world.world_id)
+        counts = {u: 0 for u in ("Player", "OtomoPal", "BaseCampPal", "WildPal", "NPC")}
+        wild_counter: dict[str, int] = {}
+        palbox = 0
+        guild_ids: set = set()
+        if gd is not None:
+            for c in gd.characters:
+                counts[c.unit_type.value] = counts.get(c.unit_type.value, 0) + 1
+                if c.unit_type.value == "WildPal" and c.pal_class:
+                    name = self._meta.pal_name(c.pal_class) if self._meta else c.pal_class
+                    wild_counter[name] = wild_counter.get(name, 0) + 1
+                if c.guild_id:
+                    guild_ids.add(c.guild_id)
+            palbox = len(gd.palboxes)
+        wild_top = [
+            WildTopRow(name=n, count=c)
+            for n, c in sorted(wild_counter.items(), key=lambda kv: (-kv[1], kv[0]))[:5]
+        ]
+        dto = WorldSummaryDTO(
+            world_day=metric.world_day if metric else world.current_day,
+            online=metric.online_players if metric else counts["Player"],
+            players=counts["Player"], otomo=counts["OtomoPal"], base_pal=counts["BaseCampPal"],
+            wild=counts["WildPal"], npc=counts["NPC"], palbox=palbox, guilds=len(guild_ids),
+            fps=gd.fps if gd else (metric.fps if metric else 0.0),
+            average_fps=gd.average_fps if gd else (metric.fps if metric else 0.0),
+            wild_top=wild_top,
+        )
+        self._cache.set(key, dto, self._BASES_TTL)
+        return dto
+
+    async def today(self, world: World):
+        key = f"today:{world.world_id}"
+        cached = self._cache.get(key)
+        if cached is not None:
+            return cached
+        report = await self._report.daily(world)
+        self._cache.set(key, report, 60)
+        return report
 
 
 def _event_summary(e) -> str:
