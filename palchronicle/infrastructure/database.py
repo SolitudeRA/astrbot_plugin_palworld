@@ -19,11 +19,13 @@ class Database:
 
     async def open(self) -> None:
         self._write_conn = await aiosqlite.connect(self._path)
-        # WAL 须在建立读连接前设定，供后续多读单写。
+        self._write_conn.row_factory = aiosqlite.Row
+        # WAL 须在建立读连接前设定，供后续多读单写；foreign_keys 须按连接设定。
         await self._write_conn.execute("PRAGMA journal_mode=WAL")
         await self._write_conn.execute("PRAGMA foreign_keys=ON")
         await self._write_conn.commit()
         self._read_conn = await aiosqlite.connect(self._path)
+        self._read_conn.row_factory = aiosqlite.Row
         await self._read_conn.execute("PRAGMA foreign_keys=ON")
         await self._read_conn.commit()
 

@@ -64,3 +64,17 @@ async def test_write_lock_serializes_concurrent_writes(db):
     await asyncio.gather(*(writer(i) for i in range(20)))
     rows = await db.query("SELECT count(*) FROM t")
     assert rows[0][0] == 20
+
+
+async def test_query_row_supports_name_and_positional_access(db):
+    """Verify that query results support both positional row[0] and name-based row['col'] access."""
+    await db.execute_write("CREATE TABLE t (c INTEGER, name TEXT)")
+    await db.execute_write("INSERT INTO t (c, name) VALUES (?, ?)", (1, "x"))
+    rows = await db.query("SELECT c, name FROM t")
+    assert len(rows) == 1
+    # Positional access still works (backward compatible)
+    assert rows[0][0] == 1
+    assert rows[0][1] == "x"
+    # Name-based access now works
+    assert rows[0]["c"] == 1
+    assert rows[0]["name"] == "x"
