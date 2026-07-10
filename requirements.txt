@@ -1,6 +1,7 @@
 aiohttp>=3.9
 aiosqlite>=0.20
 PyYAML>=6.0
+tzdata>=2024.1
 
 # dev-only（运行插件不需要；开发/CI 安装）
 pytest>=8.0
