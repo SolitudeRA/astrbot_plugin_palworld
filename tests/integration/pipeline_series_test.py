@@ -173,3 +173,64 @@ async def test_base_vanished_after_missing(harness):
     events = await container.repo.list_events(world.world_id, since=None, limit=50)
     vanished = [e for e in events if e.event_type == EventType.BASE_VANISHED]
     assert len(vanished) == 1
+
+
+async def test_online_record_requires_two_consecutive_snapshots(harness):
+    container, server, clock, snap = harness
+    # boot 已 ingest_metrics 一次 (online=2) → streak 1, 未确认
+    world = await _boot_world(snap, server, clock)
+    ev1 = [e for e in await container.repo.list_events(world.world_id, since=None, limit=50)
+           if e.event_type == EventType.ONLINE_RECORD]
+    assert ev1 == []
+
+    # 第二个健康快照仍维持 2 人 → streak 2 → 确认 ONLINE_RECORD
+    clock.advance(30)
+    await snap.ingest_metrics(world, ok(load_fixture("normal_world", "metrics")))
+    ev2 = [e for e in await container.repo.list_events(world.world_id, since=None, limit=50)
+           if e.event_type == EventType.ONLINE_RECORD]
+    assert len(ev2) == 1
+    assert ev2[0].payload["value"] == 2
+
+
+async def test_worldguid_switch_isolates_data(harness):
+    container, server, clock, snap = harness
+    world_a = await _boot_world(snap, server, clock)
+    await snap.ingest_players(world_a, ok(load_fixture("normal_world", "players")))
+    assert len(await container.repo.list_open_sessions(world_a.world_id)) == 2
+
+    # /info 返回新 worldguid → 换世界
+    clock.advance(30)
+    world_b = await snap.ingest_info(server, ok(load_fixture("worldguid_switch", "info_b")))
+    assert world_b is not None
+    assert world_b.world_id != world_a.world_id
+    assert world_b.worldguid == "WORLDGUID-BBBB-0002"
+
+    # 旧世界活动会话被置 uncertain，不合并到新世界；新世界当前无会话
+    assert (await container.repo.get_current_world(server.server_id)).world_id == world_b.world_id
+    assert await container.repo.list_open_sessions(world_b.world_id) == []
+    old_open = await container.repo.list_open_sessions(world_a.world_id)
+    assert all(s.status == SessionStatus.UNCERTAIN for s in old_open)
+
+
+async def test_two_servers_do_not_cross_contaminate(harness_two):
+    container, cfg, clock = harness_two
+    alpha, beta = cfg.servers[0], cfg.servers[1]
+    snap_a = container.snapshot_service_for(alpha.server_id)
+    snap_b = container.snapshot_service_for(beta.server_id)
+
+    world_a = await snap_a.ingest_info(alpha, ok(load_fixture("normal_world", "info")))
+    world_b = await snap_b.ingest_info(beta, ok(load_fixture("worldguid_switch", "info_b")))
+    assert world_a.world_id != world_b.world_id
+    assert world_a.world_id.startswith("alpha:")
+    assert world_b.world_id.startswith("beta:")
+
+    await snap_a.ingest_players(world_a, ok(load_fixture("normal_world", "players")))  # 2 人到 alpha
+    await snap_b.ingest_players(world_b, ok({"players": []}))                          # beta 无人
+
+    assert len(await container.repo.list_open_sessions(world_a.world_id)) == 2
+    assert await container.repo.list_open_sessions(world_b.world_id) == []
+    # 事件也隔离：alpha 的 NEW_PLAYER 不落到 beta 的 world_id
+    a_events = await container.repo.list_events(world_a.world_id, since=None, limit=50)
+    b_events = await container.repo.list_events(world_b.world_id, since=None, limit=50)
+    assert len(a_events) >= 2
+    assert b_events == []

@@ -38,6 +38,17 @@ def make_config(mode: str = "balanced", access_mode: str = "restricted") -> dict
     }
 
 
+def make_config_two() -> dict:
+    base = make_config()
+    base["servers"] = [
+        {"name": "alpha", "enabled": True, "base_url": "http://127.0.0.1:8212",
+         "username": "admin", "password": "pw", "timeout": 10, "verify_tls": False, "timezone": "Asia/Tokyo"},
+        {"name": "beta", "enabled": True, "base_url": "http://127.0.0.1:8213",
+         "username": "admin", "password": "pw", "timeout": 10, "verify_tls": False, "timezone": "Asia/Tokyo"},
+    ]
+    return base
+
+
 def ok(data) -> RestResponse:
     return RestResponse(ok=True, status=200, data=data, duration_ms=5, payload_bytes=len(str(data)), error=None)
 
@@ -65,5 +76,25 @@ async def harness(tmp_path):
     snap = container.snapshot_service_for(server.server_id)
     try:
         yield container, server, clock, snap
+    finally:
+        await container.stop()
+
+
+@pytest.fixture
+async def harness_two(tmp_path):
+    """返回 (container, cfg, clock) 双服务器采集夹具（alpha/beta）。
+
+    与 `harness` 同样注入 fake rest/scheduler 工厂（6.3 先例），验证多服务器数据隔离。
+    """
+    clock = FakeClock(start=1_700_000_000)
+    cfg = parse_config(make_config_two(), env={})
+    container = Container(
+        config=cfg, data_dir=tmp_path, clock=clock,
+        rest_factory=lambda s, clk: _FakeRest(),
+        scheduler_factory=lambda **k: _FakeSched(),
+    )
+    await container.start()
+    try:
+        yield container, cfg, clock
     finally:
         await container.stop()
