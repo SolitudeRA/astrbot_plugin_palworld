@@ -125,6 +125,7 @@ class WorldMetric:
     online_players: int
     world_day: int
     basecamp_count: int
+    max_players: int = 0
 
 
 @dataclass(slots=True)

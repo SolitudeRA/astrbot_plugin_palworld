@@ -82,7 +82,7 @@ class QueryService:
             world_name=world.server_name,
             world_day=metric.world_day if metric else world.current_day,
             online=metric.online_players if metric else 0,
-            max_players=0,
+            max_players=metric.max_players if metric else 0,
             basecamp_count=metric.basecamp_count if metric else 0,
             fps=metric.fps if metric else 0.0,
             frame_time=metric.frame_time if metric else 0.0,

@@ -95,6 +95,7 @@ class SnapshotService:
             online_players=snap.online,
             world_day=snap.days,
             basecamp_count=snap.basecamp_count,
+            max_players=snap.max_players,
         )
         # 候选峰值的基线须取自本快照落库前 (含候选首见前) 的历史峰值,
         # 否则候选自身的落库会抬高 peak_online, 使确认时永远无法严格超越

@@ -190,18 +190,18 @@ class Repository:
         await self._db.execute_write(
             "INSERT INTO world_metrics"
             " (world_id, observed_at, fps, frame_time, online_players,"
-            "  world_day, basecamp_count)"
-            " VALUES (?, ?, ?, ?, ?, ?, ?)",
+            "  world_day, basecamp_count, max_players)"
+            " VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
             (
                 m.world_id, m.observed_at, m.fps, m.frame_time,
-                m.online_players, m.world_day, m.basecamp_count,
+                m.online_players, m.world_day, m.basecamp_count, m.max_players,
             ),
         )
 
     async def latest_metric(self, world_id: str) -> WorldMetric | None:
         rows = await self._db.query(
             "SELECT world_id, observed_at, fps, frame_time, online_players,"
-            " world_day, basecamp_count FROM world_metrics"
+            " world_day, basecamp_count, max_players FROM world_metrics"
             " WHERE world_id = ? ORDER BY observed_at DESC LIMIT 1",
             (world_id,),
         )
@@ -216,6 +216,7 @@ class Repository:
             online_players=r["online_players"],
             world_day=r["world_day"],
             basecamp_count=r["basecamp_count"],
+            max_players=r["max_players"],
         )
 
     async def peak_online(self, world_id: str, since: int | None = None) -> int:

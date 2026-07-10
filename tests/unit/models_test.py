@@ -135,7 +135,7 @@ def test_base_observation_fields():
 def test_world_metric_fields():
     assert _field_names(WorldMetric) == [
         "world_id", "observed_at", "fps", "frame_time", "online_players",
-        "world_day", "basecamp_count",
+        "world_day", "basecamp_count", "max_players",
     ]
 
 

@@ -35,6 +35,7 @@ class Container:
         scheduler_factory: Callable[..., Scheduler] | None = None,
     ) -> None:
         self._cfg = config
+        self.config = config  # 供命令层与集成测试只读访问（precedent: repo/db 别名）
         self._data_dir = Path(data_dir)
         self._clock = clock
         self._rest_factory = rest_factory or (lambda s, clk: PalworldRestClient(s, clk))

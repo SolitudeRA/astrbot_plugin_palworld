@@ -201,8 +201,19 @@ async def migration_0001(conn: aiosqlite.Connection) -> None:
         await conn.execute(stmt)
 
 
+_MIGRATION_0002_SQL = [
+    "ALTER TABLE world_metrics ADD COLUMN max_players INTEGER NOT NULL DEFAULT 0",
+]
+
+
+async def migration_0002(conn: aiosqlite.Connection) -> None:
+    for stmt in _MIGRATION_0002_SQL:
+        await conn.execute(stmt)
+
+
 MIGRATIONS: list[Callable[[aiosqlite.Connection], Awaitable[None]]] = [
     migration_0001,
+    migration_0002,
 ]
 
 
