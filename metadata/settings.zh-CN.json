@@ -1,0 +1,13 @@
+{
+  "ExpRate": {"label_zh": "经验倍率", "unit": "×"},
+  "PalCaptureRate": {"label_zh": "捕获倍率", "unit": "×"},
+  "PalSpawnNumRate": {"label_zh": "帕鲁刷新数量倍率", "unit": "×"},
+  "DropItemMaxNum": {"label_zh": "掉落物最大数量", "unit": "个"},
+  "PalEggDefaultHatchingTime": {"label_zh": "蛋孵化时间", "unit": "小时"},
+  "bEnablePlayerToPlayerDamage": {"label_zh": "PVP 伤害", "unit": "", "enum_map": {"true": "开启", "false": "关闭"}},
+  "bEnableFriendlyFire": {"label_zh": "友军伤害", "unit": "", "enum_map": {"true": "开启", "false": "关闭"}},
+  "ServerPlayerMaxNum": {"label_zh": "最大玩家数", "unit": "人"},
+  "GuildPlayerMaxNum": {"label_zh": "公会人数上限", "unit": "人"},
+  "BaseCampMaxNum": {"label_zh": "据点数量上限", "unit": "个"},
+  "DeathPenalty": {"label_zh": "死亡惩罚", "unit": "", "enum_map": {"None": "无", "Item": "掉落物品", "ItemAndEquipment": "掉落物品与装备", "All": "全部掉落"}}
+}

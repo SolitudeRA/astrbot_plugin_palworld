@@ -1,0 +1,20 @@
+{
+  "EPalActionType::Work": "working",
+  "EPalWorkType::Handcraft": "working",
+  "EPalWorkType::Mining": "working",
+  "EPalWorkType::LoggingTree": "working",
+  "EPalActionType::Move": "moving",
+  "EPalAIActionType::MoveTo": "moving",
+  "EPalAIActionType::WanderRandomly": "moving",
+  "EPalActionType::Wait": "idle",
+  "EPalAIActionType::Idle": "idle",
+  "EPalActionType::Battle": "combat",
+  "EPalAIActionType::CombatAttack": "combat",
+  "EPalAIActionType::EscapeFromDamage": "combat",
+  "EPalActionType::Sleep": "sleeping",
+  "EPalAIActionType::Sleeping": "sleeping",
+  "EPalActionType::Eat": "eating",
+  "EPalAIActionType::EatFromFoodBox": "eating",
+  "EPalActionType::Down": "incapacitated",
+  "EPalAIActionType::Incapacitated": "incapacitated"
+}
