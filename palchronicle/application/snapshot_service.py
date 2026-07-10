@@ -94,3 +94,27 @@ class SnapshotService:
 
     def get_settings(self, world_id: str) -> dict | None:
         return self._settings_cache.get(world_id)
+
+    async def ingest_players(self, world: World, resp: RestResponse) -> None:
+        if not resp.ok or resp.data is None:
+            await self._players.mark_uncertain(world)
+            return
+        now = self._clock.now()
+        rows = self._normalizer.normalize_players(resp.data, now)
+        snap = self._privacy.redact_players(
+            rows, world.world_id, self._salt, self._cfg.privacy, observed_at=now
+        )
+        await self._players.apply_players(world, snap)
+
+    async def ingest_game_data(self, world: World, resp: RestResponse) -> None:
+        if not resp.ok or resp.data is None:
+            return  # 保留基础状态, 不误判
+        now = self._clock.now()
+        gd = self._normalizer.normalize_game_data(resp.data, now, self._meta)
+        if gd.unknown_classes:
+            await self._repo.upsert_unknown_classes(gd.unknown_classes)
+        gd = self._privacy.redact_game_data(
+            gd, world.world_id, self._salt, self._cfg.privacy
+        )
+        await self._guilds.apply(world, gd)
+        await self._bases.apply(world, gd)
