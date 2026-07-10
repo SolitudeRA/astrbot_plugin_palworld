@@ -1,5 +1,7 @@
+import logging
 import re
 
+from palchronicle.adapters.palworld_rest import RestResponse
 from tests.fixtures.loader import load_fixture
 from tests.integration.conftest import ok
 
@@ -109,3 +111,33 @@ async def test_strict_mode_position_cell_all_null(harness_strict):
     rows = await container.db.query("SELECT position_cell FROM player_observations")
     assert rows, "应有观察记录"
     assert all(r["position_cell"] is None for r in rows)
+
+
+async def test_logs_never_leak_raw_on_degradation_paths(harness, caplog):
+    container, server, clock, snap = harness
+    world = await snap.ingest_info(server, ok(load_fixture("normal_world", "info")))
+
+    with caplog.at_level(logging.DEBUG, logger="palchronicle"):
+        # 401 认证失败路径（error 内绝不含凭证/URL 明文）
+        await snap.ingest_players(world, RestResponse(
+            ok=False, status=401, data=None, duration_ms=3, payload_bytes=0, error="auth failed"))
+        # 端点失败 → uncertain 降级路径
+        await snap.ingest_players(world, RestResponse(
+            ok=False, status=None, data=None, duration_ms=3, payload_bytes=0, error="timeout"))
+        # 数据不一致：metrics 人数 5，但 players 明细 2 → 记诊断日志（spec §14），仍不泄原文
+        m = {**load_fixture("normal_world", "metrics"), "currentplayernum": 5}
+        await snap.ingest_metrics(world, ok(m))
+        await snap.ingest_players(world, ok(load_fixture("normal_world", "players")))
+        # game-data 含坐标/原始 userid 的原文，触发正常处理路径的日志
+        await snap.ingest_game_data(world, ok(load_fixture("normal_world", "game-data")))
+
+    text = "\n".join(r.getMessage() for r in caplog.records)
+    assert caplog.records, "降级/诊断路径应产出日志"
+    assert not IPV4.search(text), "日志泄露 IPv4"
+    assert not IPV6.search(text), "日志泄露 IPv6"
+    for rid in RAW_IDS:
+        assert rid not in text, f"日志泄露原始 ID {rid}"
+    for coord in ("100.0", "200.0", "3000.0", "3200.0"):
+        assert coord not in text, f"日志泄露坐标 {coord}"
+    assert "Basic " not in text and "Authorization" not in text
+    assert "pw" not in text.split()  # 明文密码不出现为独立 token

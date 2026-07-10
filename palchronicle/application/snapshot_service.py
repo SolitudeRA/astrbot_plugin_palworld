@@ -1,11 +1,14 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 
 from palchronicle.adapters.palworld_rest import RestResponse
 from palchronicle.config import AppConfig, ServerConfig
 from palchronicle.domain.models import GameDataSnapshot, World, WorldMetric
 from palchronicle.infrastructure.clock import Clock
+
+_log = logging.getLogger("palchronicle.snapshot")
 
 
 class SnapshotService:
@@ -42,6 +45,7 @@ class SnapshotService:
         self._shared_world = shared_world
         # key=world_id, value=(candidate, streak, baseline_peak)
         self._online_streak: dict[str, tuple[int, int, int]] = {}
+        self._last_metrics_online: int | None = None
 
     async def ingest_info(
         self, server: ServerConfig, resp: RestResponse
@@ -76,8 +80,13 @@ class SnapshotService:
 
     async def ingest_metrics(self, world: World, resp: RestResponse) -> None:
         if not resp.ok or resp.data is None:
+            _log.info(
+                "metrics unavailable status=%s duration_ms=%s",
+                resp.status, resp.duration_ms,
+            )
             return
         snap = self._normalizer.normalize_metrics(resp.data, self._clock.now())
+        self._last_metrics_online = snap.online
         metric = WorldMetric(
             world_id=world.world_id,
             observed_at=snap.observed_at,
@@ -126,6 +135,11 @@ class SnapshotService:
 
     async def ingest_players(self, world: World, resp: RestResponse) -> None:
         if not resp.ok or resp.data is None:
+            _log.info(
+                "players unavailable status=%s error_kind=%s",
+                resp.status,
+                type(resp.error).__name__ if resp.error else "none",
+            )
             await self._players.mark_uncertain(world)
             return
         now = self._clock.now()
@@ -133,6 +147,14 @@ class SnapshotService:
         snap = self._privacy.redact_players(
             rows, world.world_id, self._salt, self._cfg.privacy, observed_at=now
         )
+        if (
+            self._last_metrics_online is not None
+            and self._last_metrics_online != len(snap.players)
+        ):
+            _log.info(
+                "player_count_mismatch official=%s detailed=%s",
+                self._last_metrics_online, len(snap.players),
+            )
         await self._players.apply_players(world, snap)
 
     async def ingest_game_data(self, world: World, resp: RestResponse) -> None:
