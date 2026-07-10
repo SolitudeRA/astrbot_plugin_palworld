@@ -35,6 +35,12 @@ class SpyAgg:
     async def apply(self, world, gd):
         return []
 
+    async def world_day(self, world, days):
+        return None
+
+    async def online_record(self, world, value, confirmed, baseline_peak=None):
+        return None
+
 
 def _server():
     return ServerConfig(

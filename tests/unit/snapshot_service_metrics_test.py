@@ -23,6 +23,12 @@ class _Noop:
     async def mark_uncertain(self, *a, **k):
         return None
 
+    async def world_day(self, world, days):
+        return None
+
+    async def online_record(self, world, value, confirmed, baseline_peak=None):
+        return None
+
 
 def _cfg(servers):
     return AppConfig(

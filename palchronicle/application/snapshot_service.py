@@ -35,6 +35,8 @@ class SnapshotService:
         self._bases = bases
         self._events = events
         self._settings_cache: dict[str, dict] = {}
+        # key=world_id, value=(candidate, streak, baseline_peak)
+        self._online_streak: dict[str, tuple[int, int, int]] = {}
 
     async def ingest_info(
         self, server: ServerConfig, resp: RestResponse
@@ -80,11 +82,28 @@ class SnapshotService:
             world_day=snap.days,
             basecamp_count=snap.basecamp_count,
         )
+        # 候选峰值的基线须取自本快照落库前 (含候选首见前) 的历史峰值,
+        # 否则候选自身的落库会抬高 peak_online, 使确认时永远无法严格超越
+        prev_peak = await self._repo.peak_online(world.world_id)
         await self._repo.insert_metric(metric)
         if snap.days and snap.days != world.current_day:
             world.current_day = snap.days
             world.last_seen_at = snap.observed_at
             await self._repo.upsert_world(world)
+        if self._events is not None:
+            await self._events.world_day(world, snap.days)
+            candidate, streak, baseline = self._online_streak.get(
+                world.world_id, (0, 0, 0)
+            )
+            if snap.online == candidate and snap.online > 0:
+                streak += 1
+            else:
+                candidate, streak, baseline = snap.online, 1, prev_peak
+            self._online_streak[world.world_id] = (candidate, streak, baseline)
+            if streak >= 2:
+                await self._events.online_record(
+                    world, candidate, confirmed=True, baseline_peak=baseline
+                )
 
     async def ingest_settings(self, world: World, resp: RestResponse) -> None:
         if not resp.ok or resp.data is None:

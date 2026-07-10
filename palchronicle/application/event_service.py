@@ -75,11 +75,20 @@ class EventService:
         )
 
     async def online_record(
-        self, world: World, value: int, confirmed: bool
+        self,
+        world: World,
+        value: int,
+        confirmed: bool,
+        baseline_peak: int | None = None,
     ) -> None:
         if not confirmed:
             return
-        if value <= await self._repo.peak_online(world.world_id):
+        peak = (
+            baseline_peak
+            if baseline_peak is not None
+            else await self._repo.peak_online(world.world_id)
+        )
+        if value <= peak:
             return
         dedup = self.dedup_key(world.world_id, EventType.ONLINE_RECORD, value)
         await self._emit(
