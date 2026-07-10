@@ -1,0 +1,9 @@
+{
+  "ExpRate": 1.0,
+  "PalCaptureRate": 1.2,
+  "DeathPenalty": "Item",
+  "bEnablePlayerToPlayerDamage": false,
+  "ServerPlayerMaxNum": 32,
+  "GuildPlayerMaxNum": 20,
+  "BaseCampMaxNumInGuild": 4
+}

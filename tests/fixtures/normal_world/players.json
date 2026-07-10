@@ -1,0 +1,6 @@
+{
+  "players": [
+    {"userId": "steam_00001", "playerId": "PID-1", "name": "Akari", "level": 21, "ping": 44.0, "ip": "10.0.0.11", "accountName": "acct_akari", "building_count": 12, "location_x": 100.0, "location_y": 200.0},
+    {"userId": "steam_00002", "playerId": "PID-2", "name": "Borel", "level": 15, "ping": 130.0, "ip": "10.0.0.12", "accountName": "acct_borel", "building_count": 4, "location_x": 3000.0, "location_y": 3200.0}
+  ]
+}
