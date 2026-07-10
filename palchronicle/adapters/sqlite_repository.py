@@ -10,6 +10,7 @@ import sqlite3
 from palchronicle.config import BindingConfig, HistoryConfig, ServerConfig
 from palchronicle.domain.enums import (
     Confidence,
+    EventType,
     IdConfidence,
     LeaveReason,
     PingBucket,
@@ -533,3 +534,31 @@ class Repository:
             return True
         except sqlite3.IntegrityError:
             return False
+
+    async def list_events(
+        self, world_id: str, since: int | None = None, limit: int = 20
+    ) -> list[WorldEvent]:
+        sql = "SELECT * FROM world_events WHERE world_id = ?"
+        params: list = [world_id]
+        if since is not None:
+            sql += " AND occurred_at >= ?"
+            params.append(since)
+        sql += " ORDER BY occurred_at DESC, event_id DESC LIMIT ?"
+        params.append(limit)
+        rows = await self._db.query(sql, params)
+        return [
+            WorldEvent(
+                event_id=r["event_id"],
+                world_id=r["world_id"],
+                event_type=EventType(r["event_type"]),
+                subject_type=r["subject_type"],
+                subject_key=r["subject_key"],
+                occurred_at=r["occurred_at"],
+                confirmed_at=r["confirmed_at"],
+                payload=json.loads(r["payload_json"]),
+                visibility=r["visibility"],
+                confidence=Confidence(r["confidence"]),
+                dedup_key=r["dedup_key"],
+            )
+            for r in rows
+        ]
