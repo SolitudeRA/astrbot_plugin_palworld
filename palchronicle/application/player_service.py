@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from palchronicle.adapters.privacy_filter import bucketize_ping, hash_user_id
-from palchronicle.domain.enums import IdConfidence, SessionStatus
+from palchronicle.domain.enums import IdConfidence, LeaveReason, SessionStatus
 from palchronicle.domain.models import (
     PlayerIdentity, PlayerObservation, PlayerRow, PlayerSession, PlayersSnapshot, World,
 )
@@ -23,6 +23,7 @@ class PlayerService:
         self._cfg = cfg
         self._clock = clock
         self.events = None  # 由 container 注入 EventService
+        self._missing: dict[tuple[str, str], int] = {}
 
     @staticmethod
     def player_key(salt: bytes, world_id: str, raw_user_id: str) -> str:
@@ -69,5 +70,24 @@ class PlayerService:
                 session.leave_reason = None
                 await self._repo.update_session(session)
 
+            self._missing.pop((world.world_id, key), None)
+
             if old_level is not None and row.level > old_level and self.events is not None:
                 await self.events.level_up(world, key, old_level, row.level)
+
+        present = {
+            _resolve_identity(r, self._salt, world.world_id)[0] for r in snap.players
+        }
+        for sess in await self._repo.list_open_sessions(world.world_id):
+            if sess.status != SessionStatus.ACTIVE or sess.player_key in present:
+                continue
+            mkey = (world.world_id, sess.player_key)
+            streak = self._missing.get(mkey, 0) + 1
+            if streak >= 2:
+                sess.status = SessionStatus.CLOSED
+                sess.leave_reason = LeaveReason.OBSERVED_TIMEOUT
+                sess.left_at = now
+                await self._repo.update_session(sess)
+                self._missing.pop(mkey, None)
+            else:
+                self._missing[mkey] = streak
