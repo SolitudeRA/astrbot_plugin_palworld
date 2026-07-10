@@ -1,0 +1,8 @@
+{
+  "fps": 50,
+  "characters": [
+    {"unit_type": "Player", "InstanceID": "INST-PX", "NickName": "Ghosty", "userid": "steam_x", "GuildID": "G-9", "IsActive": "true"},
+    {"unit_type": "BaseCampPal", "pal_class": "SheepBall", "HP": 100, "MaxHP": 200, "GuildID": "G-9", "action": "Work", "LocationX": 10.0, "LocationY": 20.0, "LocationZ": 0.0, "IsActive": "true"}
+  ],
+  "palboxes": []
+}

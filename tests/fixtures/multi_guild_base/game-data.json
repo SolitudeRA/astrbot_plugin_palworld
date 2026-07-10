@@ -1,0 +1,14 @@
+{
+  "fps": 55,
+  "average_fps": 54.0,
+  "characters": [
+    {"unit_type": "BaseCampPal", "pal_class": "SheepBall", "Level": 8, "HP": 180, "MaxHP": 200, "GuildID": "G-1", "action": "Work", "AI_Action": "Work", "LocationX": 100.0, "LocationY": 200.0, "LocationZ": 0.0, "IsActive": "true"},
+    {"unit_type": "BaseCampPal", "pal_class": "Foxparks", "Level": 6, "HP": 120, "MaxHP": 120, "GuildID": "G-1", "action": "Idle", "AI_Action": "Idle", "LocationX": 105.0, "LocationY": 205.0, "LocationZ": 0.0, "IsActive": "true"},
+    {"unit_type": "BaseCampPal", "pal_class": "Lamball", "Level": 4, "HP": 60, "MaxHP": 60, "GuildID": "G-2", "action": "Work", "AI_Action": "Work", "LocationX": 8000.0, "LocationY": 8000.0, "LocationZ": 0.0, "IsActive": "true"},
+    {"unit_type": "BaseCampPal", "pal_class": "Cattiva", "Level": 5, "HP": 70, "MaxHP": 90, "GuildID": "G-2", "action": "Idle", "AI_Action": "Idle", "LocationX": 8010.0, "LocationY": 8005.0, "LocationZ": 0.0, "IsActive": "false"}
+  ],
+  "palboxes": [
+    {"GuildID": "G-1", "GuildName": "Noema", "LocationX": 102.0, "LocationY": 202.0, "LocationZ": 0.0},
+    {"GuildID": "G-2", "GuildName": "Vesper", "LocationX": 8005.0, "LocationY": 8002.0, "LocationZ": 0.0}
+  ]
+}

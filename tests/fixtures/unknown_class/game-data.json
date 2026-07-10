@@ -1,0 +1,7 @@
+{
+  "fps": 57,
+  "characters": [
+    {"unit_type": "BaseCampPal", "pal_class": "TotallyUnknownPal_XYZ", "Level": 9, "HP": 200, "MaxHP": 200, "GuildID": "G-1", "action": "Work", "AI_Action": "Work", "LocationX": 100.0, "LocationY": 200.0, "LocationZ": 0.0, "IsActive": "true"}
+  ],
+  "palboxes": [{"GuildID": "G-1", "GuildName": "Noema", "LocationX": 100.0, "LocationY": 200.0, "LocationZ": 0.0}]
+}
