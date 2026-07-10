@@ -83,3 +83,14 @@ class SnapshotService:
             world.current_day = snap.days
             world.last_seen_at = snap.observed_at
             await self._repo.upsert_world(world)
+
+    async def ingest_settings(self, world: World, resp: RestResponse) -> None:
+        if not resp.ok or resp.data is None:
+            return  # 保留旧缓存, 不谎报
+        self._settings_cache[world.world_id] = {
+            "data": dict(resp.data),
+            "observed_at": self._clock.now(),
+        }
+
+    def get_settings(self, world_id: str) -> dict | None:
+        return self._settings_cache.get(world_id)
