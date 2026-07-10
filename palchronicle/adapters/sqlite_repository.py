@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import json
 import sqlite3
+from typing import Any
 
 from palchronicle.config import BindingConfig, HistoryConfig, ServerConfig
 from palchronicle.domain.enums import (
@@ -562,3 +563,26 @@ class Repository:
             )
             for r in rows
         ]
+
+    # ---- daily aggregates ----
+    async def upsert_daily_aggregate(
+        self, world_id: str, day: str, key: str, value: Any
+    ) -> None:
+        await self._db.execute_write(
+            """INSERT INTO daily_aggregates (world_id, day, key, value_json)
+               VALUES (?, ?, ?, ?)
+               ON CONFLICT(world_id, day, key)
+               DO UPDATE SET value_json = excluded.value_json""",
+            (world_id, day, key, json.dumps(value, ensure_ascii=False, sort_keys=True)),
+        )
+
+    async def get_daily_aggregate(
+        self, world_id: str, day: str, key: str
+    ) -> Any | None:
+        rows = await self._db.query(
+            "SELECT value_json FROM daily_aggregates WHERE world_id = ? AND day = ? AND key = ?",
+            (world_id, day, key),
+        )
+        if not rows:
+            return None
+        return json.loads(rows[0]["value_json"])
