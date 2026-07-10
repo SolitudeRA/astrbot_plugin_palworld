@@ -4,12 +4,14 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 from palchronicle.domain.enums import (
+    ActionCategory,
     Confidence,
     EventType,
     IdConfidence,
     LeaveReason,
     PingBucket,
     SessionStatus,
+    UnitType,
 )
 
 
@@ -138,3 +140,82 @@ class WorldEvent:
     visibility: str
     confidence: Confidence
     dedup_key: str
+
+
+@dataclass(slots=True)
+class CharacterActor:
+    unit_type: UnitType
+    instance_id: str | None
+    nickname: str | None
+    trainer_instance_id: str | None
+    trainer_nickname: str | None
+    player_userid: str | None
+    level: int | None
+    hp: int | None
+    max_hp: int | None
+    guild_id: str | None
+    guild_name: str | None
+    pal_class: str | None
+    action: ActionCategory
+    ai_action: ActionCategory
+    x: float | None
+    y: float | None
+    z: float | None
+    is_active: bool
+
+
+@dataclass(slots=True)
+class PalBoxActor:
+    guild_id: str | None
+    guild_name: str | None
+    pal_class: str | None
+    x: float
+    y: float
+    z: float
+
+
+@dataclass(slots=True)
+class GameDataSnapshot:
+    observed_at: int
+    fps: float
+    average_fps: float
+    characters: list[CharacterActor] = field(default_factory=list)
+    palboxes: list[PalBoxActor] = field(default_factory=list)
+    unknown_classes: list[str] = field(default_factory=list)
+
+
+@dataclass(slots=True)
+class PlayerRow:
+    userid: str | None
+    player_id: str | None
+    name: str
+    level: int
+    ping: float | None
+    building_count: int
+
+
+@dataclass(slots=True)
+class PlayersSnapshot:
+    observed_at: int
+    players: list[PlayerRow] = field(default_factory=list)
+
+
+@dataclass(slots=True)
+class MetricsSnapshot:
+    observed_at: int
+    fps: float
+    frame_time: float
+    online: int
+    max_players: int
+    uptime: int
+    basecamp_count: int
+    days: int
+
+
+@dataclass(slots=True)
+class InfoSnapshot:
+    observed_at: int
+    version: str
+    server_name: str
+    description: str
+    worldguid: str
