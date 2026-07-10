@@ -74,6 +74,23 @@ class EventService:
             world, EventType.NEW_GUILD, "guild", guild_key, dedup, {}
         )
 
+    async def online_record(
+        self, world: World, value: int, confirmed: bool
+    ) -> None:
+        if not confirmed:
+            return
+        if value <= await self._repo.peak_online(world.world_id):
+            return
+        dedup = self.dedup_key(world.world_id, EventType.ONLINE_RECORD, value)
+        await self._emit(
+            world,
+            EventType.ONLINE_RECORD,
+            "world",
+            world.world_id,
+            dedup,
+            {"value": value},
+        )
+
     async def world_day(self, world: World, days: int) -> None:
         for m in self.MILESTONES:
             if days >= m:

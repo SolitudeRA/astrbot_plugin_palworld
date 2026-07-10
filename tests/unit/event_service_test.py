@@ -3,7 +3,7 @@ from pathlib import Path
 from palchronicle.adapters.sqlite_repository import Repository
 from palchronicle.application.event_service import EventService
 from palchronicle.domain.enums import EventType
-from palchronicle.domain.models import World
+from palchronicle.domain.models import World, WorldMetric
 from palchronicle.infrastructure.clock import FakeClock
 from palchronicle.infrastructure.database import Database
 from palchronicle.infrastructure.migrations import apply_migrations
@@ -151,5 +151,61 @@ async def test_world_day_below_first_milestone_emits_nothing(tmp_path):
     try:
         await svc.world_day(_world(), 42)
         assert await repo.list_events("s1:guid:0") == []
+    finally:
+        await db.close()
+
+
+async def _seed_metric(repo, at, online):
+    await repo.insert_metric(
+        WorldMetric(
+            world_id="s1:guid:0", observed_at=at, fps=60.0, frame_time=16.0,
+            online_players=online, world_day=1, basecamp_count=0,
+        )
+    )
+
+
+async def test_online_record_unconfirmed_emits_nothing(tmp_path):
+    svc, repo, db, _ = await _make(tmp_path)
+    try:
+        await svc.online_record(_world(), value=8, confirmed=False)
+        assert await repo.list_events("s1:guid:0") == []
+    finally:
+        await db.close()
+
+
+async def test_online_record_confirmed_emits(tmp_path):
+    svc, repo, db, _ = await _make(tmp_path)
+    try:
+        await _seed_metric(repo, 100, 5)  # existing peak = 5
+        await svc.online_record(_world(), value=8, confirmed=True)
+        rows = await repo.list_events("s1:guid:0")
+        assert len(rows) == 1
+        assert rows[0].event_type == EventType.ONLINE_RECORD
+        assert rows[0].subject_type == "world"
+        assert rows[0].payload == {"value": 8}
+        assert rows[0].dedup_key == "s1:guid:0|ONLINE_RECORD|8"
+    finally:
+        await db.close()
+
+
+async def test_online_record_not_exceeding_peak_emits_nothing(tmp_path):
+    svc, repo, db, _ = await _make(tmp_path)
+    try:
+        await _seed_metric(repo, 100, 10)  # peak = 10
+        await svc.online_record(_world(), value=10, confirmed=True)  # equal, not >
+        await svc.online_record(_world(), value=7, confirmed=True)   # below
+        assert await repo.list_events("s1:guid:0") == []
+    finally:
+        await db.close()
+
+
+async def test_online_record_dedup_same_value(tmp_path):
+    svc, repo, db, _ = await _make(tmp_path)
+    try:
+        await _seed_metric(repo, 100, 5)
+        await svc.online_record(_world(), value=9, confirmed=True)
+        await svc.online_record(_world(), value=9, confirmed=True)
+        rows = await repo.list_events("s1:guid:0")
+        assert len(rows) == 1
     finally:
         await db.close()
