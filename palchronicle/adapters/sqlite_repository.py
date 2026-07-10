@@ -5,8 +5,8 @@ Phase 1：server / binding / world / prune 方法。
 from __future__ import annotations
 
 from palchronicle.config import BindingConfig, HistoryConfig, ServerConfig
-from palchronicle.domain.enums import IdConfidence
-from palchronicle.domain.models import PlayerIdentity, World, WorldMetric
+from palchronicle.domain.enums import IdConfidence, LeaveReason, SessionStatus
+from palchronicle.domain.models import PlayerIdentity, PlayerSession, World, WorldMetric
 from palchronicle.infrastructure.clock import Clock
 from palchronicle.infrastructure.database import Database
 
@@ -256,3 +256,64 @@ class Repository:
             latest_guild_key=r["latest_guild_key"],
             id_confidence=IdConfidence(r["id_confidence"]),
         )
+
+    # ---- sessions ----
+    @staticmethod
+    def _row_to_session(r) -> PlayerSession:
+        return PlayerSession(
+            id=r["id"], world_id=r["world_id"], player_key=r["player_key"],
+            joined_at=r["joined_at"], last_confirmed_at=r["last_confirmed_at"],
+            left_at=r["left_at"], observed_seconds=r["observed_seconds"],
+            status=SessionStatus(r["status"]),
+            leave_reason=LeaveReason(r["leave_reason"]) if r["leave_reason"] else None,
+        )
+
+    async def insert_session(self, s: PlayerSession) -> int:
+        async with self._db.write_tx() as conn:
+            cur = await conn.execute(
+                """
+                INSERT INTO player_sessions
+                    (world_id, player_key, joined_at, last_confirmed_at, left_at,
+                     observed_seconds, status, leave_reason)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (s.world_id, s.player_key, s.joined_at, s.last_confirmed_at,
+                 s.left_at, s.observed_seconds, str(s.status),
+                 str(s.leave_reason) if s.leave_reason else None),
+            )
+            s.id = cur.lastrowid
+            return cur.lastrowid
+
+    async def update_session(self, s: PlayerSession) -> None:
+        await self._db.execute_write(
+            """
+            UPDATE player_sessions SET
+                last_confirmed_at = ?, left_at = ?, observed_seconds = ?,
+                status = ?, leave_reason = ?
+            WHERE id = ?
+            """,
+            (s.last_confirmed_at, s.left_at, s.observed_seconds, str(s.status),
+             str(s.leave_reason) if s.leave_reason else None, s.id),
+        )
+
+    async def get_open_session(self, world_id: str, player_key: str) -> PlayerSession | None:
+        rows = await self._db.query(
+            """
+            SELECT * FROM player_sessions
+            WHERE world_id = ? AND player_key = ? AND status IN ('active', 'uncertain')
+            ORDER BY (status = 'active') DESC, joined_at DESC LIMIT 1
+            """,
+            (world_id, player_key),
+        )
+        return self._row_to_session(rows[0]) if rows else None
+
+    async def list_open_sessions(self, world_id: str) -> list[PlayerSession]:
+        rows = await self._db.query(
+            """
+            SELECT * FROM player_sessions
+            WHERE world_id = ? AND status IN ('active', 'uncertain')
+            ORDER BY joined_at ASC
+            """,
+            (world_id,),
+        )
+        return [self._row_to_session(r) for r in rows]
