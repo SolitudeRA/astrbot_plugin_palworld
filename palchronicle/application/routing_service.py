@@ -76,3 +76,19 @@ class RoutingService:
 
         # Step 5: friendly prompt
         return Resolution(None, L("no_server_resolved"))
+
+    async def use(self, umo: str, name: str) -> str:
+        srv = self._ready_by_name(name)
+        if srv is None:
+            return L("server_unknown", server=name)
+        await self._repo.set_active(umo, srv.server_id)
+        return L("use_ok", server=srv.server_id)
+
+    async def unbind(self, umo: str, name: str) -> str:
+        srv = self._ready_by_name(name)
+        target = srv.server_id if srv is not None else name
+        await self._repo.revoke(umo, target)
+        return L("unbind_ok", server=target)
+
+    def ready_servers(self) -> list[ServerConfig]:
+        return self._ready_servers()
