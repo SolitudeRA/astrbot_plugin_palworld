@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from palchronicle.adapters.palworld_rest import RestResponse
 from palchronicle.config import AppConfig, ServerConfig
-from palchronicle.domain.models import World
+from palchronicle.domain.models import World, WorldMetric
 from palchronicle.infrastructure.clock import Clock
 
 
@@ -64,3 +64,22 @@ class SnapshotService:
         )
         await self._repo.upsert_world(world)
         return world
+
+    async def ingest_metrics(self, world: World, resp: RestResponse) -> None:
+        if not resp.ok or resp.data is None:
+            return
+        snap = self._normalizer.normalize_metrics(resp.data, self._clock.now())
+        metric = WorldMetric(
+            world_id=world.world_id,
+            observed_at=snap.observed_at,
+            fps=snap.fps,
+            frame_time=snap.frame_time,
+            online_players=snap.online,
+            world_day=snap.days,
+            basecamp_count=snap.basecamp_count,
+        )
+        await self._repo.insert_metric(metric)
+        if snap.days and snap.days != world.current_day:
+            world.current_day = snap.days
+            world.last_seen_at = snap.observed_at
+            await self._repo.upsert_world(world)
