@@ -109,6 +109,12 @@ class Repository:
         )
         return {r[0] for r in rows}
 
+    async def list_group_servers(self, umo: str) -> dict[str, tuple[bool, bool]]:
+        rows = await self._db.query(
+            "SELECT server_id, allowed, active FROM group_servers WHERE umo=?", (umo,)
+        )
+        return {r["server_id"]: (bool(r["allowed"]), bool(r["active"])) for r in rows}
+
     async def set_active(self, umo: str, server_id: str) -> None:
         now = self._clock.now()
         async with self._db.write_tx() as conn:
