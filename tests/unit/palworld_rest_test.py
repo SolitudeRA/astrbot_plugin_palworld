@@ -38,6 +38,7 @@ class _FakeSession:
         self._script = script
         self.requested_url = None
         self.requested_auth = None
+        self.closed = False
 
     @asynccontextmanager
     async def get(self, url, auth=None, timeout=None, ssl=None):
@@ -49,7 +50,7 @@ class _FakeSession:
         yield outcome
 
     async def close(self):
-        pass
+        self.closed = True
 
 
 async def test_fetch_success_200():
@@ -106,3 +107,39 @@ async def test_fetch_network_error_sanitized():
     assert resp.error is not None
     assert "secret-host" not in resp.error
     assert "topsecret" not in resp.error
+
+
+async def test_close_closes_session():
+    client = PalworldRestClient(_server(), FakeClock(1000))
+    # 让 fetch 走懒创建路径：首次 fetch 时才装配（fake）session。
+    fake = _FakeSession(_FakeResp(200, {}))
+    client._ensure_session = lambda: (
+        setattr(client, "_session", fake) or fake
+    )
+    await client.fetch(EndpointName.INFO)
+    assert client._session is fake
+
+    await client.close()
+    assert fake.closed is True
+    assert client._session is None
+
+    # 幂等：再次 close 不应抛异常。
+    await client.close()
+    assert client._session is None
+
+
+async def test_json_decode_error_is_redacted():
+    secret_detail = "Expecting value: line 3 column 7 at secret-host"
+
+    class _BadJsonResp(_FakeResp):
+        async def json(self, content_type=None):
+            raise ValueError(secret_detail)
+
+    client = PalworldRestClient(_server(), FakeClock(1000))
+    client._session = _FakeSession(_BadJsonResp(200, {}, b'{"broken"'))
+    resp = await client.fetch(EndpointName.METRICS)
+    assert resp.ok is False
+    assert resp.error == "unexpected error"
+    # 兜底分支绝不能泄露异常文本（可能含 host/内部细节）。
+    assert secret_detail not in resp.error
+    assert "secret-host" not in resp.error
