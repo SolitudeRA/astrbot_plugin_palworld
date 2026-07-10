@@ -28,12 +28,16 @@ class PlayerService:
     def player_key(salt: bytes, world_id: str, raw_user_id: str) -> str:
         return hash_user_id(salt, world_id, raw_user_id)
 
+    _HEALTH_TOLERANCE = 1.5
+
     async def apply_players(self, world: World, snap: PlayersSnapshot) -> None:
         now = snap.observed_at
+        cap = int(self._cfg.polling.players_seconds * self._HEALTH_TOLERANCE)
         for row in snap.players:
             key, conf = _resolve_identity(row, self._salt, world.world_id)
-            existing_ident = await self._repo.get_player_by_name(world.world_id, row.name)
-            is_new_identity = existing_ident is None or existing_ident.player_key != key
+            prev_ident = await self._repo.get_player_by_name(world.world_id, row.name)
+            is_new_identity = prev_ident is None or prev_ident.player_key != key
+            old_level = prev_ident.latest_level if (prev_ident and not is_new_identity) else None
 
             bucket = bucketize_ping(row.ping, self._cfg.privacy)
             await self._repo.insert_observation(PlayerObservation(
@@ -57,3 +61,13 @@ class PlayerService:
                 ))
                 if is_new_identity and self.events is not None:
                     await self.events.new_player(world, key)
+            else:
+                delta = max(0, now - session.last_confirmed_at)
+                session.observed_seconds += min(delta, cap)
+                session.last_confirmed_at = now
+                session.status = SessionStatus.ACTIVE
+                session.leave_reason = None
+                await self._repo.update_session(session)
+
+            if old_level is not None and row.level > old_level and self.events is not None:
+                await self.events.level_up(world, key, old_level, row.level)
