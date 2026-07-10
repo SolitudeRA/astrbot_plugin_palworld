@@ -53,6 +53,7 @@ class Container:
 
     async def start(self) -> None:
         self._db = Database(self._data_dir / "palchronicle.sqlite3")
+        self.db = self._db  # 供隐私扫描/集成测试只读遍历全表
         await self._db.open()
         await apply_migrations(self._db)
         salt = load_or_create_salt(self._data_dir)
