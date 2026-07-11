@@ -2,6 +2,7 @@ from palchronicle.application.routing_service import Resolution
 from palchronicle.config import ServerConfig
 from palchronicle.domain.models import World
 from palchronicle.presentation.commands import Commands
+from palchronicle.presentation.locale import L
 
 WID = "alpha:guid-1:0"
 
@@ -90,7 +91,13 @@ async def test_use_requires_group():
 async def test_use_requires_admin():
     cmds = Commands(_FakeRouting(Resolution(_server(), None)), _FakeQuery(), _FakeRepo(), None, None)
     out = await cmds.use("umo1", "/pal use alpha", is_group=True, is_admin=False)
-    assert "管理" in out or "权限" in out
+    assert out == L("admin_required")
+
+
+async def test_unbind_requires_admin():
+    cmds = Commands(_FakeRouting(Resolution(_server(), None)), _FakeQuery(), _FakeRepo(), None, None)
+    out = await cmds.unbind("umo1", "/pal unbind alpha", is_group=True, is_admin=False)
+    assert out == L("admin_required")
 
 
 async def test_use_happy_path():

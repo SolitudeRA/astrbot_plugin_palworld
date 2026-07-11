@@ -15,6 +15,7 @@ MESSAGES: dict[str, str] = {
     "bases_disabled_strict": "据点模块因 strict 隐私模式停用。",
     "guilds_unavailable": "公会数据暂不可用。",
     "use_only_group": "该命令仅可在群聊中使用。",
+    "admin_required": "该命令需要管理员权限。",
     "use_ok": "已授权本群使用服务器「{server}」并设为当前活动服务器。",
     "unbind_ok": "已撤销本群对服务器「{server}」的授权。",
     "empty_day": "平静的一天，没有值得记录的事件。",

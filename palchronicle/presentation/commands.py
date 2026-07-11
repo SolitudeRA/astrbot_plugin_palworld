@@ -1,13 +1,23 @@
 from __future__ import annotations
 
-from typing import Awaitable, Callable
+from collections.abc import Awaitable, Callable
 
-from palchronicle.presentation.formatters import (
-    format_bases, format_base, format_degraded, format_events, format_guild,
-    format_guilds, format_help, format_online, format_rules, format_servers,
-    format_status, format_world,
-)
 from palchronicle.presentation.dtos import ServerStatusRow
+from palchronicle.presentation.formatters import (
+    format_base,
+    format_bases,
+    format_degraded,
+    format_events,
+    format_guild,
+    format_guilds,
+    format_help,
+    format_online,
+    format_rules,
+    format_servers,
+    format_status,
+    format_today,
+    format_world,
+)
 from palchronicle.presentation.locale import L
 from palchronicle.presentation.server_arg import ArgError, parse_arg
 
@@ -110,7 +120,6 @@ class Commands:
         world, _arg, err = await self._resolve_world(umo, message_str, "today", is_group)
         if err is not None:
             return err
-        from palchronicle.presentation.formatters import format_today
         return format_today(await self._query.today(world))
 
     async def servers(self, umo, is_group, is_admin) -> str:
@@ -128,7 +137,7 @@ class Commands:
 
     async def use(self, umo, message_str, is_group, is_admin) -> str:
         if not is_admin:
-            return "该命令需要管理员权限。"
+            return L("admin_required")
         if not is_group:
             return L("use_only_group")
         arg = parse_arg(message_str, "use")
@@ -137,7 +146,7 @@ class Commands:
 
     async def unbind(self, umo, message_str, is_group, is_admin) -> str:
         if not is_admin:
-            return "该命令需要管理员权限。"
+            return L("admin_required")
         if not is_group:
             return L("use_only_group")
         arg = parse_arg(message_str, "unbind")
