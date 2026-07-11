@@ -7,6 +7,7 @@ from palchronicle.application.snapshot_service import SnapshotService
 from palchronicle.config import (
     AppConfig,
     BasesConfig,
+    FeaturesConfig,
     HistoryConfig,
     PollingConfig,
     PrivacyConfig,
@@ -34,6 +35,7 @@ def _cfg() -> AppConfig:
         bases=BasesConfig(True, 5000, 0.2, 3, 2000, 0.5),
         privacy=PrivacyConfig("balanced", False, False, 60, 120, 900),
         history=HistoryConfig(7, 90, 365, 180),
+        features=FeaturesConfig(report=True, events=True, guilds_bases=True),
     )
 
 
