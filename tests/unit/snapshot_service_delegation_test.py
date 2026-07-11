@@ -188,6 +188,16 @@ def _info_resp(worldguid):
                         duration_ms=1, payload_bytes=1, error=None)
 
 
+async def test_ingest_players_stale_world_skips_delegation(make_svc):
+    """竞态防护: 传入 world 已非该服务器当前世界时, 不 apply 也不丢 prev 记录。"""
+    svc, players, _, _ = await make_svc("balanced")
+    world_a = await svc.ingest_info(_server(), _info_resp("GUID-A"))
+    await svc.ingest_info(_server(), _info_resp("GUID-B"))
+    await svc.ingest_players(world_a, _players_resp())
+    assert players.applied == []
+    assert [w.world_id for w in svc._prev_worlds["s1"]] == [world_a.world_id]
+
+
 async def test_world_switch_prev_world_swept_then_forgotten(make_svc):
     """换世界后, 新世界的 players tick 委托 sweep 旧世界; 旧世界无未决会话即遗忘。"""
     svc, players, _, _ = await make_svc("balanced")

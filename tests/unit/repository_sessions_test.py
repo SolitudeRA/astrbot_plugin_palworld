@@ -2,7 +2,7 @@ import pytest
 
 from palchronicle.adapters.sqlite_repository import Repository
 from palchronicle.domain.enums import LeaveReason, SessionStatus
-from palchronicle.domain.models import PlayerSession
+from palchronicle.domain.models import PlayerSession, World
 from palchronicle.infrastructure.clock import FakeClock
 from palchronicle.infrastructure.database import Database
 from palchronicle.infrastructure.migrations import apply_migrations
@@ -82,6 +82,51 @@ async def test_list_open_sessions(repo):
     await repo.insert_session(_sess(SessionStatus.CLOSED, player_key="c", left_at=1))
     keys = {s.player_key for s in await repo.list_open_sessions("w1")}
     assert keys == {"a", "b"}
+
+
+# ---- list_worlds_with_open_sessions: 重启后重建待收敛集合（§10.1）----
+
+
+def _world_row(world_id, server_id, guid, last_seen):
+    return World(world_id=world_id, server_id=server_id, worldguid=guid, epoch=0,
+                 server_name="S", version="0.3", first_seen_at=1000,
+                 last_seen_at=last_seen, current_day=1)
+
+
+async def test_list_worlds_with_open_sessions(repo):
+    await repo.upsert_world(_world_row("s1:A:0", "s1", "A", 1000))
+    await repo.upsert_world(_world_row("s1:B:0", "s1", "B", 1030))
+    await repo.upsert_world(_world_row("s1:C:0", "s1", "C", 900))
+    await repo.upsert_world(_world_row("s2:D:0", "s2", "D", 1000))
+    # A: uncertain 会话（待收敛）; B: 当前世界(排除); C: 仅 closed; D: 其他服务器
+    await repo.insert_session(_sess(SessionStatus.UNCERTAIN, world_id="s1:A:0"))
+    await repo.insert_session(_sess(SessionStatus.ACTIVE, world_id="s1:B:0"))
+    await repo.insert_session(_sess(SessionStatus.CLOSED, world_id="s1:C:0",
+                                    left_at=1500,
+                                    leave_reason=LeaveReason.WORLD_OFFLINE))
+    await repo.insert_session(_sess(SessionStatus.ACTIVE, world_id="s2:D:0"))
+    got = await repo.list_worlds_with_open_sessions("s1", "s1:B:0")
+    assert [w.world_id for w in got] == ["s1:A:0"]
+    assert got[0].server_id == "s1"
+    assert got[0].worldguid == "A"
+
+
+async def test_list_worlds_with_open_sessions_active_counts_and_no_duplicates(repo):
+    await repo.upsert_world(_world_row("s1:A:0", "s1", "A", 1000))
+    await repo.upsert_world(_world_row("s1:B:0", "s1", "B", 1030))
+    # 同一世界多个 open 会话 → 结果只出现一次; active 也算 open
+    await repo.insert_session(_sess(SessionStatus.ACTIVE, world_id="s1:A:0",
+                                    player_key="p1"))
+    await repo.insert_session(_sess(SessionStatus.UNCERTAIN, world_id="s1:A:0",
+                                    player_key="p2"))
+    got = await repo.list_worlds_with_open_sessions("s1", "s1:B:0")
+    assert [w.world_id for w in got] == ["s1:A:0"]
+
+
+async def test_list_worlds_with_open_sessions_empty(repo):
+    await repo.upsert_world(_world_row("s1:B:0", "s1", "B", 1030))
+    await repo.insert_session(_sess(SessionStatus.ACTIVE, world_id="s1:B:0"))
+    assert await repo.list_worlds_with_open_sessions("s1", "s1:B:0") == []
 
 
 # ---- sessions_in_day: 与 [start, end) 窗口交叠的会话 ----

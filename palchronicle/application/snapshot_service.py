@@ -48,6 +48,24 @@ class SnapshotService:
         self._last_metrics_online: int | None = None
         # key=server_id, value=换世界后仍可能有未决会话待收敛的旧世界（§10.1）
         self._prev_worlds: dict[str, list[World]] = {}
+        # key=server_id, value=内存权威当前世界: 单事件循环内仅 ingest_info 同步
+        # 写入, 无 await 撕裂窗口; 用于识别 scheduler 并发 tick 传入的过期 world
+        self._current_worlds: dict[str, World] = {}
+
+    def _remember_prev_world(self, server_id: str, world: World) -> None:
+        """把旧世界记入待收敛表; 幂等——同一世界不重复记入。"""
+        prevs = self._prev_worlds.setdefault(server_id, [])
+        if all(w.world_id != world.world_id for w in prevs):
+            prevs.append(world)
+
+    async def _restore_prev_worlds(self, server_id: str, current: World) -> None:
+        """从 DB 重建待收敛集合: _prev_worlds 仅存内存, 插件热重载会丢失,
+        换世界后、收敛完成前重启会让旧世界 open 会话永久悬置（§10.1）。"""
+        stale = await self._repo.list_worlds_with_open_sessions(
+            server_id, current.world_id
+        )
+        for w in stale:
+            self._remember_prev_world(server_id, w)
 
     async def ingest_info(
         self, server: ServerConfig, resp: RestResponse
@@ -56,18 +74,18 @@ class SnapshotService:
             return None
         now = self._clock.now()
         info = self._normalizer.normalize_info(resp.data, now)
+        first_info = server.server_id not in self._current_worlds
         current = await self._repo.get_current_world(server.server_id)
         if current is not None and current.worldguid == info.worldguid:
             current.last_seen_at = now
             current.version = info.version or current.version
             current.server_name = info.server_name or current.server_name
+            self._current_worlds[server.server_id] = current
             await self._repo.upsert_world(current)
+            if first_info:
+                # 启动后首个 info: 重建重启前遗留的待收敛旧世界
+                await self._restore_prev_worlds(server.server_id, current)
             return current
-        if current is not None and current.worldguid != info.worldguid:
-            # 换世界：旧世界活动会话置 uncertain, 并记入待收敛表
-            # (旧世界此后收不到 players 快照, 由新世界的 players tick 代为 sweep)
-            await self._players.mark_uncertain(current)
-            self._prev_worlds.setdefault(server.server_id, []).append(current)
         world = World(
             world_id=f"{server.server_id}:{info.worldguid}:0",
             server_id=server.server_id,
@@ -79,7 +97,17 @@ class SnapshotService:
             last_seen_at=now,
             current_day=0,
         )
+        # 先同步确立内存权威世界: 换世界过程中后续 awaits 期间交错到达的
+        # players tick 依此判定传入 world 已过期, 不会复活旧世界会话
+        self._current_worlds[server.server_id] = world
+        if current is not None:
+            # 换世界：旧世界活动会话置 uncertain, 并记入待收敛表
+            # (旧世界此后收不到 players 快照, 由新世界的 players tick 代为 sweep)
+            await self._players.mark_uncertain(current)
+            self._remember_prev_world(server.server_id, current)
         await self._repo.upsert_world(world)
+        # 确立新世界时也重建: 覆盖"重启且首个 info 即换世界"的遗留旧世界
+        await self._restore_prev_worlds(server.server_id, world)
         return world
 
     async def ingest_metrics(self, world: World, resp: RestResponse) -> None:
@@ -143,19 +171,33 @@ class SnapshotService:
         prevs = self._prev_worlds.get(world.server_id)
         if not prevs:
             return
-        remaining: list[World] = []
-        for prev in prevs:
-            if prev.world_id == world.world_id:
-                continue  # 同 worldguid 回归: 会话由当前世界正常路径接管
+        # "同世界回归"判断须对照权威当前世界: 传入 world 可能是竞态下的过期引用
+        current = self._current_worlds.get(world.server_id, world)
+        for prev in list(prevs):
+            if prev.world_id == current.world_id:
+                # 同 worldguid 回归: 会话由当前世界正常路径接管
+                prevs.remove(prev)
+                continue
+            # 旧世界不再有 players 快照, 竞态残留的 active 会话先归位 uncertain,
+            # 保证唯一收敛路径 (sweep_uncertain 只关 uncertain) 一定覆盖到
+            await self._players.mark_uncertain(prev)
             await self._players.sweep_uncertain(prev)
-            if await self._repo.list_open_sessions(prev.world_id):
-                remaining.append(prev)
-        if remaining:
-            self._prev_worlds[world.server_id] = remaining
-        else:
-            del self._prev_worlds[world.server_id]
+            if not await self._repo.list_open_sessions(prev.world_id):
+                prevs.remove(prev)
+        if not prevs:
+            self._prev_worlds.pop(world.server_id, None)
 
     async def ingest_players(self, world: World, resp: RestResponse) -> None:
+        current = self._current_worlds.get(world.server_id)
+        if current is not None and current.world_id != world.world_id:
+            # 竞态: 调用方 await 期间 ingest_info 已完成换世界, 传入 world 过期。
+            # 跳过一切处理——既不能把旧世界 uncertain 会话复活为 active, 也不能
+            # 让 sweep 误把旧世界当"当前世界"从待收敛表丢掉; 收敛交给后续 tick。
+            _log.info(
+                "players tick skipped: stale world=%s current=%s",
+                world.world_id, current.world_id,
+            )
+            return
         # 无论本次 /players 成败, 先给旧世界一个收敛时机 (不依赖新世界端点健康)
         await self._sweep_prev_worlds(world)
         if not resp.ok or resp.data is None:

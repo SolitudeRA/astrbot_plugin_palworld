@@ -172,6 +172,97 @@ async def test_players_recovery_sweeps_timed_out_uncertain(tmp_path):
     await db.close()
 
 
+async def test_stale_world_players_tick_does_not_resurrect_sessions(tmp_path):
+    """竞态: PLAYERS 任务在 get_current_world 处拿到旧世界 A 后, INFO 任务完成
+    A→B 切换; 恢复的 PLAYERS 任务以过期的 A 调 ingest_players(健康响应)。
+    不得复活 A 的 uncertain 会话, 也不得把 A 从待收敛表丢掉。"""
+    db, clock, repo, svc = await _mk_snapshot(tmp_path)
+    world_a = await svc.ingest_info(_server(), _info_resp("G-A"))
+    await svc.ingest_players(world_a, _players_resp(["Alice"]))
+    stale = world_a  # PLAYERS 任务挂起期间持有的旧世界引用
+    clock.set(1030)
+    world_b = await svc.ingest_info(_server(), _info_resp("G-B"))
+    assert world_b.world_id != world_a.world_id
+    # 恢复的 PLAYERS 任务: 以过期 world 提交健康快照
+    await svc.ingest_players(stale, _players_resp(["Alice"]))
+    # (b) A 的会话不得被复活为 active
+    rows = await repo._db.query(
+        "SELECT status FROM player_sessions WHERE world_id=?", (world_a.world_id,))
+    assert rows[0]["status"] == "uncertain"
+    # (a) A 不得从待收敛表丢失
+    assert [w.world_id for w in svc._prev_worlds["s1"]] == [world_a.world_id]
+    # 收敛路径仍在: 超时后新世界 tick 关闭 A 的会话
+    clock.set(1000 + 901)
+    await svc.ingest_players(world_b, _players_resp([]))
+    rows = await repo._db.query(
+        "SELECT status, leave_reason, left_at FROM player_sessions WHERE world_id=?",
+        (world_a.world_id,))
+    assert rows[0]["status"] == "closed"
+    assert rows[0]["leave_reason"] == "world_offline"
+    assert rows[0]["left_at"] == 1901
+    assert svc._prev_worlds == {}
+    await db.close()
+
+
+async def test_world_regression_a_b_a_resumes_normal_path(tmp_path):
+    """合法 A→B→A 回归: A 重新成为当前世界后, 会话由正常路径接管并复用。"""
+    db, clock, repo, svc = await _mk_snapshot(tmp_path)
+    world_a = await svc.ingest_info(_server(), _info_resp("G-A"))
+    await svc.ingest_players(world_a, _players_resp(["Alice"]))
+    first = await repo.list_open_sessions(world_a.world_id)
+    clock.set(1030)
+    await svc.ingest_info(_server(), _info_resp("G-B"))
+    clock.set(1060)
+    world_a2 = await svc.ingest_info(_server(), _info_resp("G-A"))
+    assert world_a2.world_id == world_a.world_id
+    clock.set(1090)
+    await svc.ingest_players(world_a2, _players_resp(["Alice"]))
+    resumed = await repo.list_open_sessions(world_a.world_id)
+    assert len(resumed) == 1
+    assert resumed[0].id == first[0].id           # 复用同会话, 不新建
+    assert resumed[0].status == SessionStatus.ACTIVE
+    assert resumed[0].joined_at == 1000
+    # 回归世界从待收敛表移除 (B 无未决会话也被移除)
+    assert svc._prev_worlds == {}
+    await db.close()
+
+
+async def test_restart_rebuilds_prev_worlds_from_db(tmp_path):
+    """重启悬置: 换世界后、收敛完成前插件重启, _prev_worlds 内存态丢失。
+    新实例的首个 info 须从 DB 重建待收敛集合, 保证旧世界会话仍能收敛。"""
+    db, clock, repo, svc = await _mk_snapshot(tmp_path)
+    world_a = await svc.ingest_info(_server(), _info_resp("G-A"))
+    await svc.ingest_players(world_a, _players_resp(["Alice"]))
+    clock.set(1030)
+    await svc.ingest_info(_server(), _info_resp("G-B"))
+    # 模拟重启: 同一 DB 上新建第二个 service 实例 (内存待收敛集合为空)
+    players2 = PlayerService(repo, b"0" * 32, _cfg(), clock)
+    players2.events = FakeEvents()
+    svc2 = SnapshotService(
+        repo=repo, normalizer_mod=normalizer_mod, privacy_mod=privacy_mod,
+        meta=None, salt=b"0" * 32, cfg=_cfg(), clock=clock,
+        players=players2, guilds=None, bases=None, events=None,
+    )
+    clock.set(1100)
+    world_b2 = await svc2.ingest_info(_server(), _info_resp("G-B"))
+    assert [w.world_id for w in svc2._prev_worlds["s1"]] == [world_a.world_id]
+    # 幂等: 后续 info tick 不得重复记入同一世界
+    clock.set(1200)
+    await svc2.ingest_info(_server(), _info_resp("G-B"))
+    assert [w.world_id for w in svc2._prev_worlds["s1"]] == [world_a.world_id]
+    # 收敛: 超时后新世界 tick 关闭旧世界会话
+    clock.set(1000 + 901)
+    await svc2.ingest_players(world_b2, _players_resp([]))
+    rows = await repo._db.query(
+        "SELECT status, leave_reason, left_at FROM player_sessions WHERE world_id=?",
+        (world_a.world_id,))
+    assert rows[0]["status"] == "closed"
+    assert rows[0]["leave_reason"] == "world_offline"
+    assert rows[0]["left_at"] == 1901
+    assert svc2._prev_worlds == {}
+    await db.close()
+
+
 async def test_world_switch_sweeps_old_world_on_next_tick(tmp_path):
     """§10.1 路径二: worldguid 切换后, 新世界的 players tick 顺带收敛旧世界 uncertain 会话。"""
     db, clock, repo, svc = await _mk_snapshot(tmp_path)

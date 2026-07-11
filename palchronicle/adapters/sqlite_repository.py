@@ -167,6 +167,33 @@ class Repository:
             last_seen_at=r[7], current_day=r[8],
         )
 
+    async def list_worlds_with_open_sessions(
+        self, server_id: str, exclude_world_id: str
+    ) -> list[World]:
+        """除 exclude_world_id 外, 该服务器仍有 open(active/uncertain) 会话的世界。
+
+        用于重启后从 DB 重建换世界待收敛集合（§10.1）: _prev_worlds 仅存内存,
+        热重载会丢失, 旧世界 open 会话若无此路径将永久悬置。
+        """
+        rows = await self._db.query(
+            "SELECT world_id, server_id, worldguid, epoch, server_name, version, "
+            "       first_seen_at, last_seen_at, current_day "
+            "FROM worlds WHERE server_id=? AND world_id != ? "
+            "  AND EXISTS (SELECT 1 FROM player_sessions s "
+            "              WHERE s.world_id = worlds.world_id "
+            "                AND s.status IN ('active', 'uncertain')) "
+            "ORDER BY last_seen_at DESC",
+            (server_id, exclude_world_id),
+        )
+        return [
+            World(
+                world_id=r[0], server_id=r[1], worldguid=r[2], epoch=r[3],
+                server_name=r[4], version=r[5], first_seen_at=r[6],
+                last_seen_at=r[7], current_day=r[8],
+            )
+            for r in rows
+        ]
+
     # ---- retention ----
     async def prune(self, history: HistoryConfig, now: int) -> None:
         metric_cutoff = now - history.raw_metrics_days * _SECONDS_PER_DAY
