@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from collections.abc import Awaitable, Callable
 
-from palchronicle.presentation.dtos import ServerStatusRow
-from palchronicle.presentation.formatters import (
+from ..presentation.dtos import ServerStatusRow
+from ..presentation.formatters import (
     format_base,
     format_bases,
     format_degraded,
@@ -18,8 +18,8 @@ from palchronicle.presentation.formatters import (
     format_today,
     format_world,
 )
-from palchronicle.presentation.locale import L
-from palchronicle.presentation.server_arg import ArgError, parse_arg
+from ..presentation.locale import L
+from ..presentation.server_arg import ArgError, parse_arg
 
 
 class Commands:

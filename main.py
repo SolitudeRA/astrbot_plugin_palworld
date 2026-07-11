@@ -51,9 +51,14 @@ except Exception:  # test / standalone environment: lightweight stubs
 
     filter = _Filter()  # type: ignore
 
-from palchronicle.config import parse_config
-from palchronicle.container import Container
-from palchronicle.infrastructure.clock import SystemClock
+try:  # AstrBot 以 data.plugins.<目录>.main 命名空间加载，插件目录不在 sys.path
+    from .palchronicle.config import parse_config
+    from .palchronicle.container import Container
+    from .palchronicle.infrastructure.clock import SystemClock
+except ImportError:  # 测试/独立环境从仓库根以顶级模块导入
+    from palchronicle.config import parse_config
+    from palchronicle.container import Container
+    from palchronicle.infrastructure.clock import SystemClock
 
 
 def _resolve_data_dir() -> Path:

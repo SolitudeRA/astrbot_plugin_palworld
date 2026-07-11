@@ -5,29 +5,29 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import cast
 
-from palchronicle.adapters import normalizer as _normalizer_mod
-from palchronicle.adapters import privacy_filter as _privacy_mod
-from palchronicle.adapters.metadata_repository import MetadataRepository
-from palchronicle.adapters.palworld_rest import PalworldRestClient, RestResponse
-from palchronicle.adapters.sqlite_repository import Repository
-from palchronicle.application.base_service import BaseService
-from palchronicle.application.event_service import EventService
-from palchronicle.application.guild_service import GuildService
-from palchronicle.application.player_service import PlayerService
-from palchronicle.application.query_service import QueryService
-from palchronicle.application.report_service import ReportService
-from palchronicle.application.routing_service import RoutingService
-from palchronicle.application.snapshot_service import SnapshotService
-from palchronicle.config import AppConfig, ServerConfig
-from palchronicle.domain.enums import EndpointName
-from palchronicle.infrastructure.cache import TTLCache
-from palchronicle.infrastructure.clock import Clock
-from palchronicle.infrastructure.database import Database
-from palchronicle.infrastructure.locks import EndpointLocks
-from palchronicle.infrastructure.migrations import apply_migrations
-from palchronicle.infrastructure.salt import load_or_create_salt
-from palchronicle.infrastructure.scheduler import Scheduler
-from palchronicle.presentation.commands import Commands
+from .adapters import normalizer as _normalizer_mod
+from .adapters import privacy_filter as _privacy_mod
+from .adapters.metadata_repository import MetadataRepository
+from .adapters.palworld_rest import PalworldRestClient, RestResponse
+from .adapters.sqlite_repository import Repository
+from .application.base_service import BaseService
+from .application.event_service import EventService
+from .application.guild_service import GuildService
+from .application.player_service import PlayerService
+from .application.query_service import QueryService
+from .application.report_service import ReportService
+from .application.routing_service import RoutingService
+from .application.snapshot_service import SnapshotService
+from .config import AppConfig, ServerConfig
+from .domain.enums import EndpointName
+from .infrastructure.cache import TTLCache
+from .infrastructure.clock import Clock
+from .infrastructure.database import Database
+from .infrastructure.locks import EndpointLocks
+from .infrastructure.migrations import apply_migrations
+from .infrastructure.salt import load_or_create_salt
+from .infrastructure.scheduler import Scheduler
+from .presentation.commands import Commands
 
 _log = logging.getLogger("palchronicle.container")
 

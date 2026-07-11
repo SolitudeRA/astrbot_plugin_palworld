@@ -5,7 +5,7 @@ import asyncio
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
-from palchronicle.domain.enums import EndpointName
+from ..domain.enums import EndpointName
 
 
 class EndpointLocks:

@@ -3,9 +3,9 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass
 
-from palchronicle.adapters.privacy_filter import hash_user_id, quantize_cell
-from palchronicle.domain.enums import Confidence
-from palchronicle.domain.models import GameDataSnapshot, PalBox, World
+from ..adapters.privacy_filter import hash_user_id, quantize_cell
+from ..domain.enums import Confidence
+from ..domain.models import GameDataSnapshot, PalBox, World
 
 
 @dataclass(slots=True)
@@ -43,8 +43,8 @@ class BaseService:
         if not self._cfg.enabled:
             return []  # 配置停用据点模块; strict 隐私由上游 redact_game_data 结构性保证 (spec §15)
 
-        from palchronicle.domain.enums import ActionCategory, UnitType
-        from palchronicle.domain.models import Base, BaseObservation
+        from ..domain.enums import ActionCategory, UnitType
+        from ..domain.models import Base, BaseObservation
 
         existing = await self._repo.list_palboxes(world.world_id)
         matched = self._match_palboxes(world, gd, existing)

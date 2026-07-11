@@ -4,11 +4,11 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
-from palchronicle.adapters.sqlite_repository import Repository
-from palchronicle.config import AppConfig
-from palchronicle.domain.enums import EventType
-from palchronicle.domain.models import World
-from palchronicle.infrastructure.clock import Clock
+from ..adapters.sqlite_repository import Repository
+from ..config import AppConfig
+from ..domain.enums import EventType
+from ..domain.models import World
+from ..infrastructure.clock import Clock
 
 _ACTIVE_SECONDS = 600  # spec §12: 活跃日 >= 10 分钟
 

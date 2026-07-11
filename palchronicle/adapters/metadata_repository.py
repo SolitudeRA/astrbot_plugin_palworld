@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from palchronicle.domain.enums import ActionCategory
+from ..domain.enums import ActionCategory
 
 
 class MetadataRepository:

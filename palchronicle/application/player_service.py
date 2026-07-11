@@ -2,9 +2,9 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from palchronicle.adapters.privacy_filter import bucketize_ping, hash_user_id
-from palchronicle.domain.enums import IdConfidence, LeaveReason, SessionStatus, UnitType
-from palchronicle.domain.models import (
+from ..adapters.privacy_filter import bucketize_ping, hash_user_id
+from ..domain.enums import IdConfidence, LeaveReason, SessionStatus, UnitType
+from ..domain.models import (
     PlayerIdentity,
     PlayerObservation,
     PlayerRow,
@@ -14,7 +14,7 @@ from palchronicle.domain.models import (
 )
 
 if TYPE_CHECKING:
-    from palchronicle.application.event_service import EventService
+    from ..application.event_service import EventService
 
 
 def _resolve_identity(row: PlayerRow, salt: bytes, world_id: str) -> tuple[str, IdConfidence]:

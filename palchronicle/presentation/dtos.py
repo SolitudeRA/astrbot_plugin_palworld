@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from palchronicle.domain.enums import Confidence, PingBucket
+from ..domain.enums import Confidence, PingBucket
 
 
 @dataclass(slots=True)

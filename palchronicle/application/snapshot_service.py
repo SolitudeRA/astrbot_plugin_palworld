@@ -3,10 +3,10 @@ from __future__ import annotations
 import asyncio
 import logging
 
-from palchronicle.adapters.palworld_rest import RestResponse
-from palchronicle.config import AppConfig, ServerConfig
-from palchronicle.domain.models import GameDataSnapshot, World, WorldMetric
-from palchronicle.infrastructure.clock import Clock
+from ..adapters.palworld_rest import RestResponse
+from ..config import AppConfig, ServerConfig
+from ..domain.models import GameDataSnapshot, World, WorldMetric
+from ..infrastructure.clock import Clock
 
 _log = logging.getLogger("palchronicle.snapshot")
 
