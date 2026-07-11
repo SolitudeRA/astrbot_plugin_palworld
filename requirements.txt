@@ -1,0 +1,4 @@
+# 运行时依赖（AstrBot 安装插件时会整个装给最终用户，勿混入 dev 依赖）
+aiohttp>=3.9
+aiosqlite>=0.20
+tzdata>=2024.1

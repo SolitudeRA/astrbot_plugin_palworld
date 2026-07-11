@@ -1,0 +1,8 @@
+name: astrbot_plugin_palword
+display_name: PalChronicle · 帕鲁纪事
+desc: 只读的 Palworld 世界纪事、玩家档案与社区观察插件（基于官方 REST API）
+version: v0.1.0
+author: SolitudeRA
+repo: https://github.com/SolitudeRA/astrbot_plugin_palword
+astrbot_version: ">=4.10.4"
+license: GPL-3.0

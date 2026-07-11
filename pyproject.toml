@@ -1,0 +1,27 @@
+# 本文件仅承载开发工具配置（ruff 等），不含打包语义——
+# 插件由 AstrBot 直接加载源码分发，勿在此添加 [project] / [build-system]。
+
+[tool.ruff]
+target-version = "py311"
+line-length = 120
+exclude = [".venv", "docs"]
+
+[tool.ruff.lint]
+select = [
+    "E",  # pycodestyle 错误
+    "F",  # pyflakes
+    "W",  # pycodestyle 警告
+    "I",  # isort（import 排序）
+    "B",  # flake8-bugbear
+    "UP", # pyupgrade
+]
+
+[tool.ruff.lint.per-file-ignores]
+# 测试代码沿用紧凑写法（分号串联 setup 语句、单行长参数构造），不强制拆行。
+"tests/**" = ["E501", "E702"]
+
+[tool.mypy]
+# 务实基线：只查 palchronicle/（tests 沿用鸭子类型 fake，不纳入检查）。
+python_version = "3.11"
+files = ["palchronicle"]
+ignore_missing_imports = true

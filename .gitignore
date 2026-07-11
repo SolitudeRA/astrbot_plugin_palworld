@@ -1,0 +1,74 @@
+# ---- Python ----
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# 打包 / 分发
+build/
+dist/
+downloads/
+*.egg-info/
+.eggs/
+*.egg
+wheels/
+pip-wheel-metadata/
+
+# 虚拟环境
+.venv/
+venv/
+env/
+ENV/
+.env
+.env.*
+!.env.example
+
+# 测试 / 类型 / 覆盖率
+.pytest_cache/
+.tox/
+.nox/
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
+.mypy_cache/
+.dmypy.json
+.pyre/
+.ruff_cache/
+.hypothesis/
+
+# ---- 本项目运行时产物（绝不入库）----
+# SQLite 业务库及 WAL/SHM 边车
+*.db
+*.db-wal
+*.db-shm
+*.sqlite
+*.sqlite3
+palchronicle.db*
+
+# HMAC 密钥盐 —— 安全敏感，永不提交
+secret_salt
+*.salt
+
+# 插件运行时数据目录 / 缓存 / 导出（仅忽略仓库根下的本地产物，不影响 tests/fixtures）
+/data/
+/cache/
+/exports/
+
+# 真实（脱敏）API 样本 —— 若本地放置，勿入库；合成 fixtures 在 tests/fixtures/ 正常入库
+/samples/
+*.local.json
+
+# ---- 编辑器 / IDE ----
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+*.code-workspace
+
+# ---- 操作系统 ----
+.DS_Store
+Thumbs.db
+desktop.ini

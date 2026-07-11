@@ -1,0 +1,13 @@
+{
+  "fps": 58,
+  "average_fps": 55.5,
+  "characters": [
+    {"unit_type": "Player", "InstanceID": "INST-P1", "NickName": "Akari", "userid": "steam_00001", "Level": 21, "HP": 500, "MaxHP": 500, "GuildID": "G-1", "GuildName": "Noema", "action": "Idle", "LocationX": 100.0, "LocationY": 200.0, "LocationZ": 0.0, "IsActive": "true"},
+    {"unit_type": "BaseCampPal", "pal_class": "SheepBall", "Level": 8, "HP": 180, "MaxHP": 200, "GuildID": "G-1", "action": "Work", "AI_Action": "Work", "LocationX": 120.0, "LocationY": 210.0, "LocationZ": 0.0, "IsActive": "true"},
+    {"unit_type": "BaseCampPal", "pal_class": "Foxparks", "Level": 10, "HP": 90, "MaxHP": 150, "GuildID": "G-1", "action": "Idle", "AI_Action": "Idle", "LocationX": 118.0, "LocationY": 205.0, "LocationZ": 0.0, "IsActive": "false"},
+    {"unit_type": "WildPal", "pal_class": "Lamball", "Level": 3, "HP": 60, "MaxHP": 60, "action": "Idle", "LocationX": 9000.0, "LocationY": 9000.0, "LocationZ": 0.0, "IsActive": "true"}
+  ],
+  "palboxes": [
+    {"GuildID": "G-1", "GuildName": "Noema", "LocationX": 110.0, "LocationY": 205.0, "LocationZ": 0.0}
+  ]
+}

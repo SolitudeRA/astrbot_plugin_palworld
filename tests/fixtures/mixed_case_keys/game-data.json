@@ -1,0 +1,8 @@
+{
+  "FPS": 60,
+  "Average_FPS": 59.0,
+  "Characters": [
+    {"Unit_Type": "Player", "InstanceID": "INST-M1", "NICKNAME": "CaseTest", "userid": "steam_mixed", "level": 12, "hp": 400, "maxhp": 400, "guildid": "G-1", "guildname": "Noema", "Action": "Idle", "locationx": 500.0, "locationy": 600.0, "locationz": 0.0, "isactive": "true"}
+  ],
+  "PalBoxes": [{"guildid": "G-1", "guildname": "Noema", "locationx": 500.0, "locationy": 600.0, "locationz": 0.0}]
+}
