@@ -115,6 +115,10 @@ class PlayerService:
             else:
                 self._missing[mkey] = streak
 
+        # §10.1: 健康快照即收敛时机——中断期间置 uncertain 且本快照未回归的会话,
+        # last_confirmed_at 超过 uncertain_timeout 立即 closed/world_offline
+        await self.sweep_uncertain(world)
+
     async def mark_uncertain(self, world: World) -> None:
         for sess in await self._repo.list_open_sessions(world.world_id):
             if sess.status == SessionStatus.ACTIVE:

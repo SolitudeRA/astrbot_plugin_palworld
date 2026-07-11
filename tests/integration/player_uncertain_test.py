@@ -1,5 +1,10 @@
+from palchronicle.adapters import normalizer as normalizer_mod
+from palchronicle.adapters import privacy_filter as privacy_mod
+from palchronicle.adapters.palworld_rest import RestResponse
 from palchronicle.adapters.sqlite_repository import Repository
 from palchronicle.application.player_service import PlayerService
+from palchronicle.application.snapshot_service import SnapshotService
+from palchronicle.config import ServerConfig
 from palchronicle.domain.enums import SessionStatus
 from palchronicle.domain.models import PlayerRow, PlayersSnapshot, World
 from palchronicle.infrastructure.clock import FakeClock
@@ -97,4 +102,103 @@ async def test_sweep_keeps_fresh_uncertain(tmp_path):
     await svc.sweep_uncertain(_world())
     sess = await repo.get_open_session("w1", "pk-a")
     assert sess.status == SessionStatus.UNCERTAIN
+    await db.close()
+
+
+# ---- sweep_uncertain 运行时接线（经 SnapshotService 的真实采集路径）----
+
+def _server():
+    return ServerConfig(
+        server_id="s1", name="s1", enabled=True, base_url="http://x",
+        username="admin", password="pw", timeout=10, verify_tls=True, timezone="",
+    )
+
+
+def _info_resp(worldguid):
+    return RestResponse(ok=True, status=200,
+                        data={"Version": "0.3", "ServerName": "S", "WorldGuid": worldguid},
+                        duration_ms=1, payload_bytes=1, error=None)
+
+
+def _players_resp(names):
+    data = {"players": [{"UserId": f"uid-{n}", "Name": n, "Level": 5,
+                         "Ping": 40, "BuildingCount": 1} for n in names]}
+    return RestResponse(ok=True, status=200, data=data,
+                        duration_ms=1, payload_bytes=1, error=None)
+
+
+def _fail_resp():
+    return RestResponse(ok=False, status=None, data=None,
+                        duration_ms=1, payload_bytes=0, error="timeout")
+
+
+async def _mk_snapshot(tmp_path):
+    db = Database(tmp_path / "snap.db"); await db.open(); await apply_migrations(db)
+    clock = FakeClock(1000); repo = Repository(db, clock)
+    players = PlayerService(repo, b"0" * 32, _cfg(), clock); players.events = FakeEvents()
+    svc = SnapshotService(
+        repo=repo, normalizer_mod=normalizer_mod, privacy_mod=privacy_mod,
+        meta=None, salt=b"0" * 32, cfg=_cfg(), clock=clock,
+        players=players, guilds=None, bases=None, events=None,
+    )
+    return db, clock, repo, svc
+
+
+async def test_players_recovery_sweeps_timed_out_uncertain(tmp_path):
+    """§10.1 路径一: /players 失败置 uncertain, 端点恢复后未回归且超时的会话立即收敛。"""
+    db, clock, repo, svc = await _mk_snapshot(tmp_path)
+    world = await svc.ingest_info(_server(), _info_resp("G1"))
+    await svc.ingest_players(world, _players_resp(["Alice", "Bob"]))
+    # /players 端点失败 → 全部置 uncertain（last_confirmed_at 停在 1000）
+    clock.set(1030)
+    await svc.ingest_players(world, _fail_resp())
+    # 端点恢复健康: Bob 回归, Alice 未回归且已超 uncertain_timeout(900)
+    clock.set(1000 + 901)
+    await svc.ingest_players(world, _players_resp(["Bob"]))
+
+    alice = await repo.get_player_by_name(world.world_id, "Alice")
+    bob = await repo.get_player_by_name(world.world_id, "Bob")
+    assert await repo.get_open_session(world.world_id, alice.player_key) is None
+    rows = await repo._db.query(
+        "SELECT status, leave_reason, left_at FROM player_sessions WHERE player_key=?",
+        (alice.player_key,),
+    )
+    assert rows[0]["status"] == "closed"
+    assert rows[0]["leave_reason"] == "world_offline"
+    assert rows[0]["left_at"] == 1901
+    # 回归玩家恢复 active, 不被 sweep 波及
+    bob_sess = await repo.get_open_session(world.world_id, bob.player_key)
+    assert bob_sess.status == SessionStatus.ACTIVE
+    await db.close()
+
+
+async def test_world_switch_sweeps_old_world_on_next_tick(tmp_path):
+    """§10.1 路径二: worldguid 切换后, 新世界的 players tick 顺带收敛旧世界 uncertain 会话。"""
+    db, clock, repo, svc = await _mk_snapshot(tmp_path)
+    world_a = await svc.ingest_info(_server(), _info_resp("G-A"))
+    await svc.ingest_players(world_a, _players_resp(["Alice"]))
+    # 换世界: 旧世界会话置 uncertain, 此后旧世界再无 players 快照
+    clock.set(1030)
+    world_b = await svc.ingest_info(_server(), _info_resp("G-B"))
+    assert world_b.world_id != world_a.world_id
+
+    # 未超时: 新世界 tick 不收敛旧世界, prev 记录保留
+    clock.set(1500)
+    await svc.ingest_players(world_b, _players_resp([]))
+    rows = await repo._db.query(
+        "SELECT status FROM player_sessions WHERE world_id=?", (world_a.world_id,))
+    assert rows[0]["status"] == "uncertain"
+    assert "s1" in svc._prev_worlds
+
+    # 超时后: 下一个新世界 tick 收敛旧世界为 closed/world_offline
+    clock.set(1000 + 901)
+    await svc.ingest_players(world_b, _players_resp([]))
+    rows = await repo._db.query(
+        "SELECT status, leave_reason, left_at FROM player_sessions WHERE world_id=?",
+        (world_a.world_id,))
+    assert rows[0]["status"] == "closed"
+    assert rows[0]["leave_reason"] == "world_offline"
+    assert rows[0]["left_at"] == 1901
+    # 旧世界已无未决会话 → 从 prev 表移除, 避免永久多余查询
+    assert svc._prev_worlds == {}
     await db.close()

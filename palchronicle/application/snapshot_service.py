@@ -46,6 +46,8 @@ class SnapshotService:
         # key=world_id, value=(candidate, streak, baseline_peak)
         self._online_streak: dict[str, tuple[int, int, int]] = {}
         self._last_metrics_online: int | None = None
+        # key=server_id, value=换世界后仍可能有未决会话待收敛的旧世界（§10.1）
+        self._prev_worlds: dict[str, list[World]] = {}
 
     async def ingest_info(
         self, server: ServerConfig, resp: RestResponse
@@ -62,8 +64,10 @@ class SnapshotService:
             await self._repo.upsert_world(current)
             return current
         if current is not None and current.worldguid != info.worldguid:
-            # 换世界：旧世界活动会话置 uncertain
+            # 换世界：旧世界活动会话置 uncertain, 并记入待收敛表
+            # (旧世界此后收不到 players 快照, 由新世界的 players tick 代为 sweep)
             await self._players.mark_uncertain(current)
+            self._prev_worlds.setdefault(server.server_id, []).append(current)
         world = World(
             world_id=f"{server.server_id}:{info.worldguid}:0",
             server_id=server.server_id,
@@ -134,7 +138,26 @@ class SnapshotService:
     def get_settings(self, world_id: str) -> dict | None:
         return self._settings_cache.get(world_id)
 
+    async def _sweep_prev_worlds(self, world: World) -> None:
+        """借当前世界的 players tick 收敛换世界遗留的旧世界 uncertain 会话（§10.1）。"""
+        prevs = self._prev_worlds.get(world.server_id)
+        if not prevs:
+            return
+        remaining: list[World] = []
+        for prev in prevs:
+            if prev.world_id == world.world_id:
+                continue  # 同 worldguid 回归: 会话由当前世界正常路径接管
+            await self._players.sweep_uncertain(prev)
+            if await self._repo.list_open_sessions(prev.world_id):
+                remaining.append(prev)
+        if remaining:
+            self._prev_worlds[world.server_id] = remaining
+        else:
+            del self._prev_worlds[world.server_id]
+
     async def ingest_players(self, world: World, resp: RestResponse) -> None:
+        # 无论本次 /players 成败, 先给旧世界一个收敛时机 (不依赖新世界端点健康)
+        await self._sweep_prev_worlds(world)
         if not resp.ok or resp.data is None:
             _log.info(
                 "players unavailable status=%s error_kind=%s",

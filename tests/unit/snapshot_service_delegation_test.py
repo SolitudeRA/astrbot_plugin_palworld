@@ -15,6 +15,7 @@ from palchronicle.config import (
     PollingConfig,
     PrivacyConfig,
     RoutingConfig,
+    ServerConfig,
     WorldConfig,
 )
 from palchronicle.domain.enums import AccessMode
@@ -30,12 +31,16 @@ class SpyPlayers:
     def __init__(self):
         self.applied = []
         self.uncertain = []
+        self.swept = []
 
     async def apply_players(self, world, snap):
         self.applied.append((world.world_id, snap))
 
     async def mark_uncertain(self, world):
         self.uncertain.append(world.world_id)
+
+    async def sweep_uncertain(self, world):
+        self.swept.append(world.world_id)
 
 
 class SpyAgg:
@@ -168,3 +173,29 @@ async def test_ingest_game_data_failure_no_delegate(make_svc):
     await svc.ingest_game_data(_world(), _game_data_resp(ok=False))
     assert guilds.applied == []
     assert bases.applied == []
+
+
+def _server():
+    return ServerConfig(
+        server_id="s1", name="s1", enabled=True, base_url="http://x",
+        username="admin", password="pw", timeout=10, verify_tls=True, timezone="",
+    )
+
+
+def _info_resp(worldguid):
+    return RestResponse(ok=True, status=200,
+                        data={"Version": "0.3", "ServerName": "S", "WorldGuid": worldguid},
+                        duration_ms=1, payload_bytes=1, error=None)
+
+
+async def test_world_switch_prev_world_swept_then_forgotten(make_svc):
+    """换世界后, 新世界的 players tick 委托 sweep 旧世界; 旧世界无未决会话即遗忘。"""
+    svc, players, _, _ = await make_svc("balanced")
+    await svc.ingest_info(_server(), _info_resp("GUID-A"))
+    world_b = await svc.ingest_info(_server(), _info_resp("GUID-B"))
+    assert players.uncertain == ["s1:GUID-A:0"]
+    await svc.ingest_players(world_b, _players_resp())
+    assert players.swept == ["s1:GUID-A:0"]
+    # SpyPlayers 未建会话 → 旧世界 list_open_sessions 为空, prev 记录已移除
+    await svc.ingest_players(world_b, _players_resp())
+    assert players.swept == ["s1:GUID-A:0"]
