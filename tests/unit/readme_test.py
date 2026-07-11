@@ -17,3 +17,33 @@ def test_readme_requirements_and_usage():
 def test_readme_lists_readonly_endpoints():
     for ep in ("/info", "/metrics", "/players", "/settings", "/game-data"):
         assert ep in README, f"README 未声明只读端点: {ep}"
+
+
+def test_readme_install_splits_runtime_and_dev_deps():
+    # 安装节：运行时三件套 + 开发者另装 requirements-dev.txt
+    for phrase in ("aiohttp", "aiosqlite", "tzdata", "requirements-dev.txt"):
+        assert phrase in README, f"README 安装说明缺少: {phrase}"
+
+
+def test_readme_documents_polling_section():
+    for phrase in ("metrics_seconds", "players_seconds", "info_seconds",
+                   "settings_seconds", "game_data_seconds",
+                   "jitter_ratio", "max_concurrency", "背压"):
+        assert phrase in README, f"README polling 配置文档缺少: {phrase}"
+
+
+def test_readme_documents_world_section():
+    for phrase in ("world", "Asia/Tokyo", "fps_smooth", "fps_moderate", "fps_laggy"):
+        assert phrase in README, f"README world 配置文档缺少: {phrase}"
+
+
+def test_readme_documents_bases_section():
+    for phrase in ("assignment_radius", "ambiguity_ratio", "confirmation_samples",
+                   "position_grid_size", "z_weight"):
+        assert phrase in README, f"README bases 配置文档缺少: {phrase}"
+
+
+def test_readme_documents_history_section():
+    for phrase in ("raw_metrics_days", "aggregate_days",
+                   "session_days", "observation_days"):
+        assert phrase in README, f"README history 配置文档缺少: {phrase}"
