@@ -55,3 +55,8 @@ def test_readme_documents_custom_headers_section():
     for phrase in ("custom_headers", "value_env", "servers 留空",
                    "所有服务器", "重启 AstrBot"):
         assert phrase in README, f"README custom_headers 配置文档缺少: {phrase}"
+
+
+def test_readme_documents_plugin_page_section():
+    for phrase in ("插件页面", "4.24.1", "4.25.3", "__unchanged__", "重载"):
+        assert phrase in README, f"README 插件页面文档缺少: {phrase}"
