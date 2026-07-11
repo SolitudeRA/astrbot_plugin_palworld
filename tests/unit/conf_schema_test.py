@@ -12,6 +12,7 @@ def test_top_level_keys_present_and_types():
     s = load_schema()
     assert s["servers"]["type"] == "template_list"
     assert s["group_bindings"]["type"] == "template_list"
+    assert s["custom_headers"]["type"] == "template_list"
     for key in ("routing", "polling", "world", "bases", "privacy", "history"):
         assert s[key]["type"] == "object", f"{key} must be object"
 
@@ -61,3 +62,13 @@ def test_world_bases_privacy_history_defaults():
     assert s["privacy"]["items"]["ping_ok_ms"]["default"] == 120
     assert s["history"]["items"]["raw_metrics_days"]["default"] == 7
     assert s["history"]["items"]["observation_days"]["default"] == 180
+
+
+def test_custom_headers_template_items_and_defaults():
+    s = load_schema()
+    ch = s["custom_headers"]
+    assert ch["default"] == []
+    assert ch["templates"]["header"]["display_item"] == "name"
+    items = ch["templates"]["header"]["items"]
+    assert set(items) == {"name", "value", "value_env", "servers"}
+    assert all(items[k]["default"] == "" for k in items)

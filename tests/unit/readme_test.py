@@ -49,3 +49,9 @@ def test_readme_documents_history_section():
     for phrase in ("raw_metrics_days", "aggregate_days",
                    "session_days", "observation_days"):
         assert phrase in README, f"README history 配置文档缺少: {phrase}"
+
+
+def test_readme_documents_custom_headers_section():
+    for phrase in ("custom_headers", "value_env", "servers 留空",
+                   "所有服务器", "重启 AstrBot"):
+        assert phrase in README, f"README custom_headers 配置文档缺少: {phrase}"

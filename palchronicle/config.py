@@ -1,12 +1,25 @@
 """把 AstrBotConfig(dict) 解析为强类型配置数据类（spec §5.4 / 契约配置节）。"""
 from __future__ import annotations
 
+import re
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from .domain.enums import AccessMode
 
 _ILLEGAL = (":", "@")
+# RFC 9110 tchar；用 fullmatch（$ 会在末尾换行前匹配，是暗坑）
+_HEADER_NAME_RE = re.compile(r"[!#$%&'*+\-.^_`|~0-9A-Za-z]+")
+# aiohttp 序列化期禁止集（除 TAB \x09 外的控制字符）；\r\n 注入在此一并封死
+_HEADER_VALUE_ILLEGAL_RE = re.compile(r"[\x00-\x08\x0a-\x1f\x7f]")
+# authorization: 与 BasicAuth auth= 共存 aiohttp 抛 ValueError
+# host: 避免与 base_url 的 SNI/TLS 校验、连接复用键不一致
+# content-length/transfer-encoding/connection: 报文框架头，GET 上只会破坏请求
+# expect: 100-continue 会让 aiohttp 阻塞等待 100，网关不回则每次轮询空转到超时
+_RESERVED_HEADERS = frozenset({
+    "authorization", "host", "content-length", "transfer-encoding",
+    "connection", "expect",
+})
 
 
 @dataclass(slots=True)
@@ -20,6 +33,7 @@ class ServerConfig:
     timeout: int
     verify_tls: bool
     timezone: str
+    headers: dict[str, str] = field(default_factory=dict)
 
     @property
     def ready(self) -> bool:
@@ -30,6 +44,12 @@ class ServerConfig:
 class SkippedServer:
     raw_name: str
     reason: str  # "empty" / "duplicate" / "illegal_char" / "no_credential"
+
+
+@dataclass(slots=True)
+class SkippedHeader:
+    raw_name: str  # 原始 name；绝不携带 value（脱敏红线）
+    reason: str    # empty_name / illegal_name / reserved / empty_value / illegal_value
 
 
 @dataclass(slots=True)
@@ -104,6 +124,7 @@ class AppConfig:
     bases: BasesConfig
     privacy: PrivacyConfig
     history: HistoryConfig
+    skipped_headers: list[SkippedHeader] = field(default_factory=list)
 
 
 def _obj(raw: Mapping, key: str) -> Mapping:
@@ -168,8 +189,68 @@ def _parse_bindings(raw: Mapping) -> list[BindingConfig]:
     return out
 
 
+def _resolve_header_value(item: Mapping, env: Mapping[str, str]) -> str:
+    env_name = str(item.get("value_env", "") or "").strip()
+    if env_name:
+        from_env = env.get(env_name)
+        if from_env:
+            return from_env
+    return str(item.get("value", "") or "")
+
+
+def _parse_custom_headers(
+    raw: Mapping, env: Mapping[str, str], server_names: list[str]
+) -> tuple[dict[str, dict[str, str]], list[SkippedHeader]]:
+    """返回 (server_name -> 最终请求头 dict, 跳过列表)。
+
+    name/value 各 strip 一次后贯穿全部判定与落盘；header 名大小写不敏感
+    去重、后者覆盖前者且保留后者大小写；作用域零匹配=零服务器（fail-closed）。
+    """
+    per_server: dict[str, dict[str, str]] = {n: {} for n in server_names}
+    canon: dict[str, dict[str, str]] = {n: {} for n in server_names}  # lower -> 落盘名
+    skipped: list[SkippedHeader] = []
+    for item in raw.get("custom_headers", []) or []:
+        raw_name = str(item.get("name", "") or "")
+        name = raw_name.strip()
+        if not name:
+            skipped.append(SkippedHeader(raw_name=raw_name, reason="empty_name"))
+            continue
+        if not _HEADER_NAME_RE.fullmatch(name):
+            skipped.append(SkippedHeader(raw_name=raw_name, reason="illegal_name"))
+            continue
+        lower = name.lower()
+        if lower in _RESERVED_HEADERS:
+            skipped.append(SkippedHeader(raw_name=raw_name, reason="reserved"))
+            continue
+        value = _resolve_header_value(item, env).strip()
+        if not value:
+            skipped.append(SkippedHeader(raw_name=raw_name, reason="empty_value"))
+            continue
+        if _HEADER_VALUE_ILLEGAL_RE.search(value):
+            skipped.append(SkippedHeader(raw_name=raw_name, reason="illegal_value"))
+            continue
+        scope_raw = str(item.get("servers", "") or "").strip()
+        if not scope_raw:
+            targets = server_names  # 字段整体为空 = 所有服务器
+        else:
+            listed = [seg.strip() for seg in scope_raw.split(",")]
+            # 非空但零有效段/零匹配 → 零服务器，绝不回退到全部
+            targets = [n for n in listed if n and n in per_server]
+        for n in targets:
+            prev = canon[n].pop(lower, None)
+            if prev is not None:
+                per_server[n].pop(prev, None)
+            canon[n][lower] = name
+            per_server[n][name] = value
+    return per_server, skipped
+
+
 def parse_config(raw: Mapping, env: Mapping[str, str]) -> AppConfig:
     servers, skipped = _parse_servers(raw, env)
+    header_map, skipped_headers = _parse_custom_headers(
+        raw, env, [s.name for s in servers])
+    for s in servers:
+        s.headers = header_map[s.name]
     r = _obj(raw, "routing")
     p = _obj(raw, "polling")
     w = _obj(raw, "world")
@@ -222,4 +303,5 @@ def parse_config(raw: Mapping, env: Mapping[str, str]) -> AppConfig:
             session_days=int(h.get("session_days", 365)),
             observation_days=int(h.get("observation_days", 180)),
         ),
+        skipped_headers=skipped_headers,
     )

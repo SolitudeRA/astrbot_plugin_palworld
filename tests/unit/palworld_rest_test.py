@@ -36,12 +36,14 @@ class _FakeSession:
         self._script = script
         self.requested_url = None
         self.requested_auth = None
+        self.requested_headers = "UNSET"  # 哨兵：区分「传了 None」与「没传」
         self.closed = False
 
     @asynccontextmanager
-    async def get(self, url, auth=None, timeout=None, ssl=None):
+    async def get(self, url, auth=None, timeout=None, ssl=None, headers=None):
         self.requested_url = url
         self.requested_auth = auth
+        self.requested_headers = headers
         outcome = self._script
         if isinstance(outcome, Exception):
             raise outcome
@@ -141,3 +143,26 @@ async def test_json_decode_error_is_redacted():
     # 兜底分支绝不能泄露异常文本（可能含 host/内部细节）。
     assert secret_detail not in resp.error
     assert "secret-host" not in resp.error
+
+
+async def test_fetch_sends_custom_headers():
+    server = ServerConfig(
+        server_id="s1", name="s1", enabled=True,
+        base_url="http://secret-host:8212", username="admin",
+        password="topsecret", timeout=10, verify_tls=True, timezone="",
+        headers={"CF-Access-Client-Id": "abc", "X-Token": "t"},
+    )
+    session = _FakeSession(_FakeResp(200, {}))
+    client = PalworldRestClient(server, FakeClock(1000))
+    client._session = session
+    await client.fetch(EndpointName.INFO)
+    assert session.requested_headers == {"CF-Access-Client-Id": "abc", "X-Token": "t"}
+
+
+async def test_fetch_without_custom_headers_passes_none():
+    # headers 为空 dict 时必须传 None，保持现有请求完全不变（spec §4 零回归面）
+    session = _FakeSession(_FakeResp(200, {}))
+    client = PalworldRestClient(_server(), FakeClock(1000))
+    client._session = session
+    await client.fetch(EndpointName.INFO)
+    assert session.requested_headers is None

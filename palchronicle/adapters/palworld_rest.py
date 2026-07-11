@@ -54,6 +54,7 @@ class PalworldRestClient:
                 timeout=aiohttp.ClientTimeout(total=self._server.timeout),
                 # aiohttp 标注不含 None，但运行时 None 等价于默认校验；保持现状不改行为
                 ssl=ssl_opt,  # type: ignore[arg-type]
+                headers=self._server.headers or None,  # 空 dict 传 None：零回归面
             ) as resp:
                 body = await resp.read()
                 duration_ms = int((self._clock.monotonic() - start) * 1000)

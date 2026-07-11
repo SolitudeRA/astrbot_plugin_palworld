@@ -46,6 +46,24 @@
       }
     }
   },
+  "custom_headers": {
+    "type": "template_list",
+    "description": "自定义 HTTP 请求头（随 REST 轮询请求发送）",
+    "hint": "敏感值（如网关 Token）建议填环境变量名(value_env)而非明文；明文会落盘到 data/config/。含凭证的头务必用 servers 限定作用域：留空会发给所有已配置服务器（包括之后新增的）",
+    "default": [],
+    "templates": {
+      "header": {
+        "name": "请求头",
+        "display_item": "name",
+        "items": {
+          "name": { "type": "string", "description": "Header 名（如 CF-Access-Client-Id）", "default": "" },
+          "value": { "type": "string", "description": "Header 值（明文，与 value_env 二选一）", "default": "" },
+          "value_env": { "type": "string", "description": "值的环境变量名（推荐，与 value 二选一）", "default": "" },
+          "servers": { "type": "string", "description": "限定服务器 name，逗号分隔多个；留空=所有服务器", "default": "" }
+        }
+      }
+    }
+  },
   "polling": {
     "type": "object",
     "description": "轮询间隔（全局，逐服务器套用）",

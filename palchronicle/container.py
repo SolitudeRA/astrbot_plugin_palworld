@@ -57,6 +57,14 @@ class Container:
         self._world_cache: dict[str, object] = {}
 
     async def start(self) -> None:
+        if self._cfg.skipped_headers:
+            # 只含 name+reason；value（可能是网关凭证）绝不入日志
+            _log.warning(
+                "custom_headers 跳过 %d 条: %s",
+                len(self._cfg.skipped_headers),
+                ", ".join(f"{h.raw_name}({h.reason})"
+                          for h in self._cfg.skipped_headers),
+            )
         self._db = Database(self._data_dir / "palchronicle.sqlite3")
         self.db = self._db  # 供隐私扫描/集成测试只读遍历全表
         await self._db.open()
