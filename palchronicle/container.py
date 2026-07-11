@@ -156,10 +156,13 @@ class Container:
             await self._snapshot.ingest_game_data(world, resp)
 
     async def stop(self) -> None:
-        if self._scheduler is not None:
-            await self._scheduler.stop()
-        for client in self._rest_clients.values():
-            await client.close()
-        self._rest_clients.clear()
-        if self._db is not None:
-            await self._db.close()
+        try:
+            if self._scheduler is not None:
+                await self._scheduler.stop()
+            for client in self._rest_clients.values():
+                await client.close()
+            self._rest_clients.clear()
+        finally:
+            if self._db is not None:
+                await self._db.close()
+                self._db = None
