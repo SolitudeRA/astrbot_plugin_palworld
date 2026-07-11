@@ -154,4 +154,4 @@ class Commands:
 
     def help(self, message_str, is_admin) -> str:
         arg = parse_arg(message_str, "help")
-        return format_help(arg.name or None, is_admin)
+        return format_help(arg.name or None, is_admin, self._cfg.features)

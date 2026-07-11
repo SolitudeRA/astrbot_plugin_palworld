@@ -21,6 +21,7 @@ MESSAGES: dict[str, str] = {
     "empty_day": "平静的一天，没有值得记录的事件。",
     "no_events": "近期暂无世界事件。",
     "derived_note": "（插件推导）",
+    "feature_disabled": "该功能未开放：当前配置或服务器不支持。",
 }
 
 
