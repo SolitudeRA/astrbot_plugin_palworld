@@ -366,6 +366,21 @@ class Repository:
         )
         return [self._row_to_session(r) for r in rows]
 
+    async def sessions_in_day(
+        self, world_id: str, start_ts: int, end_ts: int
+    ) -> list[PlayerSession]:
+        """与 [start_ts, end_ts) 窗口有交叠的会话（进行中会话 left_at 为 NULL 也计入）。"""
+        rows = await self._db.query(
+            """
+            SELECT * FROM player_sessions
+            WHERE world_id = ? AND joined_at < ?
+              AND (left_at IS NULL OR left_at >= ?)
+            ORDER BY joined_at ASC
+            """,
+            (world_id, end_ts, start_ts),
+        )
+        return [self._row_to_session(r) for r in rows]
+
     # ---- observations ----
     async def insert_observation(self, o: PlayerObservation) -> None:
         await self._db.execute_write(

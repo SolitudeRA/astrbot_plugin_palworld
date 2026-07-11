@@ -123,17 +123,18 @@ class ReportService:
         for e in new_bases:
             records.append(f"新据点 {e.subject_key} 出现")
 
-        total_online_seconds = 0
-        active_players = 0
-        try:
-            # Repository 尚未提供该方法时走 AttributeError 降级路径（见下方 except）
-            sessions = await self._repo.sessions_in_day(world.world_id, start, end)  # type: ignore[attr-defined]
-            total_online_seconds = sum(s.observed_seconds for s in sessions)
-            active_players = sum(
-                1 for s in sessions if s.observed_seconds >= _ACTIVE_SECONDS
-            )
-        except AttributeError:
-            pass
+        # v0.1 近似：与当日窗口交叠的会话，其 observed_seconds 全额计入当日，
+        # 跨午夜会话不做按日切分。
+        sessions = await self._repo.sessions_in_day(world.world_id, start, end)
+        total_online_seconds = sum(s.observed_seconds for s in sessions)
+        # spec §12: 活跃日 = 某自然日累计观察在线 ≥ 10 分钟 → 按玩家累计并去重，
+        # 同一 player_key 多段会话合计达标才算 1 名活跃玩家。
+        per_player: dict[str, int] = {}
+        for s in sessions:
+            per_player[s.player_key] = per_player.get(s.player_key, 0) + s.observed_seconds
+        active_players = sum(
+            1 for total in per_player.values() if total >= _ACTIVE_SECONDS
+        )
 
         has_content = bool(events) or active_players > 0
         if has_content:

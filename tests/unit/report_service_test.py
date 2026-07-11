@@ -12,8 +12,8 @@ from palchronicle.config import (
     RoutingConfig,
     WorldConfig,
 )
-from palchronicle.domain.enums import AccessMode
-from palchronicle.domain.models import World, WorldMetric
+from palchronicle.domain.enums import AccessMode, LeaveReason, SessionStatus
+from palchronicle.domain.models import PlayerSession, World, WorldMetric
 from palchronicle.infrastructure.clock import FakeClock
 from palchronicle.infrastructure.database import Database
 from palchronicle.infrastructure.migrations import apply_migrations
@@ -117,6 +117,52 @@ async def test_daily_empty_day_reports_calm(tmp_path):
         assert rep.active_players == 0
         assert rep.peak_online == 0
         assert rep.total_online_seconds == 0
+    finally:
+        await db.close()
+
+
+def _session(world_id, player_key, joined_at, observed_seconds, *, left_at=None):
+    closed = left_at is not None
+    return PlayerSession(
+        id=None, world_id=world_id, player_key=player_key,
+        joined_at=joined_at,
+        last_confirmed_at=left_at if closed else joined_at + observed_seconds,
+        left_at=left_at, observed_seconds=observed_seconds,
+        status=SessionStatus.CLOSED if closed else SessionStatus.ACTIVE,
+        leave_reason=LeaveReason.OBSERVED_TIMEOUT if closed else None,
+    )
+
+
+async def test_daily_total_online_and_active_players_dedup_by_player(tmp_path):
+    report, repo, events, clock, db = await _make(tmp_path)
+    try:
+        w = _world()
+        # pk_a: 两段各低于 600s 的会话，合计 700s ≥ 600 → 算 1 名活跃玩家
+        await repo.insert_session(_session(
+            w.world_id, "pk_a", DAY_START_UTC + 3600, 400,
+            left_at=DAY_START_UTC + 4000))
+        await repo.insert_session(_session(
+            w.world_id, "pk_a", DAY_START_UTC + 7200, 300,
+            left_at=DAY_START_UTC + 7500))
+        # pk_b: 两段各 ≥ 600s 的会话 → 去重后仍只算 1 名活跃玩家
+        await repo.insert_session(_session(
+            w.world_id, "pk_b", DAY_START_UTC + 3600, 700,
+            left_at=DAY_START_UTC + 4300))
+        await repo.insert_session(_session(
+            w.world_id, "pk_b", NOON, 700))  # 进行中（left_at NULL）也计入
+        # pk_c: 合计 100s < 600 → 不活跃，但时长计入总观察在线
+        await repo.insert_session(_session(
+            w.world_id, "pk_c", NOON, 100,
+            left_at=NOON + 100))
+        # 前一日已关闭的会话不计入
+        await repo.insert_session(_session(
+            w.world_id, "pk_prev", DAY_START_UTC - 7200, 5000,
+            left_at=DAY_START_UTC - 100))
+        rep = await report.daily(w, day="2026-07-10")
+        assert rep.total_online_seconds == 400 + 300 + 700 + 700 + 100
+        assert rep.active_players == 2  # pk_a + pk_b（按玩家去重，非按会话）
+        assert rep.is_empty is False
+        assert "2 名玩家在线活跃" in rep.summary
     finally:
         await db.close()
 
