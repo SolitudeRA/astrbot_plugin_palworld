@@ -215,8 +215,8 @@ async def test_worldguid_switch_isolates_data(harness):
 async def test_two_servers_do_not_cross_contaminate(harness_two):
     container, cfg, clock = harness_two
     alpha, beta = cfg.servers[0], cfg.servers[1]
-    snap_a = container.snapshot_service_for(alpha.server_id)
-    snap_b = container.snapshot_service_for(beta.server_id)
+    snap_a = container.snapshot_service()
+    snap_b = container.snapshot_service()
 
     world_a = await snap_a.ingest_info(alpha, ok(load_fixture("normal_world", "info")))
     world_b = await snap_b.ingest_info(beta, ok(load_fixture("worldguid_switch", "info_b")))

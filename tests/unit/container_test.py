@@ -1,8 +1,18 @@
+import logging
 from pathlib import Path
 
+from palchronicle.adapters.metadata_repository import MetadataRepository
+from palchronicle.application.snapshot_service import SnapshotService
 from palchronicle.config import (
-    AppConfig, BasesConfig, BindingConfig, HistoryConfig, PollingConfig,
-    PrivacyConfig, RoutingConfig, ServerConfig, WorldConfig,
+    AppConfig,
+    BasesConfig,
+    BindingConfig,
+    HistoryConfig,
+    PollingConfig,
+    PrivacyConfig,
+    RoutingConfig,
+    ServerConfig,
+    WorldConfig,
 )
 from palchronicle.container import Container
 from palchronicle.domain.enums import AccessMode
@@ -86,6 +96,53 @@ async def test_stop_closes_rest_and_db(tmp_path: Path):
     await c.start()
     await c.stop()
     assert rests and all(r.closed for r in rests)
+
+
+async def test_metadata_loads_from_package_root(tmp_path: Path):
+    # data_dir 模拟 AstrBot 插件数据目录（<astrbot>/data/plugin_data/<插件名>），
+    # 其父级不含 metadata/；metadata 必须按包位置（插件根目录）解析才能加载到条目。
+    data_dir = tmp_path / "data" / "plugin_data" / "palchronicle"
+    data_dir.mkdir(parents=True)
+    c = Container(_cfg([_server("alpha")]), data_dir, FakeClock(1000),
+                  rest_factory=lambda s, clk: _FakeRest(),
+                  scheduler_factory=lambda *a, **k: _FakeScheduler())
+    await c.start()
+    try:
+        meta = c._snapshot._meta
+        assert meta.pal_name("PalDataParameter/SheepBall") == "棉悠悠"  # 官方中文名（旧值 绵绵羊 为民间译名）
+    finally:
+        await c.stop()
+
+
+async def test_metadata_load_failure_logs_warning(tmp_path: Path, monkeypatch, caplog):
+    def boom(self):
+        raise FileNotFoundError("metadata missing")
+
+    monkeypatch.setattr(MetadataRepository, "load", boom)
+    c = Container(_cfg([_server("alpha")]), tmp_path, FakeClock(1000),
+                  rest_factory=lambda s, clk: _FakeRest(),
+                  scheduler_factory=lambda *a, **k: _FakeScheduler())
+    with caplog.at_level(logging.WARNING, logger="palchronicle.container"):
+        await c.start()
+    try:
+        assert any("metadata" in rec.getMessage() for rec in caplog.records)
+    finally:
+        await c.stop()
+
+
+async def test_snapshot_service_is_shared_across_servers(tmp_path: Path):
+    c = Container(_cfg([_server("alpha"), _server("beta")]), tmp_path, FakeClock(1000),
+                  rest_factory=lambda s, clk: _FakeRest(),
+                  scheduler_factory=lambda *a, **k: _FakeScheduler())
+    await c.start()
+    try:
+        snap = c.snapshot_service()
+        assert isinstance(snap, SnapshotService)
+        assert snap is c._snapshot
+        # 旧的按 server_id 取用接口已移除（服务本身按 world 隔离多服务器数据）
+        assert not hasattr(c, "snapshot_service_for")
+    finally:
+        await c.stop()
 
 
 async def test_on_response_dispatches_info(tmp_path: Path, monkeypatch):

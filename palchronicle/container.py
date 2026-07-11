@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import logging
+from collections.abc import Callable
 from pathlib import Path
-from typing import Callable
+from typing import cast
 
 from palchronicle.adapters import normalizer as _normalizer_mod
 from palchronicle.adapters import privacy_filter as _privacy_mod
@@ -26,6 +28,8 @@ from palchronicle.infrastructure.migrations import apply_migrations
 from palchronicle.infrastructure.salt import load_or_create_salt
 from palchronicle.infrastructure.scheduler import Scheduler
 from palchronicle.presentation.commands import Commands
+
+_log = logging.getLogger("palchronicle.container")
 
 
 class Container:
@@ -67,11 +71,15 @@ class Container:
         ready_ids = {s.server_id for s in self._cfg.servers if s.ready}
         await repo.cleanup_orphan_bindings(ready_ids)
 
-        meta = MetadataRepository(self._data_dir.parent / "metadata")
+        # metadata/ 随插件包分发，按包位置解析（palchronicle/ 的上级即插件根目录）；
+        # data_dir 是 AstrBot 的插件数据目录（<astrbot>/data/plugin_data/<插件名>），
+        # 与安装目录无关，不能用来定位 metadata。
+        metadata_dir = Path(__file__).resolve().parent.parent / "metadata"
+        meta = MetadataRepository(metadata_dir)
         try:
             meta.load()
-        except Exception:  # pragma: no cover - metadata optional at start
-            pass
+        except Exception as exc:  # metadata 缺失时降级为占位渲染，但必须留痕
+            _log.warning("metadata load failed dir=%s error=%s", metadata_dir, exc)
         cache = TTLCache(self._clock)
 
         events = EventService(repo, self._clock)
@@ -105,9 +113,14 @@ class Container:
         )
         await self._scheduler.start()
 
-    def snapshot_service_for(self, server_id: str) -> SnapshotService:
-        """返回指定服务器的 SnapshotService（集成测试与内部采集回调共用）。"""
-        return self._snapshot
+    def snapshot_service(self) -> SnapshotService:
+        """返回全服务器共享的 SnapshotService（集成测试与内部采集回调共用）。
+
+        该服务是单例：多服务器数据在其内部按 world（world_id 前缀为 server_id）隔离，
+        无需按 server_id 区分实例。
+        """
+        # start() 成功后必已初始化；类型收窄用 cast，不引入运行时断言
+        return cast(SnapshotService, self._snapshot)
 
     async def _fetch(self, server_id: str, endpoint: EndpointName) -> RestResponse:
         client = self._rest_clients[server_id]

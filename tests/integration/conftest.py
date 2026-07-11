@@ -73,7 +73,7 @@ async def harness(tmp_path):
     )
     await container.start()
     server = cfg.servers[0]
-    snap = container.snapshot_service_for(server.server_id)
+    snap = container.snapshot_service()
     try:
         yield container, server, clock, snap
     finally:
@@ -96,7 +96,7 @@ async def harness_strict(tmp_path):
     )
     await container.start()
     server = cfg.servers[0]
-    snap = container.snapshot_service_for(server.server_id)
+    snap = container.snapshot_service()
     try:
         yield container, server, clock, snap
     finally:
