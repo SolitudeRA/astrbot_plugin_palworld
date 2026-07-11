@@ -110,6 +110,18 @@ AstrBot 不显示该页面，插件其余功能不受影响。
   安全必须重新输入该服务器密码，避免旧凭证被发往新地址
 - **鉴权**：页面请求经 AstrBot Dashboard 登录态转发，未登录无法访问
 
+### features（功能分组开关）
+
+功能按组可插拔，在插件配置页勾选。关闭的组不轮询其端点、不装配其服务、命令回「未开放」；代码保留，改开即恢复。
+
+| 组 | 默认 | 命令 | 说明 |
+|------|------|------|------|
+| `report` | 开 | `/pal today` | 日报/在线统计 |
+| `events` | 开 | `/pal events` | 世界事件记录（关闭后不生成事件） |
+| `guilds_bases` | **关** | `/pal guilds` `/pal bases` 等 | 公会与据点，依赖服务器开放 `/game-data` |
+
+**关于 `guilds_bases` 默认关闭**：Palworld 1.0 的专用服务器虽提供 `/v1/api/game-data` 端点，但未开放启用 `PalGameDataBridge` 的任何 INI 字段或启动参数（上游限制），该端点无真实数据。故公会/据点/PalBox 功能默认关闭。待 Palworld 开放后，在配置页把 `features.guilds_bases` 设为开即整组恢复。`bases.*` 与 `game_data_seconds` 仅在该组开启时生效。
+
 ## 多服务器与群授权用法
 
 - `/pal servers`：列出所有服务器与本群授权/活动状态。

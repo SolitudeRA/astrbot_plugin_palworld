@@ -224,6 +224,8 @@ class SnapshotService:
         await self._players.apply_players(world, snap)
 
     async def ingest_game_data(self, world: World, resp: RestResponse) -> None:
+        if self._guilds is None or self._bases is None:
+            return                       # guilds_bases 组禁用：整体短路（含 _world_cache 写入）
         if not resp.ok or resp.data is None:
             return  # 保留基础状态, 不误判
         now = self._clock.now()

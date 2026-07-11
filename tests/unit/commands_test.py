@@ -1,10 +1,19 @@
 from palchronicle.application.routing_service import Resolution
-from palchronicle.config import ServerConfig
+from palchronicle.config import ServerConfig, parse_config
 from palchronicle.domain.models import World
 from palchronicle.presentation.commands import Commands
 from palchronicle.presentation.locale import L
 
 WID = "alpha:guid-1:0"
+
+
+def _cfg_all_on():
+    return parse_config({
+        "servers": [], "routing": {"access_mode": "open", "default_server": ""},
+        "group_bindings": [], "polling": {}, "world": {}, "bases": {},
+        "privacy": {"mode": "balanced"}, "history": {},
+        "features": {"report": True, "events": True, "guilds_bases": True},
+    }, {})
 
 
 def _server() -> ServerConfig:
@@ -115,6 +124,8 @@ async def test_unbind_happy_path():
 
 
 def test_help_role_separation():
-    cmds = Commands(_FakeRouting(Resolution(_server(), None)), _FakeQuery(), _FakeRepo(), None, None)
+    cmds = Commands(
+        _FakeRouting(Resolution(_server(), None)), _FakeQuery(), _FakeRepo(), _cfg_all_on(), None
+    )
     assert "use" in cmds.help("/pal help", is_admin=True)
     assert "use" not in cmds.help("/pal help", is_admin=False)

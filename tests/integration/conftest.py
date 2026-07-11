@@ -35,6 +35,7 @@ def make_config(mode: str = "balanced", access_mode: str = "restricted") -> dict
         "privacy": {"mode": mode, "public_exact_ping": False, "public_positions": False,
                     "ping_good_ms": 60, "ping_ok_ms": 120, "uncertain_timeout": 900},
         "history": {"raw_metrics_days": 7, "aggregate_days": 90, "session_days": 365, "observation_days": 180},
+        "features": {"report": True, "events": True, "guilds_bases": True},
     }
 
 

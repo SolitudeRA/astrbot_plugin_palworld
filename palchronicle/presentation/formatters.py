@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from ..config import SkippedServer
 from ..domain.enums import Confidence, PingBucket
+from ..presentation.command_registry import COMMANDS, HELP_LINE
 from ..presentation.dtos import (
     BaseDetailDTO,
     BaseDTO,
@@ -120,14 +121,6 @@ def format_servers(
     return "\n".join(lines)
 
 
-_HELP_GUEST = [
-    "PalChronicle 命令：",
-    "/pal status  世界状态", "/pal online  当前在线", "/pal world  世界概览",
-    "/pal rules  世界规则", "/pal guilds  公会列表", "/pal guild <名称>  公会详情",
-    "/pal bases  据点列表", "/pal base <名称|#序号>  据点详情", "/pal events  世界事件",
-    "/pal today  今日日报", "/pal servers  服务器列表", "/pal help  帮助",
-    "提示：命令末尾可加 @服务器名 指定服务器。",
-]
 _HELP_ADMIN_EXTRA = [
     "管理员命令：",
     "/pal use <名称>  授权本群并设为活动服务器（仅群聊）",
@@ -135,8 +128,12 @@ _HELP_ADMIN_EXTRA = [
 ]
 
 
-def format_help(topic: str | None, is_admin: bool) -> str:
-    lines = list(_HELP_GUEST)
+def format_help(topic: str | None, is_admin: bool, features) -> str:
+    lines = ["PalChronicle 命令："]
+    for name, group in COMMANDS:
+        if group == "core" or features.enabled(group):
+            lines.append(HELP_LINE[name])
+    lines.append("提示：命令末尾可加 @服务器名 指定服务器。")
     if is_admin:
         lines.append("")
         lines.extend(_HELP_ADMIN_EXTRA)

@@ -114,6 +114,23 @@ class HistoryConfig:
 
 
 @dataclass(slots=True)
+class FeaturesConfig:
+    report: bool
+    events: bool
+    guilds_bases: bool
+
+    def enabled(self, name: str) -> bool:
+        return {
+            "core": True, "report": self.report,
+            "events": self.events, "guilds_bases": self.guilds_bases,
+        }.get(name, False)
+
+
+def _default_features() -> FeaturesConfig:
+    return FeaturesConfig(report=True, events=True, guilds_bases=False)
+
+
+@dataclass(slots=True)
 class AppConfig:
     servers: list[ServerConfig]
     skipped: list[SkippedServer]
@@ -125,6 +142,7 @@ class AppConfig:
     privacy: PrivacyConfig
     history: HistoryConfig
     skipped_headers: list[SkippedHeader] = field(default_factory=list)
+    features: FeaturesConfig = field(default_factory=_default_features)
 
 
 def _obj(raw: Mapping, key: str) -> Mapping:
@@ -257,6 +275,12 @@ def parse_config(raw: Mapping, env: Mapping[str, str]) -> AppConfig:
     b = _obj(raw, "bases")
     pv = _obj(raw, "privacy")
     h = _obj(raw, "history")
+    f = _obj(raw, "features")
+    features = FeaturesConfig(
+        report=bool(f.get("report", True)),
+        events=bool(f.get("events", True)),
+        guilds_bases=bool(f.get("guilds_bases", False)),
+    )
     return AppConfig(
         servers=servers,
         skipped=skipped,
@@ -304,4 +328,5 @@ def parse_config(raw: Mapping, env: Mapping[str, str]) -> AppConfig:
             observation_days=int(h.get("observation_days", 180)),
         ),
         skipped_headers=skipped_headers,
+        features=features,
     )

@@ -26,7 +26,7 @@ _SECTION_KEYS = {
 
 _TOP_KEYS = {
     "servers", "routing", "group_bindings", "custom_headers",
-    "polling", "world", "bases", "privacy", "history",
+    "polling", "world", "bases", "privacy", "history", "features",
 }
 _MAX_LIST = 200
 _MAX_STR = 8 * 1024
@@ -139,7 +139,7 @@ def validate_and_backfill(body, old_raw, env):
             for v in it.values():
                 if isinstance(v, str) and len(v) > _MAX_STR:
                     return _err("too_large")
-    for section in ("routing", "polling", "world", "bases", "privacy", "history"):
+    for section in ("routing", "polling", "world", "bases", "privacy", "history", "features"):
         if section in body and not isinstance(body[section], Mapping):
             return _err("invalid_shape")
 

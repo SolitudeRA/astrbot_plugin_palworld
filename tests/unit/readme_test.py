@@ -60,3 +60,8 @@ def test_readme_documents_custom_headers_section():
 def test_readme_documents_plugin_page_section():
     for phrase in ("插件页面", "4.24.1", "4.25.3", "__unchanged__", "重载"):
         assert phrase in README, f"README 插件页面文档缺少: {phrase}"
+
+
+def test_readme_documents_feature_groups():
+    for phrase in ("功能分组", "features", "guilds_bases", "默认关", "game-data"):
+        assert phrase in README, f"README 特性分组文档缺少: {phrase}"

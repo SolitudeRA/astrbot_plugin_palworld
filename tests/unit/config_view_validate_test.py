@@ -35,6 +35,7 @@ def _body(**over):
         "routing": {"access_mode": "restricted", "default_server": ""},
         "polling": {"metrics_seconds": 30}, "world": {"fps_smooth": 50},
         "bases": {}, "privacy": {"mode": "balanced"}, "history": {},
+        "features": {"report": True, "events": True, "guilds_bases": True},
     }
     b.update(over)
     return b
@@ -194,3 +195,17 @@ def test_non_string_base_url_no_crash():
     body["servers"][0]["base_url"] = 12345
     ok, err = validate_and_backfill(body, _old(), {})
     assert ok is False and isinstance(err, dict) and "error" in err
+
+
+def test_features_section_accepted_and_passthrough_unstripped():
+    # F-C1：features 顶层节须在白名单内，且原样透传（不判 invalid_shape、不被剥离）
+    body = _body(features={"report": True, "events": True, "guilds_bases": True})
+    ok, cand = validate_and_backfill(body, _old(), {})
+    assert ok is True
+    assert cand["features"] == {"report": True, "events": True, "guilds_bases": True}
+
+
+def test_features_section_not_mapping_rejected():
+    body = _body(features=["not", "a", "mapping"])
+    ok, err = validate_and_backfill(body, _old(), {})
+    assert ok is False and err["error"] == "invalid_shape"

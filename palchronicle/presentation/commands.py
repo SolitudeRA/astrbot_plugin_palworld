@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import functools
 from collections.abc import Awaitable, Callable
 
+from ..presentation.command_registry import COMMAND_GROUP
 from ..presentation.dtos import ServerStatusRow
 from ..presentation.formatters import (
     format_base,
@@ -20,6 +22,19 @@ from ..presentation.formatters import (
 )
 from ..presentation.locale import L
 from ..presentation.server_arg import ArgError, parse_arg
+
+
+def _gated(fn):
+    """命令组 gating：按方法名查 COMMAND_GROUP 得组，未启用则回 feature_disabled，
+    不触达底层（spec §5）。gating 与 help 物理共享同一张表，消除漂移面。
+    """
+    @functools.wraps(fn)
+    async def wrapper(self, *args, **kwargs):
+        group = COMMAND_GROUP[fn.__name__]
+        if not self._cfg.features.enabled(group):
+            return L("feature_disabled")
+        return await fn(self, *args, **kwargs)
+    return wrapper
 
 
 class Commands:
@@ -77,12 +92,14 @@ class Commands:
             formatter=format_rules, query_fn=self._query.rules,
         )
 
+    @_gated
     async def guilds(self, umo, message_str, is_group) -> str:
         return await self.handle_query(
             umo, message_str, "guilds", is_group,
             formatter=format_guilds, query_fn=self._query.guilds,
         )
 
+    @_gated
     async def guild(self, umo, message_str, is_group) -> str:
         world, arg, err = await self._resolve_world(umo, message_str, "guild", is_group)
         if err is not None:
@@ -92,12 +109,14 @@ class Commands:
             return L("guild_not_found", name=arg.name)
         return format_guild(dto)
 
+    @_gated
     async def bases(self, umo, message_str, is_group) -> str:
         return await self.handle_query(
             umo, message_str, "bases", is_group,
             formatter=format_bases, query_fn=self._query.bases,
         )
 
+    @_gated
     async def base(self, umo, message_str, is_group) -> str:
         world, arg, err = await self._resolve_world(umo, message_str, "base", is_group)
         if err is not None:
@@ -107,6 +126,7 @@ class Commands:
             return L("base_not_found", name=arg.name)
         return format_base(dto)
 
+    @_gated
     async def events(self, umo, message_str, is_group) -> str:
         today_only = "today" in message_str.split()
         world, _arg, err = await self._resolve_world(umo, message_str, "events", is_group)
@@ -115,6 +135,7 @@ class Commands:
         dto = await self._query.events(world, today_only=today_only)
         return format_events(dto)
 
+    @_gated
     async def today(self, umo, message_str, is_group) -> str:
         world, _arg, err = await self._resolve_world(umo, message_str, "today", is_group)
         if err is not None:
@@ -154,4 +175,4 @@ class Commands:
 
     def help(self, message_str, is_admin) -> str:
         arg = parse_arg(message_str, "help")
-        return format_help(arg.name or None, is_admin)
+        return format_help(arg.name or None, is_admin, self._cfg.features)

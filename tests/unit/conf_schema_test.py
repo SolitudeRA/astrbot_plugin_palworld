@@ -72,3 +72,12 @@ def test_custom_headers_template_items_and_defaults():
     items = ch["templates"]["header"]["items"]
     assert set(items) == {"name", "value", "value_env", "servers"}
     assert all(items[k]["default"] == "" for k in items)
+
+
+def test_features_section():
+    s = load_schema()
+    assert s["features"]["type"] == "object"
+    items = s["features"]["items"]
+    assert items["report"]["default"] is True
+    assert items["events"]["default"] is True
+    assert items["guilds_bases"]["default"] is False

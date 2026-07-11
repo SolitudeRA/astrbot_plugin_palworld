@@ -12,6 +12,7 @@ from .adapters.palworld_rest import PalworldRestClient, RestResponse
 from .adapters.sqlite_repository import Repository
 from .application.base_service import BaseService
 from .application.event_service import EventService
+from .application.feature_groups import active_endpoints
 from .application.guild_service import GuildService
 from .application.player_service import PlayerService
 from .application.query_service import QueryService
@@ -90,12 +91,14 @@ class Container:
             _log.warning("metadata load failed dir=%s error=%s", metadata_dir, exc)
         cache = TTLCache(self._clock)
 
-        events = EventService(repo, self._clock)
+        events = EventService(repo, self._clock) if self._cfg.features.events else None
         players = PlayerService(repo, salt, self._cfg, self._clock)
-        guilds = GuildService(repo, salt, self._clock)
-        bases = BaseService(repo, self._cfg.bases, self._clock, salt)
+        guilds = GuildService(repo, salt, self._clock) if self._cfg.features.guilds_bases else None
+        bases = (BaseService(repo, self._cfg.bases, self._clock, salt)
+                 if self._cfg.features.guilds_bases else None)
         players.events = events
-        guilds.events = events
+        if guilds is not None:
+            guilds.events = events
         self._snapshot = SnapshotService(
             repo, _normalizer_mod, _privacy_mod, meta, salt, self._cfg, self._clock,
             players, guilds, bases, events,
@@ -118,6 +121,7 @@ class Container:
             servers=[s for s in self._cfg.servers if s.ready],
             polling=self._cfg.polling, locks=locks, clock=self._clock,
             on_response=self._on_response, rng_seed=None, fetcher=self._fetch,
+            endpoints=active_endpoints(self._cfg.features),
         )
         await self._scheduler.start()
 

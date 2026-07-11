@@ -111,8 +111,18 @@ def test_format_servers_admin_shows_skipped_section():
 
 
 def test_format_help_role_separation():
-    admin = format_help(None, is_admin=True)
+    from palchronicle.config import FeaturesConfig
+    feats = FeaturesConfig(report=True, events=True, guilds_bases=True)
+    admin = format_help(None, is_admin=True, features=feats)
     assert "use" in admin
-    guest = format_help(None, is_admin=False)
-    assert "use" not in guest
-    assert "status" in guest
+    guest = format_help(None, is_admin=False, features=feats)
+    assert "use" not in guest and "status" in guest
+
+
+def test_format_help_filters_disabled_groups():
+    from palchronicle.config import FeaturesConfig
+    off = format_help(None, is_admin=False, features=FeaturesConfig(True, True, False))
+    assert "guilds" not in off and "bases" not in off
+    assert "status" in off and "world" in off
+    on = format_help(None, is_admin=False, features=FeaturesConfig(True, True, True))
+    assert "guilds" in on and "bases" in on
