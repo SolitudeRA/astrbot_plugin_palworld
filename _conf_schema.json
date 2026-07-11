@@ -67,7 +67,7 @@
       "locale": { "type": "string", "description": "文案语言", "default": "zh-CN", "options": ["zh-CN"] },
       "fps_smooth": { "type": "int", "description": "FPS ≥ 此值=流畅", "default": 50 },
       "fps_moderate": { "type": "int", "description": "FPS ≥ 此值=一般", "default": 35 },
-      "fps_laggy": { "type": "int", "description": "FPS < 此值=卡顿", "default": 20 }
+      "fps_laggy": { "type": "int", "description": "FPS ≥ 此值=卡顿，低于=严重卡顿", "default": 20 }
     }
   },
   "bases": {

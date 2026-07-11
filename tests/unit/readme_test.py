@@ -33,7 +33,9 @@ def test_readme_documents_polling_section():
 
 
 def test_readme_documents_world_section():
-    for phrase in ("world", "Asia/Tokyo", "fps_smooth", "fps_moderate", "fps_laggy"):
+    # 流畅度四档缺一不可："严重卡顿"（fps < fps_laggy）曾在文档中丢失
+    for phrase in ("world", "Asia/Tokyo", "fps_smooth", "fps_moderate", "fps_laggy",
+                   "流畅", "一般", "卡顿", "严重卡顿"):
         assert phrase in README, f"README world 配置文档缺少: {phrase}"
 
 

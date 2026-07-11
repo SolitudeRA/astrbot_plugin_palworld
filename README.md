@@ -53,8 +53,8 @@
 | `timezone` | `Asia/Tokyo` | 全局时区（IANA 名称），影响 `/pal today` 等所有时间展示；每台服务器可在 servers 条目里单独填 `timezone` 覆盖 |
 | `locale` | `zh-CN` | 文案语言（v0.1 仅支持 zh-CN） |
 | `fps_smooth` | 50 | FPS ≥ 此值展示为“流畅” |
-| `fps_moderate` | 35 | FPS ≥ 此值展示为“一般” |
-| `fps_laggy` | 20 | FPS < 此值展示为“卡顿” |
+| `fps_moderate` | 35 | FPS ≥ 此值（且 < `fps_smooth`）展示为“一般” |
+| `fps_laggy` | 20 | FPS ≥ 此值（且 < `fps_moderate`）展示为“卡顿”；FPS < 此值展示为“严重卡顿” |
 
 ### bases（据点推导，隐私 strict 模式下整体停用）
 
