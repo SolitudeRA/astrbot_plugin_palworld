@@ -3,12 +3,12 @@ from __future__ import annotations
 from datetime import UTC, datetime, tzinfo
 from zoneinfo import ZoneInfo
 
-from palchronicle.adapters.sqlite_repository import Repository
-from palchronicle.config import AppConfig
-from palchronicle.domain.models import Base, BaseObservation, World
-from palchronicle.infrastructure.cache import TTLCache
-from palchronicle.infrastructure.clock import Clock
-from palchronicle.presentation.dtos import (
+from ..adapters.sqlite_repository import Repository
+from ..config import AppConfig
+from ..domain.models import Base, BaseObservation, World
+from ..infrastructure.cache import TTLCache
+from ..infrastructure.clock import Clock
+from ..presentation.dtos import (
     BaseDetailDTO,
     BaseDTO,
     EventDTO,
@@ -332,7 +332,7 @@ class QueryService:
 
 
 def _event_summary(e) -> str:
-    from palchronicle.domain.enums import EventType as _ET
+    from ..domain.enums import EventType as _ET
     p = e.payload or {}
     if e.event_type is _ET.PLAYER_LEVEL_UP:
         return f"玩家升级 Lv{p.get('old', '?')}→Lv{p.get('new', '?')}"

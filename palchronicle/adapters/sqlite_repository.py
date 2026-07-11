@@ -8,8 +8,8 @@ import json
 import sqlite3
 from typing import Any, cast
 
-from palchronicle.config import BindingConfig, HistoryConfig, ServerConfig
-from palchronicle.domain.enums import (
+from ..config import BindingConfig, HistoryConfig, ServerConfig
+from ..domain.enums import (
     Confidence,
     EventType,
     IdConfidence,
@@ -17,7 +17,7 @@ from palchronicle.domain.enums import (
     PingBucket,
     SessionStatus,
 )
-from palchronicle.domain.models import (
+from ..domain.models import (
     Base,
     BaseObservation,
     Guild,
@@ -29,8 +29,8 @@ from palchronicle.domain.models import (
     WorldEvent,
     WorldMetric,
 )
-from palchronicle.infrastructure.clock import Clock
-from palchronicle.infrastructure.database import Database
+from ..infrastructure.clock import Clock
+from ..infrastructure.database import Database
 
 _SECONDS_PER_DAY = 86400
 

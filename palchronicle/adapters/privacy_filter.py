@@ -4,9 +4,9 @@ import hmac
 import math
 from hashlib import sha256
 
-from palchronicle.config import PrivacyConfig
-from palchronicle.domain.enums import PingBucket
-from palchronicle.domain.models import (
+from ..config import PrivacyConfig
+from ..domain.enums import PingBucket
+from ..domain.models import (
     CharacterActor,
     GameDataSnapshot,
     PlayerRow,

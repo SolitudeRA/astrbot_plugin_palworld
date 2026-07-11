@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from palchronicle.domain.enums import EventType
+from ..domain.enums import EventType
 
 
 def make_dedup_key(world_id: str, event_type: EventType, *parts: object) -> str:

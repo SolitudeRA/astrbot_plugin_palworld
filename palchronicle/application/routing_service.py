@@ -2,10 +2,10 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from palchronicle.adapters.sqlite_repository import Repository
-from palchronicle.config import AppConfig, ServerConfig
-from palchronicle.domain.enums import AccessMode
-from palchronicle.presentation.locale import L
+from ..adapters.sqlite_repository import Repository
+from ..config import AppConfig, ServerConfig
+from ..domain.enums import AccessMode
+from ..presentation.locale import L
 
 
 @dataclass(slots=True)

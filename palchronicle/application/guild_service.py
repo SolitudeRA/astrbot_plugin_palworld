@@ -2,12 +2,12 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from palchronicle.adapters.privacy_filter import hash_user_id
-from palchronicle.domain.enums import UnitType
-from palchronicle.domain.models import GameDataSnapshot, Guild, World
+from ..adapters.privacy_filter import hash_user_id
+from ..domain.enums import UnitType
+from ..domain.models import GameDataSnapshot, Guild, World
 
 if TYPE_CHECKING:
-    from palchronicle.application.event_service import EventService
+    from ..application.event_service import EventService
 
 
 class GuildService:

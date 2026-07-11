@@ -5,11 +5,11 @@ import asyncio
 import random
 from collections.abc import Awaitable, Callable
 
-from palchronicle.adapters.palworld_rest import RestResponse
-from palchronicle.config import PollingConfig, ServerConfig
-from palchronicle.domain.enums import EndpointName
-from palchronicle.infrastructure.clock import Clock
-from palchronicle.infrastructure.locks import EndpointLocks
+from ..adapters.palworld_rest import RestResponse
+from ..config import PollingConfig, ServerConfig
+from ..domain.enums import EndpointName
+from ..infrastructure.clock import Clock
+from ..infrastructure.locks import EndpointLocks
 
 OnResponse = Callable[[str, EndpointName, RestResponse], Awaitable[None]]
 Fetcher = Callable[[str, EndpointName], Awaitable[RestResponse]]

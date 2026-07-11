@@ -2,14 +2,14 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from palchronicle.adapters.sqlite_repository import Repository
-from palchronicle.domain.enums import Confidence, EventType
-from palchronicle.domain.events import make_dedup_key
-from palchronicle.domain.models import World, WorldEvent
-from palchronicle.infrastructure.clock import Clock
+from ..adapters.sqlite_repository import Repository
+from ..domain.enums import Confidence, EventType
+from ..domain.events import make_dedup_key
+from ..domain.models import World, WorldEvent
+from ..infrastructure.clock import Clock
 
 if TYPE_CHECKING:
-    from palchronicle.application.base_service import BaseUpdate
+    from ..application.base_service import BaseUpdate
 
 
 class EventService:

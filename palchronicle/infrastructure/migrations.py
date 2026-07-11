@@ -8,7 +8,7 @@ from collections.abc import Awaitable, Callable
 
 import aiosqlite
 
-from palchronicle.infrastructure.database import Database
+from ..infrastructure.database import Database
 
 
 class MigrationError(Exception):

@@ -3,9 +3,9 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import Any
 
-from palchronicle.adapters.metadata_repository import MetadataRepository
-from palchronicle.domain.enums import UnitType
-from palchronicle.domain.models import (
+from ..adapters.metadata_repository import MetadataRepository
+from ..domain.enums import UnitType
+from ..domain.models import (
     CharacterActor,
     GameDataSnapshot,
     InfoSnapshot,

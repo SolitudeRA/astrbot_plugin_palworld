@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-from palchronicle.config import SkippedServer
-from palchronicle.domain.enums import Confidence, PingBucket
-from palchronicle.presentation.dtos import (
+from ..config import SkippedServer
+from ..domain.enums import Confidence, PingBucket
+from ..presentation.dtos import (
     BaseDetailDTO,
     BaseDTO,
     EventDTO,
@@ -14,7 +14,7 @@ from palchronicle.presentation.dtos import (
     StatusDTO,
     WorldSummaryDTO,
 )
-from palchronicle.presentation.locale import L
+from ..presentation.locale import L
 
 _PING_LABEL = {
     PingBucket.GOOD: "优秀", PingBucket.OK: "正常",

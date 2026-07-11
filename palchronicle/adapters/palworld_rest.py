@@ -6,9 +6,9 @@ from typing import Any
 
 import aiohttp
 
-from palchronicle.config import ServerConfig
-from palchronicle.domain.enums import EndpointName
-from palchronicle.infrastructure.clock import Clock
+from ..config import ServerConfig
+from ..domain.enums import EndpointName
+from ..infrastructure.clock import Clock
 
 _ENDPOINT_PATH: dict[EndpointName, str] = {
     EndpointName.INFO: "info",

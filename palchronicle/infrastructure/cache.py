@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from palchronicle.infrastructure.clock import Clock
+from ..infrastructure.clock import Clock
 
 
 class TTLCache:
