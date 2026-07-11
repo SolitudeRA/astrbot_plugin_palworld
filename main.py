@@ -130,8 +130,17 @@ class PalChronicle(Star):
             new_cfg = parse_config(self._raw_config, os.environ)
             if self._container is not None:
                 await self._container.stop()
+                self._container = None
             new_container = self._build_container(new_cfg)
-            await new_container.start()
+            try:
+                await new_container.start()
+            except Exception:
+                # 半启动的新容器先回收，避免 DB 连接/HTTP session 泄漏（规格 §3.2 步骤 8）
+                try:
+                    await new_container.stop()
+                except Exception:  # noqa: BLE001
+                    pass
+                raise
             self._container = new_container
             return {"ok": True, "warnings": {
                 "skipped_servers": [{"raw_name": s.raw_name, "reason": s.reason}
@@ -166,13 +175,30 @@ class PalChronicle(Star):
             return {"ok": False, "error": "restart_failed", "detail": {}}
 
     # ---- Quart 薄壳：解包 request → web_api → jsonify（业务成败恒 HTTP 200）----
+    @staticmethod
+    def _has_identity() -> bool:
+        # 身份兜底（规格 §5.3c）：网关鉴权之外的最后防线。禁用/卸载后端点仍可达，
+        # 拿不到 Dashboard 登录用户即拒。在读取任何配置/secret 之前判定，
+        # 绝不记录、绝不 str(exc)、绝不回显 request 内容。
+        from quart import request
+        return bool(getattr(request, "username", None))
+
+    @staticmethod
+    def _deny_unauthorized():
+        from quart import jsonify
+        return jsonify({"ok": False, "error": "unauthorized", "detail": {}})
+
     async def _web_config_get(self):
         from quart import jsonify
+        if not self._has_identity():
+            return self._deny_unauthorized()
         _code, payload = await web_api.handle_config_get(lambda: self._raw_config)
         return jsonify(payload)
 
     async def _web_status(self):
         from quart import jsonify
+        if not self._has_identity():
+            return self._deny_unauthorized()
         _code, payload = await web_api.handle_status_overview(
             self._container, self._restarting)
         return jsonify(payload)
@@ -181,6 +207,8 @@ class PalChronicle(Star):
         import time
 
         from quart import jsonify, request
+        if not self._has_identity():
+            return self._deny_unauthorized()
         body = await request.get_json(silent=True)
         _code, payload = await web_api.handle_config_save(
             body, old_raw=self._raw_config, env=os.environ,

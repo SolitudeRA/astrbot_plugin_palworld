@@ -1,6 +1,8 @@
 """config/save 编排：锁 409、频率限制、校验失败、重启回调透传。"""
 import asyncio
 
+import pytest
+
 from palchronicle.presentation.web_api import handle_config_save
 
 _OLD = {
@@ -91,3 +93,18 @@ async def test_restart_failure_propagated():
         _body(), old_raw=_OLD, env={}, lock=asyncio.Lock(), now=400.0,
         last_save_ts=None, apply_and_restart=boom)
     assert p["ok"] is False and p["error"] == "restart_failed_rolled_back"
+
+
+async def test_lock_released_when_apply_raises():
+    # F10：apply_and_restart 抛异常（非返回 ok:False）时，async with 仍释放锁，
+    # 后续保存不被永久拒
+    lock = asyncio.Lock()
+
+    async def raiser(cand):
+        raise RuntimeError("boom")
+
+    with pytest.raises(RuntimeError):
+        await handle_config_save(
+            _body(), old_raw=_OLD, env={}, lock=lock, now=500.0,
+            last_save_ts=None, apply_and_restart=raiser)
+    assert not lock.locked()

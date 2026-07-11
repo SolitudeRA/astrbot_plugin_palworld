@@ -1701,3 +1701,4 @@ git commit -m "docs(readme): 插件页面设置/状态使用说明"
 1. 未登录直接请求三端点应 401：按版本用正确 URL（v4.26+ `/api/v1/plugins/extensions/astrbot_plugin_palword/config/get`；4.24–4.25 `/api/plug/astrbot_plugin_palword/config/get`）。判据是「缺 JWT 得 401」，注意未匹配路由平台返回 200+`status:error` 而非 404
 2. CSRF：确认 AstrBot 对插件 POST 是否强制 same-origin/token；若不强制，需在 handler 追加来源校验（后续任务）
 3. `bridge.ready()` 在部署的 AstrBot 版本上返回的上下文是否含 `isDark`（<4.25.3 无，主题跟随不可用属预期）
+4. handler 身份兜底：三个 Quart 壳已加 `request.username` 缺失即拒（`_has_identity`）。实测确认真实 AstrBot 网关确实把已登录用户名注入到 `request.username`（否则合法请求会被兜底误拒）；若字段名不同需相应调整

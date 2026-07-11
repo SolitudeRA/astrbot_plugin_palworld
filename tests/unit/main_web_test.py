@@ -74,3 +74,36 @@ def test_no_register_when_context_lacks_method():
     plugin = main_mod.PalChronicle(_Bare(), _raw())
     # 不应抛异常（stub 护栏）
     plugin._maybe_register_web_api()
+
+
+async def test_start_failure_stops_failed_container_then_rolls_back():
+    # F2：新容器 start 失败时，该半启动容器必须被 stop（不泄漏 DB 连接），
+    # 随后回滚重建旧配置容器（规格 §3.2 步骤 8）
+    import main as main_mod
+    plugin = main_mod.PalChronicle(_FakeContext(), _raw())
+    events = []
+
+    class _SpyContainer:
+        def __init__(self, tag, fail_start):
+            self.tag = tag
+            self.fail_start = fail_start
+
+        async def start(self):
+            events.append((self.tag, "start"))
+            if self.fail_start:
+                raise RuntimeError("boom")
+
+        async def stop(self):
+            events.append((self.tag, "stop"))
+
+    plugin._container = _SpyContainer("old", False)
+    seq = [_SpyContainer("new", True), _SpyContainer("restored", False)]
+    plugin._build_container = lambda cfg: seq.pop(0)
+
+    out = await plugin._apply_and_restart(
+        {"routing": {"access_mode": "restricted", "default_server": ""}})
+
+    assert out["ok"] is False and out["error"] == "restart_failed_rolled_back"
+    assert ("new", "stop") in events        # 失败的新容器被回收
+    assert ("restored", "start") in events  # 回滚重建旧配置容器
+    assert plugin._restarting is False      # finally 复位
