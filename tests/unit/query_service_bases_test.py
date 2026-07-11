@@ -5,8 +5,13 @@ import pytest
 from palchronicle.adapters.sqlite_repository import Repository
 from palchronicle.application.query_service import QueryService
 from palchronicle.config import (
-    AppConfig, BasesConfig, HistoryConfig, PollingConfig, PrivacyConfig,
-    RoutingConfig, WorldConfig,
+    AppConfig,
+    BasesConfig,
+    HistoryConfig,
+    PollingConfig,
+    PrivacyConfig,
+    RoutingConfig,
+    WorldConfig,
 )
 from palchronicle.domain.enums import AccessMode, Confidence, EventType
 from palchronicle.domain.models import Base, BaseObservation, Guild, World, WorldEvent

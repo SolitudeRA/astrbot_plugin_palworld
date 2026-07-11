@@ -1,12 +1,21 @@
 from palchronicle.adapters.sqlite_repository import Repository
 from palchronicle.application.query_service import QueryService
 from palchronicle.config import (
-    AppConfig, BasesConfig, HistoryConfig, PollingConfig, PrivacyConfig,
-    RoutingConfig, WorldConfig,
+    AppConfig,
+    BasesConfig,
+    HistoryConfig,
+    PollingConfig,
+    PrivacyConfig,
+    RoutingConfig,
+    WorldConfig,
 )
 from palchronicle.domain.enums import AccessMode, ActionCategory, UnitType
 from palchronicle.domain.models import (
-    CharacterActor, GameDataSnapshot, PalBoxActor, World, WorldMetric,
+    CharacterActor,
+    GameDataSnapshot,
+    PalBoxActor,
+    World,
+    WorldMetric,
 )
 from palchronicle.infrastructure.cache import TTLCache
 from palchronicle.infrastructure.clock import FakeClock

@@ -1,6 +1,6 @@
-from palchronicle.application.snapshot_service import SnapshotService
 from palchronicle.adapters.palworld_rest import RestResponse
-from palchronicle.domain.models import World, PlayersSnapshot, PlayerRow
+from palchronicle.application.snapshot_service import SnapshotService
+from palchronicle.domain.models import PlayerRow, PlayersSnapshot, World
 from palchronicle.infrastructure.clock import FakeClock
 
 
@@ -30,8 +30,15 @@ def _world(): return World("w1", "s1", "g", 0, "S", "1", 0, 0, 1)
 
 
 def _cfg():
-    from palchronicle.config import (AppConfig, PrivacyConfig, PollingConfig,
-                                     RoutingConfig, WorldConfig, BasesConfig, HistoryConfig)
+    from palchronicle.config import (
+        AppConfig,
+        BasesConfig,
+        HistoryConfig,
+        PollingConfig,
+        PrivacyConfig,
+        RoutingConfig,
+        WorldConfig,
+    )
     from palchronicle.domain.enums import AccessMode
     return AppConfig([], [], RoutingConfig(AccessMode.RESTRICTED, ""), [],
                      PollingConfig(30, 30, 600, 1800, 120, 0.1, 6),

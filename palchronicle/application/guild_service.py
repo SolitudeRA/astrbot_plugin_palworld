@@ -1,8 +1,13 @@
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 from palchronicle.adapters.privacy_filter import hash_user_id
 from palchronicle.domain.enums import UnitType
 from palchronicle.domain.models import GameDataSnapshot, Guild, World
+
+if TYPE_CHECKING:
+    from palchronicle.application.event_service import EventService
 
 
 class GuildService:
@@ -10,7 +15,7 @@ class GuildService:
         self._repo = repo
         self._salt = salt
         self._clock = clock
-        self.events = None
+        self.events: EventService | None = None  # 由 container 注入 EventService
 
     def _guild_key(self, world_id: str, guild_id: str) -> str:
         return hash_user_id(self._salt, world_id, "GUILD:" + guild_id)

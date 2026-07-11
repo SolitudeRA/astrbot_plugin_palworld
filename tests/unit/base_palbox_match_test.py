@@ -1,5 +1,5 @@
 from palchronicle.application.base_service import BaseService
-from palchronicle.domain.models import PalBoxActor, GameDataSnapshot, World, PalBox
+from palchronicle.domain.models import GameDataSnapshot, PalBox, PalBoxActor, World
 from palchronicle.infrastructure.clock import FakeClock
 
 

@@ -1,8 +1,8 @@
 import pytest
 
 from palchronicle.adapters.sqlite_repository import Repository
+from palchronicle.domain.enums import LeaveReason, SessionStatus
 from palchronicle.domain.models import PlayerSession
-from palchronicle.domain.enums import SessionStatus, LeaveReason
 from palchronicle.infrastructure.clock import FakeClock
 from palchronicle.infrastructure.database import Database
 from palchronicle.infrastructure.migrations import apply_migrations

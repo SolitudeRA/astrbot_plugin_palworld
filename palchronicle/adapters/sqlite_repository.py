@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import json
 import sqlite3
-from typing import Any
+from typing import Any, cast
 
 from palchronicle.config import BindingConfig, HistoryConfig, ServerConfig
 from palchronicle.domain.enums import (
@@ -329,7 +329,8 @@ class Repository:
                  str(s.leave_reason) if s.leave_reason else None),
             )
             s.id = cur.lastrowid
-            return cur.lastrowid
+            # INSERT 成功后 lastrowid 必非 None（sqlite3 类型标注偏宽）
+            return cast(int, cur.lastrowid)
 
     async def update_session(self, s: PlayerSession) -> None:
         await self._db.execute_write(

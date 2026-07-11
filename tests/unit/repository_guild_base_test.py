@@ -1,8 +1,8 @@
 import pytest
 
 from palchronicle.adapters.sqlite_repository import Repository
-from palchronicle.domain.models import Guild, PalBox, Base, BaseObservation
 from palchronicle.domain.enums import Confidence
+from palchronicle.domain.models import Base, BaseObservation, Guild, PalBox
 from palchronicle.infrastructure.clock import FakeClock
 from palchronicle.infrastructure.database import Database
 from palchronicle.infrastructure.migrations import apply_migrations

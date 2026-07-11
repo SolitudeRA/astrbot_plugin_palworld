@@ -5,8 +5,13 @@ from palchronicle.application.base_service import BaseUpdate
 from palchronicle.application.event_service import EventService
 from palchronicle.application.report_service import ReportService
 from palchronicle.config import (
-    AppConfig, BasesConfig, HistoryConfig, PollingConfig, PrivacyConfig,
-    RoutingConfig, WorldConfig,
+    AppConfig,
+    BasesConfig,
+    HistoryConfig,
+    PollingConfig,
+    PrivacyConfig,
+    RoutingConfig,
+    WorldConfig,
 )
 from palchronicle.domain.enums import AccessMode, Confidence, EventType
 from palchronicle.domain.models import World, WorldMetric

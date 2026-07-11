@@ -4,7 +4,6 @@ from palchronicle.domain.enums import (
     Confidence,
     EventType,
     IdConfidence,
-    LeaveReason,
     PingBucket,
     SessionStatus,
 )

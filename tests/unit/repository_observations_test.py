@@ -1,8 +1,8 @@
 import pytest
 
 from palchronicle.adapters.sqlite_repository import Repository
-from palchronicle.domain.models import PlayerObservation
 from palchronicle.domain.enums import PingBucket
+from palchronicle.domain.models import PlayerObservation
 from palchronicle.infrastructure.clock import FakeClock
 from palchronicle.infrastructure.database import Database
 from palchronicle.infrastructure.migrations import apply_migrations

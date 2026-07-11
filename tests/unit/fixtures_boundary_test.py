@@ -2,7 +2,7 @@ from pathlib import Path
 
 from palchronicle.adapters import normalizer
 from palchronicle.adapters.metadata_repository import MetadataRepository
-from tests.fixtures.loader import fixtures_root, load_fixture
+from tests.fixtures.loader import load_fixture
 
 META = MetadataRepository(Path(__file__).resolve().parents[2] / "metadata")
 META.load()

@@ -1,9 +1,9 @@
+from palchronicle.adapters.sqlite_repository import Repository
 from palchronicle.application.player_service import PlayerService
 from palchronicle.domain.models import PlayerRow, PlayersSnapshot, World
 from palchronicle.infrastructure.clock import FakeClock
 from palchronicle.infrastructure.database import Database
 from palchronicle.infrastructure.migrations import apply_migrations
-from palchronicle.adapters.sqlite_repository import Repository
 
 
 class FakeEvents:
@@ -19,8 +19,15 @@ def _world():
 
 
 def _cfg():
-    from palchronicle.config import (AppConfig, PrivacyConfig, PollingConfig,
-                                     RoutingConfig, WorldConfig, BasesConfig, HistoryConfig)
+    from palchronicle.config import (
+        AppConfig,
+        BasesConfig,
+        HistoryConfig,
+        PollingConfig,
+        PrivacyConfig,
+        RoutingConfig,
+        WorldConfig,
+    )
     from palchronicle.domain.enums import AccessMode
     return AppConfig([], [], RoutingConfig(AccessMode.RESTRICTED, ""), [],
                      PollingConfig(30, 30, 600, 1800, 120, 0.1, 6),

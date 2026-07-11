@@ -2,6 +2,7 @@ import pytest
 
 from palchronicle.adapters import normalizer as normalizer_mod
 from palchronicle.adapters import privacy_filter as privacy_mod
+from palchronicle.adapters.palworld_rest import RestResponse
 from palchronicle.adapters.sqlite_repository import Repository
 from palchronicle.application.snapshot_service import SnapshotService
 from palchronicle.config import (
@@ -18,7 +19,6 @@ from palchronicle.domain.enums import AccessMode
 from palchronicle.infrastructure.clock import FakeClock
 from palchronicle.infrastructure.database import Database
 from palchronicle.infrastructure.migrations import apply_migrations
-from palchronicle.adapters.palworld_rest import RestResponse
 
 
 class FakePlayers:

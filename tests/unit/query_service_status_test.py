@@ -5,12 +5,21 @@ import pytest
 from palchronicle.adapters.sqlite_repository import Repository
 from palchronicle.application.query_service import QueryService
 from palchronicle.config import (
-    AppConfig, BasesConfig, HistoryConfig, PollingConfig, PrivacyConfig,
-    RoutingConfig, WorldConfig,
+    AppConfig,
+    BasesConfig,
+    HistoryConfig,
+    PollingConfig,
+    PrivacyConfig,
+    RoutingConfig,
+    WorldConfig,
 )
 from palchronicle.domain.enums import AccessMode, IdConfidence, PingBucket, SessionStatus
 from palchronicle.domain.models import (
-    PlayerIdentity, PlayerObservation, PlayerSession, World, WorldMetric,
+    PlayerIdentity,
+    PlayerObservation,
+    PlayerSession,
+    World,
+    WorldMetric,
 )
 from palchronicle.infrastructure.cache import TTLCache
 from palchronicle.infrastructure.clock import FakeClock

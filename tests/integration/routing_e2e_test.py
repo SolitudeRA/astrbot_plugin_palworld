@@ -1,8 +1,14 @@
 from pathlib import Path
 
 from palchronicle.config import (
-    AppConfig, BasesConfig, HistoryConfig, PollingConfig, PrivacyConfig,
-    RoutingConfig, ServerConfig, WorldConfig,
+    AppConfig,
+    BasesConfig,
+    HistoryConfig,
+    PollingConfig,
+    PrivacyConfig,
+    RoutingConfig,
+    ServerConfig,
+    WorldConfig,
 )
 from palchronicle.container import Container
 from palchronicle.domain.enums import AccessMode

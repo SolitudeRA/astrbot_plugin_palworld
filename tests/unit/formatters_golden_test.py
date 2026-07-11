@@ -4,10 +4,20 @@ from palchronicle.application.report_service import BaseEvent, LevelEvent
 from palchronicle.config import WorldConfig
 from palchronicle.domain.enums import PingBucket
 from palchronicle.presentation.dtos import (
-    OnlineDTO, OnlinePlayerRow, RuleRow, RulesDTO, StatusDTO, WildTopRow, WorldSummaryDTO,
+    OnlineDTO,
+    OnlinePlayerRow,
+    RuleRow,
+    RulesDTO,
+    StatusDTO,
+    WildTopRow,
+    WorldSummaryDTO,
 )
 from palchronicle.presentation.formatters import (
-    format_online, format_rules, format_status, format_today, format_world,
+    format_online,
+    format_rules,
+    format_status,
+    format_today,
+    format_world,
 )
 
 GOLDEN = Path(__file__).resolve().parents[1] / "golden"

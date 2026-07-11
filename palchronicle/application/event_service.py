@@ -1,10 +1,15 @@
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 from palchronicle.adapters.sqlite_repository import Repository
 from palchronicle.domain.enums import Confidence, EventType
 from palchronicle.domain.events import make_dedup_key
 from palchronicle.domain.models import World, WorldEvent
 from palchronicle.infrastructure.clock import Clock
+
+if TYPE_CHECKING:
+    from palchronicle.application.base_service import BaseUpdate
 
 
 class EventService:
@@ -101,7 +106,7 @@ class EventService:
         )
 
     async def base_events(
-        self, world: World, updates: list["BaseUpdate"]
+        self, world: World, updates: list[BaseUpdate]
     ) -> None:
         for u in updates:
             if u.is_new and u.confidence != Confidence.LOW:

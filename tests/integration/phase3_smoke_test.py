@@ -1,14 +1,19 @@
-from palchronicle.application.player_service import PlayerService
-from palchronicle.application.guild_service import GuildService
+from palchronicle.adapters.sqlite_repository import Repository
 from palchronicle.application.base_service import BaseService
+from palchronicle.application.guild_service import GuildService
+from palchronicle.application.player_service import PlayerService
+from palchronicle.domain.enums import ActionCategory, UnitType
 from palchronicle.domain.models import (
-    World, PlayerRow, PlayersSnapshot, CharacterActor, PalBoxActor, GameDataSnapshot,
+    CharacterActor,
+    GameDataSnapshot,
+    PalBoxActor,
+    PlayerRow,
+    PlayersSnapshot,
+    World,
 )
-from palchronicle.domain.enums import UnitType, ActionCategory
 from palchronicle.infrastructure.clock import FakeClock
 from palchronicle.infrastructure.database import Database
 from palchronicle.infrastructure.migrations import apply_migrations
-from palchronicle.adapters.sqlite_repository import Repository
 
 
 class FakeEvents:
@@ -18,8 +23,15 @@ class FakeEvents:
 
 
 def _cfg():
-    from palchronicle.config import (AppConfig, PrivacyConfig, PollingConfig,
-                                     RoutingConfig, WorldConfig, BasesConfig, HistoryConfig)
+    from palchronicle.config import (
+        AppConfig,
+        BasesConfig,
+        HistoryConfig,
+        PollingConfig,
+        PrivacyConfig,
+        RoutingConfig,
+        WorldConfig,
+    )
     from palchronicle.domain.enums import AccessMode
     return AppConfig([], [], RoutingConfig(AccessMode.RESTRICTED, ""), [],
                      PollingConfig(30, 30, 600, 1800, 120, 0.1, 6),
@@ -37,7 +49,7 @@ async def test_two_worlds_do_not_share_data(tmp_path):
     bs = BaseService(repo, cfg.bases, clock, b"s" * 32)
 
     wA = World("wA", "sA", "g", 0, "A", "1", 0, 0, 1)
-    wB = World("wB", "sB", "g", 0, "B", "1", 0, 0, 1)
+    _wB = World("wB", "sB", "g", 0, "B", "1", 0, 0, 1)  # 仅示意第二世界存在，断言直接用字面量 "wB"
 
     row = PlayerRow("pkA", "p", "Alice", 5, 40.0, 3)
     await ps.apply_players(wA, PlayersSnapshot(1000, [row]))

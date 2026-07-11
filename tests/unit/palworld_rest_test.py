@@ -1,8 +1,6 @@
-import asyncio
 from contextlib import asynccontextmanager
 
 import aiohttp
-import pytest
 
 from palchronicle.adapters.palworld_rest import PalworldRestClient, RestResponse
 from palchronicle.config import ServerConfig
@@ -76,7 +74,7 @@ async def test_fetch_builds_correct_path_and_basic_auth():
 
 async def test_fetch_timeout_returns_sanitized_error():
     client = PalworldRestClient(_server(), FakeClock(1000))
-    client._session = _FakeSession(asyncio.TimeoutError())
+    client._session = _FakeSession(TimeoutError())
     resp = await client.fetch(EndpointName.PLAYERS)
     assert resp.ok is False
     assert resp.status is None

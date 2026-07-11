@@ -5,8 +5,14 @@ import pytest
 from palchronicle.adapters.sqlite_repository import Repository
 from palchronicle.application.routing_service import RoutingService
 from palchronicle.config import (
-    AppConfig, BasesConfig, HistoryConfig, PollingConfig, PrivacyConfig,
-    RoutingConfig, ServerConfig, WorldConfig,
+    AppConfig,
+    BasesConfig,
+    HistoryConfig,
+    PollingConfig,
+    PrivacyConfig,
+    RoutingConfig,
+    ServerConfig,
+    WorldConfig,
 )
 from palchronicle.domain.enums import AccessMode
 from palchronicle.infrastructure.clock import FakeClock

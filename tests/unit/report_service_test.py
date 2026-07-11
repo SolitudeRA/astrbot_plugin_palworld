@@ -4,8 +4,13 @@ from palchronicle.adapters.sqlite_repository import Repository
 from palchronicle.application.event_service import EventService
 from palchronicle.application.report_service import DailyReport, ReportService
 from palchronicle.config import (
-    AppConfig, BasesConfig, HistoryConfig, PollingConfig, PrivacyConfig,
-    RoutingConfig, WorldConfig,
+    AppConfig,
+    BasesConfig,
+    HistoryConfig,
+    PollingConfig,
+    PrivacyConfig,
+    RoutingConfig,
+    WorldConfig,
 )
 from palchronicle.domain.enums import AccessMode
 from palchronicle.domain.models import World, WorldMetric
@@ -90,7 +95,7 @@ async def test_daily_natural_day_boundary_excludes_prev_day(tmp_path):
         clock.set(NOON)
         await events.new_player(w, "pk_in")
         rep = await report.daily(w, day="2026-07-10")
-        new_player_keys = [
+        _new_player_keys = [
             r for r in rep.records if "pk_in" in r or "pk_prev" in r
         ]
         # pk_prev must NOT appear; only pk_in counted

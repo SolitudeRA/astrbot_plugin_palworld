@@ -1,10 +1,10 @@
+from palchronicle.adapters.sqlite_repository import Repository
 from palchronicle.application.base_service import BaseService
-from palchronicle.domain.models import CharacterActor, PalBoxActor, GameDataSnapshot, World
-from palchronicle.domain.enums import UnitType, ActionCategory, Confidence
+from palchronicle.domain.enums import ActionCategory, Confidence, UnitType
+from palchronicle.domain.models import CharacterActor, GameDataSnapshot, PalBoxActor, World
 from palchronicle.infrastructure.clock import FakeClock
 from palchronicle.infrastructure.database import Database
 from palchronicle.infrastructure.migrations import apply_migrations
-from palchronicle.adapters.sqlite_repository import Repository
 
 
 def _world(): return World("w1", "s1", "g", 0, "S", "1", 0, 0, 1)

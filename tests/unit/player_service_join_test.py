@@ -1,6 +1,6 @@
 from palchronicle.application.player_service import PlayerService
+from palchronicle.domain.enums import IdConfidence, SessionStatus
 from palchronicle.domain.models import PlayerRow, PlayersSnapshot, World
-from palchronicle.domain.enums import SessionStatus, IdConfidence
 from palchronicle.infrastructure.clock import FakeClock
 
 
@@ -26,8 +26,15 @@ def _world():
 
 
 def _cfg():
-    from palchronicle.config import (AppConfig, PrivacyConfig, PollingConfig,
-                                     RoutingConfig, WorldConfig, BasesConfig, HistoryConfig)
+    from palchronicle.config import (
+        AppConfig,
+        BasesConfig,
+        HistoryConfig,
+        PollingConfig,
+        PrivacyConfig,
+        RoutingConfig,
+        WorldConfig,
+    )
     from palchronicle.domain.enums import AccessMode
     return AppConfig(
         servers=[], skipped=[],
@@ -42,9 +49,9 @@ def _cfg():
 
 
 async def test_first_appearance_creates_active_session(tmp_path):
+    from palchronicle.adapters.sqlite_repository import Repository
     from palchronicle.infrastructure.database import Database
     from palchronicle.infrastructure.migrations import apply_migrations
-    from palchronicle.adapters.sqlite_repository import Repository
     db = Database(tmp_path / "t.db"); await db.open(); await apply_migrations(db)
     clock = FakeClock(1000); repo = Repository(db, clock); events = FakeEvents()
     svc = PlayerService(repo, b"0" * 32, _cfg(), clock)
@@ -74,9 +81,9 @@ async def test_first_appearance_creates_active_session(tmp_path):
 
 
 async def test_second_appearance_no_duplicate_new_player(tmp_path):
+    from palchronicle.adapters.sqlite_repository import Repository
     from palchronicle.infrastructure.database import Database
     from palchronicle.infrastructure.migrations import apply_migrations
-    from palchronicle.adapters.sqlite_repository import Repository
     db = Database(tmp_path / "t.db"); await db.open(); await apply_migrations(db)
     clock = FakeClock(1000); repo = Repository(db, clock); events = FakeEvents()
     svc = PlayerService(repo, b"0" * 32, _cfg(), clock)

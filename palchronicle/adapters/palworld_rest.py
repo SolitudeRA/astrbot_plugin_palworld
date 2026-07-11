@@ -1,7 +1,6 @@
 """aiohttp REST 客户端：BasicAuth、超时、脱敏错误（不含凭证/URL）。"""
 from __future__ import annotations
 
-import asyncio
 from dataclasses import dataclass
 from typing import Any
 
@@ -53,7 +52,8 @@ class PalworldRestClient:
                 url,
                 auth=auth,
                 timeout=aiohttp.ClientTimeout(total=self._server.timeout),
-                ssl=ssl_opt,
+                # aiohttp 标注不含 None，但运行时 None 等价于默认校验；保持现状不改行为
+                ssl=ssl_opt,  # type: ignore[arg-type]
             ) as resp:
                 body = await resp.read()
                 duration_ms = int((self._clock.monotonic() - start) * 1000)
@@ -68,7 +68,7 @@ class PalworldRestClient:
                     duration_ms=duration_ms, payload_bytes=len(body),
                     error=f"http_status_{resp.status}",
                 )
-        except asyncio.TimeoutError:
+        except TimeoutError:
             return self._error_response(start, "request timeout")
         except aiohttp.ClientError:
             # 绝不带上 exc 文本（可能含 host/URL）；只报类别。

@@ -4,7 +4,7 @@ from collections.abc import Mapping
 from typing import Any
 
 from palchronicle.adapters.metadata_repository import MetadataRepository
-from palchronicle.domain.enums import ActionCategory, UnitType
+from palchronicle.domain.enums import UnitType
 from palchronicle.domain.models import (
     CharacterActor,
     GameDataSnapshot,

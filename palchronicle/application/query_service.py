@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone as _tz
+from datetime import UTC, datetime, tzinfo
 from zoneinfo import ZoneInfo
 
 from palchronicle.adapters.sqlite_repository import Repository
@@ -9,8 +9,18 @@ from palchronicle.domain.models import Base, BaseObservation, World
 from palchronicle.infrastructure.cache import TTLCache
 from palchronicle.infrastructure.clock import Clock
 from palchronicle.presentation.dtos import (
-    BaseDetailDTO, BaseDTO, EventDTO, GuildDetailDTO, GuildDTO, OnlineDTO,
-    OnlinePlayerRow, RuleRow, RulesDTO, StatusDTO, WildTopRow, WorldSummaryDTO,
+    BaseDetailDTO,
+    BaseDTO,
+    EventDTO,
+    GuildDetailDTO,
+    GuildDTO,
+    OnlineDTO,
+    OnlinePlayerRow,
+    RuleRow,
+    RulesDTO,
+    StatusDTO,
+    WildTopRow,
+    WorldSummaryDTO,
 )
 
 _STATUS_TTL = 15
@@ -108,10 +118,11 @@ class QueryService:
 
     def _server_day_start(self, world: World) -> int:
         tz_name = self._cfg.world.timezone or "UTC"
+        tz: tzinfo
         try:
             tz = ZoneInfo(tz_name)
         except Exception:
-            tz = _tz.utc
+            tz = UTC
         now = datetime.fromtimestamp(self._clock.now(), tz)
         midnight = now.replace(hour=0, minute=0, second=0, microsecond=0)
         return int(midnight.timestamp())
@@ -183,7 +194,10 @@ class QueryService:
         cached = self._cache.get(key)
         if cached is not None:
             return cached
-        guild_names = {g.guild_key: g.latest_name for g in await self._repo.list_guilds(world.world_id)}
+        # 键放宽为 str | None：Base.guild_key 可能为 None，get(None) 返回 None 即可
+        guild_names: dict[str | None, str] = {
+            g.guild_key: g.latest_name for g in await self._repo.list_guilds(world.world_id)
+        }
         dtos = [
             BaseDTO(
                 index=i, display_name=b.display_name or f"BASE-{i}",
@@ -197,7 +211,10 @@ class QueryService:
 
     async def base(self, world: World, key_or_index: str) -> BaseDetailDTO | None:
         indexed = await self._bases_indexed(world)
-        guild_names = {g.guild_key: g.latest_name for g in await self._repo.list_guilds(world.world_id)}
+        # 键放宽为 str | None：Base.guild_key 可能为 None，get(None) 返回 None 即可
+        guild_names: dict[str | None, str] = {
+            g.guild_key: g.latest_name for g in await self._repo.list_guilds(world.world_id)
+        }
         target = None
         token = key_or_index.strip()
         if token.startswith("#"):

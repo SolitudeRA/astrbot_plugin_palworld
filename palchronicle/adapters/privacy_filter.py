@@ -15,7 +15,7 @@ from palchronicle.domain.models import (
 
 
 def hash_user_id(salt: bytes, world_id: str, raw_user_id: str) -> str:
-    message = f"{world_id}:{raw_user_id}".encode("utf-8")
+    message = f"{world_id}:{raw_user_id}".encode()
     return hmac.new(salt, message, sha256).hexdigest()
 
 

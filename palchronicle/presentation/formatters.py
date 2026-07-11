@@ -3,8 +3,16 @@ from __future__ import annotations
 from palchronicle.config import SkippedServer, WorldConfig
 from palchronicle.domain.enums import Confidence, PingBucket
 from palchronicle.presentation.dtos import (
-    BaseDetailDTO, BaseDTO, EventDTO, GuildDetailDTO, GuildDTO,
-    OnlineDTO, RulesDTO, ServerStatusRow, StatusDTO, WorldSummaryDTO,
+    BaseDetailDTO,
+    BaseDTO,
+    EventDTO,
+    GuildDetailDTO,
+    GuildDTO,
+    OnlineDTO,
+    RulesDTO,
+    ServerStatusRow,
+    StatusDTO,
+    WorldSummaryDTO,
 )
 from palchronicle.presentation.locale import L
 
@@ -135,7 +143,7 @@ def format_help(topic: str | None, is_admin: bool) -> str:
     return "\n".join(lines)
 
 
-def format_status(dto: StatusDTO, cfg: WorldConfig) -> str:
+def format_status(dto: StatusDTO, cfg: WorldConfig | None) -> str:
     if dto.degraded:
         return format_degraded(dto.last_ok, dto.updated_at)
     lines = [

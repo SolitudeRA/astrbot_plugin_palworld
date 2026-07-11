@@ -5,8 +5,14 @@ from palchronicle.adapters import privacy_filter as privacy_mod
 from palchronicle.adapters.palworld_rest import RestResponse
 from palchronicle.application.snapshot_service import SnapshotService
 from palchronicle.config import (
-    AppConfig, BasesConfig, HistoryConfig, PollingConfig, PrivacyConfig,
-    RoutingConfig, ServerConfig, WorldConfig,
+    AppConfig,
+    BasesConfig,
+    HistoryConfig,
+    PollingConfig,
+    PrivacyConfig,
+    RoutingConfig,
+    ServerConfig,
+    WorldConfig,
 )
 from palchronicle.container import Container
 from palchronicle.domain.enums import AccessMode
@@ -91,9 +97,9 @@ async def test_world_summary_reads_shared_world_cache(tmp_path: Path):
 async def test_snapshot_service_backward_compatible_without_shared_caches(tmp_path):
     # 2.17 contract: constructing SnapshotService WITHOUT the new kwargs keeps
     # the private cache + get_settings behavior intact.
+    from palchronicle.adapters.sqlite_repository import Repository
     from palchronicle.infrastructure.database import Database
     from palchronicle.infrastructure.migrations import apply_migrations
-    from palchronicle.adapters.sqlite_repository import Repository
 
     db = Database(tmp_path / "t.db")
     await db.open()

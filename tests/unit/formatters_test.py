@@ -1,12 +1,25 @@
 from palchronicle.config import SkippedServer
 from palchronicle.domain.enums import Confidence, PingBucket
 from palchronicle.presentation.dtos import (
-    BaseDetailDTO, BaseDTO, EventDTO, GuildDetailDTO, GuildDTO,
-    OnlineDTO, OnlinePlayerRow, ServerStatusRow,
+    BaseDetailDTO,
+    BaseDTO,
+    EventDTO,
+    GuildDetailDTO,
+    GuildDTO,
+    OnlineDTO,
+    OnlinePlayerRow,
+    ServerStatusRow,
 )
 from palchronicle.presentation.formatters import (
-    format_base, format_bases, format_degraded, format_events, format_guild,
-    format_guilds, format_help, format_online, format_servers,
+    format_base,
+    format_bases,
+    format_degraded,
+    format_events,
+    format_guild,
+    format_guilds,
+    format_help,
+    format_online,
+    format_servers,
 )
 
 

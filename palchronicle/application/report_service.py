@@ -7,7 +7,7 @@ from zoneinfo import ZoneInfo
 from palchronicle.adapters.sqlite_repository import Repository
 from palchronicle.config import AppConfig
 from palchronicle.domain.enums import EventType
-from palchronicle.domain.models import World, WorldEvent
+from palchronicle.domain.models import World
 from palchronicle.infrastructure.clock import Clock
 
 _ACTIVE_SECONDS = 600  # spec §12: 活跃日 >= 10 分钟
@@ -126,7 +126,8 @@ class ReportService:
         total_online_seconds = 0
         active_players = 0
         try:
-            sessions = await self._repo.sessions_in_day(world.world_id, start, end)
+            # Repository 尚未提供该方法时走 AttributeError 降级路径（见下方 except）
+            sessions = await self._repo.sessions_in_day(world.world_id, start, end)  # type: ignore[attr-defined]
             total_online_seconds = sum(s.observed_seconds for s in sessions)
             active_players = sum(
                 1 for s in sessions if s.observed_seconds >= _ACTIVE_SECONDS

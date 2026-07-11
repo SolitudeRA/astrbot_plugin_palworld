@@ -1,10 +1,20 @@
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 from palchronicle.adapters.privacy_filter import bucketize_ping, hash_user_id
 from palchronicle.domain.enums import IdConfidence, LeaveReason, SessionStatus, UnitType
 from palchronicle.domain.models import (
-    PlayerIdentity, PlayerObservation, PlayerRow, PlayerSession, PlayersSnapshot, World,
+    PlayerIdentity,
+    PlayerObservation,
+    PlayerRow,
+    PlayerSession,
+    PlayersSnapshot,
+    World,
 )
+
+if TYPE_CHECKING:
+    from palchronicle.application.event_service import EventService
 
 
 def _resolve_identity(row: PlayerRow, salt: bytes, world_id: str) -> tuple[str, IdConfidence]:
@@ -22,7 +32,7 @@ class PlayerService:
         self._salt = salt
         self._cfg = cfg
         self._clock = clock
-        self.events = None  # 由 container 注入 EventService
+        self.events: EventService | None = None  # 由 container 注入 EventService
         self._missing: dict[tuple[str, str], int] = {}
 
     @staticmethod
