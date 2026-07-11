@@ -1,8 +1,12 @@
 from pathlib import Path
 
+import yaml
+
 from palchronicle.config import (
     AppConfig,  # noqa: F401  (ensure importable)
 )
+
+REPO_ROOT = Path(__file__).resolve().parents[2]
 
 
 def _raw_config(tmp_path: Path) -> dict:
@@ -66,6 +70,15 @@ async def test_initialize_and_terminate(tmp_path: Path, monkeypatch):
     assert plugin._container.commands is not None
     await plugin.terminate()
     assert (tmp_path / "palchronicle.sqlite3").exists()
+
+
+def test_register_version_matches_metadata():
+    # @register 的版本字符串须与 metadata.yaml 的 version 一致（v0.1.0）
+    meta = yaml.safe_load((REPO_ROOT / "metadata.yaml").read_text(encoding="utf-8"))
+    source = (REPO_ROOT / "main.py").read_text(encoding="utf-8")
+    assert f'"{meta["version"]}"' in source, (
+        f"main.py @register 版本应为 {meta['version']}"
+    )
 
 
 def test_pal_command_group_is_plain_def():

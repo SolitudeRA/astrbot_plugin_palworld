@@ -64,7 +64,7 @@ def _resolve_data_dir() -> Path:
 
 
 @register("astrbot_plugin_palword", "SolitudeRA",
-          "只读的 Palworld 世界纪事插件", "0.1.0",
+          "只读的 Palworld 世界纪事插件", "v0.1.0",
           "https://github.com/SolitudeRA/astrbot_plugin_palword")
 class PalChronicle(Star):
     def __init__(self, context, config):

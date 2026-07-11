@@ -5,3 +5,4 @@ version: v0.1.0
 author: SolitudeRA
 repo: https://github.com/SolitudeRA/astrbot_plugin_palword
 astrbot_version: ">=4.10.4"
+license: GPL-3.0
