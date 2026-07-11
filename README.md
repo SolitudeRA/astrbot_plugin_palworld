@@ -78,6 +78,23 @@
 | `session_days` | 365 | 玩家上下线会话保留天数 |
 | `observation_days` | 180 | 世界观察记录保留天数 |
 
+### custom_headers（自定义 HTTP 请求头）
+
+随插件对 REST API 的所有轮询请求一并发送。适用于 REST API 经反向代理/网关暴露、需要额外鉴权头的场景（如 Cloudflare Access 的 `CF-Access-Client-Id` / `CF-Access-Client-Secret`）。在 WebUI 配置页按条目添加/删除。
+
+| 字段 | 默认 | 说明 |
+|------|------|------|
+| `name` | 空 | Header 名（如 `CF-Access-Client-Id`） |
+| `value` | 空 | Header 值（明文，与 `value_env` 二选一；明文会落盘到 data/config/） |
+| `value_env` | 空 | 值的环境变量名（推荐存放敏感值，如网关 Token） |
+| `servers` | 空 | 限定服务器 name，逗号分隔多个。**servers 留空 = 发给所有服务器**（包括之后新增的）——含凭证的头务必限定作用域 |
+
+注意：
+
+- `Authorization`、`Host`、`Expect`、`Content-Length`、`Transfer-Encoding`、`Connection` 为保留头，配置了也会被忽略（Basic Auth 由服务器条目的 username/password 负责）
+- `value_env` / `password_env` 指向的环境变量变更后需**重启 AstrBot** 进程才能读到（WebUI 保存配置只热重载插件，环境变量是进程级的）
+- 被跳过的无效条目会在插件启动日志中以 warning 提示（只含名字与原因，不含值）
+
 ## 多服务器与群授权用法
 
 - `/pal servers`：列出所有服务器与本群授权/活动状态。
