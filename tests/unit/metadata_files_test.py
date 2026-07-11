@@ -12,7 +12,8 @@ VALID_CATEGORIES = {
 def test_pals_file_structure_and_min_count():
     data = json.loads((METADATA_DIR / "pals.zh-CN.json").read_text(encoding="utf-8"))
     assert isinstance(data, dict)
-    assert len(data) >= 8
+    # 1-111 全图鉴 + 常见亚种, 双键形式 (PalDataParameter/<代号> 与裸代号)
+    assert len(data) >= 200
     for cls, entry in data.items():
         assert isinstance(cls, str) and cls
         assert set(entry) >= {
@@ -45,6 +46,6 @@ def test_settings_file_covers_rules_fields():
         "BaseCampMaxNum",
     }
     assert required <= set(data)
-    for field, entry in data.items():
+    for _field, entry in data.items():
         assert "label_zh" in entry and isinstance(entry["label_zh"], str)
         assert "unit" in entry and isinstance(entry["unit"], str)

@@ -14,7 +14,7 @@ def _repo() -> MetadataRepository:
 
 def test_known_pal_class_returns_zh_name():
     repo = _repo()
-    assert repo.pal_name("PalDataParameter/SheepBall") == "绵绵羊"
+    assert repo.pal_name("PalDataParameter/SheepBall") == "棉悠悠"  # 官方中文名（旧值 绵绵羊 为民间译名）
 
 
 def test_unknown_pal_class_returns_safe_abbrev_and_registers():
