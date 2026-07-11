@@ -19,12 +19,20 @@ class LevelEvent:
     old_level: int
     new_level: int
 
+    def __str__(self) -> str:
+        # player_name holds the HMAC subject_key; display names are not
+        # resolvable here in v0.1, so show a truncated hash (privacy-consistent).
+        return f"{self.player_name[:8]}… Lv{self.old_level}→Lv{self.new_level}"
+
 
 @dataclass(slots=True)
 class BaseEvent:
     base_key: str
     kind: str          # "new" / "vanished" / "worker_delta"
     detail: str
+
+    def __str__(self) -> str:
+        return f"{self.detail}"
 
 
 @dataclass(slots=True)

@@ -1,5 +1,6 @@
 from pathlib import Path
 
+from palchronicle.application.report_service import BaseEvent, LevelEvent
 from palchronicle.config import WorldConfig
 from palchronicle.domain.enums import PingBucket
 from palchronicle.presentation.dtos import (
@@ -60,13 +61,17 @@ def test_today_golden():
         active_players = 5
         peak_online = 7
         total_online_seconds = 36000
-        level_events = ["Neo 升至 Lv21"]
-        base_events = ["据点新增：Noema-2"]
+        level_events = [LevelEvent("a" * 64, 20, 21)]
+        base_events = [BaseEvent("b1", "new", "据点新增：Noema-2")]
         records = ["在线人数刷新纪录：7 人"]
         summary = "世界迎来新的一天。"
         is_empty = False
 
     _check_golden("today.txt", format_today(_Report()))
+
+
+def test_level_event_str_humanized():
+    assert "Lv20→Lv21" in str(LevelEvent("a" * 64, 20, 21))
 
 
 def test_online_redacted_golden():

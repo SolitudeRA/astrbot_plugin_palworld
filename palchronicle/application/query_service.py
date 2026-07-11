@@ -9,8 +9,8 @@ from palchronicle.domain.models import Base, BaseObservation, World
 from palchronicle.infrastructure.cache import TTLCache
 from palchronicle.infrastructure.clock import Clock
 from palchronicle.presentation.dtos import (
-    BaseDetailDTO, BaseDTO, EventDTO, GuildDTO, OnlineDTO, OnlinePlayerRow, RuleRow,
-    RulesDTO, StatusDTO, WildTopRow, WorldSummaryDTO,
+    BaseDetailDTO, BaseDTO, EventDTO, GuildDetailDTO, GuildDTO, OnlineDTO,
+    OnlinePlayerRow, RuleRow, RulesDTO, StatusDTO, WildTopRow, WorldSummaryDTO,
 )
 
 _STATUS_TTL = 15
@@ -143,6 +143,36 @@ class QueryService:
         ]
         self._cache.set(key, dtos, self._GUILDS_TTL)
         return dtos
+
+    async def guild(self, world: World, name: str) -> GuildDetailDTO | None:
+        key = f"guild:{world.world_id}:{name}"
+        cached = self._cache.get(key)
+        if cached is not None:
+            return cached
+        guilds = await self._repo.list_guilds(world.world_id)
+        target = None
+        for g in guilds:
+            if g.latest_name == name:
+                target = g
+                break
+        if target is None:
+            return None  # not found: do not cache None
+        # active_today/active_week/average_level are v0.1 degradation
+        # placeholders, consistent with GuildDTO.active_7d=0.
+        dto = GuildDetailDTO(
+            name=target.latest_name,
+            first_seen_at=target.first_seen_at,
+            last_seen_at=target.last_seen_at,
+            observed_members=target.observed_member_count,
+            active_today=0,
+            active_week=0,
+            palbox=target.palbox_count,
+            base_pals=target.base_pal_count,
+            average_level=0.0,
+            base_event_lines=[],
+        )
+        self._cache.set(key, dto, self._GUILDS_TTL)
+        return dto
 
     async def _bases_indexed(self, world: World) -> list[tuple[int, Base]]:
         bases = await self._repo.list_bases(world.world_id)

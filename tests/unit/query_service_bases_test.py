@@ -56,6 +56,30 @@ async def test_guilds_dto(qs):
     assert dtos[0].palbox == 2
 
 
+async def test_guild_detail_found(qs):
+    repo, q, _ = qs
+    await repo.upsert_guild(Guild("g1", WID, "Noema", 900, 1200, 4, 2, 10))
+    dto = await q.guild(_world(), "Noema")
+    assert dto is not None
+    assert dto.name == "Noema"
+    assert dto.first_seen_at == 900
+    assert dto.last_seen_at == 1200
+    assert dto.observed_members == 4
+    assert dto.palbox == 2
+    assert dto.base_pals == 10
+    # v0.1 degradation placeholders
+    assert dto.active_today == 0
+    assert dto.active_week == 0
+    assert dto.average_level == 0.0
+    assert dto.base_event_lines == []
+
+
+async def test_guild_detail_not_found(qs):
+    repo, q, _ = qs
+    await repo.upsert_guild(Guild("g1", WID, "Noema", 900, 1200, 4, 2, 10))
+    assert await q.guild(_world(), "Ghost") is None
+
+
 async def test_bases_have_stable_index(qs):
     repo, q, _ = qs
     await repo.upsert_base(Base("b1", WID, "pb1", "Noema-1", "g1", Confidence.HIGH, False, False, 900, 1200))
