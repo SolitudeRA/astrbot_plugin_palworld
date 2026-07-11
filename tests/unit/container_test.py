@@ -12,6 +12,7 @@ from palchronicle.config import (
     PrivacyConfig,
     RoutingConfig,
     ServerConfig,
+    SkippedHeader,
     WorldConfig,
 )
 from palchronicle.container import Container
@@ -164,3 +165,33 @@ async def test_on_response_dispatches_info(tmp_path: Path, monkeypatch):
     await c._on_response("alpha", EndpointName.INFO, resp)
     await c.stop()
     assert calls == [("info", "alpha")]
+
+
+async def test_skipped_headers_logged_on_start_without_value(tmp_path: Path, caplog):
+    cfg = _cfg([_server("alpha")])
+    cfg.skipped_headers = [SkippedHeader("bad name", "illegal_name"),
+                           SkippedHeader("Authorization", "reserved")]
+    c = Container(cfg, tmp_path, FakeClock(1000),
+                  rest_factory=lambda s, clk: _FakeRest(),
+                  scheduler_factory=lambda *a, **k: _FakeScheduler())
+    with caplog.at_level(logging.WARNING, logger="palchronicle.container"):
+        await c.start()
+    try:
+        msgs = [r.getMessage() for r in caplog.records if "custom_headers" in r.getMessage()]
+        assert len(msgs) == 1
+        assert "bad name(illegal_name)" in msgs[0]
+        assert "Authorization(reserved)" in msgs[0]
+    finally:
+        await c.stop()
+
+
+async def test_no_skipped_headers_no_warning(tmp_path: Path, caplog):
+    c = Container(_cfg([_server("alpha")]), tmp_path, FakeClock(1000),
+                  rest_factory=lambda s, clk: _FakeRest(),
+                  scheduler_factory=lambda *a, **k: _FakeScheduler())
+    with caplog.at_level(logging.WARNING, logger="palchronicle.container"):
+        await c.start()
+    try:
+        assert not any("custom_headers" in r.getMessage() for r in caplog.records)
+    finally:
+        await c.stop()
