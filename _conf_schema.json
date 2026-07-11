@@ -121,5 +121,14 @@
       "session_days": { "type": "int", "description": "会话保留天数", "default": 365 },
       "observation_days": { "type": "int", "description": "观察保留天数", "default": 180 }
     }
+  },
+  "features": {
+    "type": "object",
+    "description": "功能分组开关（关闭的组不轮询、不装配、命令回\"未开放\"；代码保留，改开即恢复）",
+    "items": {
+      "report": { "type": "bool", "description": "日报/在线统计（/pal today）", "default": true },
+      "events": { "type": "bool", "description": "世界事件记录（/pal events；关闭后不生成事件）", "default": true },
+      "guilds_bases": { "type": "bool", "description": "公会与据点（依赖服务器开放 /game-data；Palworld 1.0 专用服务器暂不支持，默认关）", "default": false }
+    }
   }
 }
