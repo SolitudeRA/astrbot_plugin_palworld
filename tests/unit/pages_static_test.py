@@ -34,3 +34,17 @@ def test_custom_headers_handled_to_avoid_clearing():
     # （建卡片走哨兵），否则原样回传会清空所有请求头值
     src = (PAGES / "settings.js").read_text(encoding="utf-8")
     assert "custom_headers" in src
+
+
+def test_server_card_renders_enabled_and_verify_tls():
+    # 漏渲染这两个 bool 会在保存时被 parse_config 默认为 True 静默重置
+    src = (PAGES / "settings.js").read_text(encoding="utf-8")
+    assert "enabled" in src
+    assert "verify_tls" in src
+
+
+def test_add_and_delete_controls_present():
+    # 规格 §4：servers/custom_headers 可增删（用户核心需求「用按钮添加和删除」）
+    src = (PAGES / "settings.js").read_text(encoding="utf-8")
+    assert "添加" in src
+    assert "删除" in src

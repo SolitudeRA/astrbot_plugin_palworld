@@ -13,6 +13,7 @@ export async function mountStatus(bridge, root, toast) {
     let data;
     try { data = await bridge.apiGet("status/overview"); }
     catch (e) { toast("读取状态失败"); return; }
+    if (!data.ok) { toast("读取状态失败"); return; }
     if (data.restarting) {
       const p = document.createElement("p");
       p.textContent = "插件正在重载配置…";
