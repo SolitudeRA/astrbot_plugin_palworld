@@ -9,6 +9,7 @@ from palchronicle.presentation.dtos import (
     OnlineDTO,
     OnlinePlayerRow,
     ServerStatusRow,
+    StatusDTO,
 )
 from palchronicle.presentation.formatters import (
     format_base,
@@ -20,6 +21,7 @@ from palchronicle.presentation.formatters import (
     format_help,
     format_online,
     format_servers,
+    format_status,
 )
 
 
@@ -32,6 +34,21 @@ def test_format_degraded_shows_minutes_not_shutdown():
 def test_format_degraded_never_ok():
     text = format_degraded(last_ok=None, now=1000)
     assert "无法获取" in text
+
+
+def test_format_status_takes_only_dto():
+    # fps 分档（smoothness_label）由应用层依据 WorldConfig 计算并放入 DTO，
+    # formatter 不再接收 config —— 签名为 format_status(dto)。
+    dto = StatusDTO(
+        server_name="alpha", world_name="Palpagos", world_day=42, online=2, max_players=32,
+        basecamp_count=5, fps=58.0, frame_time=17.2, smoothness_label="流畅",
+        players=[("Neo", 21, "good")],
+        peak_online_today=7, updated_at=1700000000, degraded=False, last_ok=1700000000,
+    )
+    text = format_status(dto)
+    assert "Palpagos" in text
+    assert "流畅" in text
+    assert "Neo" in text
 
 
 def test_format_online_lists_players_and_bucket_label():

@@ -1,7 +1,6 @@
 from pathlib import Path
 
 from palchronicle.application.report_service import BaseEvent, LevelEvent
-from palchronicle.config import WorldConfig
 from palchronicle.domain.enums import PingBucket
 from palchronicle.presentation.dtos import (
     OnlineDTO,
@@ -32,10 +31,6 @@ def _check_golden(name: str, actual: str) -> None:
     assert actual == expected, f"golden mismatch for {name}"
 
 
-def _world_cfg() -> WorldConfig:
-    return WorldConfig("Asia/Tokyo", "zh-CN", 50, 35, 20)
-
-
 def test_status_golden():
     dto = StatusDTO(
         server_name="alpha", world_name="Palpagos", world_day=42, online=2, max_players=32,
@@ -43,7 +38,7 @@ def test_status_golden():
         players=[("Neo", 21, "good"), ("Trinity", 18, "ok")],
         peak_online_today=7, updated_at=1700000000, degraded=False, last_ok=1700000000,
     )
-    _check_golden("status.txt", format_status(dto, _world_cfg()))
+    _check_golden("status.txt", format_status(dto))
 
 
 def test_world_golden():

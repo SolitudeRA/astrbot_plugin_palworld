@@ -54,10 +54,9 @@ class Commands:
         return formatter(dto)
 
     async def status(self, umo, message_str, is_group) -> str:
-        cfg = self._cfg.world if self._cfg else None
         return await self.handle_query(
             umo, message_str, "status", is_group,
-            formatter=lambda d: format_status(d, cfg), query_fn=self._query.status,
+            formatter=format_status, query_fn=self._query.status,
         )
 
     async def online(self, umo, message_str, is_group) -> str:

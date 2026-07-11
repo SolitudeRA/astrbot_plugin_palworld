@@ -17,7 +17,7 @@ async def test_smoke_status_after_one_collection(harness):
     await snap.ingest_game_data(world, ok(load_fixture("normal_world", "game-data")))
 
     dto = await container.query.status(world)
-    text = format_status(dto, container.config.world)
+    text = format_status(dto)
 
     # 合理文本：含世界名、天数 42、在线 2/32、官方据点数 3（metrics.basecampnum）
     assert "Chronicle Test World" in text
