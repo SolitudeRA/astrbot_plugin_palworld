@@ -123,3 +123,28 @@ async def test_scheduler_stop_cancels_all_tasks():
     await asyncio.sleep(0)
     await sched.stop()
     assert all(t.done() for t in sched._tasks)
+
+
+async def test_scheduler_only_fires_injected_endpoints():
+    fetched = []
+
+    async def fetcher(server_id, endpoint):
+        fetched.append(endpoint)
+        return _ok_resp()
+
+    async def on_response(server_id, endpoint, resp):
+        return None
+
+    sched = Scheduler(
+        servers=[_server()], polling=_polling(),
+        locks=EndpointLocks(max_concurrency=6), clock=FakeClock(start=0),
+        on_response=on_response, rng_seed=42, fetcher=fetcher, sleep=GatedSleep(),
+        endpoints=frozenset({EndpointName.INFO, EndpointName.METRICS}),
+    )
+    await sched.start()
+    await asyncio.sleep(0)
+    await asyncio.sleep(0)
+    await sched.stop()
+
+    assert set(fetched) == {EndpointName.INFO, EndpointName.METRICS}
+    assert EndpointName.GAME_DATA not in fetched

@@ -33,6 +33,7 @@ class Scheduler:
         *,
         fetcher: Fetcher,
         sleep: Sleeper = asyncio.sleep,
+        endpoints: frozenset[EndpointName] | None = None,
     ) -> None:
         self._servers = servers
         self._polling = polling
@@ -42,6 +43,7 @@ class Scheduler:
         self._rng = random.Random(rng_seed)
         self._fetcher = fetcher
         self._sleep = sleep
+        self._endpoints = endpoints if endpoints is not None else frozenset(EndpointName)
         self._tasks: list[asyncio.Task] = []
         # 每 (server_id, endpoint) 的背压状态
         self._effective: dict[tuple[str, EndpointName], float] = {}
@@ -64,7 +66,7 @@ class Scheduler:
         for server in self._servers:
             if not server.ready:
                 continue
-            for endpoint in EndpointName:
+            for endpoint in self._endpoints:
                 self._tasks.append(
                     asyncio.create_task(self._loop(server, endpoint))
                 )
