@@ -183,3 +183,18 @@ def _strip_meta(cand: dict) -> None:
                 for k in list(it):
                     if k in _META_KEYS:
                         it.pop(k, None)
+
+
+def status_rows(entries: list) -> list[dict]:
+    """把 (name, ready, StatusDTO|None) 组装为白名单状态行。"""
+    rows: list[dict] = []
+    for name, ready, dto in entries:
+        if dto is None:
+            rows.append({"name": name, "ready": ready})
+            continue
+        rows.append({
+            "name": name, "ready": ready, "online": dto.online,
+            "smoothness_label": dto.smoothness_label,
+            "degraded": dto.degraded, "last_ok": dto.last_ok,
+        })
+    return rows
