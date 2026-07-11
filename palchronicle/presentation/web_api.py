@@ -18,7 +18,10 @@ async def handle_status_overview(container, restarting: bool) -> tuple[int, dict
     for s in container.config.servers:
         world = await container.repo.get_current_world(s.server_id)
         dto = await container.query.status(world) if world is not None else None
-        entries.append((s.name, s.ready, dto))
+        # world 为 None（未 ready / 从未成功轮询）→ 骨架行 ready=False（规格 §3.3），
+        # 避免前端对 ready=True 但无 dto 的行渲染出 "在线 undefined"
+        ready = s.ready if dto is not None else False
+        entries.append((s.name, ready, dto))
     return 200, {"ok": True, "servers": status_rows(entries)}
 
 

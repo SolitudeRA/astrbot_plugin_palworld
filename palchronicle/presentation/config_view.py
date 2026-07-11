@@ -6,6 +6,7 @@ __row_id；错误只含字段路径不含值。全部无 IO/无 await，可脱�
 from __future__ import annotations
 
 import copy
+import math
 from collections.abc import Mapping
 from urllib.parse import urlsplit
 
@@ -14,11 +15,19 @@ _ROW_ID_PREFIX = {"servers": "srv", "custom_headers": "hdr", "group_bindings": "
 
 SENTINEL = "__unchanged__"
 
+# 每个列表节允许落盘的键（对照 _conf_schema.json 模板）；此外的键（含前端回传的
+# __row_id/password_set/value_set/__template_key 与任何未知键）一律在落盘前剔除。
+_SECTION_KEYS = {
+    "servers": {"name", "enabled", "base_url", "username", "password",
+                "password_env", "timeout", "verify_tls", "timezone"},
+    "custom_headers": {"name", "value", "value_env", "servers"},
+    "group_bindings": {"umo", "server", "active"},
+}
+
 _TOP_KEYS = {
     "servers", "routing", "group_bindings", "custom_headers",
     "polling", "world", "bases", "privacy", "history",
 }
-_META_KEYS = {"__row_id", "__template_key", "password_set", "value_set"}
 _MAX_LIST = 200
 _MAX_STR = 8 * 1024
 _MAX_BODY = 256 * 1024
@@ -83,12 +92,19 @@ def _err(code: str, path: str | None = None) -> tuple[bool, dict]:
     return False, {"error": code, "detail": detail}
 
 
-def _num_convertible(val, kind: str) -> bool:
+def _num_valid(val, kind: str) -> bool:
+    # bool 是 int 子类，int(True)=1 会被误当合法数值——显式排除
+    if isinstance(val, bool):
+        return False
     try:
-        (int if kind == "int" else float)(val)
-        return True
+        num = (int if kind == "int" else float)(val)
     except (TypeError, ValueError):
         return False
+    # 拒绝 NaN/inf（float("nan"/"inf") 本身合法但会污染下游）与负数
+    # （本表所有配置项语义均非负：秒数/半径/次数/比例/天数等）
+    if not math.isfinite(num) or num < 0:
+        return False
+    return True
 
 
 def _index_old(old_raw, section: str) -> dict:
@@ -139,10 +155,10 @@ def validate_and_backfill(body, old_raw, env):
         node = body.get(sect)
         if sect == "servers":
             for i, it in enumerate(body.get("servers", [])):
-                if field in it and not _num_convertible(it[field], kind):
+                if field in it and not _num_valid(it[field], kind):
                     return _err("invalid_field", f"servers[{i}].{field}")
         elif isinstance(node, Mapping) and field in node:
-            if not _num_convertible(node[field], kind):
+            if not _num_valid(node[field], kind):
                 return _err("invalid_field", f"{sect}.{field}")
 
     # 哨兵回填 + 凭证重定向 + 剥离元键
@@ -171,17 +187,21 @@ def validate_and_backfill(body, old_raw, env):
     return True, cand
 
 
-def _host_changed(old_url: str, new_url: str) -> bool:
-    o, n = urlsplit(old_url), urlsplit(new_url)
+def _host_changed(old_url, new_url) -> bool:
+    # 非字符串 base_url 归一化为 ""，避免 urlsplit 抛 TypeError 冒泡成 500
+    o = urlsplit(old_url if isinstance(old_url, str) else "")
+    n = urlsplit(new_url if isinstance(new_url, str) else "")
     return (o.scheme, o.hostname, o.port) != (n.scheme, n.hostname, n.port)
 
 
 def _strip_meta(cand: dict) -> None:
+    # 逐项键白名单：只保留 schema 允许的键，其余（元键 + 任意未知键）落盘前剔除
     for section in _LIST_SECTIONS:
+        allowed = _SECTION_KEYS[section]
         for it in cand.get(section, []) or []:
             if isinstance(it, dict):
                 for k in list(it):
-                    if k in _META_KEYS:
+                    if k not in allowed:
                         it.pop(k, None)
 
 

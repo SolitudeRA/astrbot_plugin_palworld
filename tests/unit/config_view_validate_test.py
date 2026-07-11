@@ -150,3 +150,47 @@ def test_unmatched_server_name_sentinel_rejected():
     body["servers"][0]["name"] = "alpha2"
     ok, cand = validate_and_backfill(body, _old(), {})
     assert ok and cand["servers"][0]["password"] == "oldpw"
+
+
+def test_unknown_item_key_stripped_not_persisted():
+    # F4 红线：列表项内任意未知键（schema 外）落盘前剔除，不持久化
+    body = _body()
+    body["servers"][0]["pwned"] = "x"
+    ok, cand = validate_and_backfill(body, _old(), {})
+    assert ok is True
+    assert "pwned" not in cand["servers"][0]
+    # 合法键仍在
+    assert cand["servers"][0]["name"] == "alpha"
+
+
+def test_negative_number_rejected():
+    body = _body()
+    body["servers"][0]["timeout"] = -5
+    ok, err = validate_and_backfill(body, _old(), {})
+    assert ok is False and err["error"] == "invalid_field"
+    assert err["detail"]["path"] == "servers[0].timeout"
+
+
+def test_nan_and_inf_rejected():
+    for bad in ("nan", "inf", "-inf"):
+        body = _body()
+        body["polling"]["jitter_ratio"] = bad
+        ok, err = validate_and_backfill(body, _old(), {})
+        assert ok is False and err["error"] == "invalid_field", bad
+        assert err["detail"]["path"] == "polling.jitter_ratio"
+
+
+def test_bool_not_accepted_as_number():
+    body = _body()
+    body["servers"][0]["timeout"] = True
+    ok, err = validate_and_backfill(body, _old(), {})
+    assert ok is False and err["error"] == "invalid_field"
+    assert err["detail"]["path"] == "servers[0].timeout"
+
+
+def test_non_string_base_url_no_crash():
+    # F9：非字符串 base_url + 哨兵密码不得抛 TypeError 冒泡成 500，须结构化错误
+    body = _body()
+    body["servers"][0]["base_url"] = 12345
+    ok, err = validate_and_backfill(body, _old(), {})
+    assert ok is False and isinstance(err, dict) and "error" in err

@@ -78,4 +78,5 @@ async def test_status_overview_assembles_rows():
 async def test_status_overview_world_none_skeleton():
     c = _Container([_Server("a")], {}, _dto())  # 无 world
     code, payload = await handle_status_overview(c, restarting=False)
-    assert payload["servers"] == [{"name": "a", "ready": True}]
+    # 规格 §3.3：world 为 None 时骨架行 ready=False（即便配置 s.ready 为 True）
+    assert payload["servers"] == [{"name": "a", "ready": False}]
