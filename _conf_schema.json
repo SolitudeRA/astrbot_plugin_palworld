@@ -72,7 +72,7 @@
       "players_seconds": { "type": "int", "description": "players 轮询间隔(秒)", "default": 30 },
       "info_seconds": { "type": "int", "description": "info 轮询间隔(秒)", "default": 600 },
       "settings_seconds": { "type": "int", "description": "settings 轮询间隔(秒)", "default": 1800 },
-      "game_data_seconds": { "type": "int", "description": "game-data 轮询间隔(秒)", "default": 120 },
+      "game_data_seconds": { "type": "int", "description": "game-data 轮询间隔(秒)（仅在 features.guilds_bases 开启时生效）", "default": 120 },
       "jitter_ratio": { "type": "float", "description": "间隔抖动比例", "default": 0.10 },
       "max_concurrency": { "type": "int", "description": "全局在途 HTTP 请求上限", "default": 6 }
     }
@@ -90,7 +90,7 @@
   },
   "bases": {
     "type": "object",
-    "description": "据点推导参数",
+    "description": "据点推导参数（仅在 features.guilds_bases 开启时生效）",
     "items": {
       "enabled": { "type": "bool", "description": "启用据点/PalBox 推导", "default": true },
       "assignment_radius": { "type": "int", "description": "据点归属半径", "default": 5000 },
