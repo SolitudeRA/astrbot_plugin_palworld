@@ -12,7 +12,11 @@ const update = (key: string, v: unknown) => emit('update:modelValue', { ...props
     <template v-for="f in HEADER_FIELDS" :key="f.key">
       <div v-if="f.secret" class="pw-field">
         <label class="pw-field-label">{{ f.label }}</label>
-        <input class="pw-input" type="password"
+        <!-- type=text + -webkit-text-security 遮罩：绕开受限 iframe(opaque origin)对
+             type=password 的剪贴板读取门控（否则 Ctrl+V 在 Chrome/Edge 无反应）；
+             仍非受控、不回显 modelValue[secret]（T8 安全红线保持）。 -->
+        <input class="pw-input pw-secret" type="text"
+          autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false"
           :placeholder="modelValue.value_set ? '已设置（留空保持不变）' : '未设置'"
           @input="update(f.key, ($event.target as HTMLInputElement).value)" />
       </div>

@@ -32,6 +32,10 @@ body { margin: 0; background: var(--pw-bg); color: var(--pw-text);
   flex: 1; min-width: 0; padding: var(--pw-sp-2) var(--pw-sp-3); border: 1px solid var(--pw-border);
   border-radius: var(--pw-radius); background: var(--pw-surface); color: var(--pw-text); font-size: 14px; }
 .pw-input:focus-visible, .pw-select-trigger:focus-visible, .pw-number-input:focus-visible { outline: none; box-shadow: var(--pw-focus); }
+/* secret 输入遮罩：type=text + text-security 绕开受限 iframe(opaque origin)对 type=password
+   的剪贴板读取门控（否则 Chrome/Edge 里 Ctrl+V 无反应）。Firefox 不支持 -webkit-text-security
+   则明文降级（功能可用，遮罩失效——可后续内联 text-security 字体兜底）。 */
+.pw-secret { -webkit-text-security: disc; }
 
 .pw-select-trigger { display: inline-flex; justify-content: space-between; align-items: center; cursor: pointer; }
 .pw-select-content { background: var(--pw-surface); border: 1px solid var(--pw-border); border-radius: var(--pw-radius); padding: var(--pw-sp-1); }
