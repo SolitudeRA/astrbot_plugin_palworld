@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
 from datetime import UTC, datetime, tzinfo
 from zoneinfo import ZoneInfo
 
@@ -22,9 +23,24 @@ from ..presentation.dtos import (
     WildTopRow,
     WorldSummaryDTO,
 )
+from .report_service import day_bounds
 
 _STATUS_TTL = 15
 _ONLINE_TTL = 15
+
+
+@dataclass(slots=True)
+class PlayerProfileDTO:
+    name: str
+    level: int
+    online: bool
+    online_seconds: int
+
+
+@dataclass(slots=True)
+class RankBoardsDTO:
+    time_rows: list[tuple[str, int]]   # (name, seconds)
+    level_rows: list[tuple[str, int]]  # (name, level)
 
 
 class QueryService:
@@ -329,6 +345,58 @@ class QueryService:
         report = await self._report.daily(world)
         self._cache.set(key, report, 60)
         return report
+
+    async def load_excluded_keys(self, world: World) -> set[str]:
+        keys: set[str] = set()
+        for name in self._cfg.players.exclude_names:
+            for key in await self._repo.list_players_by_name(world.world_id, name):
+                keys.add(key)
+        keys |= await self._repo.get_hidden_keys(world.world_id)
+        return keys
+
+    async def rank(self, world: World) -> RankBoardsDTO:
+        excluded = await self.load_excluded_keys(world)
+        n = self._cfg.players.rank_top_n
+
+        _day, start, end = day_bounds(self._cfg, world, self._clock.now())
+        sessions = await self._repo.sessions_in_day(world.world_id, start, end)
+        totals: dict[str, int] = {}
+        for s in sessions:
+            if s.player_key in excluded:
+                continue
+            totals[s.player_key] = totals.get(s.player_key, 0) + s.observed_seconds
+        top_time = sorted(totals.items(), key=lambda kv: (-kv[1], kv[0]))[:n]
+        time_rows: list[tuple[str, int]] = []
+        for key, secs in top_time:
+            ident = await self._repo.get_player(world.world_id, key)
+            time_rows.append((ident.latest_name if ident is not None else key[:8], secs))
+
+        players = await self._repo.list_players_by_level(world.world_id)
+        level_rows: list[tuple[str, int]] = []
+        seen: set[str] = set()
+        for p in players:
+            if p.player_key in excluded or p.latest_name in seen:
+                continue
+            seen.add(p.latest_name)
+            level_rows.append((p.latest_name, p.latest_level))
+            if len(level_rows) >= n:
+                break
+
+        return RankBoardsDTO(time_rows=time_rows, level_rows=level_rows)
+
+    async def player_profile(self, world: World, name: str) -> PlayerProfileDTO | None:
+        ident = await self._repo.get_player_by_name(world.world_id, name)
+        if ident is None:
+            return None
+        excluded = await self.load_excluded_keys(world)
+        if ident.player_key in excluded:
+            return None
+        session = await self._repo.get_open_session(world.world_id, ident.player_key)
+        return PlayerProfileDTO(
+            name=ident.latest_name, level=ident.latest_level,
+            online=session is not None,
+            online_seconds=session.observed_seconds if session is not None else 0,
+        )
 
 
 def _event_summary(e) -> str:
