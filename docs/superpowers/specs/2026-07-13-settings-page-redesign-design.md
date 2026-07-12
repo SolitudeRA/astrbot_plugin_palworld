@@ -27,7 +27,7 @@
 - `ServerCard.vue` / `HeaderCard.vue`：查看↔编辑两态；查看态只显已填字段。
 - `SectionForm.vue`：换 `.entry/.row` 排布，渲染节副标题 + 字段提示；保留 `section.title` 与 Field 顺序。
 - `StatusPanel.vue`：换观测卡外观；**逻辑与文案锚点原样保留**（§3.3 边界）。
-- `Field.vue`：**模板不动**（保留 reka-ui 组件与角色契约）；仅靠 CSS 重塑外观。
+- `Field.vue`：**剥离标签包裹，只渲染控件本身**（保留全部 reka-ui 组件、`role`/`aria-label`/emit 契约，仅去掉 `.pw-field` 外层与 `<label>`）；标签 + 提示改由父级（SectionForm 的 `.row` / 卡片的 `.crow`）在各自网格布局里渲染——因对象节与卡片是两套不同网格、且都要显字段 hint，Field 必须是纯控件才能同时嵌入两者并让父级掌控 label/hint 列。
 - `styles/tokens.css`：整体重写为新设计系统（以 pw-\* 类 + reka-ui data-state 为准）。
 - `lib/schema.ts`：**只加**可选展示属性（`hint?`/`subtitle?`）+ 打磨 label 文案；key/type/default/options/顺序/secret 一律不动。
 - `lib/chapters.ts`（新增）：章节结构常量。
@@ -215,7 +215,7 @@ emits:  {
 | I2 | `schema.ts` `OBJECT_SECTIONS` 键序 `['routing','polling','world','bases','privacy','history','features','players']`、各 `fields[].key/type/default/options`、`SERVER/HEADER_FIELDS` 字段集与 `_conf_schema.json` 对齐 | schema.ts + schema.test |
 | I3 | `bridge.ts` 三端点 `config/get`/`config/save`/`status/overview`、`unwrap` 分流、签名不改 | bridge.ts |
 | I4 | 错误四类 + `ERR` 码映射链路不改；`credential_redirect` 就地提示 | errors.ts + SettingsPanel |
-| I5 | reka-ui 控件语义不变：bool→`[role=switch]`；enum→恰 1 `[role=combobox]`(BUTTON、`aria-label===key`)不回退文本框；int/float blur 提交 number；string emit string。**只改 CSS，不换组件、不改 Field.vue 逻辑** | Field.vue + Field.test |
+| I5 | reka-ui 控件语义不变：bool→`[role=switch]`；enum→恰 1 `[role=combobox]`(BUTTON、`aria-label===key`)不回退文本框；int/float blur 提交 number；string emit string。**不换组件、不改控件角色/emit**；Field.vue 仅去 label 包裹、控件本体与角色/emit 原样 | Field.vue + Field.test |
 | I6 | secret 输入：`type=text` + `pw-secret`(`-webkit-text-security:disc`，走类非内联) + 非受控不回显 + 占位据各自 `*_set` | ServerCard/HeaderCard |
 | I7 | 暗色挂 `[data-theme="dark"]`；主题写自身 `document.documentElement`；`localStorage` 全程 try/catch（含 initialTheme 读路径） | tokens.css + App |
 | I8 | 单文件产物：cssCodeSplit:false、inlineDynamicImports、无 `import()`、无第二 CSS 入口、不加依赖 | vite.config + verify-bundle |
@@ -237,7 +237,10 @@ emits:  {
 ## 9. 测试影响
 
 ### 保持通过（不改，验证仍绿）
-`lib/collect.test`、`lib/schema.test`、`lib/bridge.test`、`lib/boot.test`（契约/传输/引导，与视觉正交）；`Field.test`（Field.vue 模板不动）；`SectionForm.test`（保留 `section.title` 文本 + role=switch 顺序，只换外层 class）；`StatusPanel.test`（§3.3 保住文本锚点：`在线 {online}`、`{smoothness_label}`、`正在重载`、`读取状态失败`、`刷新`）。
+`lib/collect.test`、`lib/schema.test`、`lib/bridge.test`、`lib/boot.test`（契约/传输/引导，与视觉正交）；`SectionForm.test`（保留 `section.title` 文本 + role=switch 顺序，只换外层 class；label/hint 由父级 `.row` 渲染，section.title 仍在 `.entry-title`、字段 label 仍在 `.rlabel` → `w.text()` 仍含各 label，测试不破）；`StatusPanel.test`（§3.3 保住文本锚点：`在线 {online}`、`{smoothness_label}`、`正在重载`、`读取状态失败`、`刷新`）。
+
+### 须改写（结构/标签归属变动波及）
+- **`Field.test`**：仅去掉 enum 用例里 `expect(w.text()).toContain('模式')` 一行（label 移到父级、Field 不再自渲 label）。**保留全部角色/emit 断言**：string→`input[type=text]` emit string；bool→`[role=switch]` emit boolean；int→`input` blur emit number；enum→恰 1 `[role=combobox]`(BUTTON、`aria-label==='mode'`)且不回退文本框。Field 的可识别性由 `aria-label===spec.key` 保证（不依赖可见 label）。
 
 ### 须改写
 - **`App.test`**：删两 tab 断言。新断言：默认渲染报头品牌「帕鲁纪事」+ 左索引含「观测台」「接入」；点「观测台」rail 按钮 → 文本含「刷新」（进 StatusPanel）。**保留**错误边界用例（stub SettingsPanel 抛错→显 'boom-child'）——断言前提：默认 `chapter==='access'`、SettingsPanel v-show 常挂（§3.2 红线）。
