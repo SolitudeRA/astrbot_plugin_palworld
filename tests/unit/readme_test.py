@@ -78,3 +78,8 @@ def test_readme_command_table_and_matrix():
     # 功能分组命令矩阵：四组 + 关闭时行为文案
     for phrase in ("core", "report", "events", "guilds_bases", "未开放", "help 隐藏"):
         assert phrase in README, f"README 命令可用性矩阵缺少: {phrase}"
+
+
+def test_readme_documents_players_group():
+    for phrase in ("/pal rank", "/pal player", "/pal me", "/pal bind", "players"):
+        assert phrase in README, f"README 缺少 players 组说明: {phrase}"
