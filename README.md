@@ -1,4 +1,4 @@
-# PalChronicle · 帕鲁纪事（astrbot_plugin_palword）
+# PalChronicle · 帕鲁纪事（astrbot_plugin_palworld）
 
 > 只读的 Palworld 世界纪事、玩家档案与社区观察 AstrBot 插件，基于官方 REST API。
 

@@ -72,9 +72,9 @@ def _resolve_data_dir() -> Path:
         return Path(os.getcwd())
 
 
-@register("astrbot_plugin_palword", "SolitudeRA",
+@register("astrbot_plugin_palworld", "SolitudeRA",
           "只读的 Palworld 世界纪事插件", "v0.1.0",
-          "https://github.com/SolitudeRA/astrbot_plugin_palword")
+          "https://github.com/SolitudeRA/astrbot_plugin_palworld")
 class PalChronicle(Star):
     def __init__(self, context, config):
         super().__init__(context, config)
@@ -103,7 +103,7 @@ class PalChronicle(Star):
             self._register_web_api()
 
     def _register_web_api(self) -> None:
-        p = "/astrbot_plugin_palword"
+        p = "/astrbot_plugin_palworld"
         self._context.register_web_api(
             f"{p}/config/get", self._web_config_get, ["GET"], "读取插件配置(脱敏)")
         self._context.register_web_api(

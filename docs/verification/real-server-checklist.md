@@ -59,7 +59,7 @@
 
 | 观察点 | 位置 |
 |---|---|
-| SQLite 数据库 | `<StarTools.get_data_dir()>/palchronicle.sqlite3`（`palchronicle/container.py` 的 `Container.start()`；data_dir 解析见 `main.py` 的 `_resolve_data_dir()`，通常在 AstrBot 的 `data/plugin_data/astrbot_plugin_palword/` 下） |
+| SQLite 数据库 | `<StarTools.get_data_dir()>/palchronicle.sqlite3`（`palchronicle/container.py` 的 `Container.start()`；data_dir 解析见 `main.py` 的 `_resolve_data_dir()`，通常在 AstrBot 的 `data/plugin_data/astrbot_plugin_palworld/` 下） |
 | HMAC salt 文件 | 同目录 `secret_salt`（`palchronicle/infrastructure/salt.py` 的 `_SALT_FILENAME` 常量），永不入库/入日志 |
 | 采集侧日志 | logger `palchronicle.snapshot`（`palchronicle/application/snapshot_service.py` 模块级 `_log`） |
 | 元数据目录 | 插件**安装目录**下的 `metadata/`（`palchronicle/` 包的上一级；`container.py` 的 `Container.start()` 以 `Path(__file__).resolve().parent.parent / "metadata"` 解析）。注意：与 data_dir 无关，metadata 随插件包分发 |

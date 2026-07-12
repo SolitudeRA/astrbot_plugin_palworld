@@ -60,9 +60,9 @@ def test_register_web_api_called_with_prefixed_routes():
     plugin = main_mod.PalChronicle(ctx, _raw())
     plugin._register_web_api()
     routes = {r for r, _ in ctx.registered}
-    assert "/astrbot_plugin_palword/config/get" in routes
-    assert "/astrbot_plugin_palword/config/save" in routes
-    assert "/astrbot_plugin_palword/status/overview" in routes
+    assert "/astrbot_plugin_palworld/config/get" in routes
+    assert "/astrbot_plugin_palworld/config/save" in routes
+    assert "/astrbot_plugin_palworld/status/overview" in routes
 
 
 def test_no_register_when_context_lacks_method():
