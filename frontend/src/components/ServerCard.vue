@@ -14,7 +14,6 @@ const update = (key: string, v: unknown) => emit('update:modelValue', { ...props
         <label class="pw-field-label">{{ f.label }}</label>
         <input class="pw-input" type="password"
           :placeholder="modelValue.password_set ? '已设置（留空保持不变）' : '未设置'"
-          :value="String(modelValue[f.key] ?? '')"
           @input="update(f.key, ($event.target as HTMLInputElement).value)" />
       </div>
       <Field v-else :spec="f" :model-value="modelValue[f.key]"

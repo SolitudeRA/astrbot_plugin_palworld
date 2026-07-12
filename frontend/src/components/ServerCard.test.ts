@@ -12,6 +12,11 @@ describe('ServerCard', () => {
     expect((pw.element as HTMLInputElement).value).toBe('')
     expect(pw.attributes('placeholder')).toContain('已设置')
   })
+  it('即便上游传入非空 secret 也绝不回显（安全红线：非受控输入）', () => {
+    const w = mount(ServerCard, { props: { modelValue: { ...row(), password: 'p@ss' } } })
+    const pw = w.get('input[type="password"]')
+    expect((pw.element as HTMLInputElement).value).toBe('')
+  })
   it('删除按钮 emit delete', async () => {
     const w = mount(ServerCard, { props: { modelValue: row() } })
     await w.get('button.pw-danger').trigger('click')
