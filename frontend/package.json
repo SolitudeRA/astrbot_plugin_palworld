@@ -1,0 +1,27 @@
+{
+  "name": "palworld-settings-page",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "typecheck": "vue-tsc --noEmit",
+    "test": "vitest",
+    "test:run": "vitest run",
+    "verify:bundle": "node scripts/verify-bundle.mjs"
+  },
+  "dependencies": {
+    "vue": "3.5.39",
+    "reka-ui": "2.10.1"
+  },
+  "devDependencies": {
+    "@types/node": "22.20.1",
+    "@vitejs/plugin-vue": "6.0.7",
+    "@vue/test-utils": "2.4.11",
+    "jsdom": "29.1.1",
+    "typescript": "5.9.2",
+    "vite": "8.1.4",
+    "vitest": "4.1.10",
+    "vue-tsc": "2.2.10"
+  }
+}
