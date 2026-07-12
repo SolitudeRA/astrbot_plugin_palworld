@@ -110,7 +110,7 @@ class Container:
             repo, cache, self._cfg, meta, self._clock, self._settings_cache,
             world_cache=self._world_cache, report=self.report,
         )
-        self.commands = Commands(self.routing, self.query, repo, self._cfg, self._clock)
+        self.commands = Commands(self.routing, self.query, repo, self._cfg, self._clock, salt)
 
         for s in self._cfg.servers:
             if s.ready:

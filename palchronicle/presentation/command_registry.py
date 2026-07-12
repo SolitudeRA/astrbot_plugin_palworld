@@ -8,6 +8,7 @@ COMMANDS: list[tuple[str, str]] = [
     ("bases", "guilds_bases"), ("base", "guilds_bases"),
     ("events", "events"), ("today", "report"),
     ("rank", "players"), ("player", "players"),
+    ("me", "players"), ("bind", "players"),
     ("servers", "core"), ("help", "core"),
 ]
 COMMAND_GROUP: dict[str, str] = {name: group for name, group in COMMANDS}
@@ -21,5 +22,7 @@ HELP_LINE: dict[str, str] = {
     "events": "/pal events  世界事件", "today": "/pal today  今日日报",
     "rank": "/pal rank [time|level]  排行榜",
     "player": "/pal player <玩家名>  玩家查询",
+    "me": "/pal me [hide|show]  我的信息",
+    "bind": "/pal bind <玩家名>  绑定我的玩家",
     "servers": "/pal servers  服务器列表", "help": "/pal help  帮助",
 }

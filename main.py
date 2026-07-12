@@ -370,6 +370,26 @@ class PalChronicle(Star):
             await self._container.commands.player(self._umo(event), self._msg(event), self._is_group(event))
         )
 
+    @pal.command("me")
+    async def me(self, event):
+        if (m := self._busy_msg()):
+            yield event.plain_result(m)
+            return
+        yield event.plain_result(
+            await self._container.commands.me(
+                self._umo(event), self._msg(event), self._is_group(event), self._sender_id(event))
+        )
+
+    @pal.command("bind")
+    async def bind(self, event):
+        if (m := self._busy_msg()):
+            yield event.plain_result(m)
+            return
+        yield event.plain_result(
+            await self._container.commands.bind(
+                self._umo(event), self._msg(event), self._is_group(event), self._sender_id(event))
+        )
+
     @pal.command("servers")
     async def servers(self, event):
         if (m := self._busy_msg()):
