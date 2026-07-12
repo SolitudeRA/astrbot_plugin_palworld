@@ -65,3 +65,16 @@ def test_readme_documents_plugin_page_section():
 def test_readme_documents_feature_groups():
     for phrase in ("功能分组", "features", "guilds_bases", "默认关", "game-data"):
         assert phrase in README, f"README 特性分组文档缺少: {phrase}"
+
+
+def test_readme_command_table_and_matrix():
+    # 命令详细表：表头 + 每个命令 + @server 尾缀
+    for phrase in ("命令详细说明", "功能组", "可用命令矩阵",
+                   "/pal status", "/pal online", "/pal world", "/pal rules",
+                   "/pal today", "/pal events", "/pal guilds", "/pal guild",
+                   "/pal bases", "/pal base", "/pal servers", "/pal help",
+                   "/pal use", "/pal unbind", "@<服务器名>"):
+        assert phrase in README, f"README 命令详细表缺少: {phrase}"
+    # 功能分组命令矩阵：四组 + 关闭时行为文案
+    for phrase in ("core", "report", "events", "guilds_bases", "未开放", "help 隐藏"):
+        assert phrase in README, f"README 命令可用性矩阵缺少: {phrase}"
