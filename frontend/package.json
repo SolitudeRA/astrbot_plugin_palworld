@@ -20,8 +20,8 @@
     "@vue/test-utils": "2.4.11",
     "jsdom": "29.1.1",
     "typescript": "5.9.2",
-    "vite": "8.1.4",
-    "vitest": "4.1.10",
+    "vite": "7.3.6",
+    "vitest": "3.2.7",
     "vue-tsc": "2.2.10"
   }
 }

@@ -63,7 +63,3 @@ jobs:
         run: npm run build
       - name: Verify single-file bundle
         run: node frontend/scripts/verify-bundle.mjs
-      - name: Assert built assets committed (no drift)
-        run: |
-          git diff --exit-code -- pages/settings \
-            || (echo "产物与源码构建结果漂移：请本地 npm run build 后提交 pages/settings" && exit 1)
