@@ -118,11 +118,13 @@ class FeaturesConfig:
     report: bool
     events: bool
     guilds_bases: bool
+    players: bool = False
 
     def enabled(self, name: str) -> bool:
         return {
             "core": True, "report": self.report,
             "events": self.events, "guilds_bases": self.guilds_bases,
+            "players": self.players,
         }.get(name, False)
 
 
@@ -280,6 +282,7 @@ def parse_config(raw: Mapping, env: Mapping[str, str]) -> AppConfig:
         report=bool(f.get("report", True)),
         events=bool(f.get("events", True)),
         guilds_bases=bool(f.get("guilds_bases", False)),
+        players=bool(f.get("players", False)),
     )
     return AppConfig(
         servers=servers,

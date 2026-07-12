@@ -128,7 +128,8 @@
     "items": {
       "report": { "type": "bool", "description": "日报/在线统计（/pal today）", "default": true },
       "events": { "type": "bool", "description": "世界事件记录（/pal events；关闭后不生成事件）", "default": true },
-      "guilds_bases": { "type": "bool", "description": "公会与据点（依赖服务器开放 /game-data；Palworld 1.0 专用服务器暂不支持，默认关）", "default": false }
+      "guilds_bases": { "type": "bool", "description": "公会与据点（依赖服务器开放 /game-data；Palworld 1.0 专用服务器暂不支持，默认关）", "default": false },
+      "players": { "type": "bool", "description": "玩家个体查询（排行/档案/自助绑定；默认关，含个体隐私考量）", "default": false }
     }
   }
 }
