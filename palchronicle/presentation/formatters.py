@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from ..application.query_service import RankBoardsDTO
+from ..application.query_service import PlayerProfileDTO, RankBoardsDTO
 from ..config import SkippedServer
 from ..domain.enums import Confidence, PingBucket
 from ..presentation.command_registry import COMMANDS, HELP_LINE
@@ -198,6 +198,14 @@ def format_today(dto) -> str:
         lines.append("据点变化：")
         lines.extend(f"  · {e}" for e in dto.base_events)
     lines.append(dto.summary)
+    return "\n".join(lines)
+
+
+def format_player(dto: PlayerProfileDTO, *, strict: bool) -> str:
+    lines = [f"玩家 {dto.name}", f"· 等级 Lv{dto.level}",
+             f"· 状态 {'在线' if dto.online else '离线'}"]
+    if not strict and dto.online:
+        lines.append(f"· 本次在线 {_fmt_duration(dto.online_seconds)}")
     return "\n".join(lines)
 
 
