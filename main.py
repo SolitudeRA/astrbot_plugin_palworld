@@ -250,6 +250,14 @@ class PalChronicle(Star):
         role = getattr(event, "role", "")
         return role == "admin" or bool(getattr(event, "is_admin", False))
 
+    @staticmethod
+    def _sender_id(event) -> str:
+        # 平台复合身份：单平台 sender id 跨平台会碰撞（QQ 12345 与 Telegram 12345），
+        # 故与平台名组合成全局唯一。用作绑定主键的原始输入（落库前再 HMAC）。
+        platform = getattr(event, "get_platform_name", lambda: "")() or ""
+        sender = getattr(event, "get_sender_id", lambda: "")() or ""
+        return f"{platform}:{sender}"
+
     @filter.command_group("pal")
     def pal(self):
         pass
