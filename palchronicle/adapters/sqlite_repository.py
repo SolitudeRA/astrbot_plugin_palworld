@@ -371,6 +371,33 @@ class Repository:
             id_confidence=IdConfidence(r["id_confidence"]),
         )
 
+    async def list_players_by_name(self, world_id: str, name: str) -> list[str]:
+        rows = await self._db.query(
+            "SELECT player_key FROM players WHERE world_id=? AND latest_name=?",
+            (world_id, name),
+        )
+        return [r[0] for r in rows]
+
+    async def list_players_by_level(self, world_id: str) -> list[PlayerIdentity]:
+        rows = await self._db.query(
+            "SELECT player_key, world_id, latest_name, first_seen_at, last_seen_at,"
+            " latest_level, latest_guild_key, id_confidence"
+            " FROM players"
+            " WHERE world_id=? AND latest_level IS NOT NULL AND latest_name IS NOT NULL"
+            " ORDER BY latest_level DESC, last_seen_at DESC",
+            (world_id,),
+        )
+        return [
+            PlayerIdentity(
+                player_key=r["player_key"], world_id=r["world_id"],
+                latest_name=r["latest_name"], first_seen_at=r["first_seen_at"],
+                last_seen_at=r["last_seen_at"], latest_level=r["latest_level"],
+                latest_guild_key=r["latest_guild_key"],
+                id_confidence=IdConfidence(r["id_confidence"]),
+            )
+            for r in rows
+        ]
+
     # ---- sessions ----
     @staticmethod
     def _row_to_session(r) -> PlayerSession:
