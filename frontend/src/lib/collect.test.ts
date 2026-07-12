@@ -15,12 +15,13 @@ const baseState = (): SettingsState => ({
     privacy: { mode: 'balanced', public_exact_ping: false, public_positions: false,
       ping_good_ms: 60, ping_ok_ms: 120, uncertain_timeout: 900 },
     history: { raw_metrics_days: 7, aggregate_days: 90, session_days: 365, observation_days: 180 },
-    features: { report: true, events: true, guilds_bases: false },
+    features: { report: true, events: true, guilds_bases: false, players: false },
+    players: { rank_top_n: 5, exclude_names: '' },
   },
 })
 
 const TOP_KEYS = ['servers', 'routing', 'group_bindings', 'custom_headers',
-  'polling', 'world', 'bases', 'privacy', 'history', 'features']
+  'polling', 'world', 'bases', 'privacy', 'history', 'features', 'players']
 
 describe('collectBody', () => {
   it('数值字段产出 number（非字符串）', () => {

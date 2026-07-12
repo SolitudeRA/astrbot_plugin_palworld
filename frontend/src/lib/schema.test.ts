@@ -31,8 +31,8 @@ describe('schema 完整性（对齐 _conf_schema.json，缺一即失败）', () 
   it('HEADER_FIELDS 覆盖 custom_headers 模板全字段', () => {
     expect(HEADER_FIELDS.map((f) => f.key).sort()).toEqual(keysOfTemplateList('custom_headers', 'header'))
   })
-  it('OBJECT_SECTIONS 恰为 7 个 object 节（不含 servers/custom_headers/group_bindings）', () => {
+  it('OBJECT_SECTIONS 恰为 8 个 object 节（不含 servers/custom_headers/group_bindings）', () => {
     expect(OBJECT_SECTIONS.map((s) => s.key)).toEqual(
-      ['routing', 'polling', 'world', 'bases', 'privacy', 'history', 'features'])
+      ['routing', 'polling', 'world', 'bases', 'privacy', 'history', 'features', 'players'])
   })
 })
