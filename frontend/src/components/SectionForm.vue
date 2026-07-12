@@ -8,10 +8,16 @@ const update = (key: string, v: unknown) => emit('update:modelValue', { ...props
 </script>
 
 <template>
-  <section class="pw-section">
-    <h3 class="pw-section-title">{{ section.title }}</h3>
-    <Field v-for="f in section.fields" :key="f.key" :spec="f"
-      :model-value="modelValue[f.key]"
-      @update:model-value="(v) => update(f.key, v)" />
+  <section class="entry">
+    <div class="entry-head">
+      <span class="entry-title">{{ section.title }}</span>
+      <span v-if="section.subtitle" class="entry-role">{{ section.subtitle }}</span>
+    </div>
+    <div v-for="f in section.fields" :key="f.key" class="row">
+      <span class="rlabel">{{ f.label }}<small v-if="f.hint">{{ f.hint }}</small></span>
+      <span class="rctl">
+        <Field :spec="f" :model-value="modelValue[f.key]" @update:model-value="(v) => update(f.key, v)" />
+      </span>
+    </div>
   </section>
 </template>

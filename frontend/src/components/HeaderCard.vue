@@ -1,28 +1,83 @@
 <script setup lang="ts">
+import { ref, reactive } from 'vue'
 import Field from './Field.vue'
 import { HEADER_FIELDS } from '../lib/schema'
 
-const props = defineProps<{ modelValue: Record<string, unknown> }>()
-const emit = defineEmits<{ 'update:modelValue': [v: Record<string, unknown>]; delete: [] }>()
-const update = (key: string, v: unknown) => emit('update:modelValue', { ...props.modelValue, [key]: v })
+const props = defineProps<{ modelValue: Record<string, unknown>; indexLabel: string }>()
+const emit = defineEmits<{
+  'update:modelValue': [v: Record<string, unknown>]
+  delete: []
+  save: [done: (ok: boolean) => void]
+}>()
+
+const mode = ref<'view' | 'edit'>(props.modelValue.__row_id ? 'view' : 'edit')
+const draft = reactive<Record<string, unknown>>({})
+const flash = ref(false)
+
+function enterEdit() {
+  for (const k of Object.keys(draft)) delete draft[k]
+  Object.assign(draft, props.modelValue)
+  for (const f of HEADER_FIELDS) if (f.secret) draft[f.key] = '' // secret 不回填明文
+  mode.value = 'edit'
+}
+function cancel() { mode.value = 'view' }
+function setDraft(key: string, v: unknown) { draft[key] = v }
+function saveCard() {
+  emit('update:modelValue', { ...props.modelValue, ...draft })
+  emit('save', (ok: boolean) => {
+    if (!ok) return
+    mode.value = 'view'
+    flash.value = true
+    setTimeout(() => { flash.value = false }, 1900)
+  })
+}
 </script>
 
 <template>
-  <div class="pw-card">
-    <template v-for="f in HEADER_FIELDS" :key="f.key">
-      <div v-if="f.secret" class="pw-field">
-        <label class="pw-field-label">{{ f.label }}</label>
-        <!-- type=text + -webkit-text-security 遮罩：绕开受限 iframe(opaque origin)对
-             type=password 的剪贴板读取门控（否则 Ctrl+V 在 Chrome/Edge 无反应）；
-             仍非受控、不回显 modelValue[secret]（T8 安全红线保持）。 -->
-        <input class="pw-input pw-secret" type="text"
-          autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false"
-          :placeholder="modelValue.value_set ? '已设置（留空保持不变）' : '未设置'"
-          @input="update(f.key, ($event.target as HTMLInputElement).value)" />
-      </div>
-      <Field v-else :spec="f" :model-value="modelValue[f.key]"
-        @update:model-value="(v) => update(f.key, v)" />
-    </template>
-    <button class="pw-danger" @click="emit('delete')">删除</button>
+  <!-- 查看态 -->
+  <div v-if="mode === 'view'" class="card">
+    <div class="card-head">
+      <span class="idx">{{ indexLabel }}</span>
+      <span class="nm">{{ (modelValue.name as string) || '（未命名）' }}</span>
+      <span class="grow"></span>
+      <span v-if="flash" class="hchip on savedflash">已保存 ✓</span>
+      <button class="headbtn del" @click="emit('delete')">移除</button>
+      <button class="headbtn edit" @click="enterEdit">修改</button>
+    </div>
+    <div class="cbody">
+      <div class="crow"><span class="ck">值</span><span class="cv">
+        <span class="muted">{{ modelValue.value_set ? '已设置' : (modelValue.value_env ? '用环境变量' : '未设置') }}</span>
+      </span></div>
+      <div v-if="modelValue.value_env" class="crow"><span class="ck">值变量</span><span class="cv">{{ modelValue.value_env }}</span></div>
+      <div class="crow"><span class="ck">作用域</span><span class="cv">
+        <template v-if="modelValue.servers">限定 {{ modelValue.servers }}</template>
+        <span v-else class="muted">所有服务器</span>
+      </span></div>
+    </div>
+  </div>
+
+  <!-- 编辑态 -->
+  <div v-else class="card editing">
+    <div class="card-head">
+      <span class="idx">{{ indexLabel }}</span>
+      <span class="editing-tag">编辑</span>
+      <span class="grow"></span>
+      <button class="headbtn cancel-card" @click="cancel">取消</button>
+      <button class="headbtn save-card" @click="saveCard">保存</button>
+    </div>
+    <div class="cbody">
+      <template v-for="f in HEADER_FIELDS" :key="f.key">
+        <div class="crow">
+          <span class="ck">{{ f.label }}<small v-if="f.hint">{{ f.hint }}</small></span>
+          <span class="cv">
+            <input v-if="f.secret" class="pw-input pw-secret" type="text"
+              autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false"
+              :placeholder="modelValue.value_set ? '已设置（留空保持不变）' : '未设置'"
+              @input="setDraft(f.key, ($event.target as HTMLInputElement).value)" />
+            <Field v-else :spec="f" :model-value="draft[f.key]" @update:model-value="(v) => setDraft(f.key, v)" />
+          </span>
+        </div>
+      </template>
+    </div>
   </div>
 </template>
