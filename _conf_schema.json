@@ -131,5 +131,13 @@
       "guilds_bases": { "type": "bool", "description": "公会与据点（依赖服务器开放 /game-data；Palworld 1.0 专用服务器暂不支持，默认关）", "default": false },
       "players": { "type": "bool", "description": "玩家个体查询（排行/档案/自助绑定；默认关，含个体隐私考量）", "default": false }
     }
+  },
+  "players": {
+    "type": "object",
+    "description": "玩家个体查询参数（features.players 开启时生效）",
+    "items": {
+      "rank_top_n": { "type": "int", "description": "排行榜显示人数", "default": 5 },
+      "exclude_names": { "type": "string", "description": "排除出榜/查询的玩家名（逗号分隔）", "default": "" }
+    }
   }
 }
