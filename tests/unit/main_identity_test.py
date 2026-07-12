@@ -26,6 +26,27 @@ def _install_fake_quart(username):
     return q
 
 
+def _install_fake_quart_no_app_context():
+    """装一个模拟无 app context 的 quart 假模块：g 抛 RuntimeError。"""
+    q = types.ModuleType("quart")
+
+    class _GNoContext:
+        """模拟 Quart LocalProxy 在 app context 外的行为：访问任何属性都抛 RuntimeError。"""
+        def __getattr__(self, name):
+            raise RuntimeError("Working outside of application context.")
+
+    q.g = _GNoContext()
+    q.jsonify = lambda payload: payload
+
+    class _Req:
+        async def get_json(self, silent=False):
+            return {}
+
+    q.request = _Req()
+    sys.modules["quart"] = q
+    return q
+
+
 def _raw():
     return {
         "servers": [], "group_bindings": [],
@@ -72,3 +93,17 @@ async def test_config_get_ok_with_identity():
     plugin = main_mod.PalChronicle(_FakeContext(), _raw())
     payload = await plugin._web_config_get()
     assert payload.get("ok") is True and "config" in payload
+
+
+def test_current_username_none_without_app_context():
+    _install_fake_quart_no_app_context()
+    import main as main_mod
+    assert main_mod.PalChronicle._current_username() is None
+
+
+async def test_config_get_unauthorized_without_app_context():
+    _install_fake_quart_no_app_context()
+    import main as main_mod
+    plugin = main_mod.PalChronicle(_FakeContext(), _raw())
+    payload = await plugin._web_config_get()
+    assert payload == {"ok": False, "error": "unauthorized", "detail": {}}
