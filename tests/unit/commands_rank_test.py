@@ -1,7 +1,5 @@
 from types import SimpleNamespace
 
-import pytest
-
 from palchronicle.application.query_service import RankBoardsDTO
 from palchronicle.presentation.commands import Commands
 
