@@ -30,12 +30,9 @@ describe('Field', () => {
   })
   it('enum：渲染 SelectTrigger 离散节点（而非裸子串）', () => {
     const w = mountField({ key: 'mode', type: 'enum', label: '模式', default: 'a', options: ['a', 'b', 'c'] }, 'a')
-    expect(w.text()).toContain('模式')
+    // Field 降为纯控件、不再自渲 label；可识别性由 SelectTrigger 的 aria-label===spec.key 保证。
     // reka-ui 2.10.1 的 Select 在 jsdom 里只渲染 trigger；SelectContent/SelectItem 在
     // 关闭态是 <!--v-if-->，仅在 open 时挂载（且 open 依赖 jsdom 不具备的定位/指针 API）。
-    // 原断言 for(opt of 'abc') html().toContain(opt) 是假阳性：a/b/c 作为单字符会命中
-    // class/aria-*/标签名，即便零个 option 渲染也照样绿。改为对 SelectTrigger 这个
-    // 真实离散节点断言——枚举分支不渲染（走 v-else 文本框 / 换错分支）时会失败。
     const triggers = w.findAll('[role="combobox"]')
     expect(triggers).toHaveLength(1)
     expect(triggers[0].attributes('aria-label')).toBe('mode')
