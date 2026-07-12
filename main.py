@@ -176,12 +176,21 @@ class PalChronicle(Star):
 
     # ---- Quart 薄壳：解包 request → web_api → jsonify（业务成败恒 HTTP 200）----
     @staticmethod
+    def _current_username() -> str | None:
+        # 用户名只绑在 Quart g 上（跨 v4.24.x 纯 Quart ~ v4.26.x 兼容层全区间），
+        # 从不在 request 上（根因 A）。下沉为单点便于单测注入。
+        from quart import g
+        try:
+            return getattr(g, "username", None)
+        except RuntimeError:  # 无 app context（正常 register_web_api 链路不可达）
+            return None
+
+    @staticmethod
     def _has_identity() -> bool:
         # 身份兜底（规格 §5.3c）：网关鉴权之外的最后防线。禁用/卸载后端点仍可达，
         # 拿不到 Dashboard 登录用户即拒。在读取任何配置/secret 之前判定，
         # 绝不记录、绝不 str(exc)、绝不回显 request 内容。
-        from quart import request
-        return bool(getattr(request, "username", None))
+        return bool(PalChronicle._current_username())
 
     @staticmethod
     def _deny_unauthorized():
