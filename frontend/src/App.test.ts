@@ -11,12 +11,15 @@ beforeEach(() => {
 })
 
 describe('App', () => {
-  it('默认设置 tab，可切到状态', async () => {
+  it('默认渲染报头与左索引，可切到观测台', async () => {
     const w = mount(App); await flushPromises()
-    const tabs = w.findAll('.pw-tabs button')
-    expect(tabs[0].text()).toBe('设置')
-    await tabs[1].trigger('click'); await flushPromises()
-    expect(w.text()).toContain('刷新') // StatusPanel 的刷新按钮
+    expect(w.text()).toContain('帕鲁纪事')
+    const rail = w.findAll('.rail button')
+    expect(rail.some((b) => b.text().includes('观测台'))).toBe(true)
+    expect(rail.some((b) => b.text().includes('接入'))).toBe(true)
+    const obs = rail.find((b) => b.text().includes('观测台'))!
+    await obs.trigger('click'); await flushPromises()
+    expect(w.text()).toContain('刷新') // 进入 StatusPanel
   })
   it('子组件抛错 → 错误边界兜底，不白屏', async () => {
     const Boom = { setup() { throw new Error('boom-child') }, template: '<div/>' }
