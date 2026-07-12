@@ -352,6 +352,15 @@ class PalChronicle(Star):
             await self._container.commands.today(self._umo(event), self._msg(event), self._is_group(event))
         )
 
+    @pal.command("rank")
+    async def rank(self, event):
+        if (m := self._busy_msg()):
+            yield event.plain_result(m)
+            return
+        yield event.plain_result(
+            await self._container.commands.rank(self._umo(event), self._msg(event), self._is_group(event))
+        )
+
     @pal.command("servers")
     async def servers(self, event):
         if (m := self._busy_msg()):

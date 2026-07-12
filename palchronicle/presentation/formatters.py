@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from ..application.query_service import RankBoardsDTO
 from ..config import SkippedServer
 from ..domain.enums import Confidence, PingBucket
 from ..presentation.command_registry import COMMANDS, HELP_LINE
@@ -198,3 +199,20 @@ def format_today(dto) -> str:
         lines.extend(f"  · {e}" for e in dto.base_events)
     lines.append(dto.summary)
     return "\n".join(lines)
+
+
+def format_rank(dto: RankBoardsDTO, *, which: str, strict: bool) -> str:
+    blocks: list[str] = []
+    if which in ("both", "time") and not strict and dto.time_rows:
+        lines = ["今日在线时长榜："]
+        for name, secs in dto.time_rows:
+            lines.append(f"· {name} {_fmt_duration(secs)}")
+        blocks.append("\n".join(lines))
+    if which in ("both", "level") and dto.level_rows:
+        lines = ["等级榜："]
+        for name, level in dto.level_rows:
+            lines.append(f"· {name} Lv{level}")
+        blocks.append("\n".join(lines))
+    if not blocks:
+        return L("rank_empty")
+    return "\n\n".join(blocks)

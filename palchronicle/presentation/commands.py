@@ -14,6 +14,7 @@ from ..presentation.formatters import (
     format_guilds,
     format_help,
     format_online,
+    format_rank,
     format_rules,
     format_servers,
     format_status,
@@ -141,6 +142,20 @@ class Commands:
         if err is not None:
             return err
         return format_today(await self._query.today(world))
+
+    @_gated
+    async def rank(self, umo, message_str, is_group) -> str:
+        world, arg, err = await self._resolve_world(umo, message_str, "rank", is_group)
+        if err is not None:
+            return err
+        strict = self._cfg.privacy.mode == "strict"
+        which = arg.name.strip().lower()
+        if which not in ("time", "level"):
+            which = "both"
+        if which == "time" and strict:
+            return L("rank_time_strict")
+        dto = await self._query.rank(world)
+        return format_rank(dto, which=which, strict=strict)
 
     async def servers(self, umo, is_group, is_admin) -> str:
         ready_ids = {s.server_id for s in self._routing.ready_servers()}
