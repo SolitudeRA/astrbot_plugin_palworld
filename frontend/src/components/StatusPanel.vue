@@ -27,15 +27,21 @@ onUnmounted(() => { if (timer) clearTimeout(timer) })
 
 <template>
   <div class="pw-status">
-    <button class="pw-primary" @click="load">刷新</button>
+    <div class="chapter-head"><h2>观测台</h2></div>
+    <p class="stint"><span>数据源实时状态</span><button class="ghost" @click="load">刷新</button></p>
     <p v-if="state === 'loading'" class="pw-muted">加载中…</p>
     <p v-else-if="state === 'error'" class="pw-error">读取状态失败，请重试</p>
     <template v-else>
       <p v-if="restarting" class="pw-muted">插件正在重载配置…</p>
-      <div v-for="row in rows" :key="row.name" class="pw-card">
-        <strong>{{ row.name }}</strong>
-        <div v-if="!row.ready" class="pw-muted">未就绪</div>
-        <div v-else>在线 {{ row.online }} · {{ row.smoothness_label }}<span v-if="row.degraded"> · 数据缺失</span></div>
+      <div v-for="row in rows" :key="row.name" class="obs">
+        <span class="nm">{{ row.name }}</span>
+        <span v-if="!row.ready" class="chip idle">未就绪</span>
+        <span v-else-if="row.degraded" class="chip warn">数据缺失</span>
+        <span v-else class="chip good">就绪</span>
+        <span class="read">
+          <template v-if="row.ready"><b>在线 {{ row.online }}</b><span>·</span><span>{{ row.smoothness_label }}</span></template>
+          <span v-else>未就绪</span>
+        </span>
       </div>
     </template>
   </div>
