@@ -132,9 +132,41 @@ AstrBot 不显示该页面，插件其余功能不受影响。设置页现以 Vu
 
 ## 命令一览（全部只读、纯文本）
 
-`/pal status`、`/pal online`、`/pal world`、`/pal rules`、`/pal guilds`、`/pal guild <名称>`、
-`/pal bases`、`/pal base <名称|#序号>`、`/pal events`、`/pal today`、`/pal help`、
-`/pal servers`、`/pal use <名称>`、`/pal unbind <名称>`。
+所有命令以 `/pal` 前缀触发、返回纯文本。带「功能组」的命令仅在对应组开启时可用（见下方矩阵）；`core` 组命令恒可用。
+
+### 命令详细说明
+
+| 命令 | 参数 | 功能组 | 权限 / 场景 | 说明 |
+|------|------|--------|-------------|------|
+| `/pal status` | — | `core` | 所有人 | 世界状态（在线数、FPS 流畅度等） |
+| `/pal online` | — | `core` | 所有人 | 当前在线玩家名单 |
+| `/pal world` | — | `core` | 所有人 | 世界概览 |
+| `/pal rules` | — | `core` | 所有人 | 世界规则（倍率等） |
+| `/pal today` | — | `report` | 所有人 | 今日日报 / 在线统计 |
+| `/pal events` | — | `events` | 所有人 | 世界事件记录 |
+| `/pal guilds` | — | `guilds_bases` | 所有人 | 公会列表 |
+| `/pal guild` | `<名称>` | `guilds_bases` | 所有人 | 公会详情 |
+| `/pal bases` | — | `guilds_bases` | 所有人 | 据点列表 |
+| `/pal base` | `<名称\|#序号>` | `guilds_bases` | 所有人 | 据点详情 |
+| `/pal servers` | — | `core` | 所有人 | 服务器列表 + 本群授权 / 活动状态 |
+| `/pal help` | — | `core` | 所有人 | 帮助（按当前启用的组过滤命令） |
+| `/pal use` | `<名称>` | `core` | **管理员 · 仅群聊** | 授权本群使用该服务器并设为活动服务器 |
+| `/pal unbind` | `<名称>` | `core` | **管理员** | 撤销本群对该服务器的授权 |
+
+任意查询命令末尾可加 **`@<服务器名>`** 单次指定目标服务器（详见上文「多服务器与群授权用法」）。
+
+### 功能分组开关 → 可用命令矩阵
+
+功能按组可插拔（配置页 `features` 勾选）。**关闭某组：其命令回「未开放」、`/pal help` 里不再列出、也不轮询该组端点**；代码保留，改开即恢复。
+
+| 功能组 | 默认 | 对应命令 | 开启时 | 关闭时命令行为 |
+|--------|------|----------|--------|----------------|
+| `core`（不可关闭） | 恒开 | `status` `online` `world` `rules` `servers` `help` `use` `unbind` | ✅ 可用 | —（无法关闭） |
+| `report` | 开 | `today` | ✅ 可用 | ❌ 回「未开放」、help 隐藏 |
+| `events` | 开 | `events` | ✅ 可用（并记录世界事件） | ❌ 回「未开放」、不生成事件 |
+| `guilds_bases` | **关** | `guilds` `guild` `bases` `base` | ✅ 可用 | ❌ 回「未开放」、help 隐藏 |
+
+> `guilds_bases` 默认关闭详见上文 `features` 节（依赖服务器开放 `/game-data`，而 Palworld 1.0 专用服务器上游未开放 `PalGameDataBridge`，故公会 / 据点 / PalBox 整组默认停用；`bases.*` 与 `game_data_seconds` 也仅在该组开启时生效）。
 
 ## 降级说明
 
