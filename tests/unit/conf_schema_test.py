@@ -81,3 +81,4 @@ def test_features_section():
     assert items["report"]["default"] is True
     assert items["events"]["default"] is True
     assert items["guilds_bases"]["default"] is False
+    assert items["players"]["default"] is False

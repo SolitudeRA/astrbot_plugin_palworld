@@ -28,3 +28,19 @@ def test_enabled_helper():
     assert f.enabled("events") is False
     assert f.enabled("guilds_bases") is False
     assert f.enabled("nope") is False
+
+
+def test_features_players_default_off():
+    f = parse_config(_raw(), {}).features
+    assert f.players is False
+
+
+def test_features_players_enabled_helper():
+    f = FeaturesConfig(report=True, events=True, guilds_bases=False, players=True)
+    assert f.enabled("players") is True
+    assert FeaturesConfig(report=True, events=True, guilds_bases=False).enabled("players") is False
+
+
+def test_features_players_explicit_on():
+    f = parse_config(_raw({"players": True}), {}).features
+    assert f.players is True

@@ -250,6 +250,14 @@ class PalChronicle(Star):
         role = getattr(event, "role", "")
         return role == "admin" or bool(getattr(event, "is_admin", False))
 
+    @staticmethod
+    def _sender_id(event) -> str:
+        # 平台复合身份：单平台 sender id 跨平台会碰撞（QQ 12345 与 Telegram 12345），
+        # 故与平台名组合成全局唯一。用作绑定主键的原始输入（落库前再 HMAC）。
+        platform = getattr(event, "get_platform_name", lambda: "")() or ""
+        sender = getattr(event, "get_sender_id", lambda: "")() or ""
+        return f"{platform}:{sender}"
+
     @filter.command_group("pal")
     def pal(self):
         pass
@@ -342,6 +350,44 @@ class PalChronicle(Star):
             return
         yield event.plain_result(
             await self._container.commands.today(self._umo(event), self._msg(event), self._is_group(event))
+        )
+
+    @pal.command("rank")
+    async def rank(self, event):
+        if (m := self._busy_msg()):
+            yield event.plain_result(m)
+            return
+        yield event.plain_result(
+            await self._container.commands.rank(self._umo(event), self._msg(event), self._is_group(event))
+        )
+
+    @pal.command("player")
+    async def player(self, event):
+        if (m := self._busy_msg()):
+            yield event.plain_result(m)
+            return
+        yield event.plain_result(
+            await self._container.commands.player(self._umo(event), self._msg(event), self._is_group(event))
+        )
+
+    @pal.command("me")
+    async def me(self, event):
+        if (m := self._busy_msg()):
+            yield event.plain_result(m)
+            return
+        yield event.plain_result(
+            await self._container.commands.me(
+                self._umo(event), self._msg(event), self._is_group(event), self._sender_id(event))
+        )
+
+    @pal.command("bind")
+    async def bind(self, event):
+        if (m := self._busy_msg()):
+            yield event.plain_result(m)
+            return
+        yield event.plain_result(
+            await self._container.commands.bind(
+                self._umo(event), self._msg(event), self._is_group(event), self._sender_id(event))
         )
 
     @pal.command("servers")

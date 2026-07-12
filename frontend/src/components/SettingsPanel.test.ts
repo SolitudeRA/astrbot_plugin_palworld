@@ -15,7 +15,8 @@ const cfg = () => ({ ok: true, config: {
   privacy: { mode: 'balanced', public_exact_ping: false, public_positions: false,
     ping_good_ms: 60, ping_ok_ms: 120, uncertain_timeout: 900 },
   history: { raw_metrics_days: 7, aggregate_days: 90, session_days: 365, observation_days: 180 },
-  features: { report: true, events: true, guilds_bases: false },
+  features: { report: true, events: true, guilds_bases: false, players: false },
+  players: { rank_top_n: 5, exclude_names: '' },
 }, page_version: 1 })
 
 beforeEach(() => {
@@ -23,10 +24,11 @@ beforeEach(() => {
 })
 
 describe('SettingsPanel', () => {
-  it('加载后渲染 9 节（含 features 分组标题）', async () => {
+  it('加载后渲染 10 节（含 features 分组标题）', async () => {
     (window.AstrBotPluginPage!.apiGet as any).mockResolvedValue(cfg())
     const w = mount(SettingsPanel); await flushPromises()
     expect(w.text()).toContain('功能分组开关')
+    expect(w.text()).toContain('玩家个体')
     expect(w.text()).toContain('路由与访问控制')
     expect(w.text()).toContain('保存并重载')
   })

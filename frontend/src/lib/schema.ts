@@ -76,5 +76,10 @@ export const OBJECT_SECTIONS: ObjectSection[] = [
     { key: 'report', type: 'bool', label: '日报/在线统计', default: true },
     { key: 'events', type: 'bool', label: '世界事件记录', default: true },
     { key: 'guilds_bases', type: 'bool', label: '公会与据点', default: false },
+    { key: 'players', type: 'bool', label: '玩家个体查询', default: false },
+  ]},
+  { key: 'players', title: '玩家个体', fields: [
+    { key: 'rank_top_n', type: 'int', label: '排行榜人数', default: 5 },
+    { key: 'exclude_names', type: 'string', label: '排除名单（逗号分隔）', default: '' },
   ]},
 ]

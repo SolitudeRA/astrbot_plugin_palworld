@@ -26,7 +26,7 @@ _SECTION_KEYS = {
 
 _TOP_KEYS = {
     "servers", "routing", "group_bindings", "custom_headers",
-    "polling", "world", "bases", "privacy", "history", "features",
+    "polling", "world", "bases", "privacy", "history", "features", "players",
 }
 _MAX_LIST = 200
 _MAX_STR = 8 * 1024
@@ -54,6 +54,7 @@ _NUM_FIELDS = {
     ("privacy", "uncertain_timeout"): "int",
     ("history", "raw_metrics_days"): "int", ("history", "aggregate_days"): "int",
     ("history", "session_days"): "int", ("history", "observation_days"): "int",
+    ("players", "rank_top_n"): "int",
 }
 
 
@@ -139,7 +140,7 @@ def validate_and_backfill(body, old_raw, env):
             for v in it.values():
                 if isinstance(v, str) and len(v) > _MAX_STR:
                     return _err("too_large")
-    for section in ("routing", "polling", "world", "bases", "privacy", "history", "features"):
+    for section in ("routing", "polling", "world", "bases", "privacy", "history", "features", "players"):
         if section in body and not isinstance(body[section], Mapping):
             return _err("invalid_shape")
 

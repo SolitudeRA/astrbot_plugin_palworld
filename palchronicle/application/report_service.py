@@ -13,6 +13,26 @@ from ..infrastructure.clock import Clock
 _ACTIVE_SECONDS = 600  # spec §12: 活跃日 >= 10 分钟
 
 
+def day_bounds(
+    cfg: AppConfig, world: World, now: int, day: str | None = None
+) -> tuple[str, int, int]:
+    """自然日 [start, end) 边界（秒）。tz：per-server timezone 优先，回退 world tz。
+    用 timedelta(days=1) 而非 +86400，正确处理 DST 的 23/25 小时日。"""
+    server_tz = ""
+    for s in cfg.servers:
+        if s.server_id == world.server_id:
+            server_tz = s.timezone
+            break
+    tz = ZoneInfo(server_tz or cfg.world.timezone)
+    if day is None:
+        local = datetime.fromtimestamp(now, tz)
+        day = local.strftime("%Y-%m-%d")
+    y, m, d = (int(x) for x in day.split("-"))
+    start_local = datetime(y, m, d, 0, 0, 0, tzinfo=tz)
+    end_local = start_local + timedelta(days=1)
+    return day, int(start_local.timestamp()), int(end_local.timestamp())
+
+
 @dataclass(slots=True)
 class LevelEvent:
     player_name: str
@@ -56,23 +76,8 @@ class ReportService:
         self._cfg = cfg
         self._clock = clock
 
-    def _tz(self, world: World) -> ZoneInfo:
-        server_tz = ""
-        for s in self._cfg.servers:
-            if s.server_id == world.server_id:
-                server_tz = s.timezone
-                break
-        return ZoneInfo(server_tz or self._cfg.world.timezone)
-
     def _day_bounds(self, world: World, day: str | None) -> tuple[str, int, int]:
-        tz = self._tz(world)
-        if day is None:
-            local = datetime.fromtimestamp(self._clock.now(), tz)
-            day = local.strftime("%Y-%m-%d")
-        y, m, d = (int(x) for x in day.split("-"))
-        start_local = datetime(y, m, d, 0, 0, 0, tzinfo=tz)
-        end_local = start_local + timedelta(days=1)
-        return day, int(start_local.timestamp()), int(end_local.timestamp())
+        return day_bounds(self._cfg, world, self._clock.now(), day)
 
     async def daily(self, world: World, day: str | None = None) -> DailyReport:
         day, start, end = self._day_bounds(world, day)

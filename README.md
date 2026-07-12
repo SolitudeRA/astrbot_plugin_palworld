@@ -148,6 +148,10 @@ AstrBot 不显示该页面，插件其余功能不受影响。设置页现以 Vu
 | `/pal guild` | `<名称>` | `guilds_bases` | 所有人 | 公会详情 |
 | `/pal bases` | — | `guilds_bases` | 所有人 | 据点列表 |
 | `/pal base` | `<名称\|#序号>` | `guilds_bases` | 所有人 | 据点详情 |
+| `/pal rank` | `[time\|level]` | `players` | 所有人 | 排行榜：今日在线时长榜 + 等级榜 |
+| `/pal player` | `<玩家名>` | `players` | 所有人 | 逐个玩家查询（等级、时长、据点等） |
+| `/pal me` | `[hide\|show]` | `players` | 所有人 | 我的档案；`hide`/`show` 自助从排行/查询中隐藏或恢复 |
+| `/pal bind` | `<玩家名>` | `players` | 所有人 | 绑定平台账号 ↔ 玩家（供 `/pal me` 识别本人） |
 | `/pal servers` | — | `core` | 所有人 | 服务器列表 + 本群授权 / 活动状态 |
 | `/pal help` | — | `core` | 所有人 | 帮助（按当前启用的组过滤命令） |
 | `/pal use` | `<名称>` | `core` | **管理员 · 仅群聊** | 授权本群使用该服务器并设为活动服务器 |
@@ -165,6 +169,9 @@ AstrBot 不显示该页面，插件其余功能不受影响。设置页现以 Vu
 | `report` | 开 | `today` | ✅ 可用 | ❌ 回「未开放」、help 隐藏 |
 | `events` | 开 | `events` | ✅ 可用（并记录世界事件） | ❌ 回「未开放」、不生成事件 |
 | `guilds_bases` | **关** | `guilds` `guild` `bases` `base` | ✅ 可用 | ❌ 回「未开放」、help 隐藏 |
+| `players` | **关** | `rank` `player` `me` `bind` | ✅ 可用 | ❌ 回「未开放」、help 隐藏 |
+
+> `players` 默认关闭：玩家个体查询含隐私考量。时长榜仅统计**今日**在线时长、等级榜含离线全体；`strict` 隐私模式下更保守（时长榜停用、玩家档案隐藏坐标等）。支持管理员排除名单与玩家自助 `/pal me hide`——被排除或隐藏者不出现在排行/查询中，且不泄露其存在。
 
 > `guilds_bases` 默认关闭详见上文 `features` 节（依赖服务器开放 `/game-data`，而 Palworld 1.0 专用服务器上游未开放 `PalGameDataBridge`，故公会 / 据点 / PalBox 整组默认停用；`bases.*` 与 `game_data_seconds` 也仅在该组开启时生效）。
 

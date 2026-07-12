@@ -209,3 +209,18 @@ def test_features_section_not_mapping_rejected():
     body = _body(features=["not", "a", "mapping"])
     ok, err = validate_and_backfill(body, _old(), {})
     assert ok is False and err["error"] == "invalid_shape"
+
+
+def test_players_section_passthrough_unstripped():
+    body = _body()
+    body["players"] = {"rank_top_n": 8, "exclude_names": "Alice,Bob"}
+    ok, cand = validate_and_backfill(body, _old(), {})
+    assert ok is True
+    assert cand["players"] == {"rank_top_n": 8, "exclude_names": "Alice,Bob"}
+
+
+def test_players_rank_top_n_rejects_negative():
+    body = _body()
+    body["players"] = {"rank_top_n": -1, "exclude_names": ""}
+    ok, err = validate_and_backfill(body, _old(), {})
+    assert ok is False and err["error"] == "invalid_field"

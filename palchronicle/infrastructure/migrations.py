@@ -211,9 +211,37 @@ async def migration_0002(conn: aiosqlite.Connection) -> None:
         await conn.execute(stmt)
 
 
+_MIGRATION_0003_SQL = [
+    """
+    CREATE TABLE IF NOT EXISTS player_bindings (
+        platform_hash TEXT NOT NULL,
+        world_id      TEXT NOT NULL,
+        player_key    TEXT NOT NULL,
+        created_at    INTEGER NOT NULL,
+        PRIMARY KEY (platform_hash, world_id)
+    )
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS hidden_players (
+        world_id   TEXT NOT NULL,
+        player_key TEXT NOT NULL,
+        hidden_by  TEXT NOT NULL,
+        created_at INTEGER NOT NULL,
+        PRIMARY KEY (world_id, player_key)
+    )
+    """,
+]
+
+
+async def migration_0003(conn: aiosqlite.Connection) -> None:
+    for stmt in _MIGRATION_0003_SQL:
+        await conn.execute(stmt)
+
+
 MIGRATIONS: list[Callable[[aiosqlite.Connection], Awaitable[None]]] = [
     migration_0001,
     migration_0002,
+    migration_0003,
 ]
 
 

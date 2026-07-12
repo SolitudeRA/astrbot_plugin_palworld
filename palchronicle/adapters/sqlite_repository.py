@@ -135,6 +135,46 @@ class Repository:
             "DELETE FROM group_servers WHERE umo=? AND server_id=?", (umo, server_id)
         )
 
+    # ---- player bindings / hidden ----
+    async def upsert_binding(self, platform_hash: str, world_id: str, player_key: str) -> None:
+        now = self._clock.now()
+        await self._db.execute_write(
+            "INSERT INTO player_bindings (platform_hash, world_id, player_key, created_at) "
+            "VALUES (?, ?, ?, ?) "
+            "ON CONFLICT(platform_hash, world_id) DO UPDATE SET "
+            "player_key=excluded.player_key, created_at=excluded.created_at",
+            (platform_hash, world_id, player_key, now),
+        )
+
+    async def get_binding(self, platform_hash: str, world_id: str) -> str | None:
+        rows = await self._db.query(
+            "SELECT player_key FROM player_bindings WHERE platform_hash=? AND world_id=?",
+            (platform_hash, world_id),
+        )
+        return rows[0][0] if rows else None
+
+    async def set_hidden(self, world_id: str, player_key: str, hidden_by: str) -> None:
+        now = self._clock.now()
+        await self._db.execute_write(
+            "INSERT INTO hidden_players (world_id, player_key, hidden_by, created_at) "
+            "VALUES (?, ?, ?, ?) "
+            "ON CONFLICT(world_id, player_key) DO UPDATE SET "
+            "hidden_by=excluded.hidden_by, created_at=excluded.created_at",
+            (world_id, player_key, hidden_by, now),
+        )
+
+    async def unset_hidden(self, world_id: str, player_key: str) -> None:
+        await self._db.execute_write(
+            "DELETE FROM hidden_players WHERE world_id=? AND player_key=?",
+            (world_id, player_key),
+        )
+
+    async def get_hidden_keys(self, world_id: str) -> set[str]:
+        rows = await self._db.query(
+            "SELECT player_key FROM hidden_players WHERE world_id=?", (world_id,)
+        )
+        return {r[0] for r in rows}
+
     # ---- world ----
     async def upsert_world(self, w: World) -> None:
         await self._db.execute_write(
@@ -330,6 +370,33 @@ class Repository:
             latest_guild_key=r["latest_guild_key"],
             id_confidence=IdConfidence(r["id_confidence"]),
         )
+
+    async def list_players_by_name(self, world_id: str, name: str) -> list[str]:
+        rows = await self._db.query(
+            "SELECT player_key FROM players WHERE world_id=? AND latest_name=?",
+            (world_id, name),
+        )
+        return [r[0] for r in rows]
+
+    async def list_players_by_level(self, world_id: str) -> list[PlayerIdentity]:
+        rows = await self._db.query(
+            "SELECT player_key, world_id, latest_name, first_seen_at, last_seen_at,"
+            " latest_level, latest_guild_key, id_confidence"
+            " FROM players"
+            " WHERE world_id=? AND latest_level IS NOT NULL AND latest_name IS NOT NULL"
+            " ORDER BY latest_level DESC, last_seen_at DESC",
+            (world_id,),
+        )
+        return [
+            PlayerIdentity(
+                player_key=r["player_key"], world_id=r["world_id"],
+                latest_name=r["latest_name"], first_seen_at=r["first_seen_at"],
+                last_seen_at=r["last_seen_at"], latest_level=r["latest_level"],
+                latest_guild_key=r["latest_guild_key"],
+                id_confidence=IdConfidence(r["id_confidence"]),
+            )
+            for r in rows
+        ]
 
     # ---- sessions ----
     @staticmethod

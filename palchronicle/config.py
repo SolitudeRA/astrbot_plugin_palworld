@@ -118,16 +118,28 @@ class FeaturesConfig:
     report: bool
     events: bool
     guilds_bases: bool
+    players: bool = False
 
     def enabled(self, name: str) -> bool:
         return {
             "core": True, "report": self.report,
             "events": self.events, "guilds_bases": self.guilds_bases,
+            "players": self.players,
         }.get(name, False)
 
 
 def _default_features() -> FeaturesConfig:
     return FeaturesConfig(report=True, events=True, guilds_bases=False)
+
+
+@dataclass(slots=True)
+class PlayersConfig:
+    rank_top_n: int
+    exclude_names: list[str]
+
+
+def _default_players() -> PlayersConfig:
+    return PlayersConfig(rank_top_n=5, exclude_names=[])
 
 
 @dataclass(slots=True)
@@ -143,6 +155,7 @@ class AppConfig:
     history: HistoryConfig
     skipped_headers: list[SkippedHeader] = field(default_factory=list)
     features: FeaturesConfig = field(default_factory=_default_features)
+    players: PlayersConfig = field(default_factory=_default_players)
 
 
 def _obj(raw: Mapping, key: str) -> Mapping:
@@ -276,10 +289,12 @@ def parse_config(raw: Mapping, env: Mapping[str, str]) -> AppConfig:
     pv = _obj(raw, "privacy")
     h = _obj(raw, "history")
     f = _obj(raw, "features")
+    pl = _obj(raw, "players")
     features = FeaturesConfig(
         report=bool(f.get("report", True)),
         events=bool(f.get("events", True)),
         guilds_bases=bool(f.get("guilds_bases", False)),
+        players=bool(f.get("players", False)),
     )
     return AppConfig(
         servers=servers,
@@ -329,4 +344,8 @@ def parse_config(raw: Mapping, env: Mapping[str, str]) -> AppConfig:
         ),
         skipped_headers=skipped_headers,
         features=features,
+        players=PlayersConfig(
+            rank_top_n=int(pl.get("rank_top_n", 5)),
+            exclude_names=[s.strip() for s in str(pl.get("exclude_names", "")).split(",") if s.strip()],
+        ),
     )

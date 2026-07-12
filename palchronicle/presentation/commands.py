@@ -3,6 +3,7 @@ from __future__ import annotations
 import functools
 from collections.abc import Awaitable, Callable
 
+from ..adapters.privacy_filter import hash_user_id
 from ..presentation.command_registry import COMMAND_GROUP
 from ..presentation.dtos import ServerStatusRow
 from ..presentation.formatters import (
@@ -14,6 +15,8 @@ from ..presentation.formatters import (
     format_guilds,
     format_help,
     format_online,
+    format_player,
+    format_rank,
     format_rules,
     format_servers,
     format_status,
@@ -38,12 +41,13 @@ def _gated(fn):
 
 
 class Commands:
-    def __init__(self, routing, query, repo, cfg, clock) -> None:
+    def __init__(self, routing, query, repo, cfg, clock, salt: bytes = b"") -> None:
         self._routing = routing
         self._query = query
         self._repo = repo
         self._cfg = cfg
         self._clock = clock
+        self._salt = salt
 
     async def _resolve_world(self, umo: str, message_str: str, subcommand: str, is_group: bool):
         try:
@@ -141,6 +145,77 @@ class Commands:
         if err is not None:
             return err
         return format_today(await self._query.today(world))
+
+    @_gated
+    async def rank(self, umo, message_str, is_group) -> str:
+        world, arg, err = await self._resolve_world(umo, message_str, "rank", is_group)
+        if err is not None:
+            return err
+        strict = self._cfg.privacy.mode == "strict"
+        which = arg.name.strip().lower()
+        if which not in ("time", "level"):
+            which = "both"
+        if which == "time" and strict:
+            return L("rank_time_strict")
+        dto = await self._query.rank(world)
+        return format_rank(dto, which=which, strict=strict)
+
+    @_gated
+    async def player(self, umo, message_str, is_group) -> str:
+        world, arg, err = await self._resolve_world(umo, message_str, "player", is_group)
+        if err is not None:
+            return err
+        if not arg.name:
+            return L("player_usage")
+        dto = await self._query.player_profile(world, arg.name)
+        if dto is None:
+            return L("player_not_found", name=arg.name)
+        return format_player(dto, strict=self._cfg.privacy.mode == "strict")
+
+    @_gated
+    async def bind(self, umo, message_str, is_group, sender_id) -> str:
+        world, arg, err = await self._resolve_world(umo, message_str, "bind", is_group)
+        if err is not None:
+            return err
+        if not arg.name:
+            return L("bind_usage")
+        ident = await self._repo.get_player_by_name(world.world_id, arg.name)
+        if ident is None:
+            return L("bind_not_found", name=arg.name)
+        excluded = await self._query.load_excluded_keys(world)
+        if ident.player_key in excluded:
+            return L("bind_not_found", name=arg.name)   # 存在性收敛：被隐藏者不泄露存在
+        phash = hash_user_id(self._salt, world.world_id, sender_id)
+        await self._repo.upsert_binding(phash, world.world_id, ident.player_key)
+        return L("bind_ok", name=ident.latest_name)
+
+    @_gated
+    async def me(self, umo, message_str, is_group, sender_id) -> str:
+        world, arg, err = await self._resolve_world(umo, message_str, "me", is_group)
+        if err is not None:
+            return err
+        phash = hash_user_id(self._salt, world.world_id, sender_id)
+        player_key = await self._repo.get_binding(phash, world.world_id)
+        if player_key is None:
+            return L("me_unbound")
+        sub = arg.name.strip().lower()
+        if sub == "hide":
+            await self._repo.set_hidden(world.world_id, player_key, phash)
+            return L("me_hidden")
+        if sub == "show":
+            await self._repo.unset_hidden(world.world_id, player_key)
+            return L("me_shown")
+        ident = await self._repo.get_player(world.world_id, player_key)
+        if ident is None:
+            return L("me_unbound")
+        session = await self._repo.get_open_session(world.world_id, player_key)
+        from palchronicle.application.query_service import PlayerProfileDTO
+        dto = PlayerProfileDTO(
+            name=ident.latest_name, level=ident.latest_level,
+            online=session is not None,
+            online_seconds=session.observed_seconds if session is not None else 0,
+        )
+        return format_player(dto, strict=self._cfg.privacy.mode == "strict")
 
     async def servers(self, umo, is_group, is_admin) -> str:
         ready_ids = {s.server_id for s in self._routing.ready_servers()}
