@@ -72,3 +72,7 @@ secret_salt
 .DS_Store
 Thumbs.db
 desktop.ini
+
+# ---- 前端构建 ----
+/node_modules/
+frontend/node_modules/

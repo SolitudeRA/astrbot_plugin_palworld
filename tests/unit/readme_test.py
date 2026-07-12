@@ -9,7 +9,7 @@ def test_readme_first_screen_safety_claims():
 
 
 def test_readme_requirements_and_usage():
-    assert "AstrBot ≥ 4.10.4" in README or "AstrBot >= 4.10.4" in README
+    assert "AstrBot ≥ 4.24.1" in README or "AstrBot >= 4.24.1" in README
     for phrase in ("/pal use", "多服务器", "@server", "群授权", "安装", "配置"):
         assert phrase in README, f"README 缺少用法段落: {phrase}"
 
