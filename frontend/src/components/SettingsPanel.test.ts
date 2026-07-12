@@ -22,37 +22,43 @@ const cfg = () => ({ ok: true, config: {
 beforeEach(() => {
   window.AstrBotPluginPage = { ready: () => Promise.resolve(), apiGet: vi.fn(), apiPost: vi.fn() }
 })
+const mountAt = (chapter: string) => mount(SettingsPanel, { props: { chapter } })
 
 describe('SettingsPanel', () => {
-  it('加载后渲染 10 节（含 features 分组标题）', async () => {
+  it('feature 章渲染功能分组与玩家个体节', async () => {
     (window.AstrBotPluginPage!.apiGet as any).mockResolvedValue(cfg())
-    const w = mount(SettingsPanel); await flushPromises()
+    const w = mountAt('feature'); await flushPromises()
     expect(w.text()).toContain('功能分组开关')
     expect(w.text()).toContain('玩家个体')
+  })
+  it('access 章渲染路由节 + 保存条', async () => {
+    (window.AstrBotPluginPage!.apiGet as any).mockResolvedValue(cfg())
+    const w = mountAt('access'); await flushPromises()
     expect(w.text()).toContain('路由与访问控制')
-    expect(w.text()).toContain('保存并重载')
+    expect(w.text()).toContain('保存本页设置')
+    expect(w.get('button.pw-save')).toBeTruthy()
   })
   it('config/get unauthorized → 整块错误态，不白屏', async () => {
     (window.AstrBotPluginPage!.apiGet as any).mockResolvedValue({ ok: false, error: 'unauthorized', detail: {} })
-    const w = mount(SettingsPanel); await flushPromises()
+    const w = mountAt('access'); await flushPromises()
     expect(w.text()).toContain('未登录')
   })
-  it('保存调用 apiPost，body 不含 group_bindings 且类型正确', async () => {
+  it('保存 apiPost body 不含 group_bindings 且类型正确（body 恒全量，与当前章无关）', async () => {
     (window.AstrBotPluginPage!.apiGet as any).mockResolvedValue(cfg());
     (window.AstrBotPluginPage!.apiPost as any).mockResolvedValue({ ok: true, warnings: {} })
-    const w = mount(SettingsPanel); await flushPromises()
+    const w = mountAt('access'); await flushPromises()
     await w.get('button.pw-save').trigger('click'); await flushPromises()
     const [, body] = (window.AstrBotPluginPage!.apiPost as any).mock.calls[0]
     expect('group_bindings' in body).toBe(false)
     expect(typeof body.polling.metrics_seconds).toBe('number')
     expect(typeof body.features.report).toBe('boolean')
   })
-  it('保存业务错误 credential_redirect → 就地提示，不打整页错误态', async () => {
+  it('保存业务错误 credential_redirect → 就地提示，不塌整页', async () => {
     (window.AstrBotPluginPage!.apiGet as any).mockResolvedValue(cfg());
     (window.AstrBotPluginPage!.apiPost as any).mockResolvedValue({ ok: false, error: 'credential_redirect', detail: { path: 'servers[0].password' } })
-    const w = mount(SettingsPanel); await flushPromises()
+    const w = mountAt('access'); await flushPromises()
     await w.get('button.pw-save').trigger('click'); await flushPromises()
     expect(w.text()).toContain('请重新输入该服务器密码')
-    expect(w.text()).toContain('功能分组开关') // 表单仍在（未塌成整页错误）
+    expect(w.text()).toContain('保存本页设置') // 表单/保存条仍在（未塌成整页错误）
   })
 })
