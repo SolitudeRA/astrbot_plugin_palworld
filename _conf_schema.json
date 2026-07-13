@@ -32,7 +32,7 @@
   },
   "group_bindings": {
     "type": "template_list",
-    "description": "预设 群→服务器 授权（可选，等价于管理员 /pal use）",
+    "description": "预设 群→服务器 授权（可选，等价于管理员 /pal server add）",
     "default": [],
     "templates": {
       "binding": {

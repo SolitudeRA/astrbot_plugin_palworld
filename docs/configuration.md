@@ -9,7 +9,7 @@
 ## routing(访问控制)
 
 - **access_mode**:默认 `restricted`(群需管理员授权才能查询某服务器);`open` 为任意群可查任意服务器。
-- **group_bindings(可选预设授权)**:等价于管理员执行 `/pal use`,仅作**初始种子**,不覆盖运行时改动。
+- **group_bindings(可选预设授权)**:等价于管理员执行 `/pal server add`,仅作**初始种子**,不覆盖运行时改动。
 - **privacy.mode**:`strict` / `balanced`(默认)/ `advanced`(当前版本按 balanced 生效)。
 
 ## polling(轮询,全局设置、逐服务器套用)

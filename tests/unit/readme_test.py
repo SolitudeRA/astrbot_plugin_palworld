@@ -24,7 +24,7 @@ def test_readme_links_to_docs():
 
 def test_readme_requirements_and_usage():
     assert "AstrBot ≥ 4.24.1" in DOCS or "AstrBot >= 4.24.1" in DOCS
-    for phrase in ("/pal use", "多服务器", "@server", "群授权", "安装", "配置"):
+    for phrase in ("/pal server add", "多服务器", "@server", "群授权", "安装", "配置"):
         assert phrase in DOCS, f"文档缺少用法段落: {phrase}"
 
 
@@ -86,8 +86,8 @@ def test_readme_command_table_and_matrix():
     for phrase in ("指令详表", "功能组", "可用指令矩阵",
                    "/pal status", "/pal online", "/pal world", "/pal rules",
                    "/pal today", "/pal events", "/pal guilds", "/pal guild",
-                   "/pal bases", "/pal base", "/pal servers", "/pal help",
-                   "/pal use", "/pal unbind", "@<服务器名>"):
+                   "/pal bases", "/pal base", "/pal server", "/pal help",
+                   "@<服务器名>"):
         assert phrase in DOCS, f"文档指令表缺少: {phrase}"
     # 功能开关指令矩阵:四组 + 关闭时行为文案
     for phrase in ("core", "report", "events", "guilds_bases", "未开放", "help 隐藏"):
@@ -95,5 +95,5 @@ def test_readme_command_table_and_matrix():
 
 
 def test_readme_documents_players_group():
-    for phrase in ("/pal rank", "/pal player", "/pal me", "/pal bind", "players"):
+    for phrase in ("/pal rank", "/pal player", "/pal me", "/pal bind", "/pal unbind", "players"):
         assert phrase in DOCS, f"文档缺少 players 组说明: {phrase}"
