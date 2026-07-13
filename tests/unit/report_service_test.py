@@ -177,3 +177,20 @@ async def test_daily_none_day_uses_clock_local_date(tmp_path):
         assert rep.world_day_start == DAY_START_UTC
     finally:
         await db.close()
+
+
+async def test_daily_paginates_beyond_event_page(tmp_path, monkeypatch):
+    # 窗口内事件数越过单页上限时分页拉全,日报计数不再被 DESC+LIMIT 截断
+    from palworld_terminal.application import report_service as rs
+    monkeypatch.setattr(rs, "_EVENT_PAGE", 2)
+    report, repo, events, clock, db = await _make(tmp_path)
+    try:
+        w = _world()
+        for i in range(5):
+            clock.set(NOON + i)
+            await events.new_player(w, f"pk{i}")
+        rep = await report.daily(w, day="2026-07-10")
+        for i in range(5):
+            assert any(f"pk{i}" in r for r in rep.records), f"pk{i} 被截断丢失"
+    finally:
+        await db.close()
