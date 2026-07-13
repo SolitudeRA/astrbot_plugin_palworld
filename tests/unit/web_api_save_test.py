@@ -76,6 +76,11 @@ async def test_success_passes_warnings_and_saved_ts():
     assert code == 200 and p["ok"] is True
     assert p["saved_ts"] == 300.0
     assert p["warnings"] == {"skipped_servers": [], "skipped_headers": []}
+    # 成功包回传落库后的脱敏配置(前端刷新 state 用),secret 必须已脱敏
+    assert "config" in p
+    for s in p["config"].get("servers", []):
+        assert s.get("password", "") == ""  # 明文绝不回传
+        assert "__row_id" in s
 
 
 async def test_lock_released_after_success():

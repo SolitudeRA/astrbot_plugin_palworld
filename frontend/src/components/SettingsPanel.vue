@@ -34,22 +34,29 @@ const ERR: Record<string, string> = {
 }
 const mapError = (e: BusinessError) => (ERR[e.code] ?? '保存失败') + (e.path ? `：${e.path}` : '')
 
+let localSeq = 0
 function emptyRow(fields: typeof SERVER_FIELDS): Record<string, unknown> {
-  const row: Record<string, unknown> = { __row_id: '' }
+  // __local_key 仅供 v-for :key(collectServer/collectHeader 显式拾取字段,
+  // 不会透传给后端):多条未保存新行共用 __row_id='' 时 :key 回退 index,
+  // 删中间行会销毁其下正在编辑的卡片(审查 F2)
+  const row: Record<string, unknown> = { __row_id: '', __local_key: `local-${++localSeq}` }
   for (const f of fields) row[f.key] = f.default
   return row
 }
 function pad(n: number) { return n < 10 ? '0' + n : '' + n }
 
+function applyConfig(c: Record<string, any>) {
+  state.servers = (c.servers ?? []).map((s: Record<string, unknown>) => ({ ...s }))
+  state.custom_headers = (c.custom_headers ?? []).map((h: Record<string, unknown>) => ({ ...h }))
+  state.sections = {}
+  for (const sec of OBJECT_SECTIONS) state.sections[sec.key] = { ...(c[sec.key] ?? {}) }
+}
+
 async function load() {
   phase.value = 'loading'
   try {
     const r = await apiGet<{ config: Record<string, any> }>('config/get')
-    const c = r.config
-    state.servers = (c.servers ?? []).map((s: Record<string, unknown>) => ({ ...s }))
-    state.custom_headers = (c.custom_headers ?? []).map((h: Record<string, unknown>) => ({ ...h }))
-    state.sections = {}
-    for (const sec of OBJECT_SECTIONS) state.sections[sec.key] = { ...(c[sec.key] ?? {}) }
+    applyConfig(r.config)
     phase.value = 'ready'
   } catch (e) {
     fatalMsg.value = e instanceof Unauthorized ? '未登录或登录已过期，请重新登录 Dashboard' : '读取配置失败，请重试'
@@ -67,7 +74,10 @@ async function save(opts: { silent?: boolean; done?: (ok: boolean) => void } = {
   if (saving.value) { opts.done?.(false); return }
   saving.value = true; notice.msg = ''; notice.error = false
   try {
-    const res = await apiPost<{ ok: boolean; warnings?: Record<string, unknown[]> }>('config/save', collectBody(state))
+    const res = await apiPost<{ ok: boolean; warnings?: Record<string, unknown[]>; config?: Record<string, any> }>('config/save', collectBody(state))
+    // 用落库后的脱敏配置刷新 state:新行拿到服务端 __row_id 与 password_set,
+    // 否则该行再次编辑时留空密码会被当「新行空密码」提交,清掉已存密码(审查 F1)
+    if (res.config) applyConfig(res.config)
     const w = res.warnings ?? {}
     const skips = [...((w.skipped_servers as unknown[]) ?? []), ...((w.skipped_headers as unknown[]) ?? [])]
     if (skips.length) toast(`已保存，${skips.length} 条无效条目未生效`)
@@ -95,14 +105,14 @@ async function save(opts: { silent?: boolean; done?: (ok: boolean) => void } = {
       <template v-if="isAccess">
         <section>
           <div class="group-head"><span class="t">服务器</span><span class="c">要监测的 Palworld 服务器</span></div>
-          <ServerCard v-for="(s, i) in state.servers" :key="(s.__row_id as string) || i" :model-value="s" :index-label="'服务器 ' + pad(i + 1)"
+          <ServerCard v-for="(s, i) in state.servers" :key="(s.__row_id as string) || (s.__local_key as string)" :model-value="s" :index-label="'服务器 ' + pad(i + 1)"
             @update:model-value="(v) => state.servers[i] = v" @delete="state.servers.splice(i, 1)" @save="(done) => save({ silent: true, done })" />
           <button class="add" @click="state.servers.push(emptyRow(SERVER_FIELDS))">＋ 添加服务器</button>
         </section>
         <section>
           <div class="group-head"><span class="t">自定义请求头</span><span class="c">每次请求都会带上</span></div>
           <p class="grouphint">含凭证的请求头建议填写「限定服务器」。留空会发给所有服务器，包括以后新增的。</p>
-          <HeaderCard v-for="(h, i) in state.custom_headers" :key="(h.__row_id as string) || i" :model-value="h" :index-label="'请求头 ' + pad(i + 1)"
+          <HeaderCard v-for="(h, i) in state.custom_headers" :key="(h.__row_id as string) || (h.__local_key as string)" :model-value="h" :index-label="'请求头 ' + pad(i + 1)"
             @update:model-value="(v) => state.custom_headers[i] = v" @delete="state.custom_headers.splice(i, 1)" @save="(done) => save({ silent: true, done })" />
           <button class="add" @click="state.custom_headers.push(emptyRow(HEADER_FIELDS))">＋ 添加请求头</button>
         </section>

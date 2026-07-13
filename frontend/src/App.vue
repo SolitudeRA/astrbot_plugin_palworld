@@ -6,7 +6,8 @@ import { CHAPTERS, DEFAULT_CHAPTER } from './lib/chapters'
 
 const chapter = ref(DEFAULT_CHAPTER)
 const fatal = ref('')
-onErrorCaptured((err) => { fatal.value = (err as Error)?.message || '页面发生错误'; return false })
+// 固定文案,不透传 err.message(与 boot.ts 不回显原始错误的策略一致,防内部信息泄露)
+onErrorCaptured(() => { fatal.value = '页面发生错误，请刷新重试'; return false })
 
 const THEME_KEY = 'palworld-terminal-theme'
 const LEGACY_THEME_KEY = 'palchronicle-theme' // 改名(2026-07)前的 key,读回退保住老用户偏好
