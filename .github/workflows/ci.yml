@@ -1,4 +1,4 @@
-# CI：lint（ruff + mypy）与测试矩阵（ubuntu 3.11/3.12 + windows 3.12）
+# CI：lint（ruff + mypy）与测试矩阵（ubuntu 3.11/3.12/3.13 + windows 3.12）
 name: CI
 
 on:
@@ -6,12 +6,17 @@ on:
     branches: [main]
   pull_request:
 
+# 同分支连续推送时取消作废的运行,不排队烧额度
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   lint:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
       - name: Install dependencies
@@ -30,12 +35,14 @@ jobs:
             python-version: "3.11"
           - os: ubuntu-latest
             python-version: "3.12"
+          - os: ubuntu-latest
+            python-version: "3.13"
           - os: windows-latest
             python-version: "3.12"
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v6
         with:
           python-version: ${{ matrix.python-version }}
       - name: Install dependencies
@@ -46,8 +53,8 @@ jobs:
   frontend:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v6
         with:
           node-version-file: frontend/.nvmrc
           cache: npm
@@ -63,3 +70,11 @@ jobs:
         run: npm run build
       - name: Verify single-file bundle
         run: node frontend/scripts/verify-bundle.mjs
+      - name: Verify committed bundle is up to date
+        # 产物入库分发:改 frontend/src 未重新 build 提交时在此转红。
+        # build 已内置 normalize-eol,行尾跨平台确定,不会误报(PR #12 根治)。
+        run: |
+          git diff --exit-code -- pages/settings || {
+            echo "::error::pages/settings 产物与 frontend/src 不同步——请本地 'cd frontend && npm run build' 后提交产物(见 CONTRIBUTING.md)"
+            exit 1
+          }

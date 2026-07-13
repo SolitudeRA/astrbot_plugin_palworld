@@ -72,14 +72,20 @@ async def test_tick_exception_does_not_kill_endpoint_loop():
 
 
 async def test_global_semaphore_caps_concurrent_fetches():
+    # 事件同步制造确定性并发窗口,不依赖真实时间(CI 慢机不 flaky):
+    # 首个 fetcher 进入后挂在 release 上;若信号量失效,第二个 task 也会
+    # 进入 fetcher(peak=2);生效则第二个挂在 semaphore acquire 上。
     cur = 0
     peak = 0
+    entered = asyncio.Event()
+    release = asyncio.Event()
 
     async def fetcher(server_id, endpoint):
         nonlocal cur, peak
         cur += 1
         peak = max(peak, cur)
-        await asyncio.sleep(0.01)  # 制造真实并发窗口
+        entered.set()
+        await release.wait()
         cur -= 1
         return _ok_resp()
 
@@ -94,6 +100,9 @@ async def test_global_semaphore_caps_concurrent_fetches():
         endpoints=frozenset({EndpointName.METRICS}),
     )
     await sched.start()
-    await asyncio.sleep(0.1)
-    await sched.stop()
+    await asyncio.wait_for(entered.wait(), timeout=5)
+    for _ in range(50):  # 纯让出调度,给第二个 task 充分机会去抢信号量
+        await asyncio.sleep(0)
     assert peak == 1, f"全局并发上限失效,峰值 {peak}"
+    release.set()
+    await sched.stop()
