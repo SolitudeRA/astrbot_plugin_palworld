@@ -389,12 +389,19 @@ class QueryService:
 
         return RankBoardsDTO(time_rows=time_rows, level_rows=level_rows)
 
+    async def name_banned(self, world: World, name: str, excluded: set[str]) -> bool:
+        """名字级收敛判定(与 rank 两榜同语义):同名任一 key 被排除/隐藏
+        即整组不可见——同一玩家改名/多 key 时,自助隐藏不因另一 key
+        未隐藏而被绕过。"""
+        keys = await self._repo.list_players_by_name(world.world_id, name)
+        return any(k in excluded for k in keys)
+
     async def player_profile(self, world: World, name: str) -> PlayerProfileDTO | None:
         ident = await self._repo.get_player_by_name(world.world_id, name)
         if ident is None:
             return None
         excluded = await self.load_excluded_keys(world)
-        if ident.player_key in excluded:
+        if await self.name_banned(world, ident.latest_name, excluded):
             return None
         session = await self._repo.get_open_session(world.world_id, ident.player_key)
         return PlayerProfileDTO(

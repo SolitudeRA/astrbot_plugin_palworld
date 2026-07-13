@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import copy
+import logging
 import os
 from pathlib import Path
 
@@ -63,6 +64,9 @@ except ImportError:  # 测试/独立环境从仓库根以顶级模块导入
     from palworld_terminal.container import Container
     from palworld_terminal.infrastructure.clock import SystemClock
     from palworld_terminal.presentation import web_api
+
+
+_log = logging.getLogger("palworld_terminal.main")
 
 
 def _resolve_data_dir() -> Path:
@@ -151,7 +155,7 @@ class PalWorldTerminal(Star):
         try:
             await asyncio.wait_for(self._idle.wait(), timeout)
         except TimeoutError:
-            pass
+            _log.warning("等待在途操作超时(%ss),继续重载——个别在途查询可能失败", timeout)
 
     async def _apply_and_restart(self, candidate: dict) -> dict:
         old_raw = copy.deepcopy(dict(self._raw_config))

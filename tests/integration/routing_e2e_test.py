@@ -1,9 +1,9 @@
 from pathlib import Path
 
 from palworld_terminal.config import (
-    FeaturesConfig,
     AppConfig,
     BasesConfig,
+    FeaturesConfig,
     HistoryConfig,
     PollingConfig,
     PrivacyConfig,

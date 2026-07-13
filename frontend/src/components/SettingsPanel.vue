@@ -76,7 +76,8 @@ async function save(opts: { silent?: boolean; done?: (ok: boolean) => void } = {
   try {
     const res = await apiPost<{ ok: boolean; warnings?: Record<string, unknown[]>; config?: Record<string, any> }>('config/save', collectBody(state))
     // 用落库后的脱敏配置刷新 state:新行拿到服务端 __row_id 与 password_set,
-    // 否则该行再次编辑时留空密码会被当「新行空密码」提交,清掉已存密码(审查 F1)
+    // 否则该行再次编辑时留空密码会被当「新行空密码」提交,清掉已存密码(审查 F1)。
+    // 已知取舍:重填会重建全部卡片,其他正在编辑未保存的卡片草稿以落库数据为准丢弃
     if (res.config) applyConfig(res.config)
     const w = res.warnings ?? {}
     const skips = [...((w.skipped_servers as unknown[]) ?? []), ...((w.skipped_headers as unknown[]) ?? [])]

@@ -154,3 +154,13 @@ async def test_level_board_order_fully_deterministic(env):
     await _add_player(repo, "ka", "A", 30, 100)
     rows = await repo.list_players_by_level("w1")
     assert [p.player_key for p in rows] == ["ka", "kb"]
+
+
+async def test_player_profile_same_name_collision_converges(env):
+    # 名字级收敛:同名任一 key 被隐藏,/pal player 整组不可查
+    # (同一玩家改名/多 key 时,自助隐藏不因另一 key 未隐藏被绕过)
+    repo, clock = env
+    await _add_player(repo, "k1", "Alice", 30, 100)
+    await _add_player(repo, "k2", "Alice", 25, 200)
+    await repo.set_hidden("w1", "k1", "phash")
+    assert await _qs(repo, clock, _cfg()).player_profile(_W, "Alice") is None

@@ -183,8 +183,8 @@ class Commands:
         if ident is None:
             return L("bind_not_found", name=arg.name)
         excluded = await self._query.load_excluded_keys(world)
-        if ident.player_key in excluded:
-            return L("bind_not_found", name=arg.name)   # 存在性收敛：被隐藏者不泄露存在
+        if await self._query.name_banned(world, ident.latest_name, excluded):
+            return L("bind_not_found", name=arg.name)   # 存在性收敛(名字级,与榜单/查询一致)
         phash = hash_user_id(self._salt, world.world_id, sender_id)
         await self._repo.upsert_binding(phash, world.world_id, ident.player_key)
         return L("bind_ok", name=ident.latest_name)
