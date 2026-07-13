@@ -25,17 +25,17 @@ beforeEach(() => {
 const mountAt = (chapter: string) => mount(SettingsPanel, { props: { chapter } })
 
 describe('SettingsPanel', () => {
-  it('feature 章渲染功能分组与玩家个体节', async () => {
+  it('feature 章渲染功能开关与玩家查询节', async () => {
     (window.AstrBotPluginPage!.apiGet as any).mockResolvedValue(cfg())
     const w = mountAt('feature'); await flushPromises()
-    expect(w.text()).toContain('功能分组开关')
-    expect(w.text()).toContain('玩家个体')
+    expect(w.text()).toContain('功能开关')
+    expect(w.text()).toContain('玩家查询')
   })
-  it('access 章渲染路由节 + 保存条', async () => {
+  it('access 章渲染访问控制节 + 保存条', async () => {
     (window.AstrBotPluginPage!.apiGet as any).mockResolvedValue(cfg())
     const w = mountAt('access'); await flushPromises()
-    expect(w.text()).toContain('路由与访问控制')
-    expect(w.text()).toContain('保存本页设置')
+    expect(w.text()).toContain('访问控制')
+    expect(w.text()).toContain('保存设置')
     expect(w.get('button.pw-save')).toBeTruthy()
   })
   it('config/get unauthorized → 整块错误态，不白屏', async () => {
@@ -59,6 +59,6 @@ describe('SettingsPanel', () => {
     const w = mountAt('access'); await flushPromises()
     await w.get('button.pw-save').trigger('click'); await flushPromises()
     expect(w.text()).toContain('请重新输入该服务器密码')
-    expect(w.text()).toContain('保存本页设置') // 表单/保存条仍在（未塌成整页错误）
+    expect(w.text()).toContain('保存设置') // 表单/保存条仍在（未塌成整页错误）
   })
 })
