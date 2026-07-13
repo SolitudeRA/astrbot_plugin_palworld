@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 import random
 from collections.abc import Awaitable, Callable
 
@@ -10,6 +11,8 @@ from ..config import PollingConfig, ServerConfig
 from ..domain.enums import EndpointName
 from ..infrastructure.clock import Clock
 from ..infrastructure.locks import EndpointLocks
+
+_log = logging.getLogger("palworld_terminal.scheduler")
 
 OnResponse = Callable[[str, EndpointName, RestResponse], Awaitable[None]]
 Fetcher = Callable[[str, EndpointName], Awaitable[RestResponse]]
@@ -92,7 +95,15 @@ class Scheduler:
                 if not immediate:
                     await self._sleep(self._jittered(self._effective[key]))
                 immediate = False
-                await self._tick(server, endpoint, key, base)
+                try:
+                    await self._tick(server, endpoint, key, base)
+                except asyncio.CancelledError:
+                    raise
+                except Exception:
+                    # 单次 tick 异常（畸形响应/ingest 崩溃）绝不终结整个端点的
+                    # 采集循环——否则该端点静默停摆直到重载。日志不含响应内容。
+                    _log.exception("采集异常，端点循环继续: %s/%s",
+                                   server.server_id, endpoint)
         except asyncio.CancelledError:
             raise
 
@@ -107,10 +118,13 @@ class Scheduler:
         async with ctx as acquired:
             if not acquired:
                 return  # 在途锁占用 → tick 合并跳过
-            start = self._clock.monotonic()
-            resp = await self._fetcher(server.server_id, endpoint)
-            await self._on_response(server.server_id, endpoint, resp)
-            self._adjust_backpressure(key, base, self._clock.monotonic() - start)
+            # 全局并发上限：真正持有信号量再发请求（背压只度量纯请求+入库耗时，
+            # 排队等待不计入，避免全局拥塞误判为单端点变慢）
+            async with self._locks.semaphore:
+                start = self._clock.monotonic()
+                resp = await self._fetcher(server.server_id, endpoint)
+                await self._on_response(server.server_id, endpoint, resp)
+                self._adjust_backpressure(key, base, self._clock.monotonic() - start)
 
     def _adjust_backpressure(
         self, key: tuple[str, EndpointName], base: float, elapsed: float

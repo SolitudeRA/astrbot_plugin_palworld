@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from collections.abc import Mapping
 
 from ..adapters.palworld_rest import RestResponse
 from ..config import AppConfig, ServerConfig
@@ -70,7 +71,7 @@ class SnapshotService:
     async def ingest_info(
         self, server: ServerConfig, resp: RestResponse
     ) -> World | None:
-        if not resp.ok or resp.data is None:
+        if not resp.ok or not isinstance(resp.data, Mapping):
             return None
         now = self._clock.now()
         info = self._normalizer.normalize_info(resp.data, now)
@@ -111,7 +112,7 @@ class SnapshotService:
         return world
 
     async def ingest_metrics(self, world: World, resp: RestResponse) -> None:
-        if not resp.ok or resp.data is None:
+        if not resp.ok or not isinstance(resp.data, Mapping):
             _log.info(
                 "metrics unavailable status=%s duration_ms=%s",
                 resp.status, resp.duration_ms,
@@ -153,7 +154,7 @@ class SnapshotService:
                 )
 
     async def ingest_settings(self, world: World, resp: RestResponse) -> None:
-        if not resp.ok or resp.data is None:
+        if not resp.ok or not isinstance(resp.data, Mapping):
             return  # 保留旧缓存, 不谎报
         self._settings_cache[world.world_id] = {
             "data": dict(resp.data),
@@ -200,7 +201,7 @@ class SnapshotService:
             return
         # 无论本次 /players 成败, 先给旧世界一个收敛时机 (不依赖新世界端点健康)
         await self._sweep_prev_worlds(world)
-        if not resp.ok or resp.data is None:
+        if not resp.ok or not isinstance(resp.data, Mapping):
             _log.info(
                 "players unavailable status=%s error_kind=%s",
                 resp.status,
@@ -226,7 +227,7 @@ class SnapshotService:
     async def ingest_game_data(self, world: World, resp: RestResponse) -> None:
         if self._guilds is None or self._bases is None:
             return                       # guilds_bases 组禁用：整体短路（含 _world_cache 写入）
-        if not resp.ok or resp.data is None:
+        if not resp.ok or not isinstance(resp.data, Mapping):
             return  # 保留基础状态, 不误判
         now = self._clock.now()
 
