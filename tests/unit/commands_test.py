@@ -145,6 +145,12 @@ async def test_server_add_override_token():
     assert routing.used == ("umo1", "alpha")
 
 
+async def test_server_double_at_returns_arg_error():
+    cmds = Commands(_FakeRouting(Resolution(_server(), None)), _FakeQuery(), _FakeRepo(), None, None)
+    out = await cmds.server("umo1", "/pal server @a @b", is_group=True, is_admin=True)
+    assert "参数格式错误" in out
+
+
 def test_help_role_separation():
     cmds = Commands(
         _FakeRouting(Resolution(_server(), None)), _FakeQuery(), _FakeRepo(), _cfg_all_on(), None

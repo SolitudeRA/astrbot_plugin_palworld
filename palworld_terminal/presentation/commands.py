@@ -218,7 +218,10 @@ class Commands:
         return format_player(dto, strict=self._cfg.privacy.mode == "strict")
 
     async def server(self, umo, message_str, is_group, is_admin) -> str:
-        arg = parse_arg(message_str, "server")
+        try:
+            arg = parse_arg(message_str, "server")
+        except ArgError:
+            return "参数格式错误：一条命令只能指定一个 @服务器。"
         tokens = arg.name.split()
         sub = tokens[0].lower() if tokens else ""
         name = arg.server_override or (" ".join(tokens[1:]) if len(tokens) > 1 else "")
