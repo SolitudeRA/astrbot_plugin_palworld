@@ -1,8 +1,6 @@
 <div align="center">
 
-<!-- banner 待补:docs/images/banner.png(建议 1280×320 左右、透明底、亮暗主题下都清晰)
-<img src="docs/images/banner.png" alt="PalWorldTerminal" width="640">
--->
+<img src="docs/images/banner.png" alt="PalWorldTerminal · 帕鲁世界终端" width="640">
 
 # PalWorldTerminal · 帕鲁世界终端
 
