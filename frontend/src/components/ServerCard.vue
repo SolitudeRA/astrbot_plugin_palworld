@@ -49,8 +49,8 @@ function saveCard() {
       <div class="crow"><span class="ck">地址</span><span class="cv">{{ modelValue.base_url }}</span></div>
       <div class="crow"><span class="ck">用户名</span><span class="cv">{{ modelValue.username }}</span></div>
       <div v-if="modelValue.password_set" class="crow"><span class="ck">密码</span><span class="cv"><span class="muted">已设置</span></span></div>
-      <div v-if="modelValue.password_env" class="crow"><span class="ck">密码变量</span><span class="cv">{{ modelValue.password_env }}</span></div>
-      <div class="crow"><span class="ck">超时</span><span class="cv">{{ modelValue.timeout }} 秒</span></div>
+      <div v-if="modelValue.password_env" class="crow"><span class="ck">密码环境变量</span><span class="cv">{{ modelValue.password_env }}</span></div>
+      <div class="crow"><span class="ck">连接超时</span><span class="cv">{{ modelValue.timeout }} 秒</span></div>
       <div class="crow"><span class="ck">校验 TLS</span><span class="cv">{{ modelValue.verify_tls ? '是' : '否' }}</span></div>
       <div v-if="modelValue.timezone" class="crow"><span class="ck">时区</span><span class="cv">{{ modelValue.timezone }}</span></div>
     </div>
@@ -72,7 +72,7 @@ function saveCard() {
           <span class="cv">
             <input v-if="f.secret" class="pw-input pw-secret" type="text"
               autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false"
-              :placeholder="modelValue.password_set ? '已设置（留空保持不变）' : '未设置'"
+              :placeholder="modelValue.password_set ? '已设置，留空则不修改' : '未设置'"
               @input="setDraft(f.key, ($event.target as HTMLInputElement).value)" />
             <Field v-else :spec="f" :model-value="draft[f.key]" @update:model-value="(v) => setDraft(f.key, v)" />
           </span>
