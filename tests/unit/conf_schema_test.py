@@ -82,3 +82,12 @@ def test_features_section():
     assert items["events"]["default"] is True
     assert items["guilds_bases"]["default"] is False
     assert items["players"]["default"] is False
+
+
+def test_permission_schema_present():
+    import json
+    from pathlib import Path
+    schema = json.loads((Path(__file__).resolve().parents[2] / "_conf_schema.json").read_text(encoding="utf-8"))
+    assert schema["permission_admins"]["type"] == "template_list"
+    assert schema["admin_only_commands"]["type"] == "list"
+    assert schema["admin_only_commands"]["default"] == []
