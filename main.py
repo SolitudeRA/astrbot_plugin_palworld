@@ -78,7 +78,7 @@ def _resolve_data_dir() -> Path:
 
 
 @register("astrbot_plugin_palworld", "SolitudeRA",
-          "监测 Palworld 专用服务器,提供群内状态查询、日报与玩家档案(只读)", "v0.8.0",
+          "监测 Palworld 专用服务器,提供群内状态查询、日报与玩家档案(只读)", "v0.8.5",
           "https://github.com/SolitudeRA/astrbot_plugin_palworld")
 class PalWorldTerminal(Star):
     def __init__(self, context, config):
@@ -395,33 +395,22 @@ class PalWorldTerminal(Star):
                 self._umo(event), self._msg(event), self._is_group(event), self._sender_id(event)))
         )
 
-    @pal.command("servers")
-    async def servers(self, event):
+    @pal.command("unbind")
+    async def unbind(self, event):
         yield event.plain_result(
-            await self._guarded(lambda c: c.commands.servers(
-                self._umo(event), self._is_group(event), self._is_admin(event)))
+            await self._guarded(lambda c: c.commands.unbind_self(
+                self._umo(event), self._msg(event), self._is_group(event), self._sender_id(event)))
+        )
+
+    @pal.command("server")
+    async def server(self, event):
+        yield event.plain_result(
+            await self._guarded(lambda c: c.commands.server(
+                self._umo(event), self._msg(event), self._is_group(event), self._is_admin(event)))
         )
 
     @pal.command("help")
     async def help(self, event):
         yield event.plain_result(
             await self._guarded(lambda c: c.commands.help(self._msg(event), self._is_admin(event)))
-        )
-
-    @filter.permission_type(filter.PermissionType.ADMIN)
-    @pal.command("use")
-    async def use(self, event):
-        yield event.plain_result(
-            await self._guarded(lambda c: c.commands.use(
-                self._umo(event), self._msg(event), self._is_group(event), self._is_admin(event)
-            ))
-        )
-
-    @filter.permission_type(filter.PermissionType.ADMIN)
-    @pal.command("unbind")
-    async def unbind(self, event):
-        yield event.plain_result(
-            await self._guarded(lambda c: c.commands.unbind(
-                self._umo(event), self._msg(event), self._is_group(event), self._is_admin(event)
-            ))
         )

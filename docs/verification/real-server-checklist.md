@@ -232,7 +232,7 @@
 - [ ] **模板日报不虚构**：`/pal today` 仅含当日真实事件；空白日输出"平静的一天"（`palworld_terminal/presentation/locale.py` 的 `MESSAGES["empty_day"]`）。
 - [ ] **game-data 失败保留基础状态**：临时阻断 game-data（如防火墙拦 URL 路径）→ `/pal status`/`/pal online` 仍正常，仅世界详情缺失（失败静默返回，`palworld_terminal/application/snapshot_service.py` 的 `ingest_game_data()` 失败早退）。
 - [ ] **多服务器互不串数据**：配两台测试服，各自 `worlds.world_id` 以 `server_id` 为前缀（构造见 `snapshot_service.py` 的 `ingest_info()`，格式 `server_id:worldguid:epoch`）；`/pal status @A` 与 `@B` 数据互不混淆。
-- [ ] **restricted 授权闭环**：`access_mode=restricted` 下，未授权群任意查询被拒（文案 `locale.py` 的 `MESSAGES["not_authorized"]`）；管理员 `/pal use testsv` 后同群可查（`MESSAGES["use_ok"]`）；私聊被拒（`MESSAGES["private_restricted"]`）。
+- [ ] **restricted 授权闭环**：`access_mode=restricted` 下，未授权群任意查询被拒（文案 `locale.py` 的 `MESSAGES["not_authorized"]`）；管理员 `/pal server add testsv` 后同群可查（`MESSAGES["use_ok"]`）；私聊被拒（`MESSAGES["private_restricted"]`）。
 
 ### 3.2 隐私（P0，全部必须通过）
 

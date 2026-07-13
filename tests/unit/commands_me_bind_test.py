@@ -93,3 +93,20 @@ async def test_me_hide_then_excluded_from_rank(cmds_env):
     assert "恢复" in await c.me("u", "me show", True, "aiocqhttp:1")
     dto2 = await c._query.rank(_W)
     assert dto2.level_rows == [("Alice", 30)]
+
+
+async def test_bind_then_unbind_clears_binding(cmds_env):
+    repo, build = cmds_env
+    await _add_player(repo, "k1", "Alice", 12, 100)
+    c = build(_cfg())
+    await c.bind("u", "bind Alice", True, "aiocqhttp:1")
+    out = await c.unbind_self("u", "unbind", True, "aiocqhttp:1")
+    assert "Alice" in out and "解除" in out
+    # 解绑后 me 显示未绑定(真 DB 验证 delete_binding 生效;no-op 删除会让此断言转红)
+    assert "还没绑定" in await c.me("u", "me", True, "aiocqhttp:1")
+
+
+async def test_unbind_when_not_bound(cmds_env):
+    repo, build = cmds_env
+    out = await build(_cfg()).unbind_self("u", "unbind", True, "aiocqhttp:9")
+    assert "还没有绑定" in out

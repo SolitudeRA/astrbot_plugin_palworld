@@ -2,11 +2,11 @@ from __future__ import annotations
 
 MESSAGES: dict[str, str] = {
     "no_server_configured": "尚未配置 Palworld 服务器，请在插件配置页添加。",
-    "no_server_resolved": "本会话未指定服务器。管理员可用 /pal use <名称> 绑定，或 /pal servers 查看可用服务器。",
+    "no_server_resolved": "本会话未指定服务器。管理员可用 /pal server add <名称> 授权，或 /pal server 查看可用服务器。",
     "server_unknown": "服务器「{server}」不存在或未就绪。",
-    "not_authorized": "本会话未被授权使用服务器「{server}」。请管理员先执行 /pal use {server}。",
+    "not_authorized": "本会话未被授权使用服务器「{server}」。请管理员先执行 /pal server add {server}。",
     "private_restricted": "restricted 模式下私聊不可查询，请在群聊中使用。",
-    "active_server_stale": "当前绑定的服务器已不可用，请管理员重新执行 /pal use <名称>。",
+    "active_server_stale": "当前绑定的服务器已不可用，请管理员重新执行 /pal server add <名称>。",
     "degraded": "当前无法获取 Palworld 世界数据。最后成功更新：{minutes} 分钟前。",
     "degraded_never": "当前无法获取 Palworld 世界数据（尚无成功记录）。",
     "auth_error": "世界数据接口配置异常，请联系管理员。",
@@ -32,6 +32,9 @@ MESSAGES: dict[str, str] = {
     "bind_not_found": "未找到玩家「{name}」，无法绑定。",
     "player_usage": "用法：/pal player <玩家名>",
     "bind_usage": "用法：/pal bind <玩家名>",
+    "server_usage": "用法：/pal server add <名称> 或 /pal server remove <名称>",
+    "unbind_self_ok": "已解除你与玩家「{name}」的绑定。",
+    "unbind_self_none": "你还没有绑定玩家，无需解绑。",
 }
 
 

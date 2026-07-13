@@ -217,7 +217,44 @@ class Commands:
         )
         return format_player(dto, strict=self._cfg.privacy.mode == "strict")
 
-    async def servers(self, umo, is_group, is_admin) -> str:
+    @_gated
+    async def unbind_self(self, umo, message_str, is_group, sender_id) -> str:
+        world, _arg, err = await self._resolve_world(umo, message_str, "unbind", is_group)
+        if err is not None:
+            return err
+        phash = hash_user_id(self._salt, world.world_id, sender_id)
+        player_key = await self._repo.get_binding(phash, world.world_id)
+        if player_key is None:
+            return L("unbind_self_none")
+        ident = await self._repo.get_player(world.world_id, player_key)
+        name = ident.latest_name if ident is not None else player_key
+        await self._repo.delete_binding(phash, world.world_id)
+        return L("unbind_self_ok", name=name)
+
+    async def server(self, umo, message_str, is_group, is_admin) -> str:
+        try:
+            arg = parse_arg(message_str, "server")
+        except ArgError:
+            return "参数格式错误：一条命令只能指定一个 @服务器。"
+        tokens = arg.name.split()
+        sub = tokens[0].lower() if tokens else ""
+        name = arg.server_override or (" ".join(tokens[1:]) if len(tokens) > 1 else "")
+
+        if sub in ("add", "remove"):
+            if not is_admin:
+                return L("admin_required")
+            if not is_group:
+                return L("use_only_group")
+            if not name:
+                return L("server_usage")
+            if sub == "add":
+                return await self._routing.use(umo, name)       # 底层不变
+            return await self._routing.unbind(umo, name)         # 底层不变
+
+        if sub:  # 非空非 add/remove:打错的子命令 → 用法提示,不静默回落列表
+            return L("server_usage")
+
+        # 裸命令（空首词）= 服务器列表（原 servers() 逻辑，私聊也可）
         ready_ids = {s.server_id for s in self._routing.ready_servers()}
         group = await self._repo.list_group_servers(umo) if is_group else {}
         rows = []
@@ -229,24 +266,6 @@ class Commands:
             ))
         skipped = self._cfg.skipped if self._cfg else []
         return format_servers(rows, skipped, is_admin)
-
-    async def use(self, umo, message_str, is_group, is_admin) -> str:
-        if not is_admin:
-            return L("admin_required")
-        if not is_group:
-            return L("use_only_group")
-        arg = parse_arg(message_str, "use")
-        name = arg.server_override or arg.name
-        return await self._routing.use(umo, name)
-
-    async def unbind(self, umo, message_str, is_group, is_admin) -> str:
-        if not is_admin:
-            return L("admin_required")
-        if not is_group:
-            return L("use_only_group")
-        arg = parse_arg(message_str, "unbind")
-        name = arg.server_override or arg.name
-        return await self._routing.unbind(umo, name)
 
     def help(self, message_str, is_admin) -> str:
         arg = parse_arg(message_str, "help")

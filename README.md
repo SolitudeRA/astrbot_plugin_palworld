@@ -4,7 +4,7 @@
 
 # PalWorldTerminal · 帕鲁世界终端
 
-[![version](https://img.shields.io/badge/version-v0.8.0-007ec6)](https://github.com/SolitudeRA/astrbot_plugin_palworld/releases)
+[![version](https://img.shields.io/badge/version-v0.8.5-007ec6)](https://github.com/SolitudeRA/astrbot_plugin_palworld/releases)
 [![python](https://img.shields.io/badge/python-3.11%2B-007ec6)](https://www.python.org/)
 [![AstrBot](https://img.shields.io/badge/AstrBot-%E2%89%A5%204.24.1-fe7d37)](https://github.com/AstrBotDevs/AstrBot)
 [![license](https://img.shields.io/badge/license-GPL--3.0-97ca00)](https://github.com/SolitudeRA/astrbot_plugin_palworld/blob/main/LICENSE)
@@ -52,7 +52,7 @@
 1. **服务器开启 REST API** —— `PalWorldSettings.ini` 设 `RESTAPIEnabled=True` 并设置管理员密码。**REST 端口勿暴露公网**,走 localhost / 内网 / VPN / 反向代理。
 2. **安装插件** —— AstrBot 插件市场安装,或放入 `plugins/` 目录;依赖:`pip install -r requirements.txt`(运行时仅需 aiohttp、aiosqlite、tzdata;开发者改装 `requirements-dev.txt`)。
 3. **填服务器** —— 打开插件设置页,「连接」章添加服务器:地址如 `http://127.0.0.1:8212`,密码推荐用环境变量(`password_env`)。
-4. **授权本群** —— 群里由管理员执行 `/pal use <服务器名>`。
+4. **授权本群** —— 群里由管理员执行 `/pal server add <服务器名>`。
 5. **开始查询** —— `/pal status`,看到世界状态就通了。
 
 环境要求:AstrBot ≥ 4.24.1(插件设置页需此版本,建议最新 4.26.x)· Python ≥ 3.11 · SQLite 3。
@@ -68,8 +68,8 @@
 | `/pal today` | 今日日报 / 在线统计 |
 | `/pal rank` | 排行榜(今日时长榜 + 等级榜) |
 | `/pal me` | 我的档案;`hide`/`show` 自助隐藏 |
-| `/pal servers` | 服务器列表与本群授权状态 |
-| `/pal use <名称>` | **管理员** · 授权本群使用某服务器 |
+| `/pal server` | 服务器列表与本群授权状态 |
+| `/pal server add <名称>` | **管理员** · 授权本群使用某服务器 |
 | `/pal help` | 帮助(按启用的功能过滤) |
 
 任意查询指令末尾加 `@<服务器名>` 可单次指定目标服务器,如 `/pal status @alpha`(多服务器场景)。
@@ -104,7 +104,7 @@
 ## 详细文档
 
 - [配置项详解](https://github.com/SolitudeRA/astrbot_plugin_palworld/blob/main/docs/configuration.md) —— 轮询 / 世界与展示 / 据点推导 / 数据保留 / 自定义请求头 / 插件页面 / 功能开关
-- [完整指令与功能开关](https://github.com/SolitudeRA/astrbot_plugin_palworld/blob/main/docs/commands.md) —— 18 条指令详表、功能开关矩阵、多服务器与群授权、降级行为
+- [完整指令与功能开关](https://github.com/SolitudeRA/astrbot_plugin_palworld/blob/main/docs/commands.md) —— 17 条指令详表、功能开关矩阵、多服务器与群授权、降级行为
 
 ## 开源协议
 

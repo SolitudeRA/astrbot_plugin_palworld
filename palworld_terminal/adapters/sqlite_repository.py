@@ -169,6 +169,12 @@ class Repository:
             (world_id, player_key),
         )
 
+    async def delete_binding(self, platform_hash: str, world_id: str) -> None:
+        await self._db.execute_write(
+            "DELETE FROM player_bindings WHERE platform_hash=? AND world_id=?",
+            (platform_hash, world_id),
+        )
+
     async def get_hidden_keys(self, world_id: str) -> set[str]:
         rows = await self._db.query(
             "SELECT player_key FROM hidden_players WHERE world_id=?", (world_id,)
