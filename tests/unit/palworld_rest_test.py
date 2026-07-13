@@ -2,10 +2,10 @@ from contextlib import asynccontextmanager
 
 import aiohttp
 
-from palchronicle.adapters.palworld_rest import PalworldRestClient, RestResponse
-from palchronicle.config import ServerConfig
-from palchronicle.domain.enums import EndpointName
-from palchronicle.infrastructure.clock import FakeClock
+from palworld_terminal.adapters.palworld_rest import PalworldRestClient, RestResponse
+from palworld_terminal.config import ServerConfig
+from palworld_terminal.domain.enums import EndpointName
+from palworld_terminal.infrastructure.clock import FakeClock
 
 
 def _server():

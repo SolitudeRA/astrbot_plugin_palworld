@@ -1,6 +1,6 @@
-from palchronicle.config import SkippedServer
-from palchronicle.domain.enums import Confidence, PingBucket
-from palchronicle.presentation.dtos import (
+from palworld_terminal.config import SkippedServer
+from palworld_terminal.domain.enums import Confidence, PingBucket
+from palworld_terminal.presentation.dtos import (
     BaseDetailDTO,
     BaseDTO,
     EventDTO,
@@ -11,7 +11,7 @@ from palchronicle.presentation.dtos import (
     ServerStatusRow,
     StatusDTO,
 )
-from palchronicle.presentation.formatters import (
+from palworld_terminal.presentation.formatters import (
     format_base,
     format_bases,
     format_degraded,
@@ -111,7 +111,7 @@ def test_format_servers_admin_shows_skipped_section():
 
 
 def test_format_help_role_separation():
-    from palchronicle.config import FeaturesConfig
+    from palworld_terminal.config import FeaturesConfig
     feats = FeaturesConfig(report=True, events=True, guilds_bases=True)
     admin = format_help(None, is_admin=True, features=feats)
     assert "use" in admin
@@ -120,7 +120,7 @@ def test_format_help_role_separation():
 
 
 def test_format_help_filters_disabled_groups():
-    from palchronicle.config import FeaturesConfig
+    from palworld_terminal.config import FeaturesConfig
     off = format_help(None, is_admin=False, features=FeaturesConfig(True, True, False))
     assert "guilds" not in off and "bases" not in off
     assert "status" in off and "world" in off

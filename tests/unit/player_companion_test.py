@@ -1,6 +1,6 @@
-from palchronicle.application.player_service import PlayerService
-from palchronicle.domain.enums import ActionCategory, UnitType
-from palchronicle.domain.models import CharacterActor, GameDataSnapshot
+from palworld_terminal.application.player_service import PlayerService
+from palworld_terminal.domain.enums import ActionCategory, UnitType
+from palworld_terminal.domain.models import CharacterActor, GameDataSnapshot
 
 
 def _actor(unit_type, instance_id=None, trainer_instance_id=None, pal_class=None):

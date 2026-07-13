@@ -1,7 +1,7 @@
-from palchronicle.adapters.privacy_filter import hash_user_id, redact_game_data
-from palchronicle.config import PrivacyConfig
-from palchronicle.domain.enums import ActionCategory, UnitType
-from palchronicle.domain.models import (
+from palworld_terminal.adapters.privacy_filter import hash_user_id, redact_game_data
+from palworld_terminal.config import PrivacyConfig
+from palworld_terminal.domain.enums import ActionCategory, UnitType
+from palworld_terminal.domain.models import (
     CharacterActor,
     GameDataSnapshot,
     PalBoxActor,

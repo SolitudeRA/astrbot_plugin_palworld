@@ -2,14 +2,14 @@ from types import SimpleNamespace
 
 import pytest
 
-from palchronicle.adapters.sqlite_repository import Repository
-from palchronicle.application.query_service import QueryService
-from palchronicle.domain.models import World
-from palchronicle.infrastructure.cache import TTLCache
-from palchronicle.infrastructure.clock import FakeClock
-from palchronicle.infrastructure.database import Database
-from palchronicle.infrastructure.migrations import apply_migrations
-from palchronicle.presentation.commands import Commands
+from palworld_terminal.adapters.sqlite_repository import Repository
+from palworld_terminal.application.query_service import QueryService
+from palworld_terminal.domain.models import World
+from palworld_terminal.infrastructure.cache import TTLCache
+from palworld_terminal.infrastructure.clock import FakeClock
+from palworld_terminal.infrastructure.database import Database
+from palworld_terminal.infrastructure.migrations import apply_migrations
+from palworld_terminal.presentation.commands import Commands
 
 _W = World(world_id="w1", server_id="w", worldguid="g", epoch=0,
            server_name="S", version="1", first_seen_at=0, last_seen_at=0, current_day=1)
@@ -38,7 +38,7 @@ async def cmds_env(tmp_path):
         query = QueryService(repo, TTLCache(clock), cfg, None, clock, {}, world_cache={}, report=None)
         c = Commands(routing=None, query=query, repo=repo, cfg=cfg, clock=clock, salt=_SALT)
         async def _rw(umo, msg, sub, is_group):
-            from palchronicle.presentation.server_arg import parse_arg
+            from palworld_terminal.presentation.server_arg import parse_arg
             return _W, parse_arg(msg, sub), None
         c._resolve_world = _rw
         return c

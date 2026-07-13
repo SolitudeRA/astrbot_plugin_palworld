@@ -1,6 +1,6 @@
 """config/get 与 status/overview 编排：脱敏下发、重启窗口、按服务器组装。"""
-from palchronicle.presentation.dtos import StatusDTO
-from palchronicle.presentation.web_api import handle_config_get, handle_status_overview
+from palworld_terminal.presentation.dtos import StatusDTO
+from palworld_terminal.presentation.web_api import handle_config_get, handle_status_overview
 
 
 async def test_config_get_returns_redacted():

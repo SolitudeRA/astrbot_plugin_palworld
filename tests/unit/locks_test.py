@@ -1,7 +1,7 @@
 import asyncio
 
-from palchronicle.domain.enums import EndpointName
-from palchronicle.infrastructure.locks import EndpointLocks
+from palworld_terminal.domain.enums import EndpointName
+from palworld_terminal.infrastructure.locks import EndpointLocks
 
 
 async def test_inflight_acquires_when_free():

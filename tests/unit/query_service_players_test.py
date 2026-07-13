@@ -2,13 +2,13 @@ from types import SimpleNamespace
 
 import pytest
 
-from palchronicle.adapters.sqlite_repository import Repository
-from palchronicle.application.query_service import QueryService
-from palchronicle.domain.models import World
-from palchronicle.infrastructure.cache import TTLCache
-from palchronicle.infrastructure.clock import FakeClock
-from palchronicle.infrastructure.database import Database
-from palchronicle.infrastructure.migrations import apply_migrations
+from palworld_terminal.adapters.sqlite_repository import Repository
+from palworld_terminal.application.query_service import QueryService
+from palworld_terminal.domain.models import World
+from palworld_terminal.infrastructure.cache import TTLCache
+from palworld_terminal.infrastructure.clock import FakeClock
+from palworld_terminal.infrastructure.database import Database
+from palworld_terminal.infrastructure.migrations import apply_migrations
 
 _W = World(world_id="w1", server_id="w", worldguid="g", epoch=0,
            server_name="S", version="1", first_seen_at=0, last_seen_at=0, current_day=1)

@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from palchronicle.config import (
+from palworld_terminal.config import (
     AppConfig,
     BasesConfig,
     HistoryConfig,
@@ -10,10 +10,10 @@ from palchronicle.config import (
     ServerConfig,
     WorldConfig,
 )
-from palchronicle.container import Container
-from palchronicle.domain.enums import AccessMode
-from palchronicle.domain.models import World, WorldMetric
-from palchronicle.infrastructure.clock import FakeClock
+from palworld_terminal.container import Container
+from palworld_terminal.domain.enums import AccessMode
+from palworld_terminal.domain.models import World, WorldMetric
+from palworld_terminal.infrastructure.clock import FakeClock
 
 UMO = "aiocqhttp:GroupMessage:123"
 

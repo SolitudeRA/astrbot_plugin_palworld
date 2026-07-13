@@ -2,7 +2,7 @@ from pathlib import Path
 
 import yaml
 
-from palchronicle.config import (
+from palworld_terminal.config import (
     AppConfig,  # noqa: F401  (ensure importable)
 )
 
@@ -40,7 +40,7 @@ async def test_initialize_and_terminate(tmp_path: Path, monkeypatch):
     import main as main_mod
 
     # avoid real network + real scheduler: monkeypatch Container factory used by main
-    from palchronicle.container import Container
+    from palworld_terminal.container import Container
 
     class _FakeRest:
         async def close(self):
@@ -64,16 +64,16 @@ async def test_initialize_and_terminate(tmp_path: Path, monkeypatch):
     # main.initialize must place data under tmp_path
     monkeypatch.setattr(main_mod, "_resolve_data_dir", lambda: tmp_path)
 
-    plugin = main_mod.PalChronicle(_FakeContext(), _raw_config(tmp_path))
+    plugin = main_mod.PalWorldTerminal(_FakeContext(), _raw_config(tmp_path))
     await plugin.initialize()
     assert plugin._container is not None
     assert plugin._container.commands is not None
     await plugin.terminate()
-    assert (tmp_path / "palchronicle.sqlite3").exists()
+    assert (tmp_path / "palworld_terminal.sqlite3").exists()
 
 
 def test_register_version_matches_metadata():
-    # @register 的版本字符串须与 metadata.yaml 的 version 一致（v0.1.0）
+    # @register 的版本字符串须与 metadata.yaml 的 version 一致（动态对比,不锁具体值）
     meta = yaml.safe_load((REPO_ROOT / "metadata.yaml").read_text(encoding="utf-8"))
     source = (REPO_ROOT / "main.py").read_text(encoding="utf-8")
     assert f'"{meta["version"]}"' in source, (
@@ -87,4 +87,4 @@ def test_pal_command_group_is_plain_def():
     import main as main_mod
 
     # command group handler is a plain (non-async) def per AstrBot convention
-    assert not inspect.iscoroutinefunction(main_mod.PalChronicle.pal)
+    assert not inspect.iscoroutinefunction(main_mod.PalWorldTerminal.pal)

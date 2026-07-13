@@ -1,10 +1,10 @@
 from pathlib import Path
 
-from palchronicle.adapters.sqlite_repository import Repository
-from palchronicle.application.base_service import BaseUpdate
-from palchronicle.application.event_service import EventService
-from palchronicle.application.report_service import ReportService
-from palchronicle.config import (
+from palworld_terminal.adapters.sqlite_repository import Repository
+from palworld_terminal.application.base_service import BaseUpdate
+from palworld_terminal.application.event_service import EventService
+from palworld_terminal.application.report_service import ReportService
+from palworld_terminal.config import (
     AppConfig,
     BasesConfig,
     HistoryConfig,
@@ -13,11 +13,11 @@ from palchronicle.config import (
     RoutingConfig,
     WorldConfig,
 )
-from palchronicle.domain.enums import AccessMode, Confidence, EventType
-from palchronicle.domain.models import World, WorldMetric
-from palchronicle.infrastructure.clock import FakeClock
-from palchronicle.infrastructure.database import Database
-from palchronicle.infrastructure.migrations import apply_migrations
+from palworld_terminal.domain.enums import AccessMode, Confidence, EventType
+from palworld_terminal.domain.models import World, WorldMetric
+from palworld_terminal.infrastructure.clock import FakeClock
+from palworld_terminal.infrastructure.database import Database
+from palworld_terminal.infrastructure.migrations import apply_migrations
 
 DAY_START_UTC = 1783609200          # 2026-07-10 00:00 Asia/Tokyo
 NOON = DAY_START_UTC + 12 * 3600

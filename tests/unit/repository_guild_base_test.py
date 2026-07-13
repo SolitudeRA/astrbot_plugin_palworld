@@ -1,11 +1,11 @@
 import pytest
 
-from palchronicle.adapters.sqlite_repository import Repository
-from palchronicle.domain.enums import Confidence
-from palchronicle.domain.models import Base, BaseObservation, Guild, PalBox
-from palchronicle.infrastructure.clock import FakeClock
-from palchronicle.infrastructure.database import Database
-from palchronicle.infrastructure.migrations import apply_migrations
+from palworld_terminal.adapters.sqlite_repository import Repository
+from palworld_terminal.domain.enums import Confidence
+from palworld_terminal.domain.models import Base, BaseObservation, Guild, PalBox
+from palworld_terminal.infrastructure.clock import FakeClock
+from palworld_terminal.infrastructure.database import Database
+from palworld_terminal.infrastructure.migrations import apply_migrations
 
 
 @pytest.fixture

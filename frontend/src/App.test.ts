@@ -13,7 +13,7 @@ beforeEach(() => {
 describe('App', () => {
   it('默认渲染报头与左索引，可切到状态章', async () => {
     const w = mount(App); await flushPromises()
-    expect(w.text()).toContain('帕鲁纪事')
+    expect(w.text()).toContain('帕鲁世界终端')
     const rail = w.findAll('.rail button')
     expect(rail.some((b) => b.text().includes('状态'))).toBe(true)
     expect(rail.some((b) => b.text().includes('连接'))).toBe(true)

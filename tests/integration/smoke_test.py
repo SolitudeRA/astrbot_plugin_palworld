@@ -1,6 +1,6 @@
 import re
 
-from palchronicle.presentation.formatters import format_status
+from palworld_terminal.presentation.formatters import format_status
 from tests.fixtures.loader import load_fixture
 from tests.integration.conftest import ok
 

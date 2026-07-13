@@ -1,6 +1,6 @@
 from enum import StrEnum
 
-from palchronicle.domain.enums import (
+from palworld_terminal.domain.enums import (
     AccessMode,
     ActionCategory,
     Confidence,

@@ -1,5 +1,5 @@
 """config/save 校验与哨仓回填：形状/类型/白名单/体积/语义/哨兵/凭证重定向。"""
-from palchronicle.presentation.config_view import SENTINEL, validate_and_backfill
+from palworld_terminal.presentation.config_view import SENTINEL, validate_and_backfill
 
 
 def _old():

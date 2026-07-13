@@ -1,5 +1,5 @@
 """features 配置解析：默认值、显式覆盖、enabled() 助手（spec §3）。"""
-from palchronicle.config import FeaturesConfig, parse_config
+from palworld_terminal.config import FeaturesConfig, parse_config
 
 
 def _raw(features=None):

@@ -1,5 +1,5 @@
-from palchronicle.application.base_service import BaseService, BaseUpdate
-from palchronicle.domain.enums import Confidence
+from palworld_terminal.application.base_service import BaseService, BaseUpdate
+from palworld_terminal.domain.enums import Confidence
 
 
 def test_palbox_key_format():

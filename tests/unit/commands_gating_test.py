@@ -1,7 +1,7 @@
 """命令 gating：禁用组命令回 feature_disabled、不触达底层（spec §5/§6）。"""
-from palchronicle.config import parse_config
-from palchronicle.presentation.commands import Commands
-from palchronicle.presentation.locale import L
+from palworld_terminal.config import parse_config
+from palworld_terminal.presentation.commands import Commands
+from palworld_terminal.presentation.locale import L
 
 
 def _cfg(guilds_bases: bool, events: bool = True, report: bool = True):
@@ -44,7 +44,7 @@ async def test_events_and_today_gated():
 
 async def test_enabled_group_not_gated():
     # guilds_bases 开启 → gate 放行 → 进入路由解析 → 返回路由错误文案（证明未被 gating 拦截）
-    from palchronicle.application.routing_service import Resolution
+    from palworld_terminal.application.routing_service import Resolution
 
     class _Routing:
         async def resolve(self, umo, override, is_group):

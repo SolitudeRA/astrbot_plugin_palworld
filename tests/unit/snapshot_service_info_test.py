@@ -1,11 +1,11 @@
 import pytest
 
-from palchronicle.adapters import normalizer as normalizer_mod
-from palchronicle.adapters import privacy_filter as privacy_mod
-from palchronicle.adapters.palworld_rest import RestResponse
-from palchronicle.adapters.sqlite_repository import Repository
-from palchronicle.application.snapshot_service import SnapshotService
-from palchronicle.config import (
+from palworld_terminal.adapters import normalizer as normalizer_mod
+from palworld_terminal.adapters import privacy_filter as privacy_mod
+from palworld_terminal.adapters.palworld_rest import RestResponse
+from palworld_terminal.adapters.sqlite_repository import Repository
+from palworld_terminal.application.snapshot_service import SnapshotService
+from palworld_terminal.config import (
     AppConfig,
     BasesConfig,
     HistoryConfig,
@@ -15,10 +15,10 @@ from palchronicle.config import (
     ServerConfig,
     WorldConfig,
 )
-from palchronicle.domain.enums import AccessMode
-from palchronicle.infrastructure.clock import FakeClock
-from palchronicle.infrastructure.database import Database
-from palchronicle.infrastructure.migrations import apply_migrations
+from palworld_terminal.domain.enums import AccessMode
+from palworld_terminal.infrastructure.clock import FakeClock
+from palworld_terminal.infrastructure.database import Database
+from palworld_terminal.infrastructure.migrations import apply_migrations
 
 
 class FakePlayers:

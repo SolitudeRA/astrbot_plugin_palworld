@@ -1,10 +1,10 @@
 """OFF 语义端到端：命令 gating、M1 分层、核心收敛不依赖 game-data/events（spec §6/§9）。"""
 from pathlib import Path
 
-from palchronicle.config import parse_config
-from palchronicle.container import Container
-from palchronicle.infrastructure.clock import FakeClock
-from palchronicle.presentation.locale import L
+from palworld_terminal.config import parse_config
+from palworld_terminal.container import Container
+from palworld_terminal.infrastructure.clock import FakeClock
+from palworld_terminal.presentation.locale import L
 
 
 def _cfg(guilds_bases=False, events=True, bases_enabled=True):

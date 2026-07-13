@@ -3,7 +3,7 @@ import asyncio
 
 import pytest
 
-from palchronicle.presentation.web_api import handle_config_save
+from palworld_terminal.presentation.web_api import handle_config_save
 
 _OLD = {
     "servers": [{"name": "a", "base_url": "http://h", "username": "admin",

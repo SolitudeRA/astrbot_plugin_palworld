@@ -1,13 +1,13 @@
-from palchronicle.application.base_service import BaseService
-from palchronicle.domain.models import GameDataSnapshot, PalBox, PalBoxActor, World
-from palchronicle.infrastructure.clock import FakeClock
+from palworld_terminal.application.base_service import BaseService
+from palworld_terminal.domain.models import GameDataSnapshot, PalBox, PalBoxActor, World
+from palworld_terminal.infrastructure.clock import FakeClock
 
 
 def _world(): return World("w1", "s1", "g", 0, "S", "1", 0, 0, 1)
 
 
 def _cfg():
-    from palchronicle.config import BasesConfig
+    from palworld_terminal.config import BasesConfig
     return BasesConfig(True, 5000, 0.2, 3, 2000, 0.5)
 
 

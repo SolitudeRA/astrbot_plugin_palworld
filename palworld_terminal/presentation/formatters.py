@@ -130,7 +130,7 @@ _HELP_ADMIN_EXTRA = [
 
 
 def format_help(topic: str | None, is_admin: bool, features) -> str:
-    lines = ["PalChronicle 命令："]
+    lines = ["PalWorldTerminal 命令："]
     for name, group in COMMANDS:
         if group == "core" or features.enabled(group):
             lines.append(HELP_LINE[name])

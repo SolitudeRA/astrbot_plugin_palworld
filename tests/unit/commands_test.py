@@ -1,8 +1,8 @@
-from palchronicle.application.routing_service import Resolution
-from palchronicle.config import ServerConfig, parse_config
-from palchronicle.domain.models import World
-from palchronicle.presentation.commands import Commands
-from palchronicle.presentation.locale import L
+from palworld_terminal.application.routing_service import Resolution
+from palworld_terminal.config import ServerConfig, parse_config
+from palworld_terminal.domain.models import World
+from palworld_terminal.presentation.commands import Commands
+from palworld_terminal.presentation.locale import L
 
 WID = "alpha:guid-1:0"
 

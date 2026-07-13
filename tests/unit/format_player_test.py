@@ -1,5 +1,5 @@
-from palchronicle.application.query_service import PlayerProfileDTO
-from palchronicle.presentation.formatters import format_player
+from palworld_terminal.application.query_service import PlayerProfileDTO
+from palworld_terminal.presentation.formatters import format_player
 
 
 def test_online_shows_level_status_duration():

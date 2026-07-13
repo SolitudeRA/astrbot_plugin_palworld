@@ -1,9 +1,9 @@
 from pathlib import Path
 
-from palchronicle.adapters.sqlite_repository import Repository
-from palchronicle.infrastructure.clock import FakeClock
-from palchronicle.infrastructure.database import Database
-from palchronicle.infrastructure.migrations import apply_migrations
+from palworld_terminal.adapters.sqlite_repository import Repository
+from palworld_terminal.infrastructure.clock import FakeClock
+from palworld_terminal.infrastructure.database import Database
+from palworld_terminal.infrastructure.migrations import apply_migrations
 
 
 async def _make_repo(tmp_path: Path):

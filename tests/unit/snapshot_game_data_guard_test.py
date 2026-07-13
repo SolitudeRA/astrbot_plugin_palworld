@@ -1,10 +1,10 @@
 """guilds_bases 禁用时 guilds/bases 为 None → ingest_game_data 首行短路（spec §4.2）。"""
-from palchronicle.adapters import normalizer as _norm
-from palchronicle.adapters import privacy_filter as _priv
-from palchronicle.adapters.palworld_rest import RestResponse
-from palchronicle.application.snapshot_service import SnapshotService
-from palchronicle.domain.models import World
-from palchronicle.infrastructure.clock import FakeClock
+from palworld_terminal.adapters import normalizer as _norm
+from palworld_terminal.adapters import privacy_filter as _priv
+from palworld_terminal.adapters.palworld_rest import RestResponse
+from palworld_terminal.application.snapshot_service import SnapshotService
+from palworld_terminal.domain.models import World
+from palworld_terminal.infrastructure.clock import FakeClock
 
 
 def _snap(guilds, bases, events, shared_world):

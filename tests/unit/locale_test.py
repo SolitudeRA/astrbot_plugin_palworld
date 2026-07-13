@@ -1,6 +1,6 @@
 import pytest
 
-from palchronicle.presentation.locale import MESSAGES, L
+from palworld_terminal.presentation.locale import MESSAGES, L
 
 
 def test_no_server_configured_message():

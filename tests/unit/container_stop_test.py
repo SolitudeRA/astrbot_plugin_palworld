@@ -1,7 +1,7 @@
 """Container.stop 异常安全：client.close 抛错也必须关闭 DB。"""
 from pathlib import Path
 
-from palchronicle.config import (
+from palworld_terminal.config import (
     AppConfig,
     BasesConfig,
     HistoryConfig,
@@ -11,9 +11,9 @@ from palchronicle.config import (
     ServerConfig,
     WorldConfig,
 )
-from palchronicle.container import Container
-from palchronicle.domain.enums import AccessMode
-from palchronicle.infrastructure.clock import FakeClock
+from palworld_terminal.container import Container
+from palworld_terminal.domain.enums import AccessMode
+from palworld_terminal.infrastructure.clock import FakeClock
 
 
 def _cfg():

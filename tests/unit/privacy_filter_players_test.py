@@ -1,5 +1,5 @@
-from palchronicle.adapters.privacy_filter import hash_user_id, redact_players
-from palchronicle.config import PrivacyConfig
+from palworld_terminal.adapters.privacy_filter import hash_user_id, redact_players
+from palworld_terminal.config import PrivacyConfig
 
 
 def _cfg() -> PrivacyConfig:

@@ -1,7 +1,7 @@
-from palchronicle.adapters.palworld_rest import RestResponse
-from palchronicle.application.snapshot_service import SnapshotService
-from palchronicle.domain.models import GameDataSnapshot, World
-from palchronicle.infrastructure.clock import FakeClock
+from palworld_terminal.adapters.palworld_rest import RestResponse
+from palworld_terminal.application.snapshot_service import SnapshotService
+from palworld_terminal.domain.models import GameDataSnapshot, World
+from palworld_terminal.infrastructure.clock import FakeClock
 
 
 def _gd():
@@ -57,7 +57,7 @@ def _world():
 
 
 def _cfg():
-    from palchronicle.config import (
+    from palworld_terminal.config import (
         AppConfig,
         BasesConfig,
         HistoryConfig,
@@ -66,7 +66,7 @@ def _cfg():
         RoutingConfig,
         WorldConfig,
     )
-    from palchronicle.domain.enums import AccessMode
+    from palworld_terminal.domain.enums import AccessMode
     return AppConfig([], [], RoutingConfig(AccessMode.RESTRICTED, ""), [],
                      PollingConfig(30, 30, 600, 1800, 120, 0.1, 6),
                      WorldConfig("Asia/Tokyo", "zh-CN", 50, 35, 20),

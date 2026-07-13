@@ -1,7 +1,7 @@
 import logging
 import re
 
-from palchronicle.adapters.palworld_rest import RestResponse
+from palworld_terminal.adapters.palworld_rest import RestResponse
 from tests.fixtures.loader import load_fixture
 from tests.integration.conftest import ok
 
@@ -117,7 +117,7 @@ async def test_logs_never_leak_raw_on_degradation_paths(harness, caplog):
     container, server, clock, snap = harness
     world = await snap.ingest_info(server, ok(load_fixture("normal_world", "info")))
 
-    with caplog.at_level(logging.DEBUG, logger="palchronicle"):
+    with caplog.at_level(logging.DEBUG, logger="palworld_terminal"):
         # 401 认证失败路径（error 内绝不含凭证/URL 明文）
         await snap.ingest_players(world, RestResponse(
             ok=False, status=401, data=None, duration_ms=3, payload_bytes=0, error="auth failed"))

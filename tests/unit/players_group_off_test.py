@@ -1,9 +1,9 @@
 """players 组 OFF 语义端到端：关组→四命令回 feature_disabled、help 不列（spec §5/§6）。"""
 from types import SimpleNamespace
 
-from palchronicle.config import FeaturesConfig
-from palchronicle.presentation.commands import Commands
-from palchronicle.presentation.formatters import format_help
+from palworld_terminal.config import FeaturesConfig
+from palworld_terminal.presentation.commands import Commands
+from palworld_terminal.presentation.formatters import format_help
 
 
 def _cmds(players_on):

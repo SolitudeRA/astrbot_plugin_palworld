@@ -1,7 +1,7 @@
 import dataclasses
 
-from palchronicle.domain.enums import ActionCategory, UnitType
-from palchronicle.domain.models import (
+from palworld_terminal.domain.enums import ActionCategory, UnitType
+from palworld_terminal.domain.models import (
     CharacterActor,
     GameDataSnapshot,
     InfoSnapshot,

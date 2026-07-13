@@ -1,7 +1,7 @@
 from types import SimpleNamespace
 
-from palchronicle.application.query_service import RankBoardsDTO
-from palchronicle.presentation.commands import Commands
+from palworld_terminal.application.query_service import RankBoardsDTO
+from palworld_terminal.presentation.commands import Commands
 
 
 class _Query:

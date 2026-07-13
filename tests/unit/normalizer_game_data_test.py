@@ -1,8 +1,8 @@
 from pathlib import Path
 
-from palchronicle.adapters.metadata_repository import MetadataRepository
-from palchronicle.adapters.normalizer import normalize_game_data
-from palchronicle.domain.enums import ActionCategory, UnitType
+from palworld_terminal.adapters.metadata_repository import MetadataRepository
+from palworld_terminal.adapters.normalizer import normalize_game_data
+from palworld_terminal.domain.enums import ActionCategory, UnitType
 
 METADATA_DIR = Path(__file__).resolve().parents[2] / "metadata"
 

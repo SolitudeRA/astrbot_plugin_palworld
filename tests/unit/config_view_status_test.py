@@ -1,6 +1,6 @@
 """status/overview 行组装：实名字段 + 白名单 + world=None 骨架。"""
-from palchronicle.presentation.config_view import status_rows
-from palchronicle.presentation.dtos import StatusDTO
+from palworld_terminal.presentation.config_view import status_rows
+from palworld_terminal.presentation.dtos import StatusDTO
 
 
 def _dto():

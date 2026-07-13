@@ -45,7 +45,7 @@ coverage.xml
 *.db-shm
 *.sqlite
 *.sqlite3
-palchronicle.db*
+palworld_terminal.db*
 
 # HMAC 密钥盐 —— 安全敏感，永不提交
 secret_salt

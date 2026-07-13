@@ -2,7 +2,7 @@ import asyncio
 
 import pytest
 
-from palchronicle.infrastructure.database import Database
+from palworld_terminal.infrastructure.database import Database
 
 
 @pytest.fixture

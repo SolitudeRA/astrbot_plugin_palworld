@@ -1,7 +1,7 @@
 import os
 
-from palchronicle.infrastructure import salt as salt_module
-from palchronicle.infrastructure.salt import load_or_create_salt
+from palworld_terminal.infrastructure import salt as salt_module
+from palworld_terminal.infrastructure.salt import load_or_create_salt
 
 
 def test_creates_32_byte_salt_file(tmp_path):

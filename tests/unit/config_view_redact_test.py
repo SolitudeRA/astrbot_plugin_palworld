@@ -1,5 +1,5 @@
 """config/get 脱敏读：明文绝不出站、稳定 row_id、env 名可回显值不读。"""
-from palchronicle.presentation.config_view import redact_config
+from palworld_terminal.presentation.config_view import redact_config
 
 
 def _raw():

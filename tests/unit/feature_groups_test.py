@@ -1,7 +1,7 @@
 """端点→组映射与 active_endpoints（spec §4）。"""
-from palchronicle.application.feature_groups import active_endpoints
-from palchronicle.config import FeaturesConfig
-from palchronicle.domain.enums import EndpointName
+from palworld_terminal.application.feature_groups import active_endpoints
+from palworld_terminal.config import FeaturesConfig
+from palworld_terminal.domain.enums import EndpointName
 
 _CORE = {EndpointName.INFO, EndpointName.METRICS, EndpointName.PLAYERS, EndpointName.SETTINGS}
 

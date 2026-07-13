@@ -1,8 +1,8 @@
 from pathlib import Path
 
-from palchronicle.application.report_service import BaseEvent, LevelEvent
-from palchronicle.domain.enums import PingBucket
-from palchronicle.presentation.dtos import (
+from palworld_terminal.application.report_service import BaseEvent, LevelEvent
+from palworld_terminal.domain.enums import PingBucket
+from palworld_terminal.presentation.dtos import (
     OnlineDTO,
     OnlinePlayerRow,
     RuleRow,
@@ -11,7 +11,7 @@ from palchronicle.presentation.dtos import (
     WildTopRow,
     WorldSummaryDTO,
 )
-from palchronicle.presentation.formatters import (
+from palworld_terminal.presentation.formatters import (
     format_online,
     format_rules,
     format_status,

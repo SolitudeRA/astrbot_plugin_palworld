@@ -1,4 +1,4 @@
-from palchronicle.infrastructure.clock import Clock, FakeClock, SystemClock
+from palworld_terminal.infrastructure.clock import Clock, FakeClock, SystemClock
 
 
 def test_fake_clock_now_and_set_and_advance():

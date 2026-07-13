@@ -1,9 +1,9 @@
 import logging
 from pathlib import Path
 
-from palchronicle.adapters.metadata_repository import MetadataRepository
-from palchronicle.application.snapshot_service import SnapshotService
-from palchronicle.config import (
+from palworld_terminal.adapters.metadata_repository import MetadataRepository
+from palworld_terminal.application.snapshot_service import SnapshotService
+from palworld_terminal.config import (
     AppConfig,
     BasesConfig,
     BindingConfig,
@@ -15,9 +15,9 @@ from palchronicle.config import (
     SkippedHeader,
     WorldConfig,
 )
-from palchronicle.container import Container
-from palchronicle.domain.enums import AccessMode
-from palchronicle.infrastructure.clock import FakeClock
+from palworld_terminal.container import Container
+from palworld_terminal.domain.enums import AccessMode
+from palworld_terminal.infrastructure.clock import FakeClock
 
 
 def _server(name: str) -> ServerConfig:
@@ -102,7 +102,7 @@ async def test_stop_closes_rest_and_db(tmp_path: Path):
 async def test_metadata_loads_from_package_root(tmp_path: Path):
     # data_dir 模拟 AstrBot 插件数据目录（<astrbot>/data/plugin_data/<插件名>），
     # 其父级不含 metadata/；metadata 必须按包位置（插件根目录）解析才能加载到条目。
-    data_dir = tmp_path / "data" / "plugin_data" / "palchronicle"
+    data_dir = tmp_path / "data" / "plugin_data" / "palworld_terminal"
     data_dir.mkdir(parents=True)
     c = Container(_cfg([_server("alpha")]), data_dir, FakeClock(1000),
                   rest_factory=lambda s, clk: _FakeRest(),
@@ -123,7 +123,7 @@ async def test_metadata_load_failure_logs_warning(tmp_path: Path, monkeypatch, c
     c = Container(_cfg([_server("alpha")]), tmp_path, FakeClock(1000),
                   rest_factory=lambda s, clk: _FakeRest(),
                   scheduler_factory=lambda *a, **k: _FakeScheduler())
-    with caplog.at_level(logging.WARNING, logger="palchronicle.container"):
+    with caplog.at_level(logging.WARNING, logger="palworld_terminal.container"):
         await c.start()
     try:
         assert any("metadata" in rec.getMessage() for rec in caplog.records)
@@ -151,8 +151,8 @@ async def test_on_response_dispatches_info(tmp_path: Path, monkeypatch):
                   rest_factory=lambda s, clk: _FakeRest(),
                   scheduler_factory=lambda *a, **k: _FakeScheduler())
     await c.start()
-    from palchronicle.adapters.palworld_rest import RestResponse
-    from palchronicle.domain.enums import EndpointName
+    from palworld_terminal.adapters.palworld_rest import RestResponse
+    from palworld_terminal.domain.enums import EndpointName
     calls = []
 
     async def fake_ingest_info(server, resp):
@@ -174,7 +174,7 @@ async def test_skipped_headers_logged_on_start_without_value(tmp_path: Path, cap
     c = Container(cfg, tmp_path, FakeClock(1000),
                   rest_factory=lambda s, clk: _FakeRest(),
                   scheduler_factory=lambda *a, **k: _FakeScheduler())
-    with caplog.at_level(logging.WARNING, logger="palchronicle.container"):
+    with caplog.at_level(logging.WARNING, logger="palworld_terminal.container"):
         await c.start()
     try:
         msgs = [r.getMessage() for r in caplog.records if "custom_headers" in r.getMessage()]
@@ -189,7 +189,7 @@ async def test_no_skipped_headers_no_warning(tmp_path: Path, caplog):
     c = Container(_cfg([_server("alpha")]), tmp_path, FakeClock(1000),
                   rest_factory=lambda s, clk: _FakeRest(),
                   scheduler_factory=lambda *a, **k: _FakeScheduler())
-    with caplog.at_level(logging.WARNING, logger="palchronicle.container"):
+    with caplog.at_level(logging.WARNING, logger="palworld_terminal.container"):
         await c.start()
     try:
         assert not any("custom_headers" in r.getMessage() for r in caplog.records)

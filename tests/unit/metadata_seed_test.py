@@ -1,8 +1,8 @@
 import json
 from pathlib import Path
 
-from palchronicle.adapters.metadata_repository import MetadataRepository
-from palchronicle.domain.enums import ActionCategory
+from palworld_terminal.adapters.metadata_repository import MetadataRepository
+from palworld_terminal.domain.enums import ActionCategory
 
 METADATA_DIR = Path(__file__).resolve().parents[2] / "metadata"
 META = MetadataRepository(METADATA_DIR)

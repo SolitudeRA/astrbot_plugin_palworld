@@ -1,7 +1,7 @@
 import pytest
 
-from palchronicle.infrastructure.database import Database
-from palchronicle.infrastructure.migrations import (
+from palworld_terminal.infrastructure.database import Database
+from palworld_terminal.infrastructure.migrations import (
     MIGRATIONS,
     MigrationError,
     apply_migrations,
@@ -83,7 +83,7 @@ async def test_failed_migration_raises_migration_error(db):
     async def bad(conn):
         await conn.execute("CREATE TABLE broken (")  # 语法错误
 
-    from palchronicle.infrastructure import migrations as m
+    from palworld_terminal.infrastructure import migrations as m
 
     original = m.MIGRATIONS
     m.MIGRATIONS = original + [bad]
