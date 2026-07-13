@@ -50,4 +50,15 @@ describe('ServerCard', () => {
     const w = mountCard({ __row_id: '', name: '', enabled: true, base_url: '', username: '', password: '', password_env: '', timeout: 10, verify_tls: true, timezone: '' })
     expect(w.find('button.save-card').exists()).toBe(true)
   })
+  it('新增行「取消」等同移除(emit delete),不留幽灵空卡', async () => {
+    const w = mountCard({ __row_id: '', name: '', enabled: true, base_url: '', username: '', password: '', password_env: '', timeout: 10, verify_tls: true, timezone: '' })
+    await w.get('button.cancel-card').trigger('click')
+    expect(w.emitted('delete')).toBeTruthy()
+  })
+  it('无改动的「完成」不 emit(不误置未保存提示)', async () => {
+    const w = mountCard(row())
+    await w.get('button.edit').trigger('click')
+    await w.get('button.save-card').trigger('click')
+    expect(w.emitted('update:modelValue')).toBeFalsy()
+  })
 })

@@ -58,7 +58,7 @@ describe('SettingsPanel', () => {
     (window.AstrBotPluginPage!.apiPost as any).mockResolvedValue({ ok: false, error: 'credential_redirect', detail: { path: 'servers[0].password' } })
     const w = mountAt('access'); await flushPromises()
     await w.get('button.pw-save').trigger('click'); await flushPromises()
-    expect(w.text()).toContain('请重新输入该服务器密码')
+    expect(w.text()).toContain('请点击该服务器的「修改」重新输入密码后再保存')
     expect(w.text()).toContain('保存设置') // 表单/保存条仍在（未塌成整页错误）
   })
 

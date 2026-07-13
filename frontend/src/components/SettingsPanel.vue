@@ -28,7 +28,7 @@ const ERR: Record<string, string> = {
   save_in_progress: '保存进行中，请稍候', too_frequent: '保存过于频繁，请稍后再试',
   too_large: '配置内容过大，请精简后再保存', invalid_shape: '配置格式有误，请刷新页面后重试',
   invalid_field: '字段填写有误',
-  credential_redirect: '修改了服务器地址，请重新输入该服务器密码',
+  credential_redirect: '修改了服务器地址，请点击该服务器的「修改」重新输入密码后再保存',
   restart_failed_rolled_back: '保存未生效，已恢复原配置',
   restart_failed: '保存未生效且恢复失败，请检查后台日志',
   unauthorized: '未登录或登录已过期，请重新登录 Dashboard',
@@ -69,7 +69,8 @@ onMounted(load)
 
 function toast(msg: string, error = false) {
   notice.msg = msg; notice.error = error
-  setTimeout(() => { if (notice.msg === msg) { notice.msg = ''; notice.error = false } }, 3000)
+  // 错误提示多为引导性(如 credential_redirect),停留更久
+  setTimeout(() => { if (notice.msg === msg) { notice.msg = ''; notice.error = false } }, error ? 6000 : 3000)
 }
 
 async function save() {

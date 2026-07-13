@@ -14,8 +14,11 @@ const state = ref<'loading' | 'error' | 'ready'>('loading')
 const rows = ref<StatusRow[]>([])
 const restarting = ref(false)
 let timer: ReturnType<typeof setTimeout> | undefined
+let inflight = false
 
 async function load() {
+  if (inflight) return  // 连点刷新不并发请求
+  inflight = true
   try {
     const data = await apiGet<StatusResp>('status/overview')
     restarting.value = !!data.restarting
@@ -24,6 +27,8 @@ async function load() {
     if (restarting.value) { if (timer) clearTimeout(timer); timer = setTimeout(load, 3000) }
   } catch {
     state.value = 'error'
+  } finally {
+    inflight = false
   }
 }
 onMounted(load)
