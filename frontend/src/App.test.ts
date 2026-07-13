@@ -11,13 +11,13 @@ beforeEach(() => {
 })
 
 describe('App', () => {
-  it('默认渲染报头与左索引，可切到观测台', async () => {
+  it('默认渲染报头与左索引，可切到状态章', async () => {
     const w = mount(App); await flushPromises()
     expect(w.text()).toContain('帕鲁纪事')
     const rail = w.findAll('.rail button')
-    expect(rail.some((b) => b.text().includes('观测台'))).toBe(true)
-    expect(rail.some((b) => b.text().includes('接入'))).toBe(true)
-    const obs = rail.find((b) => b.text().includes('观测台'))!
+    expect(rail.some((b) => b.text().includes('状态'))).toBe(true)
+    expect(rail.some((b) => b.text().includes('连接'))).toBe(true)
+    const obs = rail.find((b) => b.text().includes('状态'))!
     await obs.trigger('click'); await flushPromises()
     expect(w.text()).toContain('刷新') // 进入 StatusPanel
   })

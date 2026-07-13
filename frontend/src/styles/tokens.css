@@ -35,8 +35,7 @@ body { margin: 0; background: var(--paper); color: var(--ink); font-family: var(
 .subline { display: flex; justify-content: space-between; align-items: center; gap: 12px; color: var(--ink-3); font-size: 11px; letter-spacing: .14em; text-transform: uppercase; }
 .layout { display: flex; gap: 28px; margin-top: 22px; align-items: flex-start; }
 .rail { flex: 0 0 156px; position: sticky; top: 16px; display: flex; flex-direction: column; gap: 1px; }
-.railcap { font-size: 9.5px; letter-spacing: .22em; text-transform: uppercase; color: var(--ink-3); padding: 0 0 5px 12px; }
-.rail button + .railcap { margin-top: 16px; }
+.rail-sep { height: 1px; background: var(--rule); margin: 10px 12px 10px 0; }
 .rail button { text-align: left; font-size: 13.5px; color: var(--ink-2); background: none; border: none; border-left: 2px solid transparent; cursor: pointer; padding: 8px 12px; border-radius: 0 var(--r) var(--r) 0; display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; transition: background .14s, color .14s; }
 .rail button:hover { color: var(--ink); background: color-mix(in srgb, var(--focus) 8%, transparent); }
 .rail button[aria-current="true"] { color: var(--ink); border-left-color: var(--focus); background: color-mix(in srgb, var(--focus) 13%, transparent); font-weight: 600; font-size: 14.5px; }
@@ -149,7 +148,7 @@ body { margin: 0; background: var(--paper); color: var(--ink); font-family: var(
   .rail { flex-direction: row; position: static; overflow-x: auto; gap: 4px; border-bottom: 1px solid var(--rule); padding-bottom: 8px; top: 0; }
   .rail button { border-left: none; border-bottom: 2px solid transparent; white-space: nowrap; width: auto; border-radius: var(--r) var(--r) 0 0; }
   .rail button[aria-current="true"] { border-left: none; border-bottom-color: var(--focus); }
-  .railcap { display: none; } .rail button + .railcap { margin-top: 0; }
+  .rail-sep { display: none; }
   .row { grid-template-columns: 1fr; gap: 8px; } .rctl { justify-self: stretch; justify-content: flex-start; }
   .crow { grid-template-columns: 1fr; gap: 6px; }
   .entry-role, .group-head .c { display: none; } .note { display: none; }
