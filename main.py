@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import asyncio
 import copy
+import inspect
+import logging
 import os
 from pathlib import Path
 
@@ -65,6 +67,9 @@ except ImportError:  # 测试/独立环境从仓库根以顶级模块导入
     from palworld_terminal.presentation import web_api
 
 
+_log = logging.getLogger("palworld_terminal.main")
+
+
 def _resolve_data_dir() -> Path:
     try:
         return Path(StarTools.get_data_dir())
@@ -84,6 +89,11 @@ class PalWorldTerminal(Star):
         self._restarting = False
         self._save_lock = asyncio.Lock()
         self._last_save_ts: float | None = None
+        # 在途只读操作计数(命令/状态查询):重载 stop 旧容器前等待归零,
+        # 防止在途 await 里的 DB 连接/HTTP session 被脚下抽走(审查 E1)
+        self._inflight = 0
+        self._idle = asyncio.Event()
+        self._idle.set()
 
     async def initialize(self) -> None:
         cfg = parse_config(self._raw_config, os.environ)
@@ -119,6 +129,34 @@ class PalWorldTerminal(Star):
     def _build_container(self, cfg):
         return Container(cfg, _resolve_data_dir(), SystemClock())
 
+    async def _guarded(self, call):
+        """在途门闩内执行一次只读操作;重载中一律回 busy 文案。
+
+        计数先于 busy 判定(flag+counter 握手):若重载已置 _restarting,
+        这里拒绝;若重载在计数之后才开始,_wait_quiescent 会等本操作退出。
+        """
+        self._inflight += 1
+        self._idle.clear()
+        try:
+            if (m := self._busy_msg()):
+                return m
+            res = call(self._container)
+            if inspect.isawaitable(res):
+                res = await res
+            return res
+        finally:
+            self._inflight -= 1
+            if self._inflight == 0:
+                self._idle.set()
+
+    async def _wait_quiescent(self, timeout: float = 5.0) -> None:
+        # 新操作已被 _restarting 挡在门外;等在途的退完再关旧容器。
+        # 超时兜底:个别慢查询不至于永久卡死重载(此时回到修复前的竞态概率)
+        try:
+            await asyncio.wait_for(self._idle.wait(), timeout)
+        except TimeoutError:
+            _log.warning("等待在途操作超时(%ss),继续重载——个别在途查询可能失败", timeout)
+
     async def _apply_and_restart(self, candidate: dict) -> dict:
         old_raw = copy.deepcopy(dict(self._raw_config))
         self._restarting = True
@@ -128,6 +166,7 @@ class PalWorldTerminal(Star):
             if hasattr(self._raw_config, "save_config"):
                 self._raw_config.save_config()
             new_cfg = parse_config(self._raw_config, os.environ)
+            await self._wait_quiescent()
             if self._container is not None:
                 await self._container.stop()
                 self._container = None
@@ -208,8 +247,16 @@ class PalWorldTerminal(Star):
         from quart import jsonify
         if not self._has_identity():
             return self._deny_unauthorized()
-        _code, payload = await web_api.handle_status_overview(
-            self._container, self._restarting)
+        # 与命令同一在途门闩:重载 stop 前等待本次查询退出
+        self._inflight += 1
+        self._idle.clear()
+        try:
+            _code, payload = await web_api.handle_status_overview(
+                self._container, self._restarting)
+        finally:
+            self._inflight -= 1
+            if self._inflight == 0:
+                self._idle.set()
         return jsonify(payload)
 
     async def _web_config_save(self):
@@ -264,170 +311,117 @@ class PalWorldTerminal(Star):
 
     @pal.command("status")
     async def status(self, event):
-        if (m := self._busy_msg()):
-            yield event.plain_result(m)
-            return
         yield event.plain_result(
-            await self._container.commands.status(self._umo(event), self._msg(event), self._is_group(event))
+            await self._guarded(lambda c: c.commands.status(self._umo(event), self._msg(event), self._is_group(event)))
         )
 
     @pal.command("online")
     async def online(self, event):
-        if (m := self._busy_msg()):
-            yield event.plain_result(m)
-            return
         yield event.plain_result(
-            await self._container.commands.online(self._umo(event), self._msg(event), self._is_group(event))
+            await self._guarded(lambda c: c.commands.online(self._umo(event), self._msg(event), self._is_group(event)))
         )
 
     @pal.command("world")
     async def world(self, event):
-        if (m := self._busy_msg()):
-            yield event.plain_result(m)
-            return
         yield event.plain_result(
-            await self._container.commands.world(self._umo(event), self._msg(event), self._is_group(event))
+            await self._guarded(lambda c: c.commands.world(self._umo(event), self._msg(event), self._is_group(event)))
         )
 
     @pal.command("rules")
     async def rules(self, event):
-        if (m := self._busy_msg()):
-            yield event.plain_result(m)
-            return
         yield event.plain_result(
-            await self._container.commands.rules(self._umo(event), self._msg(event), self._is_group(event))
+            await self._guarded(lambda c: c.commands.rules(self._umo(event), self._msg(event), self._is_group(event)))
         )
 
     @pal.command("guilds")
     async def guilds(self, event):
-        if (m := self._busy_msg()):
-            yield event.plain_result(m)
-            return
         yield event.plain_result(
-            await self._container.commands.guilds(self._umo(event), self._msg(event), self._is_group(event))
+            await self._guarded(lambda c: c.commands.guilds(self._umo(event), self._msg(event), self._is_group(event)))
         )
 
     @pal.command("guild")
     async def guild(self, event):
-        if (m := self._busy_msg()):
-            yield event.plain_result(m)
-            return
         yield event.plain_result(
-            await self._container.commands.guild(self._umo(event), self._msg(event), self._is_group(event))
+            await self._guarded(lambda c: c.commands.guild(self._umo(event), self._msg(event), self._is_group(event)))
         )
 
     @pal.command("bases")
     async def bases(self, event):
-        if (m := self._busy_msg()):
-            yield event.plain_result(m)
-            return
         yield event.plain_result(
-            await self._container.commands.bases(self._umo(event), self._msg(event), self._is_group(event))
+            await self._guarded(lambda c: c.commands.bases(self._umo(event), self._msg(event), self._is_group(event)))
         )
 
     @pal.command("base")
     async def base(self, event):
-        if (m := self._busy_msg()):
-            yield event.plain_result(m)
-            return
         yield event.plain_result(
-            await self._container.commands.base(self._umo(event), self._msg(event), self._is_group(event))
+            await self._guarded(lambda c: c.commands.base(self._umo(event), self._msg(event), self._is_group(event)))
         )
 
     @pal.command("events")
     async def events(self, event):
-        if (m := self._busy_msg()):
-            yield event.plain_result(m)
-            return
         yield event.plain_result(
-            await self._container.commands.events(self._umo(event), self._msg(event), self._is_group(event))
+            await self._guarded(lambda c: c.commands.events(self._umo(event), self._msg(event), self._is_group(event)))
         )
 
     @pal.command("today")
     async def today(self, event):
-        if (m := self._busy_msg()):
-            yield event.plain_result(m)
-            return
         yield event.plain_result(
-            await self._container.commands.today(self._umo(event), self._msg(event), self._is_group(event))
+            await self._guarded(lambda c: c.commands.today(self._umo(event), self._msg(event), self._is_group(event)))
         )
 
     @pal.command("rank")
     async def rank(self, event):
-        if (m := self._busy_msg()):
-            yield event.plain_result(m)
-            return
         yield event.plain_result(
-            await self._container.commands.rank(self._umo(event), self._msg(event), self._is_group(event))
+            await self._guarded(lambda c: c.commands.rank(self._umo(event), self._msg(event), self._is_group(event)))
         )
 
     @pal.command("player")
     async def player(self, event):
-        if (m := self._busy_msg()):
-            yield event.plain_result(m)
-            return
         yield event.plain_result(
-            await self._container.commands.player(self._umo(event), self._msg(event), self._is_group(event))
+            await self._guarded(lambda c: c.commands.player(self._umo(event), self._msg(event), self._is_group(event)))
         )
 
     @pal.command("me")
     async def me(self, event):
-        if (m := self._busy_msg()):
-            yield event.plain_result(m)
-            return
         yield event.plain_result(
-            await self._container.commands.me(
-                self._umo(event), self._msg(event), self._is_group(event), self._sender_id(event))
+            await self._guarded(lambda c: c.commands.me(
+                self._umo(event), self._msg(event), self._is_group(event), self._sender_id(event)))
         )
 
     @pal.command("bind")
     async def bind(self, event):
-        if (m := self._busy_msg()):
-            yield event.plain_result(m)
-            return
         yield event.plain_result(
-            await self._container.commands.bind(
-                self._umo(event), self._msg(event), self._is_group(event), self._sender_id(event))
+            await self._guarded(lambda c: c.commands.bind(
+                self._umo(event), self._msg(event), self._is_group(event), self._sender_id(event)))
         )
 
     @pal.command("servers")
     async def servers(self, event):
-        if (m := self._busy_msg()):
-            yield event.plain_result(m)
-            return
         yield event.plain_result(
-            await self._container.commands.servers(self._umo(event), self._is_group(event), self._is_admin(event))
+            await self._guarded(lambda c: c.commands.servers(
+                self._umo(event), self._is_group(event), self._is_admin(event)))
         )
 
     @pal.command("help")
     async def help(self, event):
-        if (m := self._busy_msg()):
-            yield event.plain_result(m)
-            return
         yield event.plain_result(
-            self._container.commands.help(self._msg(event), self._is_admin(event))
+            await self._guarded(lambda c: c.commands.help(self._msg(event), self._is_admin(event)))
         )
 
     @filter.permission_type(filter.PermissionType.ADMIN)
     @pal.command("use")
     async def use(self, event):
-        if (m := self._busy_msg()):
-            yield event.plain_result(m)
-            return
         yield event.plain_result(
-            await self._container.commands.use(
+            await self._guarded(lambda c: c.commands.use(
                 self._umo(event), self._msg(event), self._is_group(event), self._is_admin(event)
-            )
+            ))
         )
 
     @filter.permission_type(filter.PermissionType.ADMIN)
     @pal.command("unbind")
     async def unbind(self, event):
-        if (m := self._busy_msg()):
-            yield event.plain_result(m)
-            return
         yield event.plain_result(
-            await self._container.commands.unbind(
+            await self._guarded(lambda c: c.commands.unbind(
                 self._umo(event), self._msg(event), self._is_group(event), self._is_admin(event)
-            )
+            ))
         )

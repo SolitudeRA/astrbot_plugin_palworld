@@ -58,7 +58,30 @@ describe('SettingsPanel', () => {
     (window.AstrBotPluginPage!.apiPost as any).mockResolvedValue({ ok: false, error: 'credential_redirect', detail: { path: 'servers[0].password' } })
     const w = mountAt('access'); await flushPromises()
     await w.get('button.pw-save').trigger('click'); await flushPromises()
-    expect(w.text()).toContain('请重新输入该服务器密码')
+    expect(w.text()).toContain('请点击该服务器的「修改」重新输入密码后再保存')
     expect(w.text()).toContain('保存设置') // 表单/保存条仍在（未塌成整页错误）
+  })
+
+  it('保存响应回传 config 时用其刷新 state(新行获得服务端 __row_id)', async () => {
+    (window.AstrBotPluginPage!.apiGet as any).mockResolvedValue(cfg())
+    const saved = cfg().config
+    saved.servers = [...saved.servers,
+      { __row_id: 'srv-1', name: 'newbie', enabled: true, base_url: 'http://y', username: 'admin',
+        password: '', password_set: true, password_env: '', timeout: 10, verify_tls: true, timezone: '' }];
+    (window.AstrBotPluginPage!.apiPost as any).mockResolvedValue({ ok: true, warnings: {}, config: saved })
+    const w = mountAt('access'); await flushPromises()
+    await w.get('button.pw-save').trigger('click'); await flushPromises()
+    expect(w.text()).toContain('newbie') // state 已被落库后的 config 刷新
+  })
+
+  it('改动后显示未保存提示,保存成功后消失', async () => {
+    (window.AstrBotPluginPage!.apiGet as any).mockResolvedValue(cfg());
+    (window.AstrBotPluginPage!.apiPost as any).mockResolvedValue({ ok: true, warnings: {}, config: cfg().config })
+    const w = mountAt('access'); await flushPromises()
+    expect(w.text()).not.toContain('有未保存的更改')
+    await w.get('button.add').trigger('click') // 添加服务器 → dirty
+    expect(w.text()).toContain('有未保存的更改')
+    await w.get('button.pw-save').trigger('click'); await flushPromises()
+    expect(w.text()).not.toContain('有未保存的更改') // applyConfig 复位
   })
 })

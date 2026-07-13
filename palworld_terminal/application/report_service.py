@@ -13,6 +13,9 @@ from ..infrastructure.clock import Clock
 _ACTIVE_SECONDS = 600  # spec §12: 活跃日 >= 10 分钟
 
 
+_EVENT_PAGE = 1000  # 日报事件分页大小(测试可缩小以覆盖分页路径)
+
+
 def day_bounds(
     cfg: AppConfig, world: World, now: int, day: str | None = None
 ) -> tuple[str, int, int]:
@@ -81,13 +84,19 @@ class ReportService:
 
     async def daily(self, world: World, day: str | None = None) -> DailyReport:
         day, start, end = self._day_bounds(world, day)
-        events = [
-            e
-            for e in await self._repo.list_events(
-                world.world_id, since=start, limit=1000
+        # 分页拉全窗口事件:超活跃日事件数越过单页上限时,DESC+LIMIT 截断
+        # 会丢当日最早的事件,导致日报计数偏低
+        raw: list = []
+        offset = 0
+        while True:
+            batch = await self._repo.list_events(
+                world.world_id, since=start, limit=_EVENT_PAGE, offset=offset
             )
-            if e.occurred_at < end
-        ]
+            raw.extend(batch)
+            if len(batch) < _EVENT_PAGE:
+                break
+            offset += _EVENT_PAGE
+        events = [e for e in raw if e.occurred_at < end]
         peak = await self._repo.peak_online(world.world_id, since=start)
 
         milestones = [e for e in events if e.event_type == EventType.WORLD_DAY_MILESTONE]

@@ -199,7 +199,7 @@ def _parse_servers(
             base_url=str(item.get("base_url", "") or ""),
             username=str(item.get("username", "admin") or "admin"),
             password=password,
-            timeout=int(item.get("timeout", 10)),
+            timeout=_as_int(item.get("timeout", 10), 10),
             verify_tls=bool(item.get("verify_tls", True)),
             timezone=str(item.get("timezone", "") or ""),
         )
@@ -207,6 +207,21 @@ def _parse_servers(
         if not password:
             skipped.append(SkippedServer(raw_name=raw_name, reason="no_credential"))
     return servers, skipped
+
+
+def _as_int(v, default: int) -> int:
+    """畸形持久化值(如手改配置文件)降级为默认,不炸启动。"""
+    try:
+        return int(v)
+    except (TypeError, ValueError):
+        return default
+
+
+def _as_float(v, default: float) -> float:
+    try:
+        return float(v)
+    except (TypeError, ValueError):
+        return default
 
 
 def _parse_bindings(raw: Mapping) -> list[BindingConfig]:
@@ -305,47 +320,47 @@ def parse_config(raw: Mapping, env: Mapping[str, str]) -> AppConfig:
         ),
         group_bindings=_parse_bindings(raw),
         polling=PollingConfig(
-            metrics_seconds=int(p.get("metrics_seconds", 30)),
-            players_seconds=int(p.get("players_seconds", 30)),
-            info_seconds=int(p.get("info_seconds", 600)),
-            settings_seconds=int(p.get("settings_seconds", 1800)),
-            game_data_seconds=int(p.get("game_data_seconds", 120)),
-            jitter_ratio=float(p.get("jitter_ratio", 0.10)),
-            max_concurrency=int(p.get("max_concurrency", 6)),
+            metrics_seconds=_as_int(p.get("metrics_seconds", 30), 30),
+            players_seconds=_as_int(p.get("players_seconds", 30), 30),
+            info_seconds=_as_int(p.get("info_seconds", 600), 600),
+            settings_seconds=_as_int(p.get("settings_seconds", 1800), 1800),
+            game_data_seconds=_as_int(p.get("game_data_seconds", 120), 120),
+            jitter_ratio=_as_float(p.get("jitter_ratio", 0.10), 0.10),
+            max_concurrency=_as_int(p.get("max_concurrency", 6), 6),
         ),
         world=WorldConfig(
             timezone=str(w.get("timezone", "Asia/Tokyo") or "Asia/Tokyo"),
             locale=str(w.get("locale", "zh-CN") or "zh-CN"),
-            fps_smooth=int(w.get("fps_smooth", 50)),
-            fps_moderate=int(w.get("fps_moderate", 35)),
-            fps_laggy=int(w.get("fps_laggy", 20)),
+            fps_smooth=_as_int(w.get("fps_smooth", 50), 50),
+            fps_moderate=_as_int(w.get("fps_moderate", 35), 35),
+            fps_laggy=_as_int(w.get("fps_laggy", 20), 20),
         ),
         bases=BasesConfig(
             enabled=bool(b.get("enabled", True)),
-            assignment_radius=int(b.get("assignment_radius", 5000)),
-            ambiguity_ratio=float(b.get("ambiguity_ratio", 0.20)),
-            confirmation_samples=int(b.get("confirmation_samples", 3)),
-            position_grid_size=int(b.get("position_grid_size", 2000)),
-            z_weight=float(b.get("z_weight", 0.5)),
+            assignment_radius=_as_int(b.get("assignment_radius", 5000), 5000),
+            ambiguity_ratio=_as_float(b.get("ambiguity_ratio", 0.20), 0.20),
+            confirmation_samples=_as_int(b.get("confirmation_samples", 3), 3),
+            position_grid_size=_as_int(b.get("position_grid_size", 2000), 2000),
+            z_weight=_as_float(b.get("z_weight", 0.5), 0.5),
         ),
         privacy=PrivacyConfig(
             mode=str(pv.get("mode", "balanced") or "balanced"),
             public_exact_ping=bool(pv.get("public_exact_ping", False)),
             public_positions=bool(pv.get("public_positions", False)),
-            ping_good_ms=int(pv.get("ping_good_ms", 60)),
-            ping_ok_ms=int(pv.get("ping_ok_ms", 120)),
-            uncertain_timeout=int(pv.get("uncertain_timeout", 900)),
+            ping_good_ms=_as_int(pv.get("ping_good_ms", 60), 60),
+            ping_ok_ms=_as_int(pv.get("ping_ok_ms", 120), 120),
+            uncertain_timeout=_as_int(pv.get("uncertain_timeout", 900), 900),
         ),
         history=HistoryConfig(
-            raw_metrics_days=int(h.get("raw_metrics_days", 7)),
-            aggregate_days=int(h.get("aggregate_days", 90)),
-            session_days=int(h.get("session_days", 365)),
-            observation_days=int(h.get("observation_days", 180)),
+            raw_metrics_days=_as_int(h.get("raw_metrics_days", 7), 7),
+            aggregate_days=_as_int(h.get("aggregate_days", 90), 90),
+            session_days=_as_int(h.get("session_days", 365), 365),
+            observation_days=_as_int(h.get("observation_days", 180), 180),
         ),
         skipped_headers=skipped_headers,
         features=features,
         players=PlayersConfig(
-            rank_top_n=int(pl.get("rank_top_n", 5)),
+            rank_top_n=_as_int(pl.get("rank_top_n", 5), 5),
             exclude_names=[s.strip() for s in str(pl.get("exclude_names", "")).split(",") if s.strip()],
         ),
     )

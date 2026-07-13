@@ -1,13 +1,13 @@
 <div align="center">
 
-<img src="docs/images/banner.png" alt="PalWorldTerminal · 帕鲁世界终端" width="640">
+<img src="https://raw.githubusercontent.com/SolitudeRA/astrbot_plugin_palworld/main/docs/images/banner.png" alt="PalWorldTerminal · 帕鲁世界终端" width="640">
 
 # PalWorldTerminal · 帕鲁世界终端
 
 [![version](https://img.shields.io/badge/version-v0.8.0-007ec6)](https://github.com/SolitudeRA/astrbot_plugin_palworld/releases)
 [![python](https://img.shields.io/badge/python-3.11%2B-007ec6)](https://www.python.org/)
 [![AstrBot](https://img.shields.io/badge/AstrBot-%E2%89%A5%204.24.1-fe7d37)](https://github.com/AstrBotDevs/AstrBot)
-[![license](https://img.shields.io/badge/license-GPL--3.0-97ca00)](LICENSE)
+[![license](https://img.shields.io/badge/license-GPL--3.0-97ca00)](https://github.com/SolitudeRA/astrbot_plugin_palworld/blob/main/LICENSE)
 [![Palworld](https://img.shields.io/badge/Palworld-1.0%2B-3f6ec6)](https://www.pocketpair.jp/palworld)
 
 监测 Palworld 专用服务器,在群里提供状态查询、日报与玩家档案。<br>只读,基于官方 REST API。
@@ -27,6 +27,7 @@
 - **世界事件记录** —— 上下线、服务器重启等大事记(`/pal events`)
 - **玩家排行与档案** —— 时长榜 / 等级榜、逐人查询、自助绑定与隐藏(`/pal rank`、`/pal me`)
 - **多服务器 + 群授权** —— 一个插件监测多台服务器,按群授权、按群切换
+- **网关安全接入** —— 自定义请求头支持零信任网关鉴权(如 Cloudflare Access),REST API 不必暴露公网
 - **WebUI 设置页** —— 可视化配置全部选项,亮暗双主题
 - **隐私优先** —— 只读、不存 IP、玩家标识 HMAC 哈希落库、坐标量化为粗网格
 - **公会与据点** —— 依赖上游开放 `game-data`,默认关闭,开放后一键启用
@@ -72,7 +73,7 @@
 | `/pal help` | 帮助(按启用的功能过滤) |
 
 任意查询指令末尾加 `@<服务器名>` 可单次指定目标服务器,如 `/pal status @alpha`(多服务器场景)。
-完整指令表、功能开关矩阵与群授权用法 → [docs/commands.md](docs/commands.md)
+完整指令表、功能开关矩阵与群授权用法 → [docs/commands.md](https://github.com/SolitudeRA/astrbot_plugin_palworld/blob/main/docs/commands.md)
 
 ## 配置
 
@@ -89,7 +90,7 @@
 | `players` 玩家查询 | **关** | `rank` `player` `me` `bind` |
 | `guilds_bases` 公会与据点 | **关** | `guilds` `bases` 等 |
 
-轮询间隔、FPS 阈值、隐私脱敏、数据保留、自定义请求头等全部配置项详解 → [docs/configuration.md](docs/configuration.md)
+轮询间隔、FPS 阈值、隐私脱敏、数据保留、自定义请求头等全部配置项详解 → [docs/configuration.md](https://github.com/SolitudeRA/astrbot_plugin_palworld/blob/main/docs/configuration.md)
 
 ## 安全与隐私
 
@@ -98,12 +99,13 @@
 - **不公开精确位置**:坐标默认量化为粗网格;`strict` 隐私模式下坐标完全不落库、据点模块停用。Ping 仅以「优秀/正常/偏高」分桶展示,不存原始数值。
 - **需在服务器端启用 REST**:Palworld 服务器须开启 REST API(`RESTAPIEnabled=True` 并设置管理员密码)。
 - **勿暴露公网**:REST API 请勿直接暴露到公网,走 localhost / 内网 / VPN / 反向代理;密码建议用环境变量(`password_env`)而非明文。
+- **支持网关鉴权接入**:自定义请求头可为所有轮询请求携带零信任网关凭证(如 Cloudflare Access 的 `CF-Access-Client-Id` / `CF-Access-Client-Secret`),让 REST API 藏在反向代理 / 网关之后而非直连;凭证推荐存环境变量(`value_env`),设置页不回显明文,并可用「限定服务器」把凭证头只发给指定服务器。
 
 ## 详细文档
 
-- [配置项详解](docs/configuration.md) —— 轮询 / 世界与展示 / 据点推导 / 数据保留 / 自定义请求头 / 插件页面 / 功能开关
-- [完整指令与功能开关](docs/commands.md) —— 18 条指令详表、功能开关矩阵、多服务器与群授权、降级行为
+- [配置项详解](https://github.com/SolitudeRA/astrbot_plugin_palworld/blob/main/docs/configuration.md) —— 轮询 / 世界与展示 / 据点推导 / 数据保留 / 自定义请求头 / 插件页面 / 功能开关
+- [完整指令与功能开关](https://github.com/SolitudeRA/astrbot_plugin_palworld/blob/main/docs/commands.md) —— 18 条指令详表、功能开关矩阵、多服务器与群授权、降级行为
 
 ## 开源协议
 
-GPL-3.0,见 [LICENSE](LICENSE)。
+GPL-3.0,见 [LICENSE](https://github.com/SolitudeRA/astrbot_plugin_palworld/blob/main/LICENSE)。

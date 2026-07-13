@@ -250,6 +250,16 @@ class Repository:
                 "DELETE FROM player_sessions WHERE left_at IS NOT NULL AND left_at < ?",
                 (session_cutoff,),
             )
+            # world 级孤儿清理（players spec §6）：世界被移除后其绑定/自助
+            # 隐藏记录不再可达，随 prune 一并清掉
+            await conn.execute(
+                "DELETE FROM player_bindings WHERE world_id NOT IN"
+                " (SELECT world_id FROM worlds)"
+            )
+            await conn.execute(
+                "DELETE FROM hidden_players WHERE world_id NOT IN"
+                " (SELECT world_id FROM worlds)"
+            )
             # world_events / daily_aggregates 长期保留（spec §9.3）。
 
     # ---- metrics ----
@@ -384,7 +394,7 @@ class Repository:
             " latest_level, latest_guild_key, id_confidence"
             " FROM players"
             " WHERE world_id=? AND latest_level IS NOT NULL AND latest_name IS NOT NULL"
-            " ORDER BY latest_level DESC, last_seen_at DESC",
+            " ORDER BY latest_level DESC, last_seen_at DESC, player_key ASC",
             (world_id,),
         )
         return [
@@ -672,15 +682,16 @@ class Repository:
             return False
 
     async def list_events(
-        self, world_id: str, since: int | None = None, limit: int = 20
+        self, world_id: str, since: int | None = None, limit: int = 20,
+        offset: int = 0,
     ) -> list[WorldEvent]:
         sql = "SELECT * FROM world_events WHERE world_id = ?"
         params: list = [world_id]
         if since is not None:
             sql += " AND occurred_at >= ?"
             params.append(since)
-        sql += " ORDER BY occurred_at DESC, event_id DESC LIMIT ?"
-        params.append(limit)
+        sql += " ORDER BY occurred_at DESC, event_id DESC LIMIT ? OFFSET ?"
+        params.extend([limit, offset])
         rows = await self._db.query(sql, params)
         return [
             WorldEvent(

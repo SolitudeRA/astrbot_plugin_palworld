@@ -7,10 +7,12 @@ const props = defineProps<{ modelValue: Record<string, unknown>; indexLabel: str
 const emit = defineEmits<{
   'update:modelValue': [v: Record<string, unknown>]
   delete: []
-  save: [done: (ok: boolean) => void]
 }>()
 
 const mode = ref<'view' | 'edit'>(props.modelValue.__row_id ? 'view' : 'edit')
+// 新增且从未「完成」过的行,「取消」应等同移除(否则留下一张空白幽灵卡,
+// 统一保存时被静默提交);「完成」过一次即视为用户确认保留
+const freshNew = ref(!props.modelValue.__row_id)
 const draft = reactive<Record<string, unknown>>({})
 const flash = ref(false)
 
@@ -20,16 +22,21 @@ function enterEdit() {
   for (const f of HEADER_FIELDS) if (f.secret) draft[f.key] = '' // secret 不回填明文
   mode.value = 'edit'
 }
-function cancel() { mode.value = 'view' }
+function cancel() {
+  if (freshNew.value) { emit('delete'); return }
+  mode.value = 'view'
+}
 function setDraft(key: string, v: unknown) { draft[key] = v }
 function saveCard() {
+  freshNew.value = false
+  // 无任何改动的「完成」只回查看态,不 emit(避免误置「有未保存的更改」)
+  const changed = Object.keys(draft).some((k) => draft[k] !== props.modelValue[k])
+  mode.value = 'view'
+  if (!changed) return
+  // 只暂存到页面工作态,不落库——统一由底部「保存设置」提交
   emit('update:modelValue', { ...props.modelValue, ...draft })
-  emit('save', (ok: boolean) => {
-    if (!ok) return
-    mode.value = 'view'
-    flash.value = true
-    setTimeout(() => { flash.value = false }, 1900)
-  })
+  flash.value = true
+  setTimeout(() => { flash.value = false }, 1900)
 }
 </script>
 
@@ -40,7 +47,7 @@ function saveCard() {
       <span class="idx">{{ indexLabel }}</span>
       <span class="nm">{{ (modelValue.name as string) || '（未命名）' }}</span>
       <span class="grow"></span>
-      <span v-if="flash" class="hchip on savedflash">已保存 ✓</span>
+      <span v-if="flash" class="hchip on savedflash">已暂存</span>
       <button class="headbtn del" @click="emit('delete')">移除</button>
       <button class="headbtn edit" @click="enterEdit">修改</button>
     </div>
@@ -63,7 +70,7 @@ function saveCard() {
       <span class="editing-tag">编辑</span>
       <span class="grow"></span>
       <button class="headbtn cancel-card" @click="cancel">取消</button>
-      <button class="headbtn save-card" @click="saveCard">保存</button>
+      <button class="headbtn save-card" @click="saveCard">完成</button>
     </div>
     <div class="cbody">
       <template v-for="f in HEADER_FIELDS" :key="f.key">

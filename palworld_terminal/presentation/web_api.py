@@ -40,5 +40,8 @@ async def handle_config_save(
         outcome = await apply_and_restart(result)
         if not outcome.get("ok"):
             return 200, outcome
+        # 回传落库后的脱敏配置:前端用它刷新 state——新行拿到服务端
+        # __row_id 与 password_set,否则该行再次编辑时留空密码会被当
+        # 「新行空密码」提交,静默清掉已存密码(审查 F1)
         return 200, {"ok": True, "warnings": outcome.get("warnings", {}),
-                     "saved_ts": now}
+                     "config": redact_config(old_raw), "saved_ts": now}

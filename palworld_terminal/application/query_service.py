@@ -1,8 +1,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import UTC, datetime, tzinfo
-from zoneinfo import ZoneInfo
 
 from ..adapters.sqlite_repository import Repository
 from ..config import AppConfig
@@ -99,7 +97,9 @@ class QueryService:
 
         metric = await self._repo.latest_metric(world.world_id)
         rows = await self._online_rows(world)
-        day_start = self._clock.now() - 86400
+        # 「今日最高」按本地自然日(day_bounds:per-server tz 优先),与日报/排行同源;
+        # 曾为 now-86400 滚动窗口,清晨查询会把昨日晚高峰算进「今日」
+        _day, day_start, _end = day_bounds(self._cfg, world, self._clock.now())
         peak_today = await self._repo.peak_online(world.world_id, since=day_start)
         degraded = metric is None
 
@@ -131,17 +131,6 @@ class QueryService:
         dto = OnlineDTO(rows=rows, updated_at=self._clock.now(), degraded=False)
         self._cache.set(key, dto, _ONLINE_TTL)
         return dto
-
-    def _server_day_start(self, world: World) -> int:
-        tz_name = self._cfg.world.timezone or "UTC"
-        tz: tzinfo
-        try:
-            tz = ZoneInfo(tz_name)
-        except Exception:
-            tz = UTC
-        now = datetime.fromtimestamp(self._clock.now(), tz)
-        midnight = now.replace(hour=0, minute=0, second=0, microsecond=0)
-        return int(midnight.timestamp())
 
     @staticmethod
     def _activity_score(o: BaseObservation) -> float:
@@ -270,7 +259,9 @@ class QueryService:
         cached = self._cache.get(key)
         if cached is not None:
             return cached
-        since = self._server_day_start(world) if today_only else None
+        # 「今日」窗口与 rank/日报同源(day_bounds:per-server tz 优先、DST 安全)
+        since = (day_bounds(self._cfg, world, self._clock.now())[1]
+                 if today_only else None)
         events = await self._repo.list_events(world.world_id, since=since, limit=20)
         dtos = [
             EventDTO(
@@ -357,25 +348,39 @@ class QueryService:
     async def rank(self, world: World) -> RankBoardsDTO:
         excluded = await self.load_excluded_keys(world)
         n = self._cfg.players.rank_top_n
+        now = self._clock.now()
 
-        _day, start, end = day_bounds(self._cfg, world, self._clock.now())
+        _day, start, end = day_bounds(self._cfg, world, now)
         sessions = await self._repo.sessions_in_day(world.world_id, start, end)
-        totals: dict[str, int] = {}
+        # 时长按会话与今日窗口的墙钟交叠计入、以 observed_seconds 封顶——
+        # 跨午夜会话不再把昨日时长整段灌进今日榜,采样缺口也不虚增。
+        # 按显示名归并;被排除/隐藏 key 的名字整组剔除(存在性收敛:
+        # 不让同名的另一个 key 补位,泄露被隐藏者仍在线的事实)。
+        name_totals: dict[str, int] = {}
+        banned_names: set[str] = set()
         for s in sessions:
+            ident = await self._repo.get_player(world.world_id, s.player_key)
+            name = ident.latest_name if ident is not None else s.player_key[:8]
             if s.player_key in excluded:
+                banned_names.add(name)
                 continue
-            totals[s.player_key] = totals.get(s.player_key, 0) + s.observed_seconds
-        top_time = sorted(totals.items(), key=lambda kv: (-kv[1], kv[0]))[:n]
-        time_rows: list[tuple[str, int]] = []
-        for key, secs in top_time:
-            ident = await self._repo.get_player(world.world_id, key)
-            time_rows.append((ident.latest_name if ident is not None else key[:8], secs))
+            wall_end = s.left_at if s.left_at is not None else now
+            overlap = min(end, wall_end) - max(start, s.joined_at)
+            secs = min(s.observed_seconds, max(overlap, 0))
+            if secs <= 0:
+                continue
+            name_totals[name] = name_totals.get(name, 0) + secs
+        for name in banned_names:
+            name_totals.pop(name, None)
+        time_rows = sorted(name_totals.items(), key=lambda kv: (-kv[1], kv[0]))[:n]
 
         players = await self._repo.list_players_by_level(world.world_id)
+        # 与时长榜同一收敛语义:名字被任何被排除/隐藏 key 占用即整组不上榜
+        hidden_names = {p.latest_name for p in players if p.player_key in excluded}
         level_rows: list[tuple[str, int]] = []
         seen: set[str] = set()
         for p in players:
-            if p.player_key in excluded or p.latest_name in seen:
+            if p.latest_name in hidden_names or p.latest_name in seen:
                 continue
             seen.add(p.latest_name)
             level_rows.append((p.latest_name, p.latest_level))
@@ -384,12 +389,19 @@ class QueryService:
 
         return RankBoardsDTO(time_rows=time_rows, level_rows=level_rows)
 
+    async def name_banned(self, world: World, name: str, excluded: set[str]) -> bool:
+        """名字级收敛判定(与 rank 两榜同语义):同名任一 key 被排除/隐藏
+        即整组不可见——同一玩家改名/多 key 时,自助隐藏不因另一 key
+        未隐藏而被绕过。"""
+        keys = await self._repo.list_players_by_name(world.world_id, name)
+        return any(k in excluded for k in keys)
+
     async def player_profile(self, world: World, name: str) -> PlayerProfileDTO | None:
         ident = await self._repo.get_player_by_name(world.world_id, name)
         if ident is None:
             return None
         excluded = await self.load_excluded_keys(world)
-        if ident.player_key in excluded:
+        if await self.name_banned(world, ident.latest_name, excluded):
             return None
         session = await self._repo.get_open_session(world.world_id, ident.player_key)
         return PlayerProfileDTO(

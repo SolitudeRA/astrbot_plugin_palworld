@@ -25,6 +25,7 @@ describe('App', () => {
     const Boom = { setup() { throw new Error('boom-child') }, template: '<div/>' }
     const w = mount(App, { global: { stubs: { SettingsPanel: Boom } } })
     await flushPromises()
-    expect(w.text()).toContain('boom-child')
+    expect(w.text()).toContain('页面发生错误，请刷新重试')
+    expect(w.text()).not.toContain('boom-child') // 不透传原始错误
   })
 })

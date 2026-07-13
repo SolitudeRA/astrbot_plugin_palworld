@@ -71,7 +71,10 @@ async def test_status_overview_assembles_rows():
     code, payload = await handle_status_overview(c, restarting=False)
     assert code == 200 and payload["ok"] is True
     assert payload["servers"] == [{"name": "a", "ready": True, "online": 4,
-                                   "smoothness_label": "流畅", "degraded": False,
+                                   "max_players": 32, "fps": 55.0,
+                                   "smoothness_label": "流畅", "world_day": 1,
+                                   "peak_online_today": 4, "basecamp_count": 0,
+                                   "updated_at": 1, "degraded": False,
                                    "last_ok": 9}]
 
 

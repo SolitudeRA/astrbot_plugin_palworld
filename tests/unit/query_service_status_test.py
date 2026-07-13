@@ -115,3 +115,13 @@ async def test_online_dto(qs):
     assert dto.rows[0].name == "Neo"
     assert dto.rows[0].ping_bucket is PingBucket.HIGH
     assert dto.rows[0].online_seconds == 200
+
+
+async def test_status_peak_today_uses_local_day_not_rolling_24h(qs):
+    # 「今日最高」按 JST 自然日(day_bounds),不再是 now-86400 滚动窗口
+    repo, q, _ = qs
+    # clock=1200(今日 09:20 JST);JST 今日起点 = epoch -32400
+    await repo.insert_metric(WorldMetric(WID, -36000, 50.0, 20.0, 5, 41, 0))  # 昨日 23:00 JST 峰值 5
+    await repo.insert_metric(WorldMetric(WID, 1200, 58.0, 17.2, 3, 42, 0))    # 今日在线 3
+    dto = await q.status(_world())
+    assert dto.peak_online_today == 3  # 修复前滚动窗口会把昨日 5 算进「今日」

@@ -58,3 +58,22 @@ describe('collectSecret', () => {
   it('有值 = 原值', () => { expect(collectSecret('pw', false)).toBe('pw') })
   it('字面量哨兵输入被拒绝', () => { expect(() => collectSecret(SENTINEL, false)).toThrow() })
 })
+
+describe('collectHeader(经 collectBody)', () => {
+  it('header 行:__row_id 保留/新行 null、secret 哨兵、字段透传、不含 __local_key', () => {
+    const st = baseState()
+    st.custom_headers.push(
+      { __row_id: 'hdr-0', name: 'X-Api-Key', value: '', value_env: 'ENV_A', servers: 'a,b' },
+      { __row_id: '', __local_key: 'local-1', name: 'CF-Id', value: 'tok', value_env: '', servers: '' },
+    )
+    const body = collectBody(st) as any
+    expect(body.custom_headers).toHaveLength(2)
+    expect(body.custom_headers[0]).toEqual({
+      __row_id: 'hdr-0', name: 'X-Api-Key', value: SENTINEL, value_env: 'ENV_A', servers: 'a,b',
+    })
+    expect(body.custom_headers[1]).toEqual({
+      __row_id: null, name: 'CF-Id', value: 'tok', value_env: '', servers: '',
+    })
+    expect('__local_key' in body.custom_headers[1]).toBe(false) // 客户端 key 不外传
+  })
+})
