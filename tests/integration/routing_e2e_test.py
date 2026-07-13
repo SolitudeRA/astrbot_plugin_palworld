@@ -1,6 +1,7 @@
 from pathlib import Path
 
 from palworld_terminal.config import (
+    FeaturesConfig,
     AppConfig,
     BasesConfig,
     HistoryConfig,
@@ -32,6 +33,8 @@ def _cfg() -> AppConfig:
         bases=BasesConfig(True, 5000, 0.2, 3, 2000, 0.5),
         privacy=PrivacyConfig("balanced", False, False, 60, 120, 900),
         history=HistoryConfig(7, 90, 365, 180),
+        # 显式钉住:本测试只跑非 gated 命令,features 默认收紧不应改变其行为
+        features=FeaturesConfig(report=True, events=True, guilds_bases=False),
     )
 
 
