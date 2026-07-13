@@ -32,18 +32,17 @@ const configChapters = CHAPTERS.filter((c) => c.group === '配置')
       <header>
         <div class="mast">
           <div class="brand"><span class="cn">帕鲁纪事</span><span class="en">PalChronicle</span></div>
-          <button class="ghost" @click="toggleTheme">{{ theme === 'dark' ? '☀ 昼阅' : '☾ 夜观' }}</button>
+          <button class="ghost" @click="toggleTheme">{{ theme === 'dark' ? '☀ 浅色' : '☾ 深色' }}</button>
         </div>
         <div class="dateline"></div>
-        <div class="subline"><span>世界纪事 · 只读观测台</span></div>
+        <div class="subline"><span>Palworld 服务器监测 · 只读</span></div>
       </header>
       <div class="layout">
         <nav class="rail" aria-label="章节索引">
-          <div class="railcap">观测</div>
           <button v-for="c in observeChapters" :key="c.id" :aria-current="chapter === c.id ? 'true' : 'false'" @click="chapter = c.id">
             {{ c.label }}<span v-if="c.kind === 'status'" class="dot" aria-hidden="true"></span>
           </button>
-          <div class="railcap">配置</div>
+          <div class="rail-sep" aria-hidden="true"></div>
           <button v-for="c in configChapters" :key="c.id" :aria-current="chapter === c.id ? 'true' : 'false'" @click="chapter = c.id">{{ c.label }}</button>
         </nav>
         <div class="pane">

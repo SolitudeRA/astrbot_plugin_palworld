@@ -8,7 +8,7 @@ const features = OBJECT_SECTIONS.find((s) => s.key === 'features')!
 describe('SectionForm', () => {
   it('渲染节标题与全部字段', () => {
     const w = mount(SectionForm, { props: { section: features, modelValue: { report: true, events: true, guilds_bases: false } } })
-    expect(w.text()).toContain('功能分组开关')
+    expect(w.text()).toContain('功能开关')
     for (const f of features.fields) expect(w.text()).toContain(f.label)
   })
   it('改一个字段 emit 合并后的整节值', async () => {

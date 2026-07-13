@@ -63,7 +63,7 @@ def test_readme_documents_plugin_page_section():
 
 
 def test_readme_documents_feature_groups():
-    for phrase in ("功能分组", "features", "guilds_bases", "默认关", "game-data"):
+    for phrase in ("功能开关", "features", "guilds_bases", "默认关", "game-data"):
         assert phrase in README, f"README 特性分组文档缺少: {phrase}"
 
 
