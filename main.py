@@ -394,7 +394,8 @@ class PalWorldTerminal(Star):
     @pal.command("servers")
     async def servers(self, event):
         yield event.plain_result(
-            await self._guarded(lambda c: c.commands.servers(self._umo(event), self._is_group(event), self._is_admin(event)))
+            await self._guarded(lambda c: c.commands.servers(
+                self._umo(event), self._is_group(event), self._is_admin(event)))
         )
 
     @pal.command("help")
