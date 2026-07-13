@@ -1,13 +1,13 @@
 <div align="center">
 
-<img src="docs/images/banner.png" alt="PalWorldTerminal · 帕鲁世界终端" width="640">
+<img src="https://raw.githubusercontent.com/SolitudeRA/astrbot_plugin_palworld/main/docs/images/banner.png" alt="PalWorldTerminal · 帕鲁世界终端" width="640">
 
 # PalWorldTerminal · 帕鲁世界终端
 
 [![version](https://img.shields.io/badge/version-v0.8.0-007ec6)](https://github.com/SolitudeRA/astrbot_plugin_palworld/releases)
 [![python](https://img.shields.io/badge/python-3.11%2B-007ec6)](https://www.python.org/)
 [![AstrBot](https://img.shields.io/badge/AstrBot-%E2%89%A5%204.24.1-fe7d37)](https://github.com/AstrBotDevs/AstrBot)
-[![license](https://img.shields.io/badge/license-GPL--3.0-97ca00)](LICENSE)
+[![license](https://img.shields.io/badge/license-GPL--3.0-97ca00)](https://github.com/SolitudeRA/astrbot_plugin_palworld/blob/main/LICENSE)
 [![Palworld](https://img.shields.io/badge/Palworld-1.0%2B-3f6ec6)](https://www.pocketpair.jp/palworld)
 
 监测 Palworld 专用服务器,在群里提供状态查询、日报与玩家档案。<br>只读,基于官方 REST API。
@@ -72,7 +72,7 @@
 | `/pal help` | 帮助(按启用的功能过滤) |
 
 任意查询指令末尾加 `@<服务器名>` 可单次指定目标服务器,如 `/pal status @alpha`(多服务器场景)。
-完整指令表、功能开关矩阵与群授权用法 → [docs/commands.md](docs/commands.md)
+完整指令表、功能开关矩阵与群授权用法 → [docs/commands.md](https://github.com/SolitudeRA/astrbot_plugin_palworld/blob/main/docs/commands.md)
 
 ## 配置
 
@@ -89,7 +89,7 @@
 | `players` 玩家查询 | **关** | `rank` `player` `me` `bind` |
 | `guilds_bases` 公会与据点 | **关** | `guilds` `bases` 等 |
 
-轮询间隔、FPS 阈值、隐私脱敏、数据保留、自定义请求头等全部配置项详解 → [docs/configuration.md](docs/configuration.md)
+轮询间隔、FPS 阈值、隐私脱敏、数据保留、自定义请求头等全部配置项详解 → [docs/configuration.md](https://github.com/SolitudeRA/astrbot_plugin_palworld/blob/main/docs/configuration.md)
 
 ## 安全与隐私
 
@@ -101,9 +101,9 @@
 
 ## 详细文档
 
-- [配置项详解](docs/configuration.md) —— 轮询 / 世界与展示 / 据点推导 / 数据保留 / 自定义请求头 / 插件页面 / 功能开关
-- [完整指令与功能开关](docs/commands.md) —— 18 条指令详表、功能开关矩阵、多服务器与群授权、降级行为
+- [配置项详解](https://github.com/SolitudeRA/astrbot_plugin_palworld/blob/main/docs/configuration.md) —— 轮询 / 世界与展示 / 据点推导 / 数据保留 / 自定义请求头 / 插件页面 / 功能开关
+- [完整指令与功能开关](https://github.com/SolitudeRA/astrbot_plugin_palworld/blob/main/docs/commands.md) —— 18 条指令详表、功能开关矩阵、多服务器与群授权、降级行为
 
 ## 开源协议
 
-GPL-3.0,见 [LICENSE](LICENSE)。
+GPL-3.0,见 [LICENSE](https://github.com/SolitudeRA/astrbot_plugin_palworld/blob/main/LICENSE)。
