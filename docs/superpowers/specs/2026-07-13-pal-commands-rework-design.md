@@ -214,7 +214,7 @@ async def delete_binding(self, platform_hash: str, world_id: str) -> None:
 
 ## 版本
 
-`v0.8.0` → `v0.9.0`(新增命令 + 命令面变更,minor bump)。需同步:`metadata.yaml`、`main.py` 的 `@register(...)` 版本参数、README 版本徽章,以及 grep `0.8.0` 的其余引用。
+`v0.8.0` → `v0.8.5`(新增命令 + 命令面变更)。需同步:`metadata.yaml`、`main.py` 的 `@register(...)` 版本参数、README 版本徽章,以及 grep `0.8.0` 的其余引用。
 
 ## 命名空间加载安全性
 

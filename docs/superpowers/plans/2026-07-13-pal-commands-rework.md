@@ -18,7 +18,7 @@
 - **改中文文案必同步 grep** `tests/unit/readme_test.py` 中文锚点(历史 PR #13 因漏改锚点挂 CI)。
 - **`RoutingService.use/unbind` 底层零改动**;**不改 DB schema、不做迁移**;**不改 `bind`/`me` 行为**。
 - **严格档打错子命令**:`/pal server` 首词非空且非 `add`/`remove` → 返回 `server_usage`,不静默回落列表。
-- **版本升 `v0.8.0` → `v0.9.0`**。
+- **版本升 `v0.8.0` → `v0.8.5`**。
 - **子代理 model 一律 opus**。
 
 ## 命令面变化速查(before → after)
@@ -640,7 +640,7 @@ git commit -m "docs: 命令面文档与 schema 同步到 /pal server + 玩家 un
 
 ---
 
-## Task 6: 版本号 v0.8.0 → v0.9.0
+## Task 6: 版本号 v0.8.0 → v0.8.5
 
 **Files:**
 - Modify: `metadata.yaml`、`main.py`、`palworld_terminal/__init__.py`、`README.md`
@@ -650,20 +650,20 @@ git commit -m "docs: 命令面文档与 schema 同步到 /pal server + 玩家 un
 
 - [ ] **Step 1: 更新版本断言测试(先红)**
 
-`tests/unit/phase1_smoke_test.py` 第 19 行 `assert __version__ == "0.8.0"` → `assert __version__ == "0.9.0"`。
-`tests/unit/skeleton_test.py` 第 11 行 `assert palworld_terminal.__version__ == "0.8.0"` → `assert palworld_terminal.__version__ == "0.9.0"`。
+`tests/unit/phase1_smoke_test.py` 第 19 行 `assert __version__ == "0.8.0"` → `assert __version__ == "0.8.5"`。
+`tests/unit/skeleton_test.py` 第 11 行 `assert palworld_terminal.__version__ == "0.8.0"` → `assert palworld_terminal.__version__ == "0.8.5"`。
 
 - [ ] **Step 2: 运行,确认红**
 
 Run: `./.venv/Scripts/python.exe -m pytest tests/unit/phase1_smoke_test.py tests/unit/skeleton_test.py tests/unit/main_test.py -v`
-Expected: FAIL(`assert '0.8.0' == '0.9.0'`;`main_test` 亦因 `@register`≠metadata 而可能红)
+Expected: FAIL(`assert '0.8.0' == '0.8.5'`;`main_test` 亦因 `@register`≠metadata 而可能红)
 
 - [ ] **Step 3: 改四处版本源**
 
-`metadata.yaml` 第 4 行:`version: v0.8.0` → `version: v0.9.0`。
-`main.py` 第 81 行 `@register(...)` 的版本参数:`"v0.8.0"` → `"v0.9.0"`。
-`palworld_terminal/__init__.py` 第 3 行:`__version__ = "0.8.0"` → `__version__ = "0.9.0"`。
-`README.md` 第 7 行徽章:`version-v0.8.0-007ec6` → `version-v0.9.0-007ec6`。
+`metadata.yaml` 第 4 行:`version: v0.8.0` → `version: v0.8.5`。
+`main.py` 第 81 行 `@register(...)` 的版本参数:`"v0.8.0"` → `"v0.8.5"`。
+`palworld_terminal/__init__.py` 第 3 行:`__version__ = "0.8.0"` → `__version__ = "0.8.5"`。
+`README.md` 第 7 行徽章:`version-v0.8.0-007ec6` → `version-v0.8.5-007ec6`。
 
 - [ ] **Step 4: 运行,确认通过**
 
@@ -679,7 +679,7 @@ Expected: PASS(全绿,ruff 0 error)
 
 ```bash
 git add metadata.yaml main.py palworld_terminal/__init__.py README.md tests/unit/phase1_smoke_test.py tests/unit/skeleton_test.py
-git commit -m "chore: 版本升 v0.9.0（命令面重构）"
+git commit -m "chore: 版本升 v0.8.5（命令面重构）"
 ```
 
 ---
