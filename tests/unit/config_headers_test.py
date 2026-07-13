@@ -1,5 +1,5 @@
 """custom_headers 解析：校验/作用域/去重/SkippedHeader（spec §3.2/§3.3/§6）。"""
-from palchronicle.config import SkippedHeader, parse_config
+from palworld_terminal.config import SkippedHeader, parse_config
 
 
 def _raw(custom_headers=None):

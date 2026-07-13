@@ -1,6 +1,6 @@
 import pytest
 
-from palchronicle.adapters.normalizer import (
+from palworld_terminal.adapters.normalizer import (
     ci_get,
     normalize_info,
     normalize_metrics,

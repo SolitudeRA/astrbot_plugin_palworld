@@ -1,9 +1,9 @@
 import hashlib
 import hmac
 
-from palchronicle.application.player_service import PlayerService, _resolve_identity
-from palchronicle.domain.enums import IdConfidence
-from palchronicle.domain.models import PlayerRow
+from palworld_terminal.application.player_service import PlayerService, _resolve_identity
+from palworld_terminal.domain.enums import IdConfidence
+from palworld_terminal.domain.models import PlayerRow
 
 SALT = b"0" * 32
 

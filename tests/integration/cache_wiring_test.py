@@ -1,10 +1,10 @@
 from pathlib import Path
 
-from palchronicle.adapters import normalizer as normalizer_mod
-from palchronicle.adapters import privacy_filter as privacy_mod
-from palchronicle.adapters.palworld_rest import RestResponse
-from palchronicle.application.snapshot_service import SnapshotService
-from palchronicle.config import (
+from palworld_terminal.adapters import normalizer as normalizer_mod
+from palworld_terminal.adapters import privacy_filter as privacy_mod
+from palworld_terminal.adapters.palworld_rest import RestResponse
+from palworld_terminal.application.snapshot_service import SnapshotService
+from palworld_terminal.config import (
     AppConfig,
     BasesConfig,
     FeaturesConfig,
@@ -15,10 +15,10 @@ from palchronicle.config import (
     ServerConfig,
     WorldConfig,
 )
-from palchronicle.container import Container
-from palchronicle.domain.enums import AccessMode
-from palchronicle.domain.models import World
-from palchronicle.infrastructure.clock import FakeClock
+from palworld_terminal.container import Container
+from palworld_terminal.domain.enums import AccessMode
+from palworld_terminal.domain.models import World
+from palworld_terminal.infrastructure.clock import FakeClock
 
 
 def _server() -> ServerConfig:
@@ -99,9 +99,9 @@ async def test_world_summary_reads_shared_world_cache(tmp_path: Path):
 async def test_snapshot_service_backward_compatible_without_shared_caches(tmp_path):
     # 2.17 contract: constructing SnapshotService WITHOUT the new kwargs keeps
     # the private cache + get_settings behavior intact.
-    from palchronicle.adapters.sqlite_repository import Repository
-    from palchronicle.infrastructure.database import Database
-    from palchronicle.infrastructure.migrations import apply_migrations
+    from palworld_terminal.adapters.sqlite_repository import Repository
+    from palworld_terminal.infrastructure.database import Database
+    from palworld_terminal.infrastructure.migrations import apply_migrations
 
     db = Database(tmp_path / "t.db")
     await db.open()

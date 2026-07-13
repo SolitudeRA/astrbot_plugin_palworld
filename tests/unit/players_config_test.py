@@ -1,5 +1,5 @@
 """players 配置节解析：rank_top_n 默认、exclude_names 逗号分隔（spec §7）。"""
-from palchronicle.config import PlayersConfig, parse_config
+from palworld_terminal.config import PlayersConfig, parse_config
 
 
 def _raw(players=None):

@@ -1,9 +1,9 @@
 from pathlib import Path
 
-from palchronicle.adapters.sqlite_repository import Repository
-from palchronicle.application.event_service import EventService
-from palchronicle.application.report_service import DailyReport, ReportService
-from palchronicle.config import (
+from palworld_terminal.adapters.sqlite_repository import Repository
+from palworld_terminal.application.event_service import EventService
+from palworld_terminal.application.report_service import DailyReport, ReportService
+from palworld_terminal.config import (
     AppConfig,
     BasesConfig,
     HistoryConfig,
@@ -12,11 +12,11 @@ from palchronicle.config import (
     RoutingConfig,
     WorldConfig,
 )
-from palchronicle.domain.enums import AccessMode, LeaveReason, SessionStatus
-from palchronicle.domain.models import PlayerSession, World, WorldMetric
-from palchronicle.infrastructure.clock import FakeClock
-from palchronicle.infrastructure.database import Database
-from palchronicle.infrastructure.migrations import apply_migrations
+from palworld_terminal.domain.enums import AccessMode, LeaveReason, SessionStatus
+from palworld_terminal.domain.models import PlayerSession, World, WorldMetric
+from palworld_terminal.infrastructure.clock import FakeClock
+from palworld_terminal.infrastructure.database import Database
+from palworld_terminal.infrastructure.migrations import apply_migrations
 
 
 def _cfg(tz: str = "Asia/Tokyo") -> AppConfig:

@@ -1,4 +1,4 @@
-from palchronicle.adapters.normalizer import normalize_players
+from palworld_terminal.adapters.normalizer import normalize_players
 
 
 def test_normalize_players_mixed_case_keys():

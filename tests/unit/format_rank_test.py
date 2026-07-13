@@ -1,5 +1,5 @@
-from palchronicle.application.query_service import RankBoardsDTO
-from palchronicle.presentation.formatters import format_rank
+from palworld_terminal.application.query_service import RankBoardsDTO
+from palworld_terminal.presentation.formatters import format_rank
 
 
 def _dto():

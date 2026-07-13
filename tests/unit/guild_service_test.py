@@ -1,10 +1,10 @@
-from palchronicle.adapters.sqlite_repository import Repository
-from palchronicle.application.guild_service import GuildService
-from palchronicle.domain.enums import ActionCategory, UnitType
-from palchronicle.domain.models import CharacterActor, GameDataSnapshot, PalBoxActor, World
-from palchronicle.infrastructure.clock import FakeClock
-from palchronicle.infrastructure.database import Database
-from palchronicle.infrastructure.migrations import apply_migrations
+from palworld_terminal.adapters.sqlite_repository import Repository
+from palworld_terminal.application.guild_service import GuildService
+from palworld_terminal.domain.enums import ActionCategory, UnitType
+from palworld_terminal.domain.models import CharacterActor, GameDataSnapshot, PalBoxActor, World
+from palworld_terminal.infrastructure.clock import FakeClock
+from palworld_terminal.infrastructure.database import Database
+from palworld_terminal.infrastructure.migrations import apply_migrations
 
 
 class FakeEvents:

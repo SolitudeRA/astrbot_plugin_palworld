@@ -39,7 +39,7 @@ def _raw():
 
 async def test_command_guarded_during_restart():
     import main as main_mod
-    plugin = main_mod.PalChronicle(_FakeContext(), _raw())
+    plugin = main_mod.PalWorldTerminal(_FakeContext(), _raw())
     plugin._restarting = True
     out = await _collect(plugin.status(_Event()))
     assert len(out) == 1 and "重载" in out[0]  # 未触达 None 容器
@@ -47,7 +47,7 @@ async def test_command_guarded_during_restart():
 
 async def test_command_guarded_when_container_none():
     import main as main_mod
-    plugin = main_mod.PalChronicle(_FakeContext(), _raw())
+    plugin = main_mod.PalWorldTerminal(_FakeContext(), _raw())
     plugin._container = None
     plugin._restarting = False
     out = await _collect(plugin.online(_Event()))
@@ -57,7 +57,7 @@ async def test_command_guarded_when_container_none():
 def test_register_web_api_called_with_prefixed_routes():
     import main as main_mod
     ctx = _FakeContext()
-    plugin = main_mod.PalChronicle(ctx, _raw())
+    plugin = main_mod.PalWorldTerminal(ctx, _raw())
     plugin._register_web_api()
     routes = {r for r, _ in ctx.registered}
     assert "/astrbot_plugin_palworld/config/get" in routes
@@ -71,7 +71,7 @@ def test_no_register_when_context_lacks_method():
     class _Bare:
         pass
 
-    plugin = main_mod.PalChronicle(_Bare(), _raw())
+    plugin = main_mod.PalWorldTerminal(_Bare(), _raw())
     # 不应抛异常（stub 护栏）
     plugin._maybe_register_web_api()
 
@@ -80,7 +80,7 @@ async def test_start_failure_stops_failed_container_then_rolls_back():
     # F2：新容器 start 失败时，该半启动容器必须被 stop（不泄漏 DB 连接），
     # 随后回滚重建旧配置容器（规格 §3.2 步骤 8）
     import main as main_mod
-    plugin = main_mod.PalChronicle(_FakeContext(), _raw())
+    plugin = main_mod.PalWorldTerminal(_FakeContext(), _raw())
     events = []
 
     class _SpyContainer:

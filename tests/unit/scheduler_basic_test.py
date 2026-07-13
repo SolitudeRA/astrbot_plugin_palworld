@@ -1,11 +1,11 @@
 import asyncio
 
-from palchronicle.adapters.palworld_rest import RestResponse
-from palchronicle.config import PollingConfig, ServerConfig
-from palchronicle.domain.enums import EndpointName
-from palchronicle.infrastructure.clock import FakeClock
-from palchronicle.infrastructure.locks import EndpointLocks
-from palchronicle.infrastructure.scheduler import Scheduler
+from palworld_terminal.adapters.palworld_rest import RestResponse
+from palworld_terminal.config import PollingConfig, ServerConfig
+from palworld_terminal.domain.enums import EndpointName
+from palworld_terminal.infrastructure.clock import FakeClock
+from palworld_terminal.infrastructure.locks import EndpointLocks
+from palworld_terminal.infrastructure.scheduler import Scheduler
 
 
 def _server(sid="s1"):

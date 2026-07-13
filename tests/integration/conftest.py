@@ -1,9 +1,9 @@
 import pytest
 
-from palchronicle.adapters.palworld_rest import RestResponse
-from palchronicle.config import parse_config
-from palchronicle.container import Container
-from palchronicle.infrastructure.clock import FakeClock
+from palworld_terminal.adapters.palworld_rest import RestResponse
+from palworld_terminal.config import parse_config
+from palworld_terminal.container import Container
+from palworld_terminal.infrastructure.clock import FakeClock
 
 
 class _FakeRest:

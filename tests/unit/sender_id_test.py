@@ -1,4 +1,4 @@
-from main import PalChronicle
+from main import PalWorldTerminal
 
 
 class _FakeEvent:
@@ -11,10 +11,10 @@ class _FakeEvent:
 
 
 def test_sender_id_is_platform_scoped_composite():
-    assert PalChronicle._sender_id(_FakeEvent("aiocqhttp", "12345")) == "aiocqhttp:12345"
+    assert PalWorldTerminal._sender_id(_FakeEvent("aiocqhttp", "12345")) == "aiocqhttp:12345"
 
 
 def test_sender_id_distinguishes_same_number_across_platforms():
-    a = PalChronicle._sender_id(_FakeEvent("aiocqhttp", "12345"))
-    b = PalChronicle._sender_id(_FakeEvent("telegram", "12345"))
+    a = PalWorldTerminal._sender_id(_FakeEvent("aiocqhttp", "12345"))
+    b = PalWorldTerminal._sender_id(_FakeEvent("telegram", "12345"))
     assert a != b

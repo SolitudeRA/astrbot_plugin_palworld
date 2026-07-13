@@ -1,9 +1,9 @@
-from palchronicle.adapters.sqlite_repository import Repository
-from palchronicle.application.base_service import BaseService
-from palchronicle.application.guild_service import GuildService
-from palchronicle.application.player_service import PlayerService
-from palchronicle.domain.enums import ActionCategory, UnitType
-from palchronicle.domain.models import (
+from palworld_terminal.adapters.sqlite_repository import Repository
+from palworld_terminal.application.base_service import BaseService
+from palworld_terminal.application.guild_service import GuildService
+from palworld_terminal.application.player_service import PlayerService
+from palworld_terminal.domain.enums import ActionCategory, UnitType
+from palworld_terminal.domain.models import (
     CharacterActor,
     GameDataSnapshot,
     PalBoxActor,
@@ -11,9 +11,9 @@ from palchronicle.domain.models import (
     PlayersSnapshot,
     World,
 )
-from palchronicle.infrastructure.clock import FakeClock
-from palchronicle.infrastructure.database import Database
-from palchronicle.infrastructure.migrations import apply_migrations
+from palworld_terminal.infrastructure.clock import FakeClock
+from palworld_terminal.infrastructure.database import Database
+from palworld_terminal.infrastructure.migrations import apply_migrations
 
 
 class FakeEvents:
@@ -23,7 +23,7 @@ class FakeEvents:
 
 
 def _cfg():
-    from palchronicle.config import (
+    from palworld_terminal.config import (
         AppConfig,
         BasesConfig,
         HistoryConfig,
@@ -32,7 +32,7 @@ def _cfg():
         RoutingConfig,
         WorldConfig,
     )
-    from palchronicle.domain.enums import AccessMode
+    from palworld_terminal.domain.enums import AccessMode
     return AppConfig([], [], RoutingConfig(AccessMode.RESTRICTED, ""), [],
                      PollingConfig(30, 30, 600, 1800, 120, 0.1, 6),
                      WorldConfig("Asia/Tokyo", "zh-CN", 50, 35, 20),

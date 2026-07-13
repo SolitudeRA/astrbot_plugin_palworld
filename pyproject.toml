@@ -21,7 +21,7 @@ select = [
 "tests/**" = ["E501", "E702"]
 
 [tool.mypy]
-# 务实基线：只查 palchronicle/（tests 沿用鸭子类型 fake，不纳入检查）。
+# 务实基线：只查 palworld_terminal/（tests 沿用鸭子类型 fake，不纳入检查）。
 python_version = "3.11"
-files = ["palchronicle"]
+files = ["palworld_terminal"]
 ignore_missing_imports = true

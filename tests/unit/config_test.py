@@ -1,5 +1,5 @@
-from palchronicle.config import AppConfig, parse_config
-from palchronicle.domain.enums import AccessMode
+from palworld_terminal.config import AppConfig, parse_config
+from palworld_terminal.domain.enums import AccessMode
 
 
 def _server(**kw):

@@ -1,5 +1,5 @@
-from palchronicle.infrastructure.cache import TTLCache
-from palchronicle.infrastructure.clock import FakeClock
+from palworld_terminal.infrastructure.cache import TTLCache
+from palworld_terminal.infrastructure.clock import FakeClock
 
 
 def test_get_miss_returns_none():

@@ -54,15 +54,15 @@ except Exception:  # test / standalone environment: lightweight stubs
     filter = _Filter()  # type: ignore
 
 try:  # AstrBot 以 data.plugins.<目录>.main 命名空间加载，插件目录不在 sys.path
-    from .palchronicle.config import parse_config
-    from .palchronicle.container import Container
-    from .palchronicle.infrastructure.clock import SystemClock
-    from .palchronicle.presentation import web_api
+    from .palworld_terminal.config import parse_config
+    from .palworld_terminal.container import Container
+    from .palworld_terminal.infrastructure.clock import SystemClock
+    from .palworld_terminal.presentation import web_api
 except ImportError:  # 测试/独立环境从仓库根以顶级模块导入
-    from palchronicle.config import parse_config
-    from palchronicle.container import Container
-    from palchronicle.infrastructure.clock import SystemClock
-    from palchronicle.presentation import web_api
+    from palworld_terminal.config import parse_config
+    from palworld_terminal.container import Container
+    from palworld_terminal.infrastructure.clock import SystemClock
+    from palworld_terminal.presentation import web_api
 
 
 def _resolve_data_dir() -> Path:
@@ -73,9 +73,9 @@ def _resolve_data_dir() -> Path:
 
 
 @register("astrbot_plugin_palworld", "SolitudeRA",
-          "只读的 Palworld 世界纪事插件", "v0.1.0",
+          "监测 Palworld 专用服务器,提供群内状态查询、日报与玩家档案(只读)", "v0.1.0",
           "https://github.com/SolitudeRA/astrbot_plugin_palworld")
-class PalChronicle(Star):
+class PalWorldTerminal(Star):
     def __init__(self, context, config):
         super().__init__(context, config)
         self._context = context
@@ -190,7 +190,7 @@ class PalChronicle(Star):
         # 身份兜底（规格 §5.3c）：网关鉴权之外的最后防线。禁用/卸载后端点仍可达，
         # 拿不到 Dashboard 登录用户即拒。在读取任何配置/secret 之前判定，
         # 绝不记录、绝不 str(exc)、绝不回显 request 内容。
-        return bool(PalChronicle._current_username())
+        return bool(PalWorldTerminal._current_username())
 
     @staticmethod
     def _deny_unauthorized():

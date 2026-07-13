@@ -1,6 +1,6 @@
 import pytest
 
-from palchronicle.presentation.server_arg import ArgError, ParsedArg, parse_arg
+from palworld_terminal.presentation.server_arg import ArgError, ParsedArg, parse_arg
 
 
 def test_name_with_spaces_and_server_override():

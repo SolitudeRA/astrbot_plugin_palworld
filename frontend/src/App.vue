@@ -8,9 +8,13 @@ const chapter = ref(DEFAULT_CHAPTER)
 const fatal = ref('')
 onErrorCaptured((err) => { fatal.value = (err as Error)?.message || '页面发生错误'; return false })
 
-const THEME_KEY = 'palchronicle-theme'
+const THEME_KEY = 'palworld-terminal-theme'
+const LEGACY_THEME_KEY = 'palchronicle-theme' // 改名(2026-07)前的 key,读回退保住老用户偏好
 function readStored(): 'light' | 'dark' | null {
-  try { const v = localStorage.getItem(THEME_KEY); return v === 'light' || v === 'dark' ? v : null } catch { return null }
+  try {
+    const v = localStorage.getItem(THEME_KEY) ?? localStorage.getItem(LEGACY_THEME_KEY)
+    return v === 'light' || v === 'dark' ? v : null
+  } catch { return null }
 }
 function writeStored(v: 'light' | 'dark') { try { localStorage.setItem(THEME_KEY, v) } catch { /* 受限 iframe 忽略 */ } }
 function initialTheme(): 'light' | 'dark' {

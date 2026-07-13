@@ -1,4 +1,4 @@
-from palchronicle.domain.enums import EventType, SessionStatus
+from palworld_terminal.domain.enums import EventType, SessionStatus
 from tests.fixtures.loader import load_fixture
 from tests.integration.conftest import fail, ok
 

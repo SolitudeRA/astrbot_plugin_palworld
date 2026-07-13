@@ -2,9 +2,9 @@ from pathlib import Path
 
 import pytest
 
-from palchronicle.adapters.sqlite_repository import Repository
-from palchronicle.application.query_service import QueryService
-from palchronicle.config import (
+from palworld_terminal.adapters.sqlite_repository import Repository
+from palworld_terminal.application.query_service import QueryService
+from palworld_terminal.config import (
     AppConfig,
     BasesConfig,
     HistoryConfig,
@@ -13,12 +13,12 @@ from palchronicle.config import (
     RoutingConfig,
     WorldConfig,
 )
-from palchronicle.domain.enums import AccessMode, Confidence, EventType
-from palchronicle.domain.models import Base, BaseObservation, Guild, World, WorldEvent
-from palchronicle.infrastructure.cache import TTLCache
-from palchronicle.infrastructure.clock import FakeClock
-from palchronicle.infrastructure.database import Database
-from palchronicle.infrastructure.migrations import apply_migrations
+from palworld_terminal.domain.enums import AccessMode, Confidence, EventType
+from palworld_terminal.domain.models import Base, BaseObservation, Guild, World, WorldEvent
+from palworld_terminal.infrastructure.cache import TTLCache
+from palworld_terminal.infrastructure.clock import FakeClock
+from palworld_terminal.infrastructure.database import Database
+from palworld_terminal.infrastructure.migrations import apply_migrations
 
 WID = "alpha:guid-1:0"
 

@@ -1,5 +1,5 @@
-from palchronicle.domain.enums import EventType
-from palchronicle.domain.events import make_dedup_key
+from palworld_terminal.domain.enums import EventType
+from palworld_terminal.domain.events import make_dedup_key
 
 
 def test_make_dedup_key_uses_uppercase_type_and_pipe():

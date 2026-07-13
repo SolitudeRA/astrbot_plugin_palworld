@@ -1,7 +1,7 @@
 """公用 pytest fixtures。"""
 import pytest
 
-from palchronicle.infrastructure.clock import FakeClock
+from palworld_terminal.infrastructure.clock import FakeClock
 
 
 @pytest.fixture

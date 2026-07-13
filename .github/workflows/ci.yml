@@ -19,7 +19,7 @@ jobs:
       - name: Ruff
         run: ruff check .
       - name: Mypy
-        run: python -m mypy palchronicle/
+        run: python -m mypy palworld_terminal/
 
   test:
     strategy:

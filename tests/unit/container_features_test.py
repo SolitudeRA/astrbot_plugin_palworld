@@ -1,10 +1,10 @@
 """容器按 features 条件装配：禁用组不构造服务、scheduler 端点排除 game-data。"""
 from pathlib import Path
 
-from palchronicle.config import parse_config
-from palchronicle.container import Container
-from palchronicle.domain.enums import EndpointName
-from palchronicle.infrastructure.clock import FakeClock
+from palworld_terminal.config import parse_config
+from palworld_terminal.container import Container
+from palworld_terminal.domain.enums import EndpointName
+from palworld_terminal.infrastructure.clock import FakeClock
 
 
 def _cfg(guilds_bases: bool, events: bool = True):

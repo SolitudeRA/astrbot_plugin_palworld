@@ -1,9 +1,9 @@
 import pytest
 
-from palchronicle.config import parse_config
-from palchronicle.container import Container
-from palchronicle.infrastructure.clock import FakeClock
-from palchronicle.presentation.server_arg import ArgError, parse_arg
+from palworld_terminal.config import parse_config
+from palworld_terminal.container import Container
+from palworld_terminal.infrastructure.clock import FakeClock
+from palworld_terminal.presentation.server_arg import ArgError, parse_arg
 from tests.integration.conftest import _FakeRest, _FakeSched, make_config
 
 UMO = "aiocqhttp:GroupMessage:123456"

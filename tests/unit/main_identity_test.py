@@ -64,25 +64,25 @@ class _FakeContext:
 def test_current_username_reads_g_not_request():
     _install_fake_quart("admin")
     import main as main_mod
-    assert main_mod.PalChronicle._current_username() == "admin"
+    assert main_mod.PalWorldTerminal._current_username() == "admin"
 
 
 def test_has_identity_true_when_g_has_username():
     _install_fake_quart("admin")
     import main as main_mod
-    assert main_mod.PalChronicle._has_identity() is True
+    assert main_mod.PalWorldTerminal._has_identity() is True
 
 
 def test_has_identity_false_when_g_missing_username():
     _install_fake_quart(None)
     import main as main_mod
-    assert main_mod.PalChronicle._has_identity() is False
+    assert main_mod.PalWorldTerminal._has_identity() is False
 
 
 async def test_config_get_returns_unauthorized_without_identity():
     _install_fake_quart(None)
     import main as main_mod
-    plugin = main_mod.PalChronicle(_FakeContext(), _raw())
+    plugin = main_mod.PalWorldTerminal(_FakeContext(), _raw())
     payload = await plugin._web_config_get()
     assert payload == {"ok": False, "error": "unauthorized", "detail": {}}
 
@@ -90,7 +90,7 @@ async def test_config_get_returns_unauthorized_without_identity():
 async def test_config_get_ok_with_identity():
     _install_fake_quart("admin")
     import main as main_mod
-    plugin = main_mod.PalChronicle(_FakeContext(), _raw())
+    plugin = main_mod.PalWorldTerminal(_FakeContext(), _raw())
     payload = await plugin._web_config_get()
     assert payload.get("ok") is True and "config" in payload
 
@@ -98,12 +98,12 @@ async def test_config_get_ok_with_identity():
 def test_current_username_none_without_app_context():
     _install_fake_quart_no_app_context()
     import main as main_mod
-    assert main_mod.PalChronicle._current_username() is None
+    assert main_mod.PalWorldTerminal._current_username() is None
 
 
 async def test_config_get_unauthorized_without_app_context():
     _install_fake_quart_no_app_context()
     import main as main_mod
-    plugin = main_mod.PalChronicle(_FakeContext(), _raw())
+    plugin = main_mod.PalWorldTerminal(_FakeContext(), _raw())
     payload = await plugin._web_config_get()
     assert payload == {"ok": False, "error": "unauthorized", "detail": {}}

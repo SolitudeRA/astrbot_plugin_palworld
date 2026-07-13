@@ -1,7 +1,7 @@
 from pathlib import Path
 
-from palchronicle.adapters import normalizer
-from palchronicle.adapters.metadata_repository import MetadataRepository
+from palworld_terminal.adapters import normalizer
+from palworld_terminal.adapters.metadata_repository import MetadataRepository
 from tests.fixtures.loader import load_fixture
 
 META = MetadataRepository(Path(__file__).resolve().parents[2] / "metadata")

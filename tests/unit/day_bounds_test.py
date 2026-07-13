@@ -1,7 +1,7 @@
 from types import SimpleNamespace
 
-from palchronicle.application.report_service import day_bounds
-from palchronicle.domain.models import World
+from palworld_terminal.application.report_service import day_bounds
+from palworld_terminal.domain.models import World
 
 _W = World(world_id="w:g:0", server_id="w", worldguid="g", epoch=0,
            server_name="S", version="1", first_seen_at=0, last_seen_at=0, current_day=1)
