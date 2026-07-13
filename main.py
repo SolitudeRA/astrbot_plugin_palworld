@@ -78,7 +78,7 @@ def _resolve_data_dir() -> Path:
 
 
 @register("astrbot_plugin_palworld", "SolitudeRA",
-          "监测 Palworld 专用服务器,提供群内状态查询、日报与玩家档案(只读)", "v0.8.0",
+          "监测 Palworld 专用服务器,提供群内状态查询、日报与玩家档案(只读)", "v0.8.5",
           "https://github.com/SolitudeRA/astrbot_plugin_palworld")
 class PalWorldTerminal(Star):
     def __init__(self, context, config):
