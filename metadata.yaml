@@ -1,5 +1,5 @@
 name: astrbot_plugin_palworld
-display_name: PalChronicle · 帕鲁纪事
+display_name: PalWorldTerminal · 帕鲁世界终端
 desc: 只读的 Palworld 世界纪事、玩家档案与社区观察插件（基于官方 REST API）
 version: v0.1.0
 author: SolitudeRA

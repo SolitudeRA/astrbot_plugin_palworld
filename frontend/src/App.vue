@@ -31,7 +31,7 @@ const configChapters = CHAPTERS.filter((c) => c.group === '配置')
     <div class="console">
       <header>
         <div class="mast">
-          <div class="brand"><span class="cn">帕鲁纪事</span><span class="en">PalChronicle</span></div>
+          <div class="brand"><span class="cn">帕鲁世界终端</span><span class="en">PalWorldTerminal</span></div>
           <button class="ghost" @click="toggleTheme">{{ theme === 'dark' ? '☀ 浅色' : '☾ 深色' }}</button>
         </div>
         <div class="dateline"></div>

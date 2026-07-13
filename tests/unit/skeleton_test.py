@@ -17,7 +17,7 @@ def test_metadata_yaml_has_all_top_keys():
                 "repo", "astrbot_version", "license"):
         assert key in data, f"missing {key}"
     assert data["name"] == "astrbot_plugin_palworld"
-    assert data["display_name"] == "PalChronicle · 帕鲁纪事"
+    assert data["display_name"] == "PalWorldTerminal · 帕鲁世界终端"
     assert data["astrbot_version"] == ">=4.24.1"
     assert data["license"] == "GPL-3.0"
 
