@@ -8,7 +8,7 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 def test_palworld_terminal_package_importable():
     import palworld_terminal
 
-    assert palworld_terminal.__version__ == "0.1.0"
+    assert palworld_terminal.__version__ == "0.8.0"
 
 
 def test_metadata_yaml_has_all_top_keys():

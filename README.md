@@ -4,7 +4,7 @@
 
 # PalWorldTerminal · 帕鲁世界终端
 
-[![version](https://img.shields.io/badge/version-v0.1.0-007ec6)](https://github.com/SolitudeRA/astrbot_plugin_palworld/releases)
+[![version](https://img.shields.io/badge/version-v0.8.0-007ec6)](https://github.com/SolitudeRA/astrbot_plugin_palworld/releases)
 [![python](https://img.shields.io/badge/python-3.11%2B-007ec6)](https://www.python.org/)
 [![AstrBot](https://img.shields.io/badge/AstrBot-%E2%89%A5%204.24.1-fe7d37)](https://github.com/AstrBotDevs/AstrBot)
 [![license](https://img.shields.io/badge/license-GPL--3.0-97ca00)](LICENSE)

@@ -10,7 +10,7 @@
 
 - **access_mode**:默认 `restricted`(群需管理员授权才能查询某服务器);`open` 为任意群可查任意服务器。
 - **group_bindings(可选预设授权)**:等价于管理员执行 `/pal use`,仅作**初始种子**,不覆盖运行时改动。
-- **privacy.mode**:`strict` / `balanced`(默认)/ `advanced`(v0.1 按 balanced 生效)。
+- **privacy.mode**:`strict` / `balanced`(默认)/ `advanced`(当前版本按 balanced 生效)。
 
 ## polling(轮询,全局设置、逐服务器套用)
 
@@ -31,7 +31,7 @@
 | 配置项 | 默认 | 含义 |
 | --- | --- | --- |
 | `timezone` | `Asia/Tokyo` | 全局时区(IANA 名称),影响 `/pal today` 等所有时间展示;每台服务器可在 servers 条目里单独填 `timezone` 覆盖 |
-| `locale` | `zh-CN` | 文案语言(v0.1 仅支持 zh-CN) |
+| `locale` | `zh-CN` | 文案语言(当前版本仅支持 zh-CN) |
 | `fps_smooth` | 50 | FPS ≥ 此值展示为「流畅」 |
 | `fps_moderate` | 35 | FPS ≥ 此值(且 < `fps_smooth`)展示为「一般」 |
 | `fps_laggy` | 20 | FPS ≥ 此值(且 < `fps_moderate`)展示为「卡顿」;FPS < 此值展示为「严重卡顿」 |
