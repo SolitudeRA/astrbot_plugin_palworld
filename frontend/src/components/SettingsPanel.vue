@@ -17,6 +17,7 @@ const saving = ref(false)
 const notice = reactive<{ msg: string; error: boolean }>({ msg: '', error: false })
 
 const state = reactive<SettingsState>({ servers: [], custom_headers: [], sections: {} })
+const dirty = ref(false)
 
 const chapterMeta = computed(() => CHAPTERS.find((c) => c.id === props.chapter))
 const chapterTitle = computed(() => chapterMeta.value?.label ?? '')
@@ -46,6 +47,7 @@ function emptyRow(fields: typeof SERVER_FIELDS): Record<string, unknown> {
 function pad(n: number) { return n < 10 ? '0' + n : '' + n }
 
 function applyConfig(c: Record<string, any>) {
+  dirty.value = false
   state.servers = (c.servers ?? []).map((s: Record<string, unknown>) => ({ ...s }))
   state.custom_headers = (c.custom_headers ?? []).map((h: Record<string, unknown>) => ({ ...h }))
   state.sections = {}
@@ -70,8 +72,8 @@ function toast(msg: string, error = false) {
   setTimeout(() => { if (notice.msg === msg) { notice.msg = ''; notice.error = false } }, 3000)
 }
 
-async function save(opts: { silent?: boolean; done?: (ok: boolean) => void } = {}) {
-  if (saving.value) { opts.done?.(false); return }
+async function save() {
+  if (saving.value) return
   saving.value = true; notice.msg = ''; notice.error = false
   try {
     const res = await apiPost<{ ok: boolean; warnings?: Record<string, unknown[]>; config?: Record<string, any> }>('config/save', collectBody(state))
@@ -79,17 +81,16 @@ async function save(opts: { silent?: boolean; done?: (ok: boolean) => void } = {
     // 否则该行再次编辑时留空密码会被当「新行空密码」提交,清掉已存密码(审查 F1)。
     // 已知取舍:重填会重建全部卡片,其他正在编辑未保存的卡片草稿以落库数据为准丢弃
     if (res.config) applyConfig(res.config)
+    else dirty.value = false
     const w = res.warnings ?? {}
     const skips = [...((w.skipped_servers as unknown[]) ?? []), ...((w.skipped_headers as unknown[]) ?? [])]
     if (skips.length) toast(`已保存，${skips.length} 条无效条目未生效`)
-    else if (!opts.silent) toast('已保存，已生效')
-    opts.done?.(true)
+    else toast('已保存，已生效')
   } catch (e) {
     if (e instanceof BusinessError) toast(mapError(e), true)
     else if (e instanceof Unauthorized) toast('未登录或登录已过期，请重新登录 Dashboard', true)
     else if (e instanceof Error) toast(e.message.includes('__unchanged__') ? e.message : '保存失败，请重试', true)
     else toast('保存失败，请重试', true)
-    opts.done?.(false)
   } finally {
     saving.value = false
   }
@@ -107,25 +108,26 @@ async function save(opts: { silent?: boolean; done?: (ok: boolean) => void } = {
         <section>
           <div class="group-head"><span class="t">服务器</span><span class="c">要监测的 Palworld 服务器</span></div>
           <ServerCard v-for="(s, i) in state.servers" :key="(s.__row_id as string) || (s.__local_key as string)" :model-value="s" :index-label="'服务器 ' + pad(i + 1)"
-            @update:model-value="(v) => state.servers[i] = v" @delete="state.servers.splice(i, 1)" @save="(done) => save({ silent: true, done })" />
-          <button class="add" @click="state.servers.push(emptyRow(SERVER_FIELDS))">＋ 添加服务器</button>
+            @update:model-value="(v) => { state.servers[i] = v; dirty = true }" @delete="state.servers.splice(i, 1); dirty = true" />
+          <button class="add" @click="state.servers.push(emptyRow(SERVER_FIELDS)); dirty = true">＋ 添加服务器</button>
         </section>
         <section>
           <div class="group-head"><span class="t">自定义请求头</span><span class="c">每次请求都会带上</span></div>
           <p class="grouphint">含凭证的请求头建议填写「限定服务器」。留空会发给所有服务器，包括以后新增的。</p>
           <HeaderCard v-for="(h, i) in state.custom_headers" :key="(h.__row_id as string) || (h.__local_key as string)" :model-value="h" :index-label="'请求头 ' + pad(i + 1)"
-            @update:model-value="(v) => state.custom_headers[i] = v" @delete="state.custom_headers.splice(i, 1)" @save="(done) => save({ silent: true, done })" />
-          <button class="add" @click="state.custom_headers.push(emptyRow(HEADER_FIELDS))">＋ 添加请求头</button>
+            @update:model-value="(v) => { state.custom_headers[i] = v; dirty = true }" @delete="state.custom_headers.splice(i, 1); dirty = true" />
+          <button class="add" @click="state.custom_headers.push(emptyRow(HEADER_FIELDS)); dirty = true">＋ 添加请求头</button>
         </section>
       </template>
 
       <SectionForm v-for="sec in currentSections" :key="sec.key" :section="sec"
-        :model-value="state.sections[sec.key]" @update:model-value="(v) => state.sections[sec.key] = v" />
+        :model-value="state.sections[sec.key]" @update:model-value="(v) => { state.sections[sec.key] = v; dirty = true }" />
 
       <div class="savebar">
         <button class="commit pw-save" :disabled="saving" @click="() => save()">{{ saving ? '保存中…' : '保存设置' }}</button>
         <span v-if="notice.msg" :class="notice.error ? 'pw-error' : 'receipt'">{{ notice.msg }}</span>
-        <span class="note">服务器、请求头点各自的「保存」即生效；其余设置用这里保存</span>
+        <span v-else-if="dirty" class="unsaved">有未保存的更改</span>
+        <span class="note">所有修改（含服务器、请求头）都用这里统一保存</span>
       </div>
     </template>
   </div>

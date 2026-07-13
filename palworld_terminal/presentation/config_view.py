@@ -214,8 +214,12 @@ def status_rows(entries: list) -> list[dict]:
             rows.append({"name": name, "ready": ready})
             continue
         rows.append({
+            # 白名单仅世界级数据,不含 players 个体列表(隐私面不扩)
             "name": name, "ready": ready, "online": dto.online,
+            "max_players": dto.max_players, "fps": dto.fps,
             "smoothness_label": dto.smoothness_label,
+            "world_day": dto.world_day, "peak_online_today": dto.peak_online_today,
+            "basecamp_count": dto.basecamp_count, "updated_at": dto.updated_at,
             "degraded": dto.degraded, "last_ok": dto.last_ok,
         })
     return rows

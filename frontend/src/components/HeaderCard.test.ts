@@ -35,7 +35,7 @@ describe('HeaderCard', () => {
     await w.get('button.del').trigger('click')
     expect(w.emitted('delete')).toBeTruthy()
   })
-  it('编辑态改名后保存：emit 合并行(__row_id 保留) + emit save', async () => {
+  it('编辑态改名后「完成」：emit 合并行(__row_id 保留)，只暂存不落库', async () => {
     const w = mountCard(row())
     await w.get('button.edit').trigger('click')
     await w.findAll('input.pw-input[type="text"]')[0].setValue('X-Renamed') // name
@@ -43,6 +43,6 @@ describe('HeaderCard', () => {
     const merged = w.emitted('update:modelValue')?.at(-1)?.[0] as Record<string, unknown>
     expect(merged.name).toBe('X-Renamed')
     expect(merged.__row_id).toBe('hdr-0')
-    expect(w.emitted('save')).toBeTruthy()
+    expect(w.emitted('save')).toBeFalsy() // 统一由底部「保存设置」落库
   })
 })

@@ -73,4 +73,15 @@ describe('SettingsPanel', () => {
     await w.get('button.pw-save').trigger('click'); await flushPromises()
     expect(w.text()).toContain('newbie') // state 已被落库后的 config 刷新
   })
+
+  it('改动后显示未保存提示,保存成功后消失', async () => {
+    (window.AstrBotPluginPage!.apiGet as any).mockResolvedValue(cfg());
+    (window.AstrBotPluginPage!.apiPost as any).mockResolvedValue({ ok: true, warnings: {}, config: cfg().config })
+    const w = mountAt('access'); await flushPromises()
+    expect(w.text()).not.toContain('有未保存的更改')
+    await w.get('button.add').trigger('click') // 添加服务器 → dirty
+    expect(w.text()).toContain('有未保存的更改')
+    await w.get('button.pw-save').trigger('click'); await flushPromises()
+    expect(w.text()).not.toContain('有未保存的更改') // applyConfig 复位
+  })
 })

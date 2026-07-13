@@ -36,7 +36,7 @@ describe('ServerCard', () => {
     await w.get('button.del').trigger('click')
     expect(w.emitted('delete')).toBeTruthy()
   })
-  it('编辑态改名后保存：emit 合并行(__row_id 保留) + emit save', async () => {
+  it('编辑态改名后「完成」：emit 合并行(__row_id 保留)，只暂存不落库', async () => {
     const w = mountCard(row())
     await w.get('button.edit').trigger('click')
     await w.findAll('input.pw-input[type="text"]')[0].setValue('beta') // name = 第一个文本输入
@@ -44,7 +44,7 @@ describe('ServerCard', () => {
     const merged = w.emitted('update:modelValue')?.at(-1)?.[0] as Record<string, unknown>
     expect(merged.name).toBe('beta')
     expect(merged.__row_id).toBe('srv-0')
-    expect(w.emitted('save')).toBeTruthy()
+    expect(w.emitted('save')).toBeFalsy() // 统一由底部「保存设置」落库
   })
   it('新增行(无 __row_id) 初始即编辑态', () => {
     const w = mountCard({ __row_id: '', name: '', enabled: true, base_url: '', username: '', password: '', password_env: '', timeout: 10, verify_tls: true, timezone: '' })

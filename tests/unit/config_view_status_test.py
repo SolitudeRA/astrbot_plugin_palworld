@@ -15,8 +15,10 @@ def _dto():
 def test_ready_server_row_whitelisted_fields():
     rows = status_rows([("alpha", True, _dto())])
     assert rows == [{
-        "name": "alpha", "ready": True, "online": 5,
-        "smoothness_label": "流畅", "degraded": False, "last_ok": 999,
+        "name": "alpha", "ready": True, "online": 5, "max_players": 32,
+        "fps": 55.0, "smoothness_label": "流畅", "world_day": 3,
+        "peak_online_today": 7, "basecamp_count": 2, "updated_at": 1000,
+        "degraded": False, "last_ok": 999,
     }]
 
 

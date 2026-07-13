@@ -7,7 +7,6 @@ const props = defineProps<{ modelValue: Record<string, unknown>; indexLabel: str
 const emit = defineEmits<{
   'update:modelValue': [v: Record<string, unknown>]
   delete: []
-  save: [done: (ok: boolean) => void]
 }>()
 
 const mode = ref<'view' | 'edit'>(props.modelValue.__row_id ? 'view' : 'edit')
@@ -23,13 +22,11 @@ function enterEdit() {
 function cancel() { mode.value = 'view' }
 function setDraft(key: string, v: unknown) { draft[key] = v }
 function saveCard() {
+  // 只暂存到页面工作态,不落库——统一由底部「保存设置」提交
   emit('update:modelValue', { ...props.modelValue, ...draft })
-  emit('save', (ok: boolean) => {
-    if (!ok) return
-    mode.value = 'view'
-    flash.value = true
-    setTimeout(() => { flash.value = false }, 1900)
-  })
+  mode.value = 'view'
+  flash.value = true
+  setTimeout(() => { flash.value = false }, 1900)
 }
 </script>
 
@@ -40,7 +37,7 @@ function saveCard() {
       <span class="idx">{{ indexLabel }}</span>
       <span class="nm">{{ (modelValue.name as string) || '（未命名）' }}</span>
       <span class="grow"></span>
-      <span v-if="flash" class="hchip on savedflash">已保存 ✓</span>
+      <span v-if="flash" class="hchip on savedflash">已暂存</span>
       <button class="headbtn del" @click="emit('delete')">移除</button>
       <button class="headbtn edit" @click="enterEdit">修改</button>
     </div>
@@ -63,7 +60,7 @@ function saveCard() {
       <span class="editing-tag">编辑</span>
       <span class="grow"></span>
       <button class="headbtn cancel-card" @click="cancel">取消</button>
-      <button class="headbtn save-card" @click="saveCard">保存</button>
+      <button class="headbtn save-card" @click="saveCard">完成</button>
     </div>
     <div class="cbody">
       <template v-for="f in HEADER_FIELDS" :key="f.key">
