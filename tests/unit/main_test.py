@@ -73,7 +73,7 @@ async def test_initialize_and_terminate(tmp_path: Path, monkeypatch):
 
 
 def test_register_version_matches_metadata():
-    # @register 的版本字符串须与 metadata.yaml 的 version 一致（v0.1.0）
+    # @register 的版本字符串须与 metadata.yaml 的 version 一致（动态对比,不锁具体值）
     meta = yaml.safe_load((REPO_ROOT / "metadata.yaml").read_text(encoding="utf-8"))
     source = (REPO_ROOT / "main.py").read_text(encoding="utf-8")
     assert f'"{meta["version"]}"' in source, (

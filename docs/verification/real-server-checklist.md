@@ -1,4 +1,4 @@
-# PalChronicle v0.1 实服验证清单
+# PalWorldTerminal v0.8 实服验证清单
 
 > 对应设计规格 `docs/superpowers/specs/2026-07-10-palchronicle-v0.1-design.md` 的
 > **§21.2 待实服/框架验证清单**（6 项外部事实）与 **§19 验收标准**。

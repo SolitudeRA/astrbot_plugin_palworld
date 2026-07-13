@@ -31,3 +31,15 @@ def test_existing_new_db_never_overwritten(tmp_path: Path):
 def test_noop_when_no_legacy(tmp_path: Path):
     migrate_legacy_db(tmp_path)  # 不抛错
     assert not (tmp_path / "palworld_terminal.sqlite3").exists()
+
+
+def test_orphan_new_wal_does_not_block_migration(tmp_path: Path):
+    # 病态边界:新主库不存在但新 -wal 孤儿已存在(如手工删主库留 WAL)。
+    # os.replace 静默覆盖孤儿,迁移不得抛 FileExistsError(Windows rename 会)。
+    (tmp_path / "palchronicle.sqlite3").write_bytes(b"old")
+    (tmp_path / "palchronicle.sqlite3-wal").write_bytes(b"old-wal")
+    (tmp_path / "palworld_terminal.sqlite3-wal").write_bytes(b"orphan")
+    migrate_legacy_db(tmp_path)
+    assert (tmp_path / "palworld_terminal.sqlite3").read_bytes() == b"old"
+    assert (tmp_path / "palworld_terminal.sqlite3-wal").read_bytes() == b"old-wal"
+    assert not (tmp_path / "palchronicle.sqlite3").exists()

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import os
 from collections.abc import Callable
 from pathlib import Path
 from typing import cast
@@ -42,11 +43,13 @@ def migrate_legacy_db(data_dir: Path) -> None:
     target = data_dir / _DB_NAME
     if not legacy.exists() or target.exists():
         return
-    # -wal/-shm 是 SQLite 伴生文件,异常关闭后可能残留,须随主库同名迁移
+    # -wal/-shm 是 SQLite 伴生文件,异常关闭后可能残留,须随主库同名迁移。
+    # 用 os.replace 而非 rename:Windows 上 rename 目标存在会抛 FileExistsError
+    # (如孤儿 -wal 场景),replace 跨平台静默覆盖、天然幂等。
     for suffix in ("", "-wal", "-shm"):
         src = data_dir / f"{_LEGACY_DB_NAME}{suffix}"
         if src.exists():
-            src.rename(data_dir / f"{_DB_NAME}{suffix}")
+            os.replace(src, data_dir / f"{_DB_NAME}{suffix}")
     _log.info("数据库已从 %s 迁移为 %s", _LEGACY_DB_NAME, _DB_NAME)
 
 
