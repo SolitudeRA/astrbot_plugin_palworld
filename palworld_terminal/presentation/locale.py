@@ -32,6 +32,8 @@ MESSAGES: dict[str, str] = {
     "bind_not_found": "未找到玩家「{name}」，无法绑定。",
     "player_usage": "用法：/pal player <玩家名>",
     "bind_usage": "用法：/pal bind <玩家名>",
+    "whoami": "你的账号标识：{id}（建议私聊 bot 执行本命令，再把标识报给管理员加入受托名单）",
+    "whoami_no_sender": "当前场景无法识别你的账号，请在群聊里再试。",
     "server_usage": "用法：/pal server add <名称> 或 /pal server remove <名称>",
     "unbind_self_ok": "已解除你与玩家「{name}」的绑定。",
     "unbind_self_none": "你还没有绑定玩家，无需解绑。",
