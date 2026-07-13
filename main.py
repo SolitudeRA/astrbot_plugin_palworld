@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import copy
+import inspect
 import logging
 import os
 from pathlib import Path
@@ -134,7 +135,6 @@ class PalWorldTerminal(Star):
         计数先于 busy 判定(flag+counter 握手):若重载已置 _restarting,
         这里拒绝;若重载在计数之后才开始,_wait_quiescent 会等本操作退出。
         """
-        import inspect
         self._inflight += 1
         self._idle.clear()
         try:

@@ -4,6 +4,7 @@ import functools
 from collections.abc import Awaitable, Callable
 
 from ..adapters.privacy_filter import hash_user_id
+from ..application.query_service import PlayerProfileDTO
 from ..presentation.command_registry import COMMAND_GROUP
 from ..presentation.dtos import ServerStatusRow
 from ..presentation.formatters import (
@@ -209,7 +210,6 @@ class Commands:
         if ident is None:
             return L("me_unbound")
         session = await self._repo.get_open_session(world.world_id, player_key)
-        from palworld_terminal.application.query_service import PlayerProfileDTO
         dto = PlayerProfileDTO(
             name=ident.latest_name, level=ident.latest_level,
             online=session is not None,
