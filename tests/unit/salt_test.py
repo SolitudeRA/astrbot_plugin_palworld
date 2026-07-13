@@ -64,3 +64,17 @@ def test_read_path_returns_poisoned_bytes_unchanged(tmp_path):
 
     assert salt == poison
     assert (tmp_path / "secret_salt").read_bytes() == poison
+
+
+def test_corrupt_salt_rebuilt_and_preserved(tmp_path):
+    # 写入中途崩溃遗留的短盐:读回校验长度,重建并保留现场,不静默弱化
+    (tmp_path / "secret_salt").write_bytes(b"short")
+    salt = load_or_create_salt(tmp_path)
+    assert len(salt) == 32
+    assert (tmp_path / "secret_salt").read_bytes() == salt
+    assert (tmp_path / "secret_salt.corrupt").read_bytes() == b"short"
+
+
+def test_salt_write_leaves_no_tmp(tmp_path):
+    load_or_create_salt(tmp_path)
+    assert not (tmp_path / "secret_salt.tmp").exists()

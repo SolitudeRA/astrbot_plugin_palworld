@@ -250,6 +250,16 @@ class Repository:
                 "DELETE FROM player_sessions WHERE left_at IS NOT NULL AND left_at < ?",
                 (session_cutoff,),
             )
+            # world 级孤儿清理（players spec §6）：世界被移除后其绑定/自助
+            # 隐藏记录不再可达，随 prune 一并清掉
+            await conn.execute(
+                "DELETE FROM player_bindings WHERE world_id NOT IN"
+                " (SELECT world_id FROM worlds)"
+            )
+            await conn.execute(
+                "DELETE FROM hidden_players WHERE world_id NOT IN"
+                " (SELECT world_id FROM worlds)"
+            )
             # world_events / daily_aggregates 长期保留（spec §9.3）。
 
     # ---- metrics ----

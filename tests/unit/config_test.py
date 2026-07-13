@@ -92,3 +92,18 @@ def test_bindings_parsed_from_top_level():
     assert cfg.group_bindings[0].umo == "u1"
     assert cfg.group_bindings[0].server == "s1"
     assert cfg.group_bindings[0].active is True
+
+
+def test_malformed_numeric_values_degrade_to_defaults():
+    # 手改配置文件留下畸形数值:降级为默认,不炸插件启动
+    raw = {
+        "servers": [{"name": "a", "base_url": "http://x", "username": "u",
+                     "password": "pw", "timeout": "abc"}],
+        "polling": {"metrics_seconds": "oops", "jitter_ratio": None},
+        "privacy": {"ping_good_ms": []},
+    }
+    cfg = parse_config(raw, {})
+    assert cfg.servers[0].timeout == 10
+    assert cfg.polling.metrics_seconds == 30
+    assert cfg.polling.jitter_ratio == 0.10
+    assert cfg.privacy.ping_good_ms == 60

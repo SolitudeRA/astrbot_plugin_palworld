@@ -102,3 +102,20 @@ async def test_prune_keeps_events(repo):
     await repo.prune(history, now)
     rows = await repo._db.query("SELECT count(*) FROM world_events")
     assert rows[0][0] == 1  # 事件长期保留
+
+
+async def test_prune_removes_orphan_bindings_and_hidden(repo):
+    # players spec §6:世界移除后其绑定/自助隐藏记录随 prune 清理;有效世界的保留
+    await repo.upsert_world(_world())  # 有效世界 s1:G1:0
+    wid_alive, wid_orphan = "s1:G1:0", "gone:GX:0"
+    await repo._db.execute_write(
+        "INSERT INTO player_bindings (platform_hash, world_id, player_key, created_at)"
+        " VALUES ('h1', ?, 'pk1', 1), ('h2', ?, 'pk2', 1)", (wid_alive, wid_orphan))
+    await repo._db.execute_write(
+        "INSERT INTO hidden_players (world_id, player_key, hidden_by, created_at)"
+        " VALUES (?, 'pk1', 'h1', 1), (?, 'pk2', 'h2', 1)", (wid_alive, wid_orphan))
+    await repo.prune(HistoryConfig(7, 90, 365, 180), now=1000)
+    rows_b = await repo._db.query("SELECT world_id FROM player_bindings")
+    rows_h = await repo._db.query("SELECT world_id FROM hidden_players")
+    assert [r["world_id"] for r in rows_b] == [wid_alive]
+    assert [r["world_id"] for r in rows_h] == [wid_alive]
