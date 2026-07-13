@@ -35,3 +35,13 @@ async def test_hidden_set_get_unset(repo):
     assert await repo.get_hidden_keys("w2") == set()
     await repo.unset_hidden("w1", "k1")
     assert await repo.get_hidden_keys("w1") == {"k2"}
+
+
+async def test_delete_binding_isolates_by_world(repo):
+    # 同一 phash 下两个 world 各有绑定;删 w1 不得误删 w2
+    # (单条 upsert→delete→get None 无法区分"漏 AND world_id"的错误 SQL,故用两条隔离)
+    await repo.upsert_binding("phash", "w1", "k1")
+    await repo.upsert_binding("phash", "w2", "k2")
+    await repo.delete_binding("phash", "w1")
+    assert await repo.get_binding("phash", "w1") is None
+    assert await repo.get_binding("phash", "w2") == "k2"
