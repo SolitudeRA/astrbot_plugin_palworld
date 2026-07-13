@@ -395,6 +395,13 @@ class PalWorldTerminal(Star):
                 self._umo(event), self._msg(event), self._is_group(event), self._sender_id(event)))
         )
 
+    @pal.command("unbind")
+    async def unbind(self, event):
+        yield event.plain_result(
+            await self._guarded(lambda c: c.commands.unbind_self(
+                self._umo(event), self._msg(event), self._is_group(event), self._sender_id(event)))
+        )
+
     @pal.command("server")
     async def server(self, event):
         yield event.plain_result(

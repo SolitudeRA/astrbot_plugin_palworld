@@ -3,8 +3,9 @@
 背景:astrbot_namespace_load_test 只覆盖模块导入;函数体内的惰性问题
 (如曾在实机炸掉 /pal me 的函数内绝对自导入)导入时不触发。本测试在
 同等命名空间条件下真正 initialize 插件、种入世界与玩家数据,把全部
-18 条命令带参数走一遍(bind 成功后再走 me,复现当年实机 bug 的等价
-深分支)——任何仅在真实 AstrBot 加载形态下才暴露的运行时环境差异
+17 条命令带参数走一遍(server 走裸/add/remove 三种参数,calls 共 19 项;
+bind 成功后再走 unbind/me,复现当年实机 bug 的等价深分支)——任何仅在真实
+AstrBot 加载形态下才暴露的运行时环境差异
 在此转红。features 全开、access_mode=open,让各命令体尽量走深。
 """
 import sys
@@ -117,6 +118,7 @@ async def test_all_commands_run_under_namespaced_load(tmp_path, monkeypatch):
                 (plugin.rank, ""), (plugin.player, "player Alice"),
                 (plugin.bind, "bind Alice"),  # 先绑定……
                 (plugin.me, "me"),            # ……me 才会走到档案(DTO)深分支
+                (plugin.unbind, "unbind"),    # 绑定后解绑,走 delete_binding 深分支
                 (plugin.server, "server"), (plugin.help, ""),
                 (plugin.server, "server add alpha"), (plugin.server, "server remove alpha"),
             ]

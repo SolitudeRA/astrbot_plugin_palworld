@@ -15,12 +15,13 @@ def _cmds(players_on):
 async def test_players_commands_gated_off():
     c = _cmds(players_on=False)
     for coro in (c.rank("u", "", True), c.player("u", "Alice", True),
-                 c.me("u", "", True, "p:1"), c.bind("u", "Alice", True, "p:1")):
+                 c.me("u", "", True, "p:1"), c.bind("u", "Alice", True, "p:1"),
+                 c.unbind_self("u", "", True, "p:1")):
         assert await coro == "该功能未开放：当前配置或服务器不支持。"
 
 
 def test_help_hides_players_when_off():
     off = format_help(None, False, FeaturesConfig(report=True, events=True, guilds_bases=False, players=False))
     on = format_help(None, False, FeaturesConfig(report=True, events=True, guilds_bases=False, players=True))
-    assert "/pal rank" not in off and "/pal player" not in off
-    assert "/pal rank" in on and "/pal bind" in on
+    assert "/pal rank" not in off and "/pal player" not in off and "/pal unbind" not in off
+    assert "/pal rank" in on and "/pal bind" in on and "/pal unbind" in on

@@ -217,6 +217,20 @@ class Commands:
         )
         return format_player(dto, strict=self._cfg.privacy.mode == "strict")
 
+    @_gated
+    async def unbind_self(self, umo, message_str, is_group, sender_id) -> str:
+        world, _arg, err = await self._resolve_world(umo, message_str, "unbind", is_group)
+        if err is not None:
+            return err
+        phash = hash_user_id(self._salt, world.world_id, sender_id)
+        player_key = await self._repo.get_binding(phash, world.world_id)
+        if player_key is None:
+            return L("unbind_self_none")
+        ident = await self._repo.get_player(world.world_id, player_key)
+        name = ident.latest_name if ident is not None else player_key
+        await self._repo.delete_binding(phash, world.world_id)
+        return L("unbind_self_ok", name=name)
+
     async def server(self, umo, message_str, is_group, is_admin) -> str:
         try:
             arg = parse_arg(message_str, "server")
