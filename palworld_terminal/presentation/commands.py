@@ -217,7 +217,27 @@ class Commands:
         )
         return format_player(dto, strict=self._cfg.privacy.mode == "strict")
 
-    async def servers(self, umo, is_group, is_admin) -> str:
+    async def server(self, umo, message_str, is_group, is_admin) -> str:
+        arg = parse_arg(message_str, "server")
+        tokens = arg.name.split()
+        sub = tokens[0].lower() if tokens else ""
+        name = arg.server_override or (" ".join(tokens[1:]) if len(tokens) > 1 else "")
+
+        if sub in ("add", "remove"):
+            if not is_admin:
+                return L("admin_required")
+            if not is_group:
+                return L("use_only_group")
+            if not name:
+                return L("server_usage")
+            if sub == "add":
+                return await self._routing.use(umo, name)       # 底层不变
+            return await self._routing.unbind(umo, name)         # 底层不变
+
+        if sub:  # 非空非 add/remove:打错的子命令 → 用法提示,不静默回落列表
+            return L("server_usage")
+
+        # 裸命令（空首词）= 服务器列表（原 servers() 逻辑，私聊也可）
         ready_ids = {s.server_id for s in self._routing.ready_servers()}
         group = await self._repo.list_group_servers(umo) if is_group else {}
         rows = []
@@ -229,24 +249,6 @@ class Commands:
             ))
         skipped = self._cfg.skipped if self._cfg else []
         return format_servers(rows, skipped, is_admin)
-
-    async def use(self, umo, message_str, is_group, is_admin) -> str:
-        if not is_admin:
-            return L("admin_required")
-        if not is_group:
-            return L("use_only_group")
-        arg = parse_arg(message_str, "use")
-        name = arg.server_override or arg.name
-        return await self._routing.use(umo, name)
-
-    async def unbind(self, umo, message_str, is_group, is_admin) -> str:
-        if not is_admin:
-            return L("admin_required")
-        if not is_group:
-            return L("use_only_group")
-        arg = parse_arg(message_str, "unbind")
-        name = arg.server_override or arg.name
-        return await self._routing.unbind(umo, name)
 
     def help(self, message_str, is_admin) -> str:
         arg = parse_arg(message_str, "help")

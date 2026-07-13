@@ -91,41 +91,63 @@ async def test_query_resolution_error_returns_error_text():
     assert "不存在或未就绪" in out
 
 
-async def test_use_requires_group():
+async def test_server_add_requires_group():
     cmds = Commands(_FakeRouting(Resolution(_server(), None)), _FakeQuery(), _FakeRepo(), None, None)
-    out = await cmds.use("umo1", "/pal use alpha", is_group=False, is_admin=True)
+    out = await cmds.server("umo1", "/pal server add alpha", is_group=False, is_admin=True)
     assert "仅可在群聊" in out
 
 
-async def test_use_requires_admin():
+async def test_server_add_requires_admin():
     cmds = Commands(_FakeRouting(Resolution(_server(), None)), _FakeQuery(), _FakeRepo(), None, None)
-    out = await cmds.use("umo1", "/pal use alpha", is_group=True, is_admin=False)
+    out = await cmds.server("umo1", "/pal server add alpha", is_group=True, is_admin=False)
     assert out == L("admin_required")
 
 
-async def test_unbind_requires_admin():
-    cmds = Commands(_FakeRouting(Resolution(_server(), None)), _FakeQuery(), _FakeRepo(), None, None)
-    out = await cmds.unbind("umo1", "/pal unbind alpha", is_group=True, is_admin=False)
-    assert out == L("admin_required")
-
-
-async def test_use_happy_path():
+async def test_server_add_happy_path():
     routing = _FakeRouting(Resolution(_server(), None))
     cmds = Commands(routing, _FakeQuery(), _FakeRepo(), None, None)
-    out = await cmds.use("umo1", "/pal use alpha", is_group=True, is_admin=True)
+    out = await cmds.server("umo1", "/pal server add alpha", is_group=True, is_admin=True)
     assert out == "USE_OK:alpha"
     assert routing.used == ("umo1", "alpha")
 
 
-async def test_unbind_happy_path():
+async def test_server_remove_happy_path():
     cmds = Commands(_FakeRouting(Resolution(_server(), None)), _FakeQuery(), _FakeRepo(), None, None)
-    out = await cmds.unbind("umo1", "/pal unbind alpha", is_group=True, is_admin=True)
+    out = await cmds.server("umo1", "/pal server remove alpha", is_group=True, is_admin=True)
     assert out == "UNBIND_OK:alpha"
+
+
+async def test_server_add_without_name_returns_usage():
+    cmds = Commands(_FakeRouting(Resolution(_server(), None)), _FakeQuery(), _FakeRepo(), None, None)
+    out = await cmds.server("umo1", "/pal server add", is_group=True, is_admin=True)
+    assert out == L("server_usage")
+
+
+async def test_server_typo_subcommand_returns_usage():
+    # 严格档:非空非 add/remove 首词 → 用法提示,不静默列表
+    cmds = Commands(_FakeRouting(Resolution(_server(), None)), _FakeQuery(), _FakeRepo(), None, None)
+    out = await cmds.server("umo1", "/pal server addd alpha", is_group=True, is_admin=True)
+    assert out == L("server_usage")
+
+
+async def test_server_bare_lists():
+    cmds = Commands(_FakeRouting(Resolution(_server(), None)), _FakeQuery(), _FakeRepo(), None, None)
+    out = await cmds.server("umo1", "/pal server", is_group=True, is_admin=False)
+    assert "已配置服务器" in out and "alpha" in out
+
+
+async def test_server_add_override_token():
+    # /pal server add @alpha:@alpha 被剥成 server_override,首词 add 留在 arg.name;override 优先命中
+    routing = _FakeRouting(Resolution(_server(), None))
+    cmds = Commands(routing, _FakeQuery(), _FakeRepo(), None, None)
+    out = await cmds.server("umo1", "/pal server add @alpha", is_group=True, is_admin=True)
+    assert out == "USE_OK:alpha"
+    assert routing.used == ("umo1", "alpha")
 
 
 def test_help_role_separation():
     cmds = Commands(
         _FakeRouting(Resolution(_server(), None)), _FakeQuery(), _FakeRepo(), _cfg_all_on(), None
     )
-    assert "use" in cmds.help("/pal help", is_admin=True)
-    assert "use" not in cmds.help("/pal help", is_admin=False)
+    assert "server add" in cmds.help("/pal help", is_admin=True)
+    assert "server add" not in cmds.help("/pal help", is_admin=False)

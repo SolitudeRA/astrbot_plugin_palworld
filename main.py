@@ -395,33 +395,15 @@ class PalWorldTerminal(Star):
                 self._umo(event), self._msg(event), self._is_group(event), self._sender_id(event)))
         )
 
-    @pal.command("servers")
-    async def servers(self, event):
+    @pal.command("server")
+    async def server(self, event):
         yield event.plain_result(
-            await self._guarded(lambda c: c.commands.servers(
-                self._umo(event), self._is_group(event), self._is_admin(event)))
+            await self._guarded(lambda c: c.commands.server(
+                self._umo(event), self._msg(event), self._is_group(event), self._is_admin(event)))
         )
 
     @pal.command("help")
     async def help(self, event):
         yield event.plain_result(
             await self._guarded(lambda c: c.commands.help(self._msg(event), self._is_admin(event)))
-        )
-
-    @filter.permission_type(filter.PermissionType.ADMIN)
-    @pal.command("use")
-    async def use(self, event):
-        yield event.plain_result(
-            await self._guarded(lambda c: c.commands.use(
-                self._umo(event), self._msg(event), self._is_group(event), self._is_admin(event)
-            ))
-        )
-
-    @filter.permission_type(filter.PermissionType.ADMIN)
-    @pal.command("unbind")
-    async def unbind(self, event):
-        yield event.plain_result(
-            await self._guarded(lambda c: c.commands.unbind(
-                self._umo(event), self._msg(event), self._is_group(event), self._is_admin(event)
-            ))
         )

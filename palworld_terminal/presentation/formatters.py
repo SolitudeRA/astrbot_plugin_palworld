@@ -124,8 +124,8 @@ def format_servers(
 
 _HELP_ADMIN_EXTRA = [
     "管理员命令：",
-    "/pal use <名称>  授权本群并设为活动服务器（仅群聊）",
-    "/pal unbind <名称>  撤销本群授权",
+    "/pal server add <名称>  授权本群并设为活动服务器（仅群聊）",
+    "/pal server remove <名称>  撤销本群授权",
 ]
 
 

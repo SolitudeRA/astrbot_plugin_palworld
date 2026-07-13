@@ -117,8 +117,8 @@ async def test_all_commands_run_under_namespaced_load(tmp_path, monkeypatch):
                 (plugin.rank, ""), (plugin.player, "player Alice"),
                 (plugin.bind, "bind Alice"),  # 先绑定……
                 (plugin.me, "me"),            # ……me 才会走到档案(DTO)深分支
-                (plugin.servers, ""), (plugin.help, ""),
-                (plugin.use, "use alpha"), (plugin.unbind, "unbind alpha"),
+                (plugin.server, "server"), (plugin.help, ""),
+                (plugin.server, "server add alpha"), (plugin.server, "server remove alpha"),
             ]
             for handler, msg in calls:
                 outputs = [out async for out in handler(_Ev(msg))]

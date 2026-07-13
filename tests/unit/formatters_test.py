@@ -114,9 +114,9 @@ def test_format_help_role_separation():
     from palworld_terminal.config import FeaturesConfig
     feats = FeaturesConfig(report=True, events=True, guilds_bases=True)
     admin = format_help(None, is_admin=True, features=feats)
-    assert "use" in admin
+    assert "server add" in admin
     guest = format_help(None, is_admin=False, features=feats)
-    assert "use" not in guest and "status" in guest
+    assert "server add" not in guest and "status" in guest
 
 
 def test_format_help_filters_disabled_groups():
