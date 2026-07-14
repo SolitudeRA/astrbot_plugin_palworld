@@ -11,8 +11,11 @@ DOCS = README + "\n" + "\n".join(
 
 
 def test_readme_first_screen_safety_claims():
-    # 安全声明必须在主 README(不接受移入子文档)
-    for phrase in ("只读", "不控制服务器", "不存储 IP", "不公开精确位置", "启用 REST", "勿暴露公网"):
+    # 安全声明必须在主 README(不接受移入子文档)。
+    # v0.9.0 定位从「只读」迁移到「受控写」:观测仍只读,但新增受控写命令
+    # (默认全关、仅授权管理员、全程审计),首屏安全声明须如实反映。
+    for phrase in ("受控写", "仅授权管理员", "审计", "不存储 IP",
+                   "不公开精确位置", "启用 REST", "勿暴露公网"):
         assert phrase in README, f"README 缺少安全声明: {phrase}"
 
 
@@ -106,3 +109,21 @@ def test_readme_documents_permission_management():
     # 三条安全告知必须落在文档里
     for phrase in ("全局", "命名空间", "明文", "PII"):
         assert phrase in DOCS, f"文档缺少权限安全告知: {phrase}"
+
+
+def test_readme_documents_server_admin_commands():
+    # v0.9.0 服务器管控:7 写命令 + confirm 二次确认,均须在文档指令表出现
+    for cmd in ("/pal announce", "/pal save", "/pal kick", "/pal unban",
+                "/pal ban", "/pal shutdown", "/pal stop", "/pal confirm"):
+        assert cmd in DOCS, f"文档缺少服务器管控命令: {cmd}"
+    # 两个 feature 组 + 危险分级
+    for phrase in ("服务器管控", "server_admin_basic", "server_admin_danger",
+                   "二次确认", "受控写"):
+        assert phrase in DOCS, f"文档缺少服务器管控说明: {phrase}"
+
+
+def test_readme_documents_server_admin_safety():
+    # 安全告知:OPEN 爆炸半径、stop 丢档、审计留存/PII
+    for phrase in ("仅授权管理员", "审计", "爆炸半径", "丢档",
+                   "audit_retention_days", "require_confirmation"):
+        assert phrase in DOCS, f"文档缺少服务器管控安全告知: {phrase}"

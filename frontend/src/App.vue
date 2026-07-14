@@ -43,7 +43,7 @@ const configChapters = CHAPTERS.filter((c) => c.group === '配置')
           <button class="ghost" @click="toggleTheme">{{ theme === 'dark' ? '☀ 浅色' : '☾ 深色' }}</button>
         </div>
         <div class="dateline"></div>
-        <div class="subline"><span>Palworld 服务器监测 · 只读</span></div>
+        <div class="subline"><span>Palworld 服务器监测与管控</span></div>
       </header>
       <div class="layout">
         <nav class="rail" aria-label="章节索引">

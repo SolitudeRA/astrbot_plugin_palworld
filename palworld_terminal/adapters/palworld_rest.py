@@ -1,4 +1,7 @@
-"""aiohttp REST 客户端：BasicAuth、超时、脱敏错误（不含凭证/URL）。"""
+"""aiohttp REST 客户端：BasicAuth、超时、脱敏错误（不含凭证/URL）。
+
+支持只读观测端点(GET)与受控写/管理端点(POST，供服务器管控命令使用)。
+"""
 from __future__ import annotations
 
 from dataclasses import dataclass

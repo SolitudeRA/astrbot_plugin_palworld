@@ -1,3 +1,6 @@
-"""PalWorldTerminal · 帕鲁世界终端 —— 只读 Palworld 世界观察插件（内部包）。"""
+"""PalWorldTerminal · 帕鲁世界终端 —— Palworld 世界观察与受控管控插件（内部包）。
 
-__version__ = "0.8.7"
+观测链路只读；写/管理操作受控（默认全关、仅授权管理员、全程审计）。
+"""
+
+__version__ = "0.9.0"
