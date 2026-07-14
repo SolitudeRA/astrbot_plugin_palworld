@@ -24,6 +24,16 @@ async def test_whoami_empty_account():
     assert "aiocqhttp:" not in out and "无法识别" in out
 
 
+async def test_whereami_returns_umo():
+    out = await _cmds().whereami("aiocqhttp:GroupMessage:42")
+    assert "aiocqhttp:GroupMessage:42" in out
+
+
+async def test_whereami_empty_umo_falls_back():
+    out = await _cmds().whereami("")
+    assert "aiocqhttp" not in out  # 空 UMO 走兜底、不回显空串
+
+
 def test_is_plugin_admin():
     c = _cmds(admins=["aiocqhttp:1"])
     assert c.is_plugin_admin("aiocqhttp:1") is True

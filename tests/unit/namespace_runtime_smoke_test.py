@@ -149,7 +149,8 @@ async def test_all_commands_run_under_namespaced_load(tmp_path, monkeypatch):
                 (plugin.player, "player bind Alice"),  # 先绑定……
                 (plugin.me, "me"),                      # ……me 才会走到档案(DTO)深分支
                 (plugin.player, "player unbind"),       # 绑定后解绑,走 delete_binding 深分支
-                (plugin.link, "link list"), (plugin.whoami, "whoami"), (plugin.help, "help"),
+                (plugin.link, "link list"), (plugin.whoami, "whoami"),
+                (plugin.whereami, "whereami"), (plugin.help, "help"),
                 (plugin.link, "link add alpha"), (plugin.link, "link remove alpha"),
                 # 服务器管控写命令(require_confirmation 默认关 → 直执,不进 pending);
                 # kick/ban 的 Alice 由 _FakeRest.fetch 种在线 → 走到 execute_target。

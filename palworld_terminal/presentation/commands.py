@@ -450,6 +450,11 @@ class Commands:
             return L("whoami_no_sender")
         return L("whoami", id=sender_id)
 
+    async def whereami(self, umo: str) -> str:
+        if not umo:
+            return L("whereami_no_umo")
+        return L("whereami", umo=umo)
+
     # ---- 服务器管控写编排（本功能安全模型的心脏；门序为铁律）----
 
     async def admin_write(

@@ -151,7 +151,7 @@ _NON_LOCKABLE = frozenset({
     "server announce", "server save", "server kick", "server unban",
     "server ban", "server shutdown", "server stop",
     "link list", "link add", "link remove",
-    "help", "whoami", "confirm",
+    "help", "whoami", "whereami", "confirm",
 })
 
 
