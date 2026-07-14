@@ -9,7 +9,6 @@ from palworld_terminal.application.command_permissions import (
     admin_forced_true,
     enable_configurable,
 )
-from palworld_terminal.presentation.command_registry import LOCKABLE_COMMANDS
 
 _SCHEMA = (Path(__file__).resolve().parents[2] / "frontend" / "src" / "lib" / "schema.ts").read_text(encoding="utf-8")
 
@@ -21,17 +20,6 @@ def _load_pal_tree_json() -> list[dict]:
     m = re.search(r"export const PAL_TREE[^=]*=\s*(\[.*?\])", _SCHEMA, re.S)
     assert m, "schema.ts 缺 PAL_TREE"
     return json.loads(m.group(1))
-
-
-def test_pal_commands_matches_lockable():
-    # 保留：PAL_COMMANDS（供 SettingsPanel 现构建）命令串 == 后端 LOCKABLE_COMMANDS。
-    m = re.search(r"export const PAL_COMMANDS[^=]*=\s*\[(.*?)\]", _SCHEMA, re.S)
-    assert m, "schema.ts 缺 PAL_COMMANDS"
-    cmds = set(re.findall(r"cmd:\s*'([^']+)'", m.group(1)))
-    assert cmds == set(LOCKABLE_COMMANDS), (
-        f"PAL_COMMANDS 与 LOCKABLE_COMMANDS 漂移：仅前端 {cmds - set(LOCKABLE_COMMANDS)}，"
-        f"仅后端 {set(LOCKABLE_COMMANDS) - cmds}"
-    )
 
 
 def test_frontend_tree_matches_backend_meta():

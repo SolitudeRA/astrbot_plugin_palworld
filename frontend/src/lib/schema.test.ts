@@ -19,7 +19,7 @@ function keysOfTemplateList(section: string, tpl: string): string[] {
 }
 
 describe('schema 完整性（对齐 _conf_schema.json，缺一即失败）', () => {
-  it('7 个 object 节字段集完全一致', () => {
+  it('每个 object 节字段集与 _conf_schema.json 完全一致', () => {
     for (const sec of OBJECT_SECTIONS) {
       const declared = sec.fields.map((f) => f.key).sort()
       expect(declared, `节 ${sec.key} 字段不齐`).toEqual(keysOfObject(sec.key))
@@ -31,23 +31,15 @@ describe('schema 完整性（对齐 _conf_schema.json，缺一即失败）', () 
   it('HEADER_FIELDS 覆盖 custom_headers 模板全字段', () => {
     expect(HEADER_FIELDS.map((f) => f.key).sort()).toEqual(keysOfTemplateList('custom_headers', 'header'))
   })
-  it('OBJECT_SECTIONS 恰为 9 个 object 节（不含 servers/custom_headers/group_bindings）', () => {
+  it('OBJECT_SECTIONS 恰为 8 个 object 节（不含 features/servers/custom_headers/group_bindings/permission_admins/command_permissions）', () => {
+    // Phase 2：features 已被 command_permissions（命令树）取代，前端不再声明 features object 节
     expect(OBJECT_SECTIONS.map((s) => s.key)).toEqual(
-      ['routing', 'polling', 'world', 'bases', 'privacy', 'history', 'features', 'players', 'server_admin'])
+      ['routing', 'polling', 'world', 'bases', 'privacy', 'history', 'players', 'server_admin'])
+    expect(OBJECT_SECTIONS.some((s) => s.key === 'features')).toBe(false)
   })
 })
 
-describe('服务器管控 FEATURE 两组 + server_admin 配置节', () => {
-  const features = OBJECT_SECTIONS.find((s) => s.key === 'features')
-  it('features 段含 server_admin_basic / server_admin_danger（bool，默认 false）', () => {
-    expect(features, '缺 features 节').toBeTruthy()
-    for (const key of ['server_admin_basic', 'server_admin_danger']) {
-      const f = features!.fields.find((x) => x.key === key)
-      expect(f, `缺 ${key}`).toBeTruthy()
-      expect(f!.type).toBe('bool')
-      expect(f!.default).toBe(false)
-    }
-  })
+describe('server_admin 配置节', () => {
   it('存在 server_admin 配置节（三字段对齐 _conf_schema.json）', () => {
     const sa = OBJECT_SECTIONS.find((s) => s.key === 'server_admin')
     expect(sa, '缺 server_admin 节').toBeTruthy()

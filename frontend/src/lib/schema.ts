@@ -74,14 +74,6 @@ export const OBJECT_SECTIONS: ObjectSection[] = [
     { key: 'session_days', type: 'int', label: '玩家会话', default: 365 },
     { key: 'observation_days', type: 'int', label: '观察记录', default: 180 },
   ]},
-  { key: 'features', title: '功能开关', subtitle: '关闭的功能不采集数据，相关命令会提示未开放', fields: [
-    { key: 'report', type: 'bool', label: '日报 / 在线统计', default: true, hint: '/pal today' },
-    { key: 'events', type: 'bool', label: '世界事件记录', default: true, hint: '/pal events' },
-    { key: 'guilds_bases', type: 'bool', label: '公会与据点', default: false, hint: '依赖 /game-data；专用服务器暂不支持' },
-    { key: 'players', type: 'bool', label: '玩家查询', default: false, hint: '排行 / 档案 / 自助绑定' },
-    { key: 'server_admin_basic', type: 'bool', label: '服务器管控·基础', default: false, hint: '公告 / 存档 / 踢人 / 解封等写操作，仅授权管理员可用；开启前请先配置管理员名单' },
-    { key: 'server_admin_danger', type: 'bool', label: '服务器管控·危险', default: false, hint: '封禁 / 关服 / 停服等高破坏写操作，仅授权管理员可用；stop 会终止进程、可能丢失未存档进度，慎开' },
-  ]},
   { key: 'players', title: '玩家查询', subtitle: '「玩家查询」启用时生效', fields: [
     { key: 'rank_top_n', type: 'int', label: '排行榜人数', default: 5 },
     { key: 'exclude_names', type: 'string', label: '排除名单', default: '', hint: '逗号分隔；名单内玩家不进榜单、不可查询' },
@@ -93,19 +85,15 @@ export const OBJECT_SECTIONS: ObjectSection[] = [
   ]},
 ]
 
-// 可锁命令(astrbot 命令串)+ 所属功能组。内容须 == 后端 LOCKABLE_COMMANDS,
-// 由 tests/unit/frontend_pal_commands_test.py 跨端锚定。
-// 注：Task 11 权限章树 UI 消费下方 PAL_TREE；PAL_COMMANDS 暂留以兼容现 SettingsPanel。
-export const PAL_COMMANDS: { cmd: string; g: string }[] = [
-  { cmd: 'world status', g: 'core' }, { cmd: 'world overview', g: 'core' },
-  { cmd: 'world rules', g: 'core' }, { cmd: 'world events', g: 'events' },
-  { cmd: 'world today', g: 'report' },
-  { cmd: 'guild list', g: 'guilds_bases' }, { cmd: 'guild info', g: 'guilds_bases' },
-  { cmd: 'guild bases', g: 'guilds_bases' }, { cmd: 'guild base', g: 'guilds_bases' },
-  { cmd: 'player info', g: 'players' }, { cmd: 'player bind', g: 'players' },
-  { cmd: 'player unbind', g: 'players' },
-  { cmd: 'rank', g: 'players' }, { cmd: 'online', g: 'core' }, { cmd: 'me', g: 'players' },
-]
+// 命令权限三态：inherit=继承默认 / on=强制开启（enable）或锁为仅管理员（admin_only）/
+// off=强制关闭（enable）或放开（admin_only）。与后端 config._TRISTATE / _conf_schema.json
+// command_permissions 行取值全等。
+export type Tri = 'inherit' | 'on' | 'off'
+
+// 命令组中文展示名（权限章命令树分组头）。null 组（扁平命令）归「其他」段。
+export const GROUP_LABELS: Record<string, string> = {
+  world: '世界', guild: '公会', player: '玩家', server: '服务器管控', link: '服务器授权',
+}
 
 export interface PalTreeNode {
   group: string | null // 组命令填组名（world/guild/player/server/link）；扁平命令为 null（其他段）
