@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Callable, Mapping
 
-from .config_view import redact_config, status_rows, validate_and_backfill
+from .config_view import audit_rows, redact_config, status_rows, validate_and_backfill
 
 
 async def handle_config_get(get_raw: Callable[[], Mapping]) -> tuple[int, dict]:
@@ -23,6 +23,15 @@ async def handle_status_overview(container, restarting: bool) -> tuple[int, dict
         ready = s.ready if dto is not None else False
         entries.append((s.name, ready, dto))
     return 200, {"ok": True, "servers": status_rows(entries)}
+
+
+async def handle_audit_list(container, limit: int) -> tuple[int, dict]:
+    # 只读范式（照 handle_status_overview）：重载窗口下 main 传 container=None，
+    # 与真 None 一并折叠为 restarting，客户端拿空列表而非陈旧/半态数据。
+    if container is None:
+        return 200, {"ok": True, "audits": [], "restarting": True}
+    rows = await container.repo.list_audit(limit)  # 仓库已 ts DESC + LIMIT
+    return 200, {"ok": True, "audits": audit_rows(rows)}
 
 
 async def handle_config_save(

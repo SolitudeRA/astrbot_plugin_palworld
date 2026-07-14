@@ -120,6 +120,8 @@ class PalWorldTerminal(Star):
             f"{p}/config/save", self._web_config_save, ["POST"], "保存插件配置并重启")
         self._context.register_web_api(
             f"{p}/status/overview", self._web_status, ["GET"], "服务器状态概览")
+        self._context.register_web_api(
+            f"{p}/audit/list", self._web_audit, ["GET"], "管理审计日志(只读)")
 
     def _busy_msg(self) -> str | None:
         if self._restarting or self._container is None:
@@ -294,6 +296,28 @@ class PalWorldTerminal(Star):
         try:
             _code, payload = await web_api.handle_status_overview(
                 self._container, self._restarting)
+        finally:
+            self._inflight -= 1
+            if self._inflight == 0:
+                self._idle.set()
+        return jsonify(payload)
+
+    async def _web_audit(self):
+        from quart import jsonify, request
+        if not self._has_identity():
+            return self._deny_unauthorized()
+        try:
+            limit = int(request.args.get("limit", 100))
+        except (TypeError, ValueError):
+            limit = 100
+        limit = max(1, min(500, limit))  # clamp：防超大查询打穿 DB
+        # 与命令/状态同一在途门闩:重载 stop 前等待本次查询退出
+        self._inflight += 1
+        self._idle.clear()
+        try:
+            # 重载窗口折叠为 None:handler 回空列表 + restarting
+            container = None if self._restarting else self._container
+            _code, payload = await web_api.handle_audit_list(container, limit)
         finally:
             self._inflight -= 1
             if self._inflight == 0:

@@ -8,6 +8,7 @@ from __future__ import annotations
 import copy
 import math
 from collections.abc import Mapping
+from datetime import UTC, datetime
 from urllib.parse import urlsplit
 
 _LIST_SECTIONS = ("servers", "custom_headers", "group_bindings", "permission_admins")
@@ -235,3 +236,53 @@ def status_rows(entries: list) -> list[dict]:
             "degraded": dto.degraded, "last_ok": dto.last_ok,
         })
     return rows
+
+
+_AUDIT_HASH_TAIL = 6  # target_hash 是 64 位 HMAC-SHA256 hex，只露末段辅助去歧义
+
+
+def _fmt_audit_ts(ts) -> str:
+    """epoch → 可读 UTC 字符串；非法/缺失 ts 归为空串（不冒泡成 500）。"""
+    try:
+        return datetime.fromtimestamp(int(ts), tz=UTC).strftime(
+            "%Y-%m-%d %H:%M:%S UTC")
+    except (TypeError, ValueError, OSError, OverflowError):
+        return ""
+
+
+def _audit_target(name, target_hash) -> str:
+    """角色名 + hash 尾段组合。绝不回显完整 hash 或明文 userid。
+
+    name+tail→'Alice#abcdef'；仅 name→'Alice'；仅 hash（unban by userid）→
+    '#abcdef'；皆无（announce/save 等无目标写命令）→ ''。
+    """
+    tail = target_hash[-_AUDIT_HASH_TAIL:] if isinstance(target_hash, str) and target_hash else ""
+    nm = name if isinstance(name, str) and name else ""
+    if nm and tail:
+        return f"{nm}#{tail}"
+    if nm:
+        return nm
+    if tail:
+        return f"#{tail}"
+    return ""
+
+
+def audit_rows(rows: list) -> list[dict]:
+    """把仓库审计行（list_audit 的 9 列 dict，已 ts DESC）整形为白名单行。
+
+    红线：target 只露角色名 + hash 末段，绝不含完整 hash / 明文 userid / 凭证。
+    """
+    out: list[dict] = []
+    for r in rows:
+        ts = r.get("ts")
+        out.append({
+            "ts": ts,                                  # 原始 epoch，供前端排序/本地化
+            "time": _fmt_audit_ts(ts),                 # 可读 UTC
+            "action": r.get("action"),
+            "server": r.get("server_name"),
+            "admin": r.get("admin_id"),
+            "target": _audit_target(r.get("target_name"), r.get("target_hash")),
+            "success": bool(r.get("success")),
+            "error": r.get("error"),
+        })
+    return out
