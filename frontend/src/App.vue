@@ -1,10 +1,13 @@
 <script setup lang="ts">
-import { ref, watchEffect, onErrorCaptured } from 'vue'
+import { ref, computed, watchEffect, onErrorCaptured } from 'vue'
 import SettingsPanel from './components/SettingsPanel.vue'
 import StatusPanel from './components/StatusPanel.vue'
+import AuditPanel from './components/AuditPanel.vue'
 import { CHAPTERS, DEFAULT_CHAPTER } from './lib/chapters'
 
 const chapter = ref(DEFAULT_CHAPTER)
+// 按当前章的 kind 分派面板：status→StatusPanel、audit→AuditPanel、其余→SettingsPanel
+const currentKind = computed(() => CHAPTERS.find((c) => c.id === chapter.value)?.kind ?? 'settings')
 const fatal = ref('')
 // 固定文案,不透传 err.message(与 boot.ts 不回显原始错误的策略一致,防内部信息泄露)
 onErrorCaptured(() => { fatal.value = '页面发生错误，请刷新重试'; return false })
@@ -40,7 +43,7 @@ const configChapters = CHAPTERS.filter((c) => c.group === '配置')
           <button class="ghost" @click="toggleTheme">{{ theme === 'dark' ? '☀ 浅色' : '☾ 深色' }}</button>
         </div>
         <div class="dateline"></div>
-        <div class="subline"><span>Palworld 服务器监测 · 只读</span></div>
+        <div class="subline"><span>Palworld 服务器监测与管控</span></div>
       </header>
       <div class="layout">
         <nav class="rail" aria-label="章节索引">
@@ -51,8 +54,9 @@ const configChapters = CHAPTERS.filter((c) => c.group === '配置')
           <button v-for="c in configChapters" :key="c.id" :aria-current="chapter === c.id ? 'true' : 'false'" @click="chapter = c.id">{{ c.label }}</button>
         </nav>
         <div class="pane">
-          <SettingsPanel v-show="chapter !== 'status'" :chapter="chapter" />
-          <StatusPanel v-if="chapter === 'status'" />
+          <SettingsPanel v-show="currentKind === 'settings'" :chapter="chapter" />
+          <StatusPanel v-if="currentKind === 'status'" />
+          <AuditPanel v-if="currentKind === 'audit'" />
         </div>
       </div>
     </div>

@@ -11,6 +11,7 @@ from .adapters import privacy_filter as _privacy_mod
 from .adapters.metadata_repository import MetadataRepository
 from .adapters.palworld_rest import PalworldRestClient, RestResponse
 from .adapters.sqlite_repository import Repository
+from .application.admin_service import AdminService
 from .application.base_service import BaseService
 from .application.event_service import EventService
 from .application.feature_groups import active_endpoints
@@ -30,6 +31,7 @@ from .infrastructure.migrations import apply_migrations
 from .infrastructure.salt import load_or_create_salt
 from .infrastructure.scheduler import Scheduler
 from .presentation.commands import Commands
+from .presentation.confirmation import ConfirmationStore
 
 _log = logging.getLogger("palworld_terminal.container")
 
@@ -131,7 +133,14 @@ class Container:
             repo, cache, self._cfg, meta, self._clock, self._settings_cache,
             world_cache=self._world_cache, report=self.report,
         )
-        self.commands = Commands(self.routing, self.query, repo, self._cfg, self._clock, salt)
+        admin = AdminService(
+            self.routing, self._fetch, self._post, repo, salt, self._clock
+        )
+        confirmations = ConfirmationStore(self._clock)
+        self.commands = Commands(
+            self.routing, self.query, repo, self._cfg, self._clock, salt,
+            admin_service=admin, confirmations=confirmations,
+        )
 
         for s in self._cfg.servers:
             if s.ready:
@@ -158,6 +167,14 @@ class Container:
     async def _fetch(self, server_id: str, endpoint: EndpointName) -> RestResponse:
         client = self._rest_clients[server_id]
         return await client.fetch(endpoint)
+
+    async def _post(
+        self, server_id: str, path: str, json_body: dict | None
+    ) -> RestResponse:
+        # 写端点回调（照 _fetch 按 server_id 路由；routing.resolve 只返回 ready
+        # 服务器，故 _rest_clients 必含对应 client）。
+        client = self._rest_clients[server_id]
+        return await client.post(path, json_body)
 
     async def _on_response(
         self, server_id: str, endpoint: EndpointName, resp: RestResponse

@@ -238,10 +238,35 @@ async def migration_0003(conn: aiosqlite.Connection) -> None:
         await conn.execute(stmt)
 
 
+_MIGRATION_0004_SQL = [
+    """
+    CREATE TABLE IF NOT EXISTS admin_audit (
+        id          INTEGER PRIMARY KEY AUTOINCREMENT,
+        ts          INTEGER NOT NULL,
+        admin_id    TEXT NOT NULL,
+        action      TEXT NOT NULL,
+        server_name TEXT NOT NULL,
+        target_name TEXT,
+        target_hash TEXT,
+        detail      TEXT,
+        success     INTEGER NOT NULL,
+        error       TEXT
+    )
+    """,
+    "CREATE INDEX IF NOT EXISTS idx_admin_audit_ts ON admin_audit(ts DESC)",
+]
+
+
+async def migration_0004(conn: aiosqlite.Connection) -> None:
+    for stmt in _MIGRATION_0004_SQL:
+        await conn.execute(stmt)
+
+
 MIGRATIONS: list[Callable[[aiosqlite.Connection], Awaitable[None]]] = [
     migration_0001,
     migration_0002,
     migration_0003,
+    migration_0004,
 ]
 
 

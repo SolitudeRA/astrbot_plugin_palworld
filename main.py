@@ -78,7 +78,7 @@ def _resolve_data_dir() -> Path:
 
 
 @register("astrbot_plugin_palworld", "SolitudeRA",
-          "监测 Palworld 专用服务器,提供群内状态查询、日报与玩家档案(只读)", "v0.8.7",
+          "监测 Palworld 专用服务器,提供群内状态查询、日报、玩家档案与受控服务器管控", "v0.9.0",
           "https://github.com/SolitudeRA/astrbot_plugin_palworld")
 class PalWorldTerminal(Star):
     def __init__(self, context, config):
@@ -120,6 +120,8 @@ class PalWorldTerminal(Star):
             f"{p}/config/save", self._web_config_save, ["POST"], "保存插件配置并重启")
         self._context.register_web_api(
             f"{p}/status/overview", self._web_status, ["GET"], "服务器状态概览")
+        self._context.register_web_api(
+            f"{p}/audit/list", self._web_audit, ["GET"], "管理审计日志(只读)")
 
     def _busy_msg(self) -> str | None:
         if self._restarting or self._container is None:
@@ -168,6 +170,15 @@ class PalWorldTerminal(Star):
             if self._inflight == 0:
                 self._idle.set()
 
+    async def _guarded_admin(self, call):
+        """服务器管控写命令的门:薄委托到 _guarded(busy+inflight 包裹),不做 admin_denied。
+
+        admin 硬门与 feature 门在 Commands.admin_write 内(门序铁律:admin 先于
+        feature),此处不重复;命令串亦在 config._NON_LOCKABLE,永不进 admin_only。
+        保留独立名字仅为锚定「写命令走 _guarded_admin(区别于 _guarded/_guarded_cmd)」。
+        """
+        return await self._guarded(call)
+
     async def _wait_quiescent(self, timeout: float = 5.0) -> None:
         # 新操作已被 _restarting 挡在门外;等在途的退完再关旧容器。
         # 超时兜底:个别慢查询不至于永久卡死重载(此时回到修复前的竞态概率)
@@ -200,6 +211,8 @@ class PalWorldTerminal(Star):
                     pass
                 raise
             self._container = new_container
+            # config 热重载:清空所有 pending 确认,避免旧上下文被误确认(spec §4.4)
+            self._container.commands.clear_pending()
             return {"ok": True, "warnings": {
                 "skipped_servers": [{"raw_name": s.raw_name, "reason": s.reason}
                                     for s in new_cfg.skipped],
@@ -272,6 +285,28 @@ class PalWorldTerminal(Star):
         try:
             _code, payload = await web_api.handle_status_overview(
                 self._container, self._restarting)
+        finally:
+            self._inflight -= 1
+            if self._inflight == 0:
+                self._idle.set()
+        return jsonify(payload)
+
+    async def _web_audit(self):
+        from quart import jsonify, request
+        if not self._has_identity():
+            return self._deny_unauthorized()
+        try:
+            limit = int(request.args.get("limit", 100))
+        except (TypeError, ValueError):
+            limit = 100
+        limit = max(1, min(500, limit))  # clamp：防超大查询打穿 DB
+        # 与命令/状态同一在途门闩:重载 stop 前等待本次查询退出
+        self._inflight += 1
+        self._idle.clear()
+        try:
+            # 重载窗口折叠为 None:handler 回空列表 + restarting
+            container = None if self._restarting else self._container
+            _code, payload = await web_api.handle_audit_list(container, limit)
         finally:
             self._inflight -= 1
             if self._inflight == 0:
@@ -453,3 +488,68 @@ class PalWorldTerminal(Star):
         yield event.plain_result(
             await self._guarded(lambda c: c.commands.help(self._msg(event), self._is_admin(event)))
         )
+
+    # ---- 服务器管控写命令（门在 admin_write 内：admin 硬门先于 feature；
+    # arg_str 传完整 message_str，Commands 内 parse_arg 自剥命令词）----
+    @pal.command("announce")
+    async def announce(self, event):
+        yield event.plain_result(await self._guarded_admin(
+            lambda c: c.commands.admin_write(
+                "announce", "server_admin_basic", self._sender_id(event), self._umo(event),
+                self._is_group(event), self._msg(event),
+                c.commands.is_plugin_admin(self._sender_id(event)))))
+
+    @pal.command("save")
+    async def save(self, event):
+        yield event.plain_result(await self._guarded_admin(
+            lambda c: c.commands.admin_write(
+                "save", "server_admin_basic", self._sender_id(event), self._umo(event),
+                self._is_group(event), self._msg(event),
+                c.commands.is_plugin_admin(self._sender_id(event)))))
+
+    @pal.command("kick")
+    async def kick(self, event):
+        yield event.plain_result(await self._guarded_admin(
+            lambda c: c.commands.admin_write(
+                "kick", "server_admin_basic", self._sender_id(event), self._umo(event),
+                self._is_group(event), self._msg(event),
+                c.commands.is_plugin_admin(self._sender_id(event)))))
+
+    @pal.command("unban")
+    async def unban(self, event):
+        yield event.plain_result(await self._guarded_admin(
+            lambda c: c.commands.admin_write(
+                "unban", "server_admin_basic", self._sender_id(event), self._umo(event),
+                self._is_group(event), self._msg(event),
+                c.commands.is_plugin_admin(self._sender_id(event)))))
+
+    @pal.command("ban")
+    async def ban(self, event):
+        yield event.plain_result(await self._guarded_admin(
+            lambda c: c.commands.admin_write(
+                "ban", "server_admin_danger", self._sender_id(event), self._umo(event),
+                self._is_group(event), self._msg(event),
+                c.commands.is_plugin_admin(self._sender_id(event)))))
+
+    @pal.command("shutdown")
+    async def shutdown(self, event):
+        yield event.plain_result(await self._guarded_admin(
+            lambda c: c.commands.admin_write(
+                "shutdown", "server_admin_danger", self._sender_id(event), self._umo(event),
+                self._is_group(event), self._msg(event),
+                c.commands.is_plugin_admin(self._sender_id(event)))))
+
+    @pal.command("stop")
+    async def stop(self, event):
+        yield event.plain_result(await self._guarded_admin(
+            lambda c: c.commands.admin_write(
+                "stop", "server_admin_danger", self._sender_id(event), self._umo(event),
+                self._is_group(event), self._msg(event),
+                c.commands.is_plugin_admin(self._sender_id(event)))))
+
+    @pal.command("confirm")
+    async def confirm(self, event):
+        # confirm 走 _guarded（core）；admin 硬门在 Commands.confirm 内自判。
+        yield event.plain_result(await self._guarded(lambda c: c.commands.confirm(
+            self._sender_id(event), self._umo(event), self._is_group(event),
+            c.commands.is_plugin_admin(self._sender_id(event)))))

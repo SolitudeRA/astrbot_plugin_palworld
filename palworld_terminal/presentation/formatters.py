@@ -129,10 +129,21 @@ _HELP_ADMIN_EXTRA = [
 ]
 
 
+_ADMIN_GROUPS = frozenset({"server_admin_basic", "server_admin_danger"})
+
+
 def format_help(topic: str | None, is_admin: bool, features) -> str:
     lines = ["PalWorldTerminal 命令："]
     for name, group in COMMANDS:
-        if group == "core" or features.enabled(group):
+        if group in _ADMIN_GROUPS:
+            # 写命令：组已开 且 是管理员 才展示（非管理员绝不泄漏其存在）
+            if is_admin and features.enabled(group):
+                lines.append(HELP_LINE[name])
+        elif name == "confirm":
+            # confirm 是 core，但仅对管理员有意义，仅管理员可见
+            if is_admin:
+                lines.append(HELP_LINE[name])
+        elif group == "core" or features.enabled(group):
             lines.append(HELP_LINE[name])
     lines.append("提示：命令末尾可加 @服务器名 指定服务器。")
     if is_admin:

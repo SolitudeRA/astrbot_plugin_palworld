@@ -16,8 +16,10 @@ const cfg = () => ({ ok: true, config: {
   privacy: { mode: 'balanced', public_exact_ping: false, public_positions: false,
     ping_good_ms: 60, ping_ok_ms: 120, uncertain_timeout: 900 },
   history: { raw_metrics_days: 7, aggregate_days: 90, session_days: 365, observation_days: 180 },
-  features: { report: true, events: true, guilds_bases: false, players: false },
+  features: { report: true, events: true, guilds_bases: false, players: false,
+    server_admin_basic: false, server_admin_danger: false },
   players: { rank_top_n: 5, exclude_names: '' },
+  server_admin: { require_confirmation: false, confirmation_timeout: 30, audit_retention_days: 180 },
   permission_admins: [],
   admin_only_commands: [],
 }, page_version: 1 })
@@ -33,6 +35,29 @@ describe('SettingsPanel', () => {
     const w = mountAt('feature'); await flushPromises()
     expect(w.text()).toContain('功能开关')
     expect(w.text()).toContain('玩家查询')
+  })
+  it('feature 章渲染服务器管控两组开关 + server_admin 配置段', async () => {
+    (window.AstrBotPluginPage!.apiGet as any).mockResolvedValue(cfg())
+    const w = mountAt('feature'); await flushPromises()
+    expect(w.text()).toContain('服务器管控·基础') // features 段两组开关
+    expect(w.text()).toContain('服务器管控·危险')
+    expect(w.text()).toContain('危险命令二次确认') // server_admin 配置段字段
+    expect(w.text()).toContain('审计留存天数')
+  })
+  it('保存 body 携带 server_admin 段（类型正确，往返闭合）', async () => {
+    (window.AstrBotPluginPage!.apiGet as any).mockResolvedValue(cfg());
+    (window.AstrBotPluginPage!.apiPost as any).mockResolvedValue({ ok: true, warnings: {} })
+    const w = mountAt('feature'); await flushPromises()
+    await w.get('button.pw-save').trigger('click'); await flushPromises()
+    const [, body] = (window.AstrBotPluginPage!.apiPost as any).mock.calls[0]
+    expect(typeof body.server_admin.require_confirmation).toBe('boolean')
+    expect(typeof body.server_admin.confirmation_timeout).toBe('number')
+    expect(typeof body.features.server_admin_basic).toBe('boolean')
+  })
+  it('config 缺 server_admin 键不崩，applyConfig 退化为空段', async () => {
+    (window.AstrBotPluginPage!.apiGet as any).mockResolvedValue({ ok: true, config: {} })
+    const w = mountAt('feature'); await flushPromises()
+    expect(w.text()).toContain('服务器管控') // 段仍按 schema 渲染，不因缺键崩
   })
   it('access 章渲染访问控制节 + 保存条', async () => {
     (window.AstrBotPluginPage!.apiGet as any).mockResolvedValue(cfg())

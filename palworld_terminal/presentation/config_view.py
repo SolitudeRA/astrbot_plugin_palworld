@@ -8,6 +8,7 @@ from __future__ import annotations
 import copy
 import math
 from collections.abc import Mapping
+from datetime import UTC, datetime
 from urllib.parse import urlsplit
 
 _LIST_SECTIONS = ("servers", "custom_headers", "group_bindings", "permission_admins")
@@ -29,7 +30,14 @@ _SECTION_KEYS = {
 _TOP_KEYS = {
     "servers", "routing", "group_bindings", "custom_headers",
     "polling", "world", "bases", "privacy", "history", "features", "players",
-    "permission_admins", "admin_only_commands",
+    "permission_admins", "admin_only_commands", "server_admin",
+}
+
+# server_admin 的两个带界 int 字段（范围须与 config.py::_parse_server_admin 一致）；
+# 带上下界故不走 _NUM_FIELDS（仅判非负），改用独立形状校验。
+_SERVER_ADMIN_INT_BOUNDS = {
+    "confirmation_timeout": (5, 600),
+    "audit_retention_days": (1, 3650),
 }
 _MAX_LIST = 200
 _MAX_STR = 8 * 1024
@@ -143,9 +151,24 @@ def validate_and_backfill(body, old_raw, env):
             for v in it.values():
                 if isinstance(v, str) and len(v) > _MAX_STR:
                     return _err("too_large")
-    for section in ("routing", "polling", "world", "bases", "privacy", "history", "features", "players"):
+    for section in ("routing", "polling", "world", "bases", "privacy", "history",
+                    "features", "players", "server_admin"):
         if section in body and not isinstance(body[section], Mapping):
             return _err("invalid_shape")
+
+    # server_admin：object 三字段（require_confirmation:bool + 两个带界 int），
+    # 类型错/越界 → invalid_shape（object-ness 已由上面的 tuple 保证）。
+    sa = body.get("server_admin")
+    if isinstance(sa, Mapping):
+        rc = sa.get("require_confirmation")
+        if rc is not None and not isinstance(rc, bool):
+            return _err("invalid_shape", "server_admin.require_confirmation")
+        for field, (lo, hi) in _SERVER_ADMIN_INT_BOUNDS.items():
+            if field in sa:
+                v = sa[field]
+                # bool 是 int 子类须显式排除；仅接受界内 int（页面已 coerce 成数值）
+                if isinstance(v, bool) or not isinstance(v, int) or not (lo <= v <= hi):
+                    return _err("invalid_shape", f"server_admin.{field}")
 
     # admin_only_commands：顶层字符串列表（仓库无此形态先例，独立校验）
     if "admin_only_commands" in body:
@@ -235,3 +258,53 @@ def status_rows(entries: list) -> list[dict]:
             "degraded": dto.degraded, "last_ok": dto.last_ok,
         })
     return rows
+
+
+_AUDIT_HASH_TAIL = 6  # target_hash 是 64 位 HMAC-SHA256 hex，只露末段辅助去歧义
+
+
+def _fmt_audit_ts(ts) -> str:
+    """epoch → 可读 UTC 字符串；非法/缺失 ts 归为空串（不冒泡成 500）。"""
+    try:
+        return datetime.fromtimestamp(int(ts), tz=UTC).strftime(
+            "%Y-%m-%d %H:%M:%S UTC")
+    except (TypeError, ValueError, OSError, OverflowError):
+        return ""
+
+
+def _audit_target(name, target_hash) -> str:
+    """角色名 + hash 尾段组合。绝不回显完整 hash 或明文 userid。
+
+    name+tail→'Alice#abcdef'；仅 name→'Alice'；仅 hash（unban by userid）→
+    '#abcdef'；皆无（announce/save 等无目标写命令）→ ''。
+    """
+    tail = target_hash[-_AUDIT_HASH_TAIL:] if isinstance(target_hash, str) and target_hash else ""
+    nm = name if isinstance(name, str) and name else ""
+    if nm and tail:
+        return f"{nm}#{tail}"
+    if nm:
+        return nm
+    if tail:
+        return f"#{tail}"
+    return ""
+
+
+def audit_rows(rows: list) -> list[dict]:
+    """把仓库审计行（list_audit 的 9 列 dict，已 ts DESC）整形为白名单行。
+
+    红线：target 只露角色名 + hash 末段，绝不含完整 hash / 明文 userid / 凭证。
+    """
+    out: list[dict] = []
+    for r in rows:
+        ts = r.get("ts")
+        out.append({
+            "ts": ts,                                  # 原始 epoch，供前端排序/本地化
+            "time": _fmt_audit_ts(ts),                 # 可读 UTC
+            "action": r.get("action"),
+            "server": r.get("server_name"),
+            "admin": r.get("admin_id"),
+            "target": _audit_target(r.get("target_name"), r.get("target_hash")),
+            "success": bool(r.get("success")),
+            "error": r.get("error"),
+        })
+    return out

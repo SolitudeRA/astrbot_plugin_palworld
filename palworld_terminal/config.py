@@ -119,12 +119,16 @@ class FeaturesConfig:
     events: bool
     guilds_bases: bool
     players: bool = False
+    server_admin_basic: bool = False
+    server_admin_danger: bool = False
 
     def enabled(self, name: str) -> bool:
         return {
             "core": True, "report": self.report,
             "events": self.events, "guilds_bases": self.guilds_bases,
             "players": self.players,
+            "server_admin_basic": self.server_admin_basic,
+            "server_admin_danger": self.server_admin_danger,
         }.get(name, False)
 
 
@@ -159,8 +163,45 @@ def _default_permissions() -> PermissionsConfig:
 
 
 # 命令门不可锁集(astrbot 命令串);与 command_registry.LOCKABLE_COMMANDS 一致,
-# 此处内联以免 config 依赖 presentation 层
-_NON_LOCKABLE = frozenset({"server", "whoami", "help"})
+# 此处内联以免 config 依赖 presentation 层。
+# 服务器管控写命令(announce/save/kick/unban/ban/shutdown/stop)与 confirm 由
+# feature 组 + 管理员名单双闸把守,绝不可再被 admin_only_commands 锁,故一并预置。
+_NON_LOCKABLE = frozenset({
+    "server", "whoami", "help", "confirm",
+    "announce", "save", "kick", "unban", "ban", "shutdown", "stop",
+})
+
+
+@dataclass(slots=True)
+class ServerAdminConfig:
+    require_confirmation: bool
+    confirmation_timeout: int
+    audit_retention_days: int
+
+
+def _default_server_admin() -> ServerAdminConfig:
+    return ServerAdminConfig(
+        require_confirmation=False, confirmation_timeout=30, audit_retention_days=180)
+
+
+def _clamp_int(raw, default: int, lo: int, hi: int) -> int:
+    """非法(非 int / None)回 default;合法但越界 → clamp 到 [lo, hi]。"""
+    try:
+        v = int(raw)
+    except (TypeError, ValueError):
+        return default
+    return max(lo, min(hi, v))
+
+
+def _parse_server_admin(raw: Mapping) -> ServerAdminConfig:
+    sa = raw.get("server_admin", {}) or {}
+    if not isinstance(sa, Mapping):
+        sa = {}
+    return ServerAdminConfig(
+        require_confirmation=bool(sa.get("require_confirmation", False)),
+        confirmation_timeout=_clamp_int(sa.get("confirmation_timeout", 30), 30, 5, 600),
+        audit_retention_days=_clamp_int(sa.get("audit_retention_days", 180), 180, 1, 3650),
+    )
 
 
 @dataclass(slots=True)
@@ -178,6 +219,7 @@ class AppConfig:
     features: FeaturesConfig = field(default_factory=_default_features)
     players: PlayersConfig = field(default_factory=_default_players)
     permissions: PermissionsConfig = field(default_factory=_default_permissions)
+    server_admin: ServerAdminConfig = field(default_factory=_default_server_admin)
 
 
 def _obj(raw: Mapping, key: str) -> Mapping:
@@ -358,6 +400,8 @@ def parse_config(raw: Mapping, env: Mapping[str, str]) -> AppConfig:
         events=bool(f.get("events", True)),
         guilds_bases=bool(f.get("guilds_bases", False)),
         players=bool(f.get("players", False)),
+        server_admin_basic=bool(f.get("server_admin_basic", False)),
+        server_admin_danger=bool(f.get("server_admin_danger", False)),
     )
     return AppConfig(
         servers=servers,
@@ -412,4 +456,5 @@ def parse_config(raw: Mapping, env: Mapping[str, str]) -> AppConfig:
             exclude_names=[s.strip() for s in str(pl.get("exclude_names", "")).split(",") if s.strip()],
         ),
         permissions=_parse_permissions(raw),
+        server_admin=_parse_server_admin(raw),
     )

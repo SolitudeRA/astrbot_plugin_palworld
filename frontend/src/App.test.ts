@@ -21,6 +21,19 @@ describe('App', () => {
     await obs.trigger('click'); await flushPromises()
     expect(w.text()).toContain('刷新') // 进入 StatusPanel
   })
+  it('切到审计章 → 渲染 AuditPanel（非 StatusPanel/SettingsPanel）', async () => {
+    const w = mount(App, { global: { stubs: {
+      AuditPanel: { template: '<div>AUDIT_STUB</div>' },
+      StatusPanel: { template: '<div>STATUS_STUB</div>' },
+      SettingsPanel: { template: '<div>SETTINGS_STUB</div>' },
+    } } })
+    await flushPromises()
+    const rail = w.findAll('.rail button')
+    const auditBtn = rail.find((b) => b.text().includes('审计'))!
+    await auditBtn.trigger('click'); await flushPromises()
+    expect(w.text()).toContain('AUDIT_STUB')
+    expect(w.text()).not.toContain('STATUS_STUB')
+  })
   it('子组件抛错 → 错误边界兜底，不白屏', async () => {
     const Boom = { setup() { throw new Error('boom-child') }, template: '<div/>' }
     const w = mount(App, { global: { stubs: { SettingsPanel: Boom } } })

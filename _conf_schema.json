@@ -129,7 +129,18 @@
       "report": { "type": "bool", "description": "日报/在线统计（/pal today）", "default": true },
       "events": { "type": "bool", "description": "世界事件记录（/pal events；关闭后不生成事件）", "default": true },
       "guilds_bases": { "type": "bool", "description": "公会与据点（依赖服务器开放 /game-data；Palworld 1.0 专用服务器暂不支持，默认关）", "default": false },
-      "players": { "type": "bool", "description": "玩家个体查询（排行/档案/自助绑定；默认关，含个体隐私考量）", "default": false }
+      "players": { "type": "bool", "description": "玩家个体查询（排行/档案/自助绑定；默认关，含个体隐私考量）", "default": false },
+      "server_admin_basic": { "type": "bool", "description": "服务器管控-基础组（公告/存档/踢人/解封等写操作，仅授权管理员可用；默认关，开启前请确认已配置 permission_admins）", "default": false },
+      "server_admin_danger": { "type": "bool", "description": "服务器管控-危险组（封禁/关服/停服等高破坏写操作，仅授权管理员可用；默认关。stop 会直接终止进程且可能丢失未存档进度，慎开）", "default": false }
+    }
+  },
+  "server_admin": {
+    "type": "object",
+    "description": "服务器管控参数（features.server_admin_basic/danger 开启时生效）。安全告知：本组命令为写操作，采用 OPEN 访问模式——任一 permission_admins 管理员可从任意群/私聊管控任意「就绪」服务器（爆炸半径覆盖全部已配置服务器），务必收紧管理员名单；stop 直接终止服务器进程，不触发存档，可能丢失未保存进度；审计日志与二次确认记录含玩家名/账号等明文 PII，按 audit_retention_days 留存后清理",
+    "items": {
+      "require_confirmation": { "type": "bool", "description": "危险组命令是否需二次确认（/pal confirm）；开启后关服/封禁等须在 confirmation_timeout 秒内确认", "default": false },
+      "confirmation_timeout": { "type": "int", "description": "二次确认有效期(秒)，超时作废（范围 5-600）", "default": 30 },
+      "audit_retention_days": { "type": "int", "description": "管控审计日志留存天数，到期清理（范围 1-3650；日志含明文 PII）", "default": 180 }
     }
   },
   "players": {

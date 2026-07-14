@@ -1,5 +1,5 @@
 from palworld_terminal.infrastructure.database import Database
-from palworld_terminal.infrastructure.migrations import apply_migrations
+from palworld_terminal.infrastructure.migrations import MIGRATIONS, apply_migrations
 
 
 async def _cols(db, table):
@@ -24,7 +24,7 @@ async def test_migration_0003_creates_tables(tmp_path):
         "created_at",
     }
     ver = await db.query("PRAGMA user_version")
-    assert int(ver[0][0]) == 3
+    assert int(ver[0][0]) == len(MIGRATIONS)
     await db.close()
 
 
@@ -34,5 +34,5 @@ async def test_migration_idempotent(tmp_path):
     await apply_migrations(db)
     await apply_migrations(db)  # 第二次不应报错
     ver = await db.query("PRAGMA user_version")
-    assert int(ver[0][0]) == 3
+    assert int(ver[0][0]) == len(MIGRATIONS)
     await db.close()

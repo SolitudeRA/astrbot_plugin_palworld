@@ -4,15 +4,15 @@
 
 # PalWorldTerminal · 帕鲁世界终端
 
-[![version](https://img.shields.io/badge/version-v0.8.7-007ec6)](https://github.com/SolitudeRA/astrbot_plugin_palworld/releases)
+[![version](https://img.shields.io/badge/version-v0.9.0-007ec6)](https://github.com/SolitudeRA/astrbot_plugin_palworld/releases)
 [![python](https://img.shields.io/badge/python-3.11%2B-007ec6)](https://www.python.org/)
 [![AstrBot](https://img.shields.io/badge/AstrBot-%E2%89%A5%204.24.1-fe7d37)](https://github.com/AstrBotDevs/AstrBot)
 [![license](https://img.shields.io/badge/license-GPL--3.0-97ca00)](https://github.com/SolitudeRA/astrbot_plugin_palworld/blob/main/LICENSE)
 [![Palworld](https://img.shields.io/badge/Palworld-1.0%2B-3f6ec6)](https://www.pocketpair.jp/palworld)
 
-监测 Palworld 专用服务器,在群里提供状态查询、日报与玩家档案。<br>只读,基于官方 REST API。
+监测 Palworld 专用服务器,在群里提供状态查询、日报与玩家档案,并支持受控的服务器管控。<br>基于官方 REST API。
 
-只读 · 不存储 IP · 不公开精确位置 —— 详见[安全与隐私](#安全与隐私)
+受控写(默认全关 · 仅授权管理员 · 全程审计) · 不存储 IP · 不公开精确位置 —— 详见[安全与隐私](#安全与隐私)
 
 [功能特性](#功能特性) · [快速开始](#快速开始) · [指令](#指令) · [配置](#配置) · [安全与隐私](#安全与隐私) · [详细文档](#详细文档)
 
@@ -22,16 +22,16 @@
 
 ## 功能特性
 
-- **世界状态一览** —— 在线人数、FPS 流畅度、世界天数(`/pal status`)
-- **在线名单与今日日报** —— 谁在线、今日在线统计(`/pal online`、`/pal today`)
-- **世界事件记录** —— 上下线、服务器重启等大事记(`/pal events`)
-- **玩家排行与档案** —— 时长榜 / 等级榜、逐人查询、自助绑定与隐藏(`/pal rank`、`/pal me`)
-- **多服务器 + 群授权** —— 一个插件监测多台服务器,按群授权、按群切换
-- **细粒度授权** —— 独立受托管理员名单(`/pal whoami` 自查标识),可把敏感命令锁成仅管理员
-- **网关安全接入** —— 自定义请求头支持零信任网关鉴权(如 Cloudflare Access),REST API 不必暴露公网
+- **世界状态** —— 在线人数、FPS 流畅度、世界天数(`/pal status`)
+- **玩家档案与排行** —— 在线名单、时长/等级榜、逐人查询、自助绑定与隐藏(`/pal online`、`/pal rank`、`/pal me`)
+- **日报与事件** —— 今日在线统计、上下线与服务器重启大事记(`/pal today`、`/pal events`)
+- **服务器管控(受控写)** —— 广播、存档、踢人、封禁、倒计时关服共 7 条写命令:**默认全关、仅授权管理员、可二次确认、全程审计**(`/pal announce`、`/pal shutdown` 等)
+- **多服务器 · 群授权** —— 一个插件监测多台,按群授权、按群切换
+- **细粒度授权** —— 独立受托管理员名单,敏感命令可锁为仅管理员(`/pal whoami` 自查标识)
+- **零信任接入** —— 自定义请求头携带网关凭证(如 Cloudflare Access),REST API 无需暴露公网
+- **隐私优先** —— 观测只读、不存 IP、标识 HMAC 哈希落库、坐标量化为粗网格;写操作目标 userid 仅存哈希
 - **WebUI 设置页** —— 可视化配置全部选项,亮暗双主题
-- **隐私优先** —— 只读、不存 IP、玩家标识 HMAC 哈希落库、坐标量化为粗网格
-- **公会与据点** —— 依赖上游开放 `game-data`,默认关闭,开放后一键启用
+- **公会与据点** —— 依赖上游 `game-data`,默认关闭,开放后一键启用
 
 ## 效果预览
 
@@ -60,7 +60,7 @@
 
 ## 指令
 
-全部指令以 `/pal` 开头,只读、纯文本回复。常用:
+全部指令以 `/pal` 开头,纯文本回复。查询指令只读;服务器管控为受控写(默认关、仅授权管理员)。常用:
 
 | 指令 | 说明 |
 |------|------|
@@ -73,8 +73,21 @@
 | `/pal server add <名称>` | **管理员** · 授权本群使用某服务器 |
 | `/pal help` | 帮助(按启用的功能过滤) |
 
+**服务器管控(受控写 · 默认全关 · 仅授权管理员)**:
+
+| 指令 | 组 | 说明 |
+|------|------|------|
+| `/pal announce <消息>` | `server_admin_basic` | 全服广播 |
+| `/pal save` | `server_admin_basic` | 保存世界存档 |
+| `/pal kick <玩家名\|userid> [理由]` | `server_admin_basic` | 踢出玩家 |
+| `/pal unban <userid>` | `server_admin_basic` | 解封玩家 |
+| `/pal ban <玩家名\|userid> [理由]` | `server_admin_danger` | 封禁玩家(高危,可选二次确认) |
+| `/pal shutdown <秒> [公告]` | `server_admin_danger` | 倒计时关服(高危,可选二次确认) |
+| `/pal stop` | `server_admin_danger` | 立即停服(**不存档、丢档**,高危,可选二次确认) |
+| `/pal confirm` | `core` | 确认执行上一条待确认的高危操作 |
+
 任意查询指令末尾加 `@<服务器名>` 可单次指定目标服务器,如 `/pal status @alpha`(多服务器场景)。
-完整指令表、功能开关矩阵与群授权用法 → [docs/commands.md](https://github.com/SolitudeRA/astrbot_plugin_palworld/blob/main/docs/commands.md)
+完整指令表、功能开关矩阵、服务器管控与群授权用法 → [docs/commands.md](https://github.com/SolitudeRA/astrbot_plugin_palworld/blob/main/docs/commands.md)
 
 ## 配置
 
@@ -95,7 +108,10 @@
 
 ## 安全与隐私
 
-- **只读**:仅调用官方只读端点 `/info`、`/metrics`、`/players`、`/settings`、`/game-data`,**不控制服务器**、不执行任何写/管理操作。
+- **观测只读**:周期采集仅调用官方只读端点 `/info`、`/metrics`、`/players`、`/settings`、`/game-data`,不参与任何写操作。
+- **受控写(服务器管控)**:广播/存档/踢人/封禁/关服等写命令**默认全部关闭**,须在设置页显式开启功能组;开启后**仅授权管理员**(受托名单成员)可用,每次操作**无论成败全程落库审计**(仅哈希目标 userid,不存明文)。承诺从「绝不写」转为「受控写」。
+- **⚠️ OPEN 访问模式爆炸半径**:`access_mode=open` 下写命令**不再受群授权名单约束**,任一授权管理员可从任意群/私聊对任意就绪服务器执行 `stop`/`ban`。强烈劝阻「OPEN + danger 组同开」;多群共享同一 bot 时尤须谨慎。
+- **⚠️ `stop` 不存档**:`/pal stop` 强制停服**不保存存档**,可能丢失未存进度;需要保存请先 `/pal save` 或改用 `/pal shutdown`(倒计时期间游戏会正常保存)。
 - **不存储 IP**:入口即删除 IP、Basic Auth 凭证、原始平台账号与原始内部 ID;玩家标识仅以 `HMAC-SHA256(salt, world_id + ":" + raw_user_id)` 落库。
 - **不公开精确位置**:坐标默认量化为粗网格;`strict` 隐私模式下坐标完全不落库、据点模块停用。Ping 仅以「优秀/正常/偏高」分桶展示,不存原始数值。
 - **需在服务器端启用 REST**:Palworld 服务器须开启 REST API(`RESTAPIEnabled=True` 并设置管理员密码)。
@@ -106,7 +122,7 @@
 ## 详细文档
 
 - [配置项详解](https://github.com/SolitudeRA/astrbot_plugin_palworld/blob/main/docs/configuration.md) —— 轮询 / 世界与展示 / 据点推导 / 数据保留 / 自定义请求头 / 插件页面 / 功能开关
-- [完整指令与功能开关](https://github.com/SolitudeRA/astrbot_plugin_palworld/blob/main/docs/commands.md) —— 18 条指令详表、功能开关矩阵、多服务器与群授权、权限管理、降级行为
+- [完整指令与功能开关](https://github.com/SolitudeRA/astrbot_plugin_palworld/blob/main/docs/commands.md) —— 26 条指令详表、功能开关矩阵、服务器管控、多服务器与群授权、权限管理、降级行为
 
 ## 开源协议
 

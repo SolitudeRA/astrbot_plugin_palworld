@@ -31,8 +31,28 @@ describe('schema 完整性（对齐 _conf_schema.json，缺一即失败）', () 
   it('HEADER_FIELDS 覆盖 custom_headers 模板全字段', () => {
     expect(HEADER_FIELDS.map((f) => f.key).sort()).toEqual(keysOfTemplateList('custom_headers', 'header'))
   })
-  it('OBJECT_SECTIONS 恰为 8 个 object 节（不含 servers/custom_headers/group_bindings）', () => {
+  it('OBJECT_SECTIONS 恰为 9 个 object 节（不含 servers/custom_headers/group_bindings）', () => {
     expect(OBJECT_SECTIONS.map((s) => s.key)).toEqual(
-      ['routing', 'polling', 'world', 'bases', 'privacy', 'history', 'features', 'players'])
+      ['routing', 'polling', 'world', 'bases', 'privacy', 'history', 'features', 'players', 'server_admin'])
+  })
+})
+
+describe('服务器管控 FEATURE 两组 + server_admin 配置节', () => {
+  const features = OBJECT_SECTIONS.find((s) => s.key === 'features')
+  it('features 段含 server_admin_basic / server_admin_danger（bool，默认 false）', () => {
+    expect(features, '缺 features 节').toBeTruthy()
+    for (const key of ['server_admin_basic', 'server_admin_danger']) {
+      const f = features!.fields.find((x) => x.key === key)
+      expect(f, `缺 ${key}`).toBeTruthy()
+      expect(f!.type).toBe('bool')
+      expect(f!.default).toBe(false)
+    }
+  })
+  it('存在 server_admin 配置节（三字段对齐 _conf_schema.json）', () => {
+    const sa = OBJECT_SECTIONS.find((s) => s.key === 'server_admin')
+    expect(sa, '缺 server_admin 节').toBeTruthy()
+    expect(sa!.fields.map((f) => f.key).sort()).toEqual(
+      ['audit_retention_days', 'confirmation_timeout', 'require_confirmation'])
+    expect(sa!.fields.map((f) => f.key).sort()).toEqual(keysOfObject('server_admin'))
   })
 })
