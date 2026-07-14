@@ -43,6 +43,7 @@ MESSAGES: dict[str, str] = {
     "admin_failed": "服务器「{server}」执行【{action}】失败：{error}",
     "admin_resolve_failed": "无法执行：{reason}",
     "target_none": "未找到目标玩家「{target}」。",
+    "target_unreachable": "无法获取服务器在线玩家列表（服务器可能不可达），请稍后重试。",
     "target_multi": "目标「{target}」有多个同名玩家（{candidates}）。请用 steam_ 前缀的 userid 精确指定。",
     "admin_announce_usage": "用法：/pal announce <要广播的公告内容>",
     "admin_target_usage": "用法：/pal {action} <玩家名 或 steam_ 前缀 userid>（可在后面加理由）",

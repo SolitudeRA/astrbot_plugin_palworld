@@ -170,25 +170,14 @@ class PalWorldTerminal(Star):
             if self._inflight == 0:
                 self._idle.set()
 
-    async def _guarded_admin(self, event, command_str, call):
-        """服务器管控写命令的门:仅 busy+inflight 包裹,不做 admin_denied。
+    async def _guarded_admin(self, call):
+        """服务器管控写命令的门:薄委托到 _guarded(busy+inflight 包裹),不做 admin_denied。
 
         admin 硬门与 feature 门在 Commands.admin_write 内(门序铁律:admin 先于
         feature),此处不重复;命令串亦在 config._NON_LOCKABLE,永不进 admin_only。
+        保留独立名字仅为锚定「写命令走 _guarded_admin(区别于 _guarded/_guarded_cmd)」。
         """
-        self._inflight += 1
-        self._idle.clear()
-        try:
-            if (m := self._busy_msg()):
-                return m
-            res = call(self._container)
-            if inspect.isawaitable(res):
-                res = await res
-            return res
-        finally:
-            self._inflight -= 1
-            if self._inflight == 0:
-                self._idle.set()
+        return await self._guarded(call)
 
     async def _wait_quiescent(self, timeout: float = 5.0) -> None:
         # 新操作已被 _restarting 挡在门外;等在途的退完再关旧容器。
@@ -505,7 +494,7 @@ class PalWorldTerminal(Star):
     @pal.command("announce")
     async def announce(self, event):
         yield event.plain_result(await self._guarded_admin(
-            event, "announce", lambda c: c.commands.admin_write(
+            lambda c: c.commands.admin_write(
                 "announce", "server_admin_basic", self._sender_id(event), self._umo(event),
                 self._is_group(event), self._msg(event),
                 c.commands.is_plugin_admin(self._sender_id(event)))))
@@ -513,7 +502,7 @@ class PalWorldTerminal(Star):
     @pal.command("save")
     async def save(self, event):
         yield event.plain_result(await self._guarded_admin(
-            event, "save", lambda c: c.commands.admin_write(
+            lambda c: c.commands.admin_write(
                 "save", "server_admin_basic", self._sender_id(event), self._umo(event),
                 self._is_group(event), self._msg(event),
                 c.commands.is_plugin_admin(self._sender_id(event)))))
@@ -521,7 +510,7 @@ class PalWorldTerminal(Star):
     @pal.command("kick")
     async def kick(self, event):
         yield event.plain_result(await self._guarded_admin(
-            event, "kick", lambda c: c.commands.admin_write(
+            lambda c: c.commands.admin_write(
                 "kick", "server_admin_basic", self._sender_id(event), self._umo(event),
                 self._is_group(event), self._msg(event),
                 c.commands.is_plugin_admin(self._sender_id(event)))))
@@ -529,7 +518,7 @@ class PalWorldTerminal(Star):
     @pal.command("unban")
     async def unban(self, event):
         yield event.plain_result(await self._guarded_admin(
-            event, "unban", lambda c: c.commands.admin_write(
+            lambda c: c.commands.admin_write(
                 "unban", "server_admin_basic", self._sender_id(event), self._umo(event),
                 self._is_group(event), self._msg(event),
                 c.commands.is_plugin_admin(self._sender_id(event)))))
@@ -537,7 +526,7 @@ class PalWorldTerminal(Star):
     @pal.command("ban")
     async def ban(self, event):
         yield event.plain_result(await self._guarded_admin(
-            event, "ban", lambda c: c.commands.admin_write(
+            lambda c: c.commands.admin_write(
                 "ban", "server_admin_danger", self._sender_id(event), self._umo(event),
                 self._is_group(event), self._msg(event),
                 c.commands.is_plugin_admin(self._sender_id(event)))))
@@ -545,7 +534,7 @@ class PalWorldTerminal(Star):
     @pal.command("shutdown")
     async def shutdown(self, event):
         yield event.plain_result(await self._guarded_admin(
-            event, "shutdown", lambda c: c.commands.admin_write(
+            lambda c: c.commands.admin_write(
                 "shutdown", "server_admin_danger", self._sender_id(event), self._umo(event),
                 self._is_group(event), self._msg(event),
                 c.commands.is_plugin_admin(self._sender_id(event)))))
@@ -553,7 +542,7 @@ class PalWorldTerminal(Star):
     @pal.command("stop")
     async def stop(self, event):
         yield event.plain_result(await self._guarded_admin(
-            event, "stop", lambda c: c.commands.admin_write(
+            lambda c: c.commands.admin_write(
                 "stop", "server_admin_danger", self._sender_id(event), self._umo(event),
                 self._is_group(event), self._msg(event),
                 c.commands.is_plugin_admin(self._sender_id(event)))))

@@ -27,7 +27,7 @@ class AdminResult:
 
 @dataclass(slots=True)
 class TargetResult:
-    kind: str  # "userid" | "unique" | "multi" | "none"
+    kind: str  # "userid" | "unique" | "multi" | "none" | "unreachable"
     userid: str | None = None
     name: str | None = None
     candidates: list[dict[str, str]] = field(default_factory=list)
@@ -176,14 +176,18 @@ class AdminService:
         以 ``steam_`` 前缀开头 → 直接当 userid（不拉取）；否则视作角色名，
         **实时** 拉 /players 原始响应按 ``name`` 精确匹配求 ``userId``。
         0/1/多 命中 → ``none``/``unique``/``multi``。明文 userid 用完即弃。
+        拉取失败（服务器不可达/网络错误）→ ``unreachable``，与真·无此玩家（``none``）区分。
         """
         if token.startswith(_USERID_PREFIXES):
             return TargetResult(kind="userid", userid=token)
 
         resp = await self._fetch(server_id, EndpointName.PLAYERS)
+        if not resp.ok:
+            # 拉取在线列表失败：无法判定玩家是否存在，绝不落到 none（会误报「无此玩家」）。
+            return TargetResult(kind="unreachable", name=token)
         rows = (
             normalize_players(resp.data, self._clock.now())
-            if resp.ok and resp.data is not None
+            if resp.data is not None
             else []
         )
         matches = [
@@ -220,6 +224,11 @@ class AdminService:
                 params={"reason": resolution.error or ""},
             )
         target = await self.resolve_target(resolution.server.server_id, token)
+        if target.kind == "unreachable":
+            # 拉取在线列表失败：未实际发起，不 post、不审计（区别于「无此玩家」）。
+            return AdminResult(
+                ok=False, message_key="target_unreachable", params={"target": token}
+            )
         if target.kind == "none":
             # 未命中：未实际发起，不 post、不审计。
             return AdminResult(

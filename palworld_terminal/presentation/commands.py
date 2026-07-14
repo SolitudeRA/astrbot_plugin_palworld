@@ -352,6 +352,9 @@ class Commands:
                 return L("admin_resolve_failed", reason=resolution.error or "")
             server = resolution.server
             target = await self._admin.resolve_target(server.server_id, token)
+            if target.kind == "unreachable":
+                # 拉取在线列表失败：不进 pending、不执行、不 post（区别于「无此玩家」）。
+                return L("target_unreachable", target=token)
             if target.kind == "none":
                 return L("target_none", target=token)
             if target.kind == "multi":

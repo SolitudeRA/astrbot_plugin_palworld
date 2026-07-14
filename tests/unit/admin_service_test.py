@@ -153,6 +153,51 @@ async def test_resolve_target_none():
     assert t.kind == "none"
 
 
+def _svc_fetch_fail():
+    # /players 拉取失败(服务器不可达)：resp.ok=False。
+    async def fetch(server_id, endpoint):
+        return SimpleNamespace(ok=False, data=None, error="network error")
+
+    async def post(server_id, path, json_body):
+        return SimpleNamespace(ok=True, status=200, error=None)
+
+    repo = _FakeRepo()
+    svc = AdminService(
+        routing=_FakeRouting(),
+        fetch=fetch,
+        post=post,
+        repo=repo,
+        salt=b"s",
+        clock=SimpleNamespace(now=lambda: 1),
+    )
+    return svc
+
+
+@pytest.mark.asyncio
+async def test_resolve_target_unreachable_when_fetch_not_ok():
+    # fetch 失败须与「无此玩家」区分：kind=unreachable(非 none)。
+    svc = _svc_fetch_fail()
+    t = await svc.resolve_target("s1", "Alice")
+    assert t.kind == "unreachable"
+
+
+@pytest.mark.asyncio
+async def test_kick_unreachable_does_not_post_or_audit():
+    # 服务器不可达：回不可达文案，不 post、不审计。
+    posted: list = []
+    svc = _svc_fetch_fail()
+
+    async def spy_post(server_id, path, json_body):
+        posted.append((path, json_body))
+        return SimpleNamespace(ok=True, status=200, error=None)
+
+    svc._post = spy_post
+    res = await svc.kick("p:1", "umo", True, "Alice", "afk")
+    assert not res.ok and res.message_key == "target_unreachable"
+    assert svc._repo.audits == []  # 未发起：不审计
+    assert posted == []            # 未发起：不 post
+
+
 @pytest.mark.asyncio
 async def test_kick_by_name_audits_hashed_target():
     svc = _svc_players([{"name": "Alice", "userId": "steam_1"}])

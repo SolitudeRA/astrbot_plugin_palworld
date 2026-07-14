@@ -47,6 +47,22 @@ class _FakeRouting:
         )
 
 
+class _FakeRoutingRevoke:
+    """首发 resolve 给出服务器(存 pending);置 revoked 后 confirm 时 server=None(撤授权)。"""
+
+    def __init__(self, server_name: str = "Alpha", server_id: str = "s1") -> None:
+        self._name = server_name
+        self._id = server_id
+        self.revoked = False
+
+    async def resolve(self, umo, override, is_group):
+        if self.revoked:
+            return SimpleNamespace(server=None, error="not_authorized")
+        return SimpleNamespace(
+            server=SimpleNamespace(server_id=self._id, name=self._name), error=None
+        )
+
+
 class _FakeAdmin:
     def __init__(self) -> None:
         self.calls: list[tuple] = []
@@ -328,3 +344,47 @@ async def test_confirm_stale_when_group_disabled_after_pending():
     out = await c.confirm("p:1", "umo", True, is_admin=True)
     assert out == L("admin_confirm_stale")
     assert ("stop",) not in admin.calls  # 复检失败：不执行
+
+
+# ---- confirm 复检：目标服务器授权在确认前被撤 → 丢弃回 stale ----
+
+async def test_confirm_stale_when_server_revoked_after_pending():
+    # 首发存 danger pending 后，routing.resolve 撤授权(server=None)：
+    # confirm 复检失败回 stale，且 pending 被 claim 丢弃(第二次 confirm 回 no_pending)。
+    admin = _FakeAdmin()
+    clock = _Clock(0)
+    store = ConfirmationStore(clock)
+    routing = _FakeRoutingRevoke()
+    cfg = _cfg(group_on=True, require=True, timeout=30)
+    c = _cmds(admin=admin, cfg=cfg, clock=clock, confirmations=store, routing=routing)
+
+    await c.admin_write(
+        "stop", "server_admin_danger", "p:1", "umo", True, "", is_admin=True
+    )
+    routing.revoked = True  # 授权在确认前被撤
+    out = await c.confirm("p:1", "umo", True, is_admin=True)
+    assert out == L("admin_confirm_stale")
+    assert ("stop",) not in admin.calls  # 复检失败：不执行
+    # pending 已被 claim 原子 pop 丢弃：第二次 confirm 无 pending
+    again = await c.confirm("p:1", "umo", True, is_admin=True)
+    assert again == L("admin_no_pending")
+
+
+# ---- claim 原子性：连发两次 confirm，只执行一次 ----
+
+async def test_double_confirm_executes_only_once():
+    admin = _FakeAdmin()
+    clock = _Clock(0)
+    store = ConfirmationStore(clock)
+    cfg = _cfg(group_on=True, require=True, timeout=30)
+    c = _cmds(admin=admin, cfg=cfg, clock=clock, confirmations=store)
+
+    await c.admin_write(
+        "stop", "server_admin_danger", "p:1", "umo", True, "", is_admin=True
+    )
+    first = await c.confirm("p:1", "umo", True, is_admin=True)
+    second = await c.confirm("p:1", "umo", True, is_admin=True)
+    assert "Alpha" in first             # 第一次执行
+    assert second == L("admin_no_pending")  # 第二次无 pending
+    # AdminService.stop 恰被调用一次(claim 原子 pop 保证不双执行)
+    assert [x for x in admin.calls if x == ("stop",)] == [("stop",)]

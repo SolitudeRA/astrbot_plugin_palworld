@@ -63,6 +63,7 @@ def test_register_web_api_called_with_prefixed_routes():
     assert "/astrbot_plugin_palworld/config/get" in routes
     assert "/astrbot_plugin_palworld/config/save" in routes
     assert "/astrbot_plugin_palworld/status/overview" in routes
+    assert "/astrbot_plugin_palworld/audit/list" in routes
 
 
 def test_no_register_when_context_lacks_method():
