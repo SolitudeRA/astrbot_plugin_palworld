@@ -14,7 +14,7 @@ _NETWORK_ERROR = "network error"
 # 可被直接识别为原始 userid 的前缀（钉死；冲突边界：真名恰以此开头者需改用 userid 精确指定）。
 _USERID_PREFIXES = ("steam_",)
 
-FetchFn = Callable[[str, str], Awaitable[RestResponse]]
+FetchFn = Callable[[str, EndpointName], Awaitable[RestResponse]]
 PostFn = Callable[[str, str, "dict[str, Any] | None"], Awaitable[RestResponse]]
 
 
@@ -239,6 +239,38 @@ class AdminService:
             json_body={"userid": target.userid, "message": reason},
             target_name=target.name,  # userid 直传时为 None：不落明文 id 到 name
             target_userid=target.userid,
+            detail=reason,
+        )
+
+    async def execute_target(
+        self,
+        admin_id: str,
+        umo: str,
+        is_group: bool,
+        *,
+        action: str,
+        path: str,
+        userid: str,
+        name: str | None,
+        reason: str,
+    ) -> AdminResult:
+        """执行一次「目标已解析」的写操作（供 Commands 中央编排 / confirm 复用）。
+
+        与 ``_target_write`` 的差别：**不**再调 ``resolve_target``。confirm 场景下
+        目标玩家可能已离线，重解析会失败或错位；此处直传首发解析到的 ``userid``/
+        ``name``——审计 ``target_name`` 仍是角色名、``target_hash`` 仍是该 userid 的
+        world_id 命名空间 hash（绝不把 userid 当名字）。目标服务器仍由 ``_execute``
+        内 ``routing.resolve`` 实时定位（confirm 复检已重跑授权）。
+        """
+        return await self._execute(
+            admin_id,
+            umo,
+            is_group,
+            action=action,
+            path=path,
+            json_body={"userid": userid, "message": reason},
+            target_name=name,
+            target_userid=userid,
             detail=reason,
         )
 

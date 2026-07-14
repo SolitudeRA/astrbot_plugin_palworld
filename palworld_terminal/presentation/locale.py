@@ -37,6 +37,23 @@ MESSAGES: dict[str, str] = {
     "server_usage": "用法：/pal server add <名称> 或 /pal server remove <名称>",
     "unbind_self_ok": "已解除你与玩家「{name}」的绑定。",
     "unbind_self_none": "你还没有绑定玩家，无需解绑。",
+    # ---- 服务器管控（写命令 / 二次确认）----
+    "admin_ok": "已在服务器「{server}」执行【{action}】。",
+    "admin_shutdown_initiated": "已向服务器「{server}」发起【{action}】（服务器已断开连接，视为已发起）。",
+    "admin_failed": "服务器「{server}」执行【{action}】失败：{error}",
+    "admin_resolve_failed": "无法执行：{reason}",
+    "target_none": "未找到目标玩家「{target}」。",
+    "target_multi": "目标「{target}」有多个同名玩家（{candidates}）。请用 steam_ 前缀的 userid 精确指定。",
+    "admin_announce_usage": "用法：/pal announce <要广播的公告内容>",
+    "admin_target_usage": "用法：/pal {action} <玩家名 或 steam_ 前缀 userid>（可在后面加理由）",
+    "admin_unban_usage": "用法：/pal unban <steam_ 前缀的 userid>",
+    "admin_confirm_preview": (
+        "⚠️ 即将执行【{action}】{target}，目标服务器「{server}」。"
+        "请在 {timeout} 秒内发送 /pal confirm 确认，逾期自动作废。"
+    ),
+    "admin_confirm_done": "已确认并执行【{action}】{target}，服务器「{server}」。",
+    "admin_confirm_stale": "该操作已失效（相关功能已关闭或目标服务器不可用），请重新发起。",
+    "admin_no_pending": "当前没有待确认的操作。",
 }
 
 
