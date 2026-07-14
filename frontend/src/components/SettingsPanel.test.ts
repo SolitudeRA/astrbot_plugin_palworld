@@ -132,6 +132,20 @@ describe('SettingsPanel', () => {
     expect(body.command_permissions).toEqual([{ command: 'player info', enabled: 'inherit', admin_only: 'on' }])
   })
 
+  it('权限章：applyConfig 从 command_permissions 行还原树 state（hydrate 往返）', async () => {
+    const c = cfg()
+    c.config.command_permissions = [{ command: 'guild list', enabled: 'inherit', admin_only: 'on' }];
+    (window.AstrBotPluginPage!.apiGet as any).mockResolvedValue(c)
+    const w = mountAt('permissions'); await flushPromises()
+    // 树 state 读回该覆盖行
+    expect((w.vm as any).state.command_perms['guild list']).toEqual({ enabled: 'inherit', admin_only: 'on' })
+    // CommandTree 该叶子 admin 格「仅管理」段显覆盖态（act）
+    const row = w.findAll('.ct-leaf').find((r) => r.text().includes('guild list'))!
+    const adminCell = row.findAll('.ct-cell')[1]
+    const seg = adminCell.findAll('.seg').find((b) => b.text() === '仅管理')!
+    expect(seg.classes()).toContain('act')
+  })
+
   it('config 缺 permission 两键不崩、collectBody 产出空数组', async () => {
     (window.AstrBotPluginPage!.apiGet as any).mockResolvedValue({ ok: true, config: {} })
     const w = mountAt('permissions'); await flushPromises()
