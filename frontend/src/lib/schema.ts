@@ -33,7 +33,7 @@ export const HEADER_FIELDS: FieldSpec[] = [
 export const OBJECT_SECTIONS: ObjectSection[] = [
   { key: 'routing', title: '访问控制', subtitle: '哪些群可以查询，以及默认查询哪台服务器', fields: [
     { key: 'access_mode', type: 'enum', label: '访问模式', default: 'restricted', options: ['restricted', 'open'], hint: 'restricted 需管理员授权；open 全开放' },
-    { key: 'world_mode', type: 'enum', label: '运行模式', default: 'multi', options: ['multi', 'single'], hint: 'multi 多世界（按群绑定/切换服务器）；single 单世界（所有操作对应唯一服务器）。⚠️ single + restricted 并存时访问控制不生效' },
+    { key: 'world_mode', type: 'enum', label: '运行模式', default: 'single', options: ['multi', 'single'], hint: 'single 单世界（所有操作对应唯一服务器）；multi 多世界（按群绑定/切换服务器）' },
     { key: 'default_server', type: 'string', label: '默认服务器', default: '', hint: '群里没指定、也没绑定时查询它' },
   ]},
   { key: 'polling', title: '轮询间隔', subtitle: '每类数据多久从服务器拉取一次，单位：秒', fields: [

@@ -64,7 +64,7 @@ class BindingConfig:
 class RoutingConfig:
     access_mode: AccessMode
     default_server: str
-    world_mode: str = "multi"  # "single" | "multi"
+    world_mode: str = "single"  # "single" | "multi"
     single_allowed_groups: list[AllowedGroupEntry] = field(default_factory=list)
 
 
@@ -446,7 +446,7 @@ def parse_config(raw: Mapping, env: Mapping[str, str]) -> AppConfig:
         routing=RoutingConfig(
             access_mode=AccessMode(str(r.get("access_mode", "restricted") or "restricted")),
             default_server=str(r.get("default_server", "") or ""),
-            world_mode=_one_of(r.get("world_mode", "multi"), frozenset({"single", "multi"}), "multi"),
+            world_mode=_one_of(r.get("world_mode", "single"), frozenset({"single", "multi"}), "single"),
             single_allowed_groups=_parse_single_allowed_groups(raw),
         ),
         group_bindings=_parse_bindings(raw),

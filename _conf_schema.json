@@ -28,7 +28,7 @@
     "items": {
       "access_mode": { "type": "string", "description": "restricted=群需管理员授权; open=任意群任意服务器", "default": "restricted", "options": ["restricted", "open"] },
       "default_server": { "type": "string", "description": "全局默认服务器 name（群未指定且未绑定时的兜底）", "default": "" },
-      "world_mode": { "type": "string", "options": ["multi", "single"], "default": "multi", "description": "运行模式：multi 多世界（按群绑定/切换服务器）；single 单世界（所有操作对应唯一服务器）。⚠️ single + restricted 并存时访问控制不生效，读命令对所有上下文开放。" }
+      "world_mode": { "type": "string", "options": ["multi", "single"], "default": "single", "description": "运行模式（主开关）：single 单世界（唯一服务器，群授权走插件设置页「连接」章的授权群名单 + /pal whereami）；multi 多世界（多台服务器，用 /pal link 绑定切换）。切换模式后请到插件设置页配置对应模式。" }
     }
   },
   "group_bindings": {

@@ -11,6 +11,7 @@ UMO = "aiocqhttp:GroupMessage:123456"
 
 def config_two_servers_with_seed() -> dict:
     cfg = make_config(access_mode="restricted")
+    cfg["routing"]["world_mode"] = "multi"
     cfg["servers"] = [
         {"name": "alpha", "enabled": True, "base_url": "http://127.0.0.1:8212",
          "username": "admin", "password": "pw", "timeout": 10, "verify_tls": False, "timezone": ""},
