@@ -86,7 +86,7 @@ def test_readme_command_table_and_matrix():
     for phrase in ("指令详表", "功能组", "可用指令矩阵",
                    "/pal status", "/pal online", "/pal world", "/pal rules",
                    "/pal today", "/pal events", "/pal guilds", "/pal guild",
-                   "/pal bases", "/pal base", "/pal server", "/pal help",
+                   "/pal bases", "/pal base", "/pal server", "/pal whoami", "/pal help",
                    "@<服务器名>"):
         assert phrase in DOCS, f"文档指令表缺少: {phrase}"
     # 功能开关指令矩阵:四组 + 关闭时行为文案
@@ -97,3 +97,12 @@ def test_readme_command_table_and_matrix():
 def test_readme_documents_players_group():
     for phrase in ("/pal rank", "/pal player", "/pal me", "/pal bind", "/pal unbind", "players"):
         assert phrase in DOCS, f"文档缺少 players 组说明: {phrase}"
+
+
+def test_readme_documents_permission_management():
+    # 权限管理:whoami 自查 + 受托名单 + 命令门 + 三条安全告知
+    for phrase in ("/pal whoami", "受托", "permission_admins", "admin_only_commands"):
+        assert phrase in DOCS, f"文档缺少权限管理说明: {phrase}"
+    # 三条安全告知必须落在文档里
+    for phrase in ("全局", "命名空间", "明文", "PII"):
+        assert phrase in DOCS, f"文档缺少权限安全告知: {phrase}"

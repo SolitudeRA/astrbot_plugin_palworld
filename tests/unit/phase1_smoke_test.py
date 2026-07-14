@@ -16,7 +16,7 @@ def test_all_phase1_public_symbols_importable():
     )
     from palworld_terminal.infrastructure.salt import load_or_create_salt
 
-    assert __version__ == "0.8.5"
+    assert __version__ == "0.8.7"
     assert callable(parse_config)
     assert callable(apply_migrations)
     assert callable(load_or_create_salt)
