@@ -174,7 +174,7 @@
 
 ## 版本
 
-`v0.8.5` → `v0.9.0`(新增权限子系统 + 新命令 + 新设置章,minor)。同步 metadata.yaml / main.py @register / `__init__.py` / README 徽章 / 版本断言测试。
+`v0.8.5` → `v0.8.7`(新增权限子系统 + 新命令 + 新设置章,minor)。同步 metadata.yaml / main.py @register / `__init__.py` / README 徽章 / 版本断言测试。
 
 ## 命名空间加载安全
 

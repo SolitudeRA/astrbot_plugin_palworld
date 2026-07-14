@@ -18,7 +18,7 @@
 - **严格只认插件名单**:`_is_admin` 只查 `permission_admins`,**不认** AstrBot `admins_id` / `event.role`。
 - **前端改后必须** `cd frontend && npm run build`(内置 normalize-eol)并提交 `pages/settings/`;`verify-bundle` 从仓库根跑;CI no-drift 强制。
 - **改中文文案须同步 grep** `tests/unit/readme_test.py` 中文锚点。
-- **版本升 `v0.8.5` → `v0.9.0`**。
+- **版本升 `v0.8.5` → `v0.8.7`**。
 - **子代理 model 一律 opus**。
 
 ## 文件结构总览
@@ -992,7 +992,7 @@ git commit -m "build(fe): 权限章设置页单文件产物"
 
 ---
 
-## Task 11: 文档 + readme_test + 版本 v0.9.0
+## Task 11: 文档 + readme_test + 版本 v0.8.7
 
 **Files:**
 - Modify: `docs/commands.md`、`docs/configuration.md`、`README.md`、`tests/unit/readme_test.py`、`metadata.yaml`、`main.py`、`palworld_terminal/__init__.py`、`tests/unit/phase1_smoke_test.py`、`tests/unit/skeleton_test.py`
@@ -1002,7 +1002,7 @@ git commit -m "build(fe): 权限章设置页单文件产物"
 - [ ] **Step 1: readme_test 锚点 + 版本断言测试(先红)**
 
 `tests/unit/readme_test.py`:`test_readme_command_table_and_matrix` 加 `"/pal whoami"` 锚点;`test_readme_documents_players_group` 或新增权限说明锚点(如 `"受托"`、`"permission_admins"`)。
-`tests/unit/phase1_smoke_test.py`、`tests/unit/skeleton_test.py`:版本断言 `"0.8.5"` → `"0.9.0"`。
+`tests/unit/phase1_smoke_test.py`、`tests/unit/skeleton_test.py`:版本断言 `"0.8.5"` → `"0.8.7"`。
 
 - [ ] **Step 2: 运行确认失败**
 
@@ -1013,11 +1013,11 @@ Expected: FAIL
 
 - `docs/commands.md`:指令详表加 `/pal whoami`(players 组外的 core 工具,注"建议私聊");新增"权限"节(两层模型、受托名单、命令门、内置 server 门);功能矩阵 core 组命令名加 whoami。
 - `docs/configuration.md`:加 `permission_admins`/`admin_only_commands` 说明 + 三条安全告知(名册全局爆炸半径、多适配器实例共享命名空间、note/id 明文落盘勿填 PII)。
-- `README.md`:功能特性加"细粒度授权";安全与隐私加"名册全局"提示;命令计数(如"N 条指令")+1 更新;版本徽章 `version-v0.8.5` → `version-v0.9.0`。
+- `README.md`:功能特性加"细粒度授权";安全与隐私加"名册全局"提示;命令计数(如"N 条指令")+1 更新;版本徽章 `version-v0.8.5` → `version-v0.8.7`。
 
 - [ ] **Step 4: 版本四源**
 
-`metadata.yaml`:`version: v0.8.5` → `v0.9.0`。`main.py` `@register(...)` 版本参数 `"v0.8.5"` → `"v0.9.0"`。`palworld_terminal/__init__.py` `__version__ = "0.8.5"` → `"0.9.0"`。
+`metadata.yaml`:`version: v0.8.5` → `v0.8.7`。`main.py` `@register(...)` 版本参数 `"v0.8.5"` → `"v0.8.7"`。`palworld_terminal/__init__.py` `__version__ = "0.8.5"` → `"0.8.7"`。
 
 - [ ] **Step 5: 运行确认通过 + grep 无旧命令名残留 + 全套**
 
@@ -1028,7 +1028,7 @@ Expected: PASS(全绿)
 
 ```bash
 git add docs/commands.md docs/configuration.md README.md tests/unit/readme_test.py metadata.yaml main.py palworld_terminal/__init__.py tests/unit/phase1_smoke_test.py tests/unit/skeleton_test.py
-git commit -m "docs+chore: 权限管理文档/命令表/安全告知 + 版本 v0.9.0"
+git commit -m "docs+chore: 权限管理文档/命令表/安全告知 + 版本 v0.8.7"
 ```
 
 ---
