@@ -59,6 +59,7 @@ try:  # AstrBot 以 data.plugins.<目录>.main 命名空间加载，插件目录
     from .palworld_terminal.application.command_permissions import migrate_legacy_to_rows
     from .palworld_terminal.config import parse_config
     from .palworld_terminal.container import Container
+    from .palworld_terminal.domain.enums import AccessMode
     from .palworld_terminal.infrastructure.clock import SystemClock
     from .palworld_terminal.presentation import web_api
     from .palworld_terminal.presentation.locale import L
@@ -66,6 +67,7 @@ except ImportError:  # 测试/独立环境从仓库根以顶级模块导入
     from palworld_terminal.application.command_permissions import migrate_legacy_to_rows
     from palworld_terminal.config import parse_config
     from palworld_terminal.container import Container
+    from palworld_terminal.domain.enums import AccessMode
     from palworld_terminal.infrastructure.clock import SystemClock
     from palworld_terminal.presentation import web_api
     from palworld_terminal.presentation.locale import L
@@ -141,14 +143,19 @@ class PalWorldTerminal(Star):
         self._log_startup_warnings()
 
     def _log_startup_warnings(self) -> None:
-        """装配后暴露安全相关启动告警（spec §5/§7）：single+restricted 访问控制架空、
-        非法命令权限配置项（command_permissions 未知命令 / 轴违规，均未生效 = 配置失效）。"""
+        """装配后暴露安全相关启动告警（spec §5/§7）：单模式 restricted 授权名单为空
+        （所有会话都无法查询）、非法命令权限配置项（command_permissions 未知命令 / 轴违规，
+        均未生效 = 配置失效）。"""
         c = self._container
         if c is None:
             return
-        warn = c.routing.single_restricted_warning()
-        if warn is not None:
-            _log.warning(warn)
+        r = c.config.routing
+        if (r.world_mode == "single" and r.access_mode is AccessMode.RESTRICTED
+                and not r.single_allowed_groups):
+            _log.warning(
+                "单世界模式 + restricted 但授权群名单为空：当前所有群/私聊都无法查询。"
+                "请在群里发 /pal whereami 获取群标识，在设置页「连接」章的授权群名单中添加。"
+            )
         invalid = c.config.permissions.invalid_command_keys
         if invalid:
             _log.warning(

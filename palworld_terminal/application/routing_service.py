@@ -39,14 +39,19 @@ class RoutingService:
             return False
         return server_id in await self._repo.get_allowed(umo)
 
-    async def resolve(self, umo: str, override: str | None, is_group: bool) -> Resolution:
-        # 单世界模式：恒解析到唯一就绪服务器，早于任何 restricted/私聊/授权判定。
-        # 忽略 @override 与群绑定，_authorized 不被调用（天然放宽读取）。
-        # 写命令仍受 commands.admin_write 内的管理员硬门把守（与本方法无关）。
+    async def resolve(
+        self, umo: str, override: str | None, is_group: bool, *, for_write: bool = False
+    ) -> Resolution:
+        # 单世界模式：恒解析到唯一就绪服务器。restricted 读授权查 single_allowed_groups；
+        # 写命令(for_write)绕过读名单（admin 硬门独立把守）。忽略 @override 与群绑定。
         if self._cfg.routing.world_mode == "single":
             ready = self._ready_servers()
             if not ready:
                 return Resolution(None, L("no_server_configured"))
+            if self._cfg.routing.access_mode is AccessMode.RESTRICTED and not for_write:
+                allowed = {e.umo for e in self._cfg.routing.single_allowed_groups}
+                if umo not in allowed:
+                    return Resolution(None, L("single_not_authorized"))
             if len(ready) > 1 and not self._single_multi_warned:
                 self._single_multi_warned = True
                 _log.warning(
@@ -109,15 +114,6 @@ class RoutingService:
         target = srv.server_id if srv is not None else name
         await self._repo.revoke(umo, target)
         return L("unbind_ok", server=target)
-
-    def single_restricted_warning(self) -> str | None:
-        """single 世界模式下 restricted 访问控制被架空 → 返回启动告警文案，否则 None。"""
-        if (
-            self._cfg.routing.world_mode == "single"
-            and self._cfg.routing.access_mode is AccessMode.RESTRICTED
-        ):
-            return L("single_restricted_warning")
-        return None
 
     def ready_servers(self) -> list[ServerConfig]:
         return self._ready_servers()

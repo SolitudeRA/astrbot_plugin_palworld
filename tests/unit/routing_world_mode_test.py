@@ -6,6 +6,7 @@ import pytest
 from palworld_terminal.adapters.sqlite_repository import Repository
 from palworld_terminal.application.routing_service import RoutingService
 from palworld_terminal.config import (
+    AllowedGroupEntry,
     AppConfig,
     BasesConfig,
     HistoryConfig,
@@ -29,11 +30,13 @@ def _server(name: str, ready: bool = True) -> ServerConfig:
     )
 
 
-def _cfg(servers, access=AccessMode.RESTRICTED, default="", world_mode="multi") -> AppConfig:
+def _cfg(servers, access=AccessMode.RESTRICTED, default="", world_mode="multi",
+         single_allowed_groups=None) -> AppConfig:
     return AppConfig(
         servers=servers, skipped=[],
         routing=RoutingConfig(
-            access_mode=access, default_server=default, world_mode=world_mode),
+            access_mode=access, default_server=default, world_mode=world_mode,
+            single_allowed_groups=single_allowed_groups or []),
         group_bindings=[],
         polling=PollingConfig(30, 30, 600, 1800, 120, 0.1, 6),
         world=WorldConfig("Asia/Tokyo", "zh-CN", 50, 35, 20),
@@ -66,19 +69,19 @@ async def test_multi_private_restricted_still_rejected(repo):
 
 # ---- single mode: always resolves the unique ready server ----
 
-async def test_single_private_chat_resolves_bypassing_restricted(repo):
-    """single：restricted 私聊也解析唯一服务器（绕过 restricted 私聊早退）。"""
+async def test_single_private_chat_restricted_not_in_allowlist_denied(repo):
+    """single+restricted：私聊 umo 不在授权名单 → 拒（error 非空）。"""
     svc = RoutingService(
         repo, _cfg([_server("alpha")], access=AccessMode.RESTRICTED, world_mode="single"))
     res = await svc.resolve("umo1", override=None, is_group=False)
-    assert res.error is None
-    assert res.server is not None
-    assert res.server.server_id == "alpha"
+    assert res.server is None
+    assert res.error
 
 
 async def test_single_ignores_override(repo):
     """single：忽略 @override（未就绪/未知服务器名也不报错，恒解析唯一）。"""
-    svc = RoutingService(repo, _cfg([_server("alpha")], world_mode="single"))
+    svc = RoutingService(
+        repo, _cfg([_server("alpha")], access=AccessMode.OPEN, world_mode="single"))
     res = await svc.resolve("umo1", override="ghost", is_group=True)
     assert res.error is None
     assert res.server.server_id == "alpha"
@@ -87,7 +90,8 @@ async def test_single_ignores_override(repo):
 async def test_single_ignores_group_binding(repo):
     """single：忽略群绑定（哪怕 active 指向别处/已失效），恒解析唯一就绪服务器。"""
     await repo.set_active("umo1", "beta")  # 绑定 beta，但配置里只有 alpha 就绪
-    svc = RoutingService(repo, _cfg([_server("alpha")], world_mode="single"))
+    svc = RoutingService(
+        repo, _cfg([_server("alpha")], access=AccessMode.OPEN, world_mode="single"))
     res = await svc.resolve("umo1", override=None, is_group=True)
     assert res.error is None
     assert res.server.server_id == "alpha"
@@ -104,7 +108,8 @@ async def test_single_no_server_errors(repo):
 async def test_single_multiple_ready_uses_first_and_warns(repo, caplog):
     """single + >1 台 → 首台 + 记一次告警。"""
     svc = RoutingService(
-        repo, _cfg([_server("alpha"), _server("beta")], world_mode="single"))
+        repo, _cfg([_server("alpha"), _server("beta")], access=AccessMode.OPEN,
+                   world_mode="single"))
     with caplog.at_level(logging.WARNING, logger="palworld_terminal.routing"):
         res = await svc.resolve("umo1", override=None, is_group=True)
     assert res.error is None
@@ -112,21 +117,35 @@ async def test_single_multiple_ready_uses_first_and_warns(repo, caplog):
     assert any(rec.levelno == logging.WARNING for rec in caplog.records)
 
 
-# ---- single_restricted_warning: three states ----
+# ---- single + restricted：授权名单门控（读路径，for_write 默认 False）----
 
-def test_single_restricted_warning_present(repo):
+async def test_single_restricted_umo_in_allowlist_resolves(repo):
     svc = RoutingService(
-        repo, _cfg([_server("alpha")], access=AccessMode.RESTRICTED, world_mode="single"))
-    assert svc.single_restricted_warning() is not None
+        repo, _cfg([_server("alpha")], access=AccessMode.RESTRICTED, world_mode="single",
+                   single_allowed_groups=[AllowedGroupEntry("g1", "")]))
+    res = await svc.resolve("g1", None, True)
+    assert res.server is not None and res.error is None
 
 
-def test_single_open_no_warning(repo):
+async def test_single_restricted_umo_not_in_allowlist_denied(repo):
     svc = RoutingService(
-        repo, _cfg([_server("alpha")], access=AccessMode.OPEN, world_mode="single"))
-    assert svc.single_restricted_warning() is None
+        repo, _cfg([_server("alpha")], access=AccessMode.RESTRICTED, world_mode="single",
+                   single_allowed_groups=[AllowedGroupEntry("g1", "")]))
+    res = await svc.resolve("g2", None, True)
+    assert res.server is None and res.error  # single_not_authorized
 
 
-def test_multi_restricted_no_warning(repo):
+async def test_single_restricted_empty_allowlist_denies_all(repo):
     svc = RoutingService(
-        repo, _cfg([_server("alpha")], access=AccessMode.RESTRICTED, world_mode="multi"))
-    assert svc.single_restricted_warning() is None
+        repo, _cfg([_server("alpha")], access=AccessMode.RESTRICTED, world_mode="single",
+                   single_allowed_groups=[]))
+    res = await svc.resolve("g1", None, True)
+    assert res.server is None  # fail-closed
+
+
+async def test_single_open_ignores_allowlist(repo):
+    svc = RoutingService(
+        repo, _cfg([_server("alpha")], access=AccessMode.OPEN, world_mode="single",
+                   single_allowed_groups=[]))
+    res = await svc.resolve("g1", None, True)
+    assert res.server is not None

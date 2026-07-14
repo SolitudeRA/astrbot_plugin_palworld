@@ -8,9 +8,9 @@ MESSAGES: dict[str, str] = {
     "link_single_mode": "当前为单世界模式，无需选择服务器：所有操作对应唯一服务器。",
     "group_no_actions": "该命令组暂无可用命令（可能未开放或需要管理员权限）。",
     "private_restricted": "restricted 模式下私聊不可查询，请在群聊中使用。",
-    "single_restricted_warning": (
-        "当前为单世界模式（world_mode=single），访问控制 access_mode=restricted 已被架空："
-        "所有会话（含私聊）都可直接读取唯一服务器。如需按会话授权，请改用 world_mode=multi。"
+    "single_not_authorized": (
+        "本群未被授权查询本服务器。请在群里发 /pal whereami 获取本群标识，"
+        "交管理员在插件设置页「连接」章的授权群名单中添加。"
     ),
     "active_server_stale": "当前绑定的服务器已不可用，请管理员重新执行 /pal link add <名称>。",
     "degraded": "当前无法获取 Palworld 世界数据。最后成功更新：{minutes} 分钟前。",

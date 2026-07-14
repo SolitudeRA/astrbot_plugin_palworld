@@ -2,8 +2,8 @@
 
 - 单世界模式 /pal link add alpha → 回「单世界模式无需选择服务器」提示，且**先于**
   routing.use（守卫是唯一防线，help 省略只是视觉）。
-- initialize（容器装配后）经 logger 暴露两条启动告警：single+restricted 架空告警
-  （T3 single_restricted_warning）+ admin_only_commands 未知锁告警（T5 unknown_locks）。
+- initialize（容器装配后）经 logger 暴露两条启动告警：single+restricted 授权名单为空告警
+  + admin_only_commands 未知锁告警（T5 unknown_locks）。
 """
 from __future__ import annotations
 
@@ -129,13 +129,14 @@ async def test_multi_mode_link_not_guarded(tmp_path: Path, monkeypatch):
 
 # ---- 启动告警暴露（initialize 经 logger）----
 
-async def test_startup_warns_single_restricted(tmp_path: Path, monkeypatch, caplog):
+async def test_startup_warns_single_restricted_empty_allowlist(tmp_path: Path, monkeypatch, caplog):
+    # 单模式 + restricted + 授权名单为空 → 运维告警（所有会话都无法查询）。
     with caplog.at_level(logging.WARNING, logger="palworld_terminal.main"):
         plugin = await _make_plugin(
             tmp_path, monkeypatch, _raw(world_mode="single", access="restricted"))
     try:
         msgs = [r.getMessage() for r in caplog.records if r.name == "palworld_terminal.main"]
-        assert any("架空" in m or "single" in m for m in msgs), msgs
+        assert any("授权群名单为空" in m for m in msgs), msgs
     finally:
         await plugin.terminate()
 
