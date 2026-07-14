@@ -7,10 +7,12 @@
 from palworld_terminal.presentation.command_registry import (
     _NON_LOCKABLE_PATHS,
     DISPATCH,
+    FLAT_ACTIONS,
     LOCKABLE_PATHS,
     PAL_COMMAND_PATHS,
     PAL_REGISTERED,
 )
+from palworld_terminal.presentation.commands import Commands
 
 
 def test_pal_registered_is_eleven_first_words():
@@ -82,3 +84,33 @@ def test_action_spec_shape():
             assert isinstance(method, str) and method
             assert isinstance(feat, str) and feat
             assert gate in ("read", "admin_write", "admin")
+
+
+# ---- getattr introspection 锚定（T7）：分发目标方法名须能解析到可调用绑定 ----
+# 抓 typo 方法名（如 player unbind → unbind_self 映射错位）→ 防运行时 AttributeError。
+
+def test_read_and_admin_methods_resolve_on_commands():
+    # gate ∈ {read, admin} 的实现方法名须是 Commands 上的可调用方法。
+    for group, actions in DISPATCH.items():
+        for sub, (method, _feat, gate) in actions.items():
+            if gate == "admin_write":
+                continue  # 写动作方法名是 admin_write 的 command_str token，非方法
+            assert callable(getattr(Commands, method)), f"{group} {sub} → {method}"
+
+
+def test_flat_action_methods_resolve_on_commands():
+    for name, (method, _feat, _gate) in FLAT_ACTIONS.items():
+        assert callable(getattr(Commands, method)), f"{name} → {method}"
+
+
+def test_server_write_methods_are_admin_write_tokens_not_methods():
+    # server 写子动作全 gate=admin_write，方法名由 Commands.admin_write 按 token 路由。
+    assert callable(Commands.admin_write)
+    for sub, (_method, _feat, gate) in DISPATCH["server"].items():
+        assert gate == "admin_write", sub
+
+
+def test_link_impl_methods_exist():
+    # link_list/link_add/link_remove 为 T7 新建（旧 server 内联逻辑迁入）。
+    for method in ("link_list", "link_add", "link_remove"):
+        assert callable(getattr(Commands, method))
