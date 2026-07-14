@@ -1,3 +1,5 @@
+from types import SimpleNamespace
+
 from palworld_terminal.application.routing_service import Resolution
 from palworld_terminal.config import ServerConfig, parse_config
 from palworld_terminal.domain.models import World
@@ -91,63 +93,91 @@ async def test_query_resolution_error_returns_error_text():
     assert "不存在或未就绪" in out
 
 
-async def test_server_add_requires_group():
-    cmds = Commands(_FakeRouting(Resolution(_server(), None)), _FakeQuery(), _FakeRepo(), None, None)
-    out = await cmds.server("umo1", "/pal server add alpha", is_group=False, is_admin=True)
+# ---- link 组（原 /pal server 绑定分发迁入；门在 Commands.link 内）----
+# 完整 link 分发/门控三态锚定在 commands_dispatch_test；此处覆盖底层 routing 契约。
+
+def _cfg_link(servers=None):
+    return SimpleNamespace(
+        features=SimpleNamespace(enabled=lambda g: True),
+        permissions=SimpleNamespace(admin_only_commands=[]),
+        servers=servers if servers is not None else [],
+        skipped=[],
+    )
+
+
+async def test_link_add_requires_group():
+    cmds = Commands(_FakeRouting(Resolution(_server(), None)), _FakeQuery(), _FakeRepo(),
+                    _cfg_link(), None)
+    out = await cmds.link("umo1", "/pal link add alpha", is_group=False,
+                          sender_id="s:1", is_admin=True)
     assert "仅可在群聊" in out
 
 
-async def test_server_add_requires_admin():
-    cmds = Commands(_FakeRouting(Resolution(_server(), None)), _FakeQuery(), _FakeRepo(), None, None)
-    out = await cmds.server("umo1", "/pal server add alpha", is_group=True, is_admin=False)
+async def test_link_add_requires_admin():
+    cmds = Commands(_FakeRouting(Resolution(_server(), None)), _FakeQuery(), _FakeRepo(),
+                    _cfg_link(), None)
+    out = await cmds.link("umo1", "/pal link add alpha", is_group=True,
+                          sender_id="s:1", is_admin=False)
     assert out == L("admin_required")
 
 
-async def test_server_add_happy_path():
+async def test_link_add_happy_path():
     routing = _FakeRouting(Resolution(_server(), None))
-    cmds = Commands(routing, _FakeQuery(), _FakeRepo(), None, None)
-    out = await cmds.server("umo1", "/pal server add alpha", is_group=True, is_admin=True)
+    cmds = Commands(routing, _FakeQuery(), _FakeRepo(), _cfg_link(), None)
+    out = await cmds.link("umo1", "/pal link add alpha", is_group=True,
+                          sender_id="s:1", is_admin=True)
     assert out == "USE_OK:alpha"
     assert routing.used == ("umo1", "alpha")
 
 
-async def test_server_remove_happy_path():
-    cmds = Commands(_FakeRouting(Resolution(_server(), None)), _FakeQuery(), _FakeRepo(), None, None)
-    out = await cmds.server("umo1", "/pal server remove alpha", is_group=True, is_admin=True)
+async def test_link_remove_happy_path():
+    cmds = Commands(_FakeRouting(Resolution(_server(), None)), _FakeQuery(), _FakeRepo(),
+                    _cfg_link(), None)
+    out = await cmds.link("umo1", "/pal link remove alpha", is_group=True,
+                          sender_id="s:1", is_admin=True)
     assert out == "UNBIND_OK:alpha"
 
 
-async def test_server_add_without_name_returns_usage():
-    cmds = Commands(_FakeRouting(Resolution(_server(), None)), _FakeQuery(), _FakeRepo(), None, None)
-    out = await cmds.server("umo1", "/pal server add", is_group=True, is_admin=True)
+async def test_link_add_without_name_returns_usage():
+    cmds = Commands(_FakeRouting(Resolution(_server(), None)), _FakeQuery(), _FakeRepo(),
+                    _cfg_link(), None)
+    out = await cmds.link("umo1", "/pal link add", is_group=True,
+                          sender_id="s:1", is_admin=True)
     assert out == L("server_usage")
 
 
-async def test_server_typo_subcommand_returns_usage():
-    # 严格档:非空非 add/remove 首词 → 用法提示,不静默列表
-    cmds = Commands(_FakeRouting(Resolution(_server(), None)), _FakeQuery(), _FakeRepo(), None, None)
-    out = await cmds.server("umo1", "/pal server addd alpha", is_group=True, is_admin=True)
-    assert out == L("server_usage")
+async def test_link_typo_subcommand_returns_group_help():
+    # 未知子动作 → 组用法(列出合法子动作),不静默列表
+    cmds = Commands(_FakeRouting(Resolution(_server(), None)), _FakeQuery(), _FakeRepo(),
+                    _cfg_link(), None)
+    out = await cmds.link("umo1", "/pal link addd alpha", is_group=True,
+                          sender_id="s:1", is_admin=True)
+    assert "list" in out and "add" in out and "remove" in out
 
 
-async def test_server_bare_lists():
-    cmds = Commands(_FakeRouting(Resolution(_server(), None)), _FakeQuery(), _FakeRepo(), None, None)
-    out = await cmds.server("umo1", "/pal server", is_group=True, is_admin=False)
+async def test_link_list_lists_servers():
+    cmds = Commands(_FakeRouting(Resolution(_server(), None)), _FakeQuery(), _FakeRepo(),
+                    _cfg_link(servers=[_server()]), None)
+    out = await cmds.link("umo1", "/pal link list", is_group=True,
+                          sender_id="s:1", is_admin=False)
     assert "已配置服务器" in out and "alpha" in out
 
 
-async def test_server_add_override_token():
-    # /pal server add @alpha:@alpha 被剥成 server_override,首词 add 留在 arg.name;override 优先命中
+async def test_link_add_override_token():
+    # /pal link add @alpha 被剥成 server_override;override 优先命中
     routing = _FakeRouting(Resolution(_server(), None))
-    cmds = Commands(routing, _FakeQuery(), _FakeRepo(), None, None)
-    out = await cmds.server("umo1", "/pal server add @alpha", is_group=True, is_admin=True)
+    cmds = Commands(routing, _FakeQuery(), _FakeRepo(), _cfg_link(), None)
+    out = await cmds.link("umo1", "/pal link add @alpha", is_group=True,
+                          sender_id="s:1", is_admin=True)
     assert out == "USE_OK:alpha"
     assert routing.used == ("umo1", "alpha")
 
 
-async def test_server_double_at_returns_arg_error():
-    cmds = Commands(_FakeRouting(Resolution(_server(), None)), _FakeQuery(), _FakeRepo(), None, None)
-    out = await cmds.server("umo1", "/pal server @a @b", is_group=True, is_admin=True)
+async def test_link_double_at_returns_arg_error():
+    cmds = Commands(_FakeRouting(Resolution(_server(), None)), _FakeQuery(), _FakeRepo(),
+                    _cfg_link(), None)
+    out = await cmds.link("umo1", "/pal link @a @b", is_group=True,
+                          sender_id="s:1", is_admin=True)
     assert "参数格式错误" in out
 
 

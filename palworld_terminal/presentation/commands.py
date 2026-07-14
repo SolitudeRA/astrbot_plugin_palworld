@@ -287,8 +287,8 @@ class Commands:
     #   gate=read        —— per-子动作功能门 + admin_denied 完整路径锁（均下沉至此）。
     #   gate=admin_write —— 走 admin_write（门序 admin 硬门先于 feature + 审计）。
     #   gate=admin       —— 需 is_admin（link add/remove）。
-    # 组分发器命名 *_grp：world/guild/player 已是实现方法名，additive 不可撞（T8 删旧
-    # 实现后再改裸组名 + 重定位实现 + 更新 DISPATCH）。
+    # 组分发器命名 *_grp：world/guild/player 已是实现方法名（DISPATCH 复用），不可撞。
+    # T8 保留 *_grp 后缀（handler 串是「world」、调 world_grp），实现方法与分发器共存。
 
     def _admin_locked(self, path: str, sender_id: str, is_admin: bool) -> bool:
         """admin_only_commands 锁（下沉）：按完整路径判，锁定且非管理员 → True。"""
@@ -419,42 +419,6 @@ class Commands:
         if not name:
             return L("server_usage")
         return await self._routing.unbind(umo, name)
-
-    async def server(self, umo, message_str, is_group, is_admin) -> str:
-        try:
-            arg = parse_arg(message_str, "server")
-        except ArgError:
-            return "参数格式错误：一条命令只能指定一个 @服务器。"
-        tokens = arg.name.split()
-        sub = tokens[0].lower() if tokens else ""
-        name = arg.server_override or (" ".join(tokens[1:]) if len(tokens) > 1 else "")
-
-        if sub in ("add", "remove"):
-            if not is_admin:
-                return L("admin_required")
-            if not is_group:
-                return L("use_only_group")
-            if not name:
-                return L("server_usage")
-            if sub == "add":
-                return await self._routing.use(umo, name)       # 底层不变
-            return await self._routing.unbind(umo, name)         # 底层不变
-
-        if sub:  # 非空非 add/remove:打错的子命令 → 用法提示,不静默回落列表
-            return L("server_usage")
-
-        # 裸命令（空首词）= 服务器列表（原 servers() 逻辑，私聊也可）
-        ready_ids = {s.server_id for s in self._routing.ready_servers()}
-        group = await self._repo.list_group_servers(umo) if is_group else {}
-        rows = []
-        for s in (self._cfg.servers if self._cfg else self._routing.ready_servers()):
-            allowed, active = group.get(s.server_id, (False, False))
-            rows.append(ServerStatusRow(
-                name=s.name, ready=s.ready, online=s.server_id in ready_ids,
-                allowed=allowed, active=active,
-            ))
-        skipped = self._cfg.skipped if self._cfg else []
-        return format_servers(rows, skipped, is_admin)
 
     def help(self, message_str, is_admin) -> str:
         arg = parse_arg(message_str, "help")

@@ -33,6 +33,7 @@ export const HEADER_FIELDS: FieldSpec[] = [
 export const OBJECT_SECTIONS: ObjectSection[] = [
   { key: 'routing', title: '访问控制', subtitle: '哪些群可以查询，以及默认查询哪台服务器', fields: [
     { key: 'access_mode', type: 'enum', label: '访问模式', default: 'restricted', options: ['restricted', 'open'], hint: 'restricted 需管理员授权；open 全开放' },
+    { key: 'world_mode', type: 'enum', label: '运行模式', default: 'multi', options: ['multi', 'single'], hint: 'multi 多世界（按群绑定/切换服务器）；single 单世界（所有操作对应唯一服务器）。⚠️ single + restricted 并存时访问控制不生效' },
     { key: 'default_server', type: 'string', label: '默认服务器', default: '', hint: '群里没指定、也没绑定时查询它' },
   ]},
   { key: 'polling', title: '轮询间隔', subtitle: '每类数据多久从服务器拉取一次，单位：秒', fields: [
@@ -95,11 +96,12 @@ export const OBJECT_SECTIONS: ObjectSection[] = [
 // 可锁命令(astrbot 命令串)+ 所属功能组。内容须 == 后端 LOCKABLE_COMMANDS,
 // 由 tests/unit/frontend_pal_commands_test.py 跨端锚定。
 export const PAL_COMMANDS: { cmd: string; g: string }[] = [
-  { cmd: 'status', g: 'core' }, { cmd: 'online', g: 'core' },
-  { cmd: 'world', g: 'core' }, { cmd: 'rules', g: 'core' },
-  { cmd: 'guilds', g: 'guilds_bases' }, { cmd: 'guild', g: 'guilds_bases' },
-  { cmd: 'bases', g: 'guilds_bases' }, { cmd: 'base', g: 'guilds_bases' },
-  { cmd: 'events', g: 'events' }, { cmd: 'today', g: 'report' },
-  { cmd: 'rank', g: 'players' }, { cmd: 'player', g: 'players' },
-  { cmd: 'me', g: 'players' }, { cmd: 'bind', g: 'players' }, { cmd: 'unbind', g: 'players' },
+  { cmd: 'world status', g: 'core' }, { cmd: 'world overview', g: 'core' },
+  { cmd: 'world rules', g: 'core' }, { cmd: 'world events', g: 'events' },
+  { cmd: 'world today', g: 'report' },
+  { cmd: 'guild list', g: 'guilds_bases' }, { cmd: 'guild info', g: 'guilds_bases' },
+  { cmd: 'guild bases', g: 'guilds_bases' }, { cmd: 'guild base', g: 'guilds_bases' },
+  { cmd: 'player info', g: 'players' }, { cmd: 'player bind', g: 'players' },
+  { cmd: 'player unbind', g: 'players' },
+  { cmd: 'rank', g: 'players' }, { cmd: 'online', g: 'core' }, { cmd: 'me', g: 'players' },
 ]

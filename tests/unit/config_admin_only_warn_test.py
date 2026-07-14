@@ -17,20 +17,20 @@ def _base(**over):
 
 
 def test_unknown_lock_kept_and_collected():
-    # "totally_not_a_command" 在扁平与完整路径下都不存在 → 未知锁
-    cfg = _base(admin_only_commands=["totally_not_a_command", "player"])
+    # "player"(旧扁平) 升级后不再匹配完整路径 LOCKABLE("player info") → 未知锁。
+    cfg = _base(admin_only_commands=["player", "player info"])
     # 未知条目进 unknown_locks
-    assert "totally_not_a_command" in cfg.permissions.unknown_locks
+    assert "player" in cfg.permissions.unknown_locks
     # 未知条目保留在 admin_only_commands（不静默吞、不改现有锁行为）
-    assert "totally_not_a_command" in cfg.permissions.admin_only_commands
+    assert "player" in cfg.permissions.admin_only_commands
 
 
 def test_known_lock_not_flagged_unknown():
-    cfg = _base(admin_only_commands=["totally_not_a_command", "player"])
-    # 合法锁（此刻扁平 "player" ∈ LOCKABLE_COMMANDS）不进 unknown_locks
-    assert "player" in LOCKABLE_COMMANDS  # 前提自证
-    assert "player" not in cfg.permissions.unknown_locks
-    assert "player" in cfg.permissions.admin_only_commands
+    cfg = _base(admin_only_commands=["player", "player info"])
+    # 合法锁（完整路径 "player info" ∈ LOCKABLE_COMMANDS）不进 unknown_locks
+    assert "player info" in LOCKABLE_COMMANDS  # 前提自证
+    assert "player info" not in cfg.permissions.unknown_locks
+    assert "player info" in cfg.permissions.admin_only_commands
 
 
 def test_unknown_locks_default_empty():
@@ -39,8 +39,8 @@ def test_unknown_locks_default_empty():
 
 
 def test_non_lockable_not_treated_as_unknown():
-    # 不可锁集（server/whoami/help/confirm 等）是既有静默剔除行为，
+    # 不可锁集（server 写 / link / whoami/help/confirm 完整路径）是既有静默剔除行为，
     # 不应被误报为未知锁——它们既不在 admin_only_commands 也不在 unknown_locks。
-    cfg = _base(admin_only_commands=["server", "whoami", "help", "confirm"])
+    cfg = _base(admin_only_commands=["server kick", "link add", "whoami", "help", "confirm"])
     assert cfg.permissions.admin_only_commands == []
     assert cfg.permissions.unknown_locks == []

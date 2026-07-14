@@ -41,11 +41,11 @@ async def test_whoami_returns_composite_id(tmp_path, monkeypatch):
 async def test_locked_command_blocks_non_admin(tmp_path, monkeypatch):
     with namespaced_main() as mod:
         monkeypatch.setattr(mod, "_resolve_data_dir", lambda: tmp_path)
-        # 锁定 player,请求者非名单成员(role=member 也不放行)
-        plugin = mod.PalWorldTerminal(object(), _raw([], ["player"]))
+        # 锁定完整路径 player info,请求者非名单成员(role=member 也不放行)
+        plugin = mod.PalWorldTerminal(object(), _raw([], ["player info"]))
         await plugin.initialize()
         try:
-            ev = _Ev(sender="12345"); ev.message_str = "player Alice"
+            ev = _Ev(sender="12345"); ev.message_str = "player info Alice"
             outs = [o async for o in plugin.player(ev)]
             assert any("需要管理员权限" in o for o in outs)
         finally:

@@ -1,15 +1,15 @@
 """分级命令真相源锚定（spec §3 命令树 / §8 锚定）。
 
-本任务 additive：只锚新增的分发表 + 完整路径常量（新名 DISPATCH / PAL_REGISTERED
-/ PAL_COMMAND_PATHS / _NON_LOCKABLE_PATHS / LOCKABLE_PATHS），旧 26 扁平锚定
-（command_names_test）保持不动、仍绿；getattr introspection 锚定留 T7。
+分发表 + 完整路径常量（DISPATCH / PAL_REGISTERED / PAL_COMMAND_STRINGS /
+_NON_LOCKABLE / LOCKABLE_COMMANDS）；命令注册身份(11 首词)由 command_names_test
+锚定到 main.py。getattr introspection 抓 typo 方法名。
 """
 from palworld_terminal.presentation.command_registry import (
-    _NON_LOCKABLE_PATHS,
+    _NON_LOCKABLE,
     DISPATCH,
     FLAT_ACTIONS,
-    LOCKABLE_PATHS,
-    PAL_COMMAND_PATHS,
+    LOCKABLE_COMMANDS,
+    PAL_COMMAND_STRINGS,
     PAL_REGISTERED,
 )
 from palworld_terminal.presentation.commands import Commands
@@ -35,32 +35,32 @@ def test_dispatch_groups_have_all_subactions():
 
 def test_command_paths_full_hierarchy():
     # 完整路径 = f"{组} {动作}" 各组 + 扁平命令名
-    assert "world status" in PAL_COMMAND_PATHS
-    assert "server kick" in PAL_COMMAND_PATHS
-    assert "guild info" in PAL_COMMAND_PATHS
-    assert "player unbind" in PAL_COMMAND_PATHS
-    assert "rank" in PAL_COMMAND_PATHS  # 扁平命令直接入路径集
+    assert "world status" in PAL_COMMAND_STRINGS
+    assert "server kick" in PAL_COMMAND_STRINGS
+    assert "guild info" in PAL_COMMAND_STRINGS
+    assert "player unbind" in PAL_COMMAND_STRINGS
+    assert "rank" in PAL_COMMAND_STRINGS  # 扁平命令直接入路径集
 
 
 def test_non_lockable_paths_cover_writes_link_and_meta():
     # server 各动作 + link 各动作 + 元命令（help/whoami/confirm）绝不可锁
-    assert "server kick" in _NON_LOCKABLE_PATHS
-    assert "server stop" in _NON_LOCKABLE_PATHS
-    assert "link add" in _NON_LOCKABLE_PATHS
-    assert "link remove" in _NON_LOCKABLE_PATHS
-    assert "help" in _NON_LOCKABLE_PATHS
-    assert "whoami" in _NON_LOCKABLE_PATHS
-    assert "confirm" in _NON_LOCKABLE_PATHS
+    assert "server kick" in _NON_LOCKABLE
+    assert "server stop" in _NON_LOCKABLE
+    assert "link add" in _NON_LOCKABLE
+    assert "link remove" in _NON_LOCKABLE
+    assert "help" in _NON_LOCKABLE
+    assert "whoami" in _NON_LOCKABLE
+    assert "confirm" in _NON_LOCKABLE
 
 
 def test_lockable_paths_is_complement():
-    assert LOCKABLE_PATHS == frozenset(PAL_COMMAND_PATHS) - _NON_LOCKABLE_PATHS
-    assert "world status" in LOCKABLE_PATHS
-    assert "rank" in LOCKABLE_PATHS  # rank 可锁
-    assert "server kick" not in LOCKABLE_PATHS
-    assert "help" not in LOCKABLE_PATHS
+    assert LOCKABLE_COMMANDS == frozenset(PAL_COMMAND_STRINGS) - _NON_LOCKABLE
+    assert "world status" in LOCKABLE_COMMANDS
+    assert "rank" in LOCKABLE_COMMANDS  # rank 可锁
+    assert "server kick" not in LOCKABLE_COMMANDS
+    assert "help" not in LOCKABLE_COMMANDS
     # 不可锁集与可锁集无交集
-    assert not (_NON_LOCKABLE_PATHS & LOCKABLE_PATHS)
+    assert not (_NON_LOCKABLE & LOCKABLE_COMMANDS)
 
 
 def test_write_actions_route_admin_write_with_correct_group():

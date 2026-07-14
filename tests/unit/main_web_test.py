@@ -41,7 +41,7 @@ async def test_command_guarded_during_restart():
     import main as main_mod
     plugin = main_mod.PalWorldTerminal(_FakeContext(), _raw())
     plugin._restarting = True
-    out = await _collect(plugin.status(_Event()))
+    out = await _collect(plugin.world(_Event()))
     assert len(out) == 1 and "重载" in out[0]  # 未触达 None 容器
 
 

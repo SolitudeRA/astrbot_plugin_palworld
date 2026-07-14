@@ -37,9 +37,11 @@ def test_server_admin_non_int_falls_back_default():
     assert sa.confirmation_timeout == 30    # 非 int 回默认
 
 
-def test_non_lockable_expanded_to_twelve():
+def test_non_lockable_full_paths():
     from palworld_terminal.config import _NON_LOCKABLE
     assert _NON_LOCKABLE == frozenset({
-        "server", "whoami", "help", "confirm",
-        "announce", "save", "kick", "unban", "ban", "shutdown", "stop",
+        "server announce", "server save", "server kick", "server unban",
+        "server ban", "server shutdown", "server stop",
+        "link list", "link add", "link remove",
+        "help", "whoami", "confirm",
     })

@@ -44,35 +44,13 @@ HELP_LINE: dict[str, str] = {
     "confirm": "/pal confirm  确认执行上一条危险操作",
 }
 
-# astrbot 命令串真相源(用户 /pal <X> 里的 X)。与 COMMANDS 的键(方法名)区分:
-# unbind(串) vs unbind_self(方法名)。由 command_names_test 锚定到 main.py 注册。
-PAL_COMMAND_STRINGS: list[str] = [
-    "status", "online", "world", "rules", "guilds", "guild", "bases", "base",
-    "events", "today", "rank", "player", "me", "bind", "unbind",
-    "server", "whoami", "help",
-    # 服务器管控写命令 + confirm 元命令（管理员名单 + feature 组双闸把守）
-    "announce", "save", "kick", "unban", "ban", "shutdown", "stop", "confirm",
-]
-
-# 不可锁集(astrbot 命令串):服务器/元命令与服务器管控写命令由 feature 组 + 管理员
-# 名单双闸把守,绝不可再被 admin_only_commands 锁。须与 config._NON_LOCKABLE 同集
-# (command_names_test::test_non_lockable_matches_registry_complement 锚定两处一致)。
-_NON_LOCKABLE: frozenset[str] = frozenset({
-    "server", "whoami", "help", "confirm",
-    "announce", "save", "kick", "unban", "ban", "shutdown", "stop",
-})
-
-# 可被 admin_only_commands 锁定的命令串 = 全部 − 不可锁集
-LOCKABLE_COMMANDS: frozenset[str] = frozenset(PAL_COMMAND_STRINGS) - _NON_LOCKABLE
-
-
 # ============================================================================
-# 分级命令真相源（v0.9.5 Phase 1，spec §3 命令树 / §8 锚定）——additive。
-# 上方旧扁平 26 常量（COMMANDS/HELP_LINE/PAL_COMMAND_STRINGS/LOCKABLE_COMMANDS/
-# _NON_LOCKABLE）保持不动、command_names_test 仍锚它们；T8 收口时统一改名删旧。
+# 分级命令真相源（v0.9.5 Phase 1，spec §3 命令树 / §8 锚定）。
+# 上方 COMMANDS/COMMAND_GROUP/HELP_LINE 仍是 help 文案 + 方法级 _gated 的真相源
+# （format_help 消费；T9 重写分级 help 时收口）。
 # 两种粒度分家（spec §8）：
 #   - 注册身份 = 11 首词（PAL_REGISTERED），AstrBot 只认首词，供 @pal.command 锚定。
-#   - 门控/help/锁身份 = 完整路径（PAL_COMMAND_PATHS：`world status`/`server kick`/
+#   - 门控/help/锁身份 = 完整路径（PAL_COMMAND_STRINGS：`world status`/`server kick`/
 #     `rank`），功能门/管理员门/可锁性都按完整路径判定。
 # ============================================================================
 
@@ -134,19 +112,20 @@ FLAT_ACTIONS: dict[str, ActionSpec] = {
 PAL_REGISTERED: list[str] = [*DISPATCH.keys(), *FLAT_ACTIONS.keys()]
 
 # 门控/help/锁身份：完整路径集（`world status` … + 扁平命令名）。
-PAL_COMMAND_PATHS: frozenset[str] = frozenset(
+# astrbot 命令串真相源现为完整路径；由 command_names_test 锚定到 main.py 的 11 注册。
+PAL_COMMAND_STRINGS: frozenset[str] = frozenset(
     [f"{group} {sub}" for group, actions in DISPATCH.items() for sub in actions]
     + list(FLAT_ACTIONS)
 )
 
 # 不可锁集（完整路径）：server 各动作 + link 各动作 + 元命令（help/whoami/confirm）。
 # 这些由 feature 组 + 管理员名单双闸把守，绝不可再被 admin_only_commands 锁。
-# T8 收口时会与 config._NON_LOCKABLE 跨源全等锚定（本任务不改 config）。
-_NON_LOCKABLE_PATHS: frozenset[str] = frozenset(
+# 须与 config._NON_LOCKABLE 跨源全等（command_names_test 锚定两处一致）。
+_NON_LOCKABLE: frozenset[str] = frozenset(
     [f"server {sub}" for sub in DISPATCH["server"]]
     + [f"link {sub}" for sub in DISPATCH["link"]]
     + ["help", "whoami", "confirm"]
 )
 
 # 可被 admin_only_commands 锁定的完整路径 = 全部 − 不可锁集。
-LOCKABLE_PATHS: frozenset[str] = frozenset(PAL_COMMAND_PATHS) - _NON_LOCKABLE_PATHS
+LOCKABLE_COMMANDS: frozenset[str] = frozenset(PAL_COMMAND_STRINGS) - _NON_LOCKABLE

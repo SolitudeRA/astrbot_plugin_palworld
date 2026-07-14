@@ -166,13 +166,15 @@ def _default_permissions() -> PermissionsConfig:
     return PermissionsConfig(admins=[], admin_only_commands=[])
 
 
-# 命令门不可锁集(astrbot 命令串);与 command_registry.LOCKABLE_COMMANDS 一致,
+# 命令门不可锁集(完整路径);与 command_registry._NON_LOCKABLE 全等,
 # 此处内联以免 config 依赖 presentation 层。
-# 服务器管控写命令(announce/save/kick/unban/ban/shutdown/stop)与 confirm 由
-# feature 组 + 管理员名单双闸把守,绝不可再被 admin_only_commands 锁,故一并预置。
+# server 各写子动作 + link 各子动作 + 元命令(help/whoami/confirm)由 feature 组 +
+# 管理员名单双闸把守,绝不可再被 admin_only_commands 锁,故一并预置。
 _NON_LOCKABLE = frozenset({
-    "server", "whoami", "help", "confirm",
-    "announce", "save", "kick", "unban", "ban", "shutdown", "stop",
+    "server announce", "server save", "server kick", "server unban",
+    "server ban", "server shutdown", "server stop",
+    "link list", "link add", "link remove",
+    "help", "whoami", "confirm",
 })
 
 

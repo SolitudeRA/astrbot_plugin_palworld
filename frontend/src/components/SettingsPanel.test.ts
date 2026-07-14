@@ -117,7 +117,7 @@ describe('SettingsPanel', () => {
     (window.AstrBotPluginPage!.apiGet as any).mockResolvedValue(cfg())
     const w = mountAt('permissions'); await flushPromises()
     expect(w.text()).toContain('受托') // 受托名单区块
-    expect(w.text()).toContain('/pal player') // 命令 chip 网格含具体命令
+    expect(w.text()).toContain('/pal player info') // 命令 chip 网格含具体命令(完整路径)
     expect(w.text()).toContain('名单为空') // 空名单提示
     expect(w.text()).toContain('名册全局') // 爆炸半径安全警句(勿静默删除)
   })
@@ -127,12 +127,12 @@ describe('SettingsPanel', () => {
     const w = mountAt('permissions'); await flushPromises()
     expect((w.vm as any).state.admin_only_commands).toEqual([])
     const chips = w.findAll('.cmd-chip')
-    const playerChip = chips.find((c) => c.text() === '/pal player')!
+    const playerChip = chips.find((c) => c.text() === '/pal player info')!
     await playerChip.trigger('click')
-    expect((w.vm as any).state.admin_only_commands).toContain('player')
+    expect((w.vm as any).state.admin_only_commands).toContain('player info')
     expect(w.text()).toContain('有未保存的更改')
     await playerChip.trigger('click')
-    expect((w.vm as any).state.admin_only_commands).not.toContain('player')
+    expect((w.vm as any).state.admin_only_commands).not.toContain('player info')
   })
 
   it('config 缺 permission 两键不崩、collectBody 产出空数组', async () => {

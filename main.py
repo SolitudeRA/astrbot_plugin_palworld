@@ -170,15 +170,6 @@ class PalWorldTerminal(Star):
             if self._inflight == 0:
                 self._idle.set()
 
-    async def _guarded_admin(self, call):
-        """服务器管控写命令的门:薄委托到 _guarded(busy+inflight 包裹),不做 admin_denied。
-
-        admin 硬门与 feature 门在 Commands.admin_write 内(门序铁律:admin 先于
-        feature),此处不重复;命令串亦在 config._NON_LOCKABLE,永不进 admin_only。
-        保留独立名字仅为锚定「写命令走 _guarded_admin(区别于 _guarded/_guarded_cmd)」。
-        """
-        return await self._guarded(call)
-
     async def _wait_quiescent(self, timeout: float = 5.0) -> None:
         # 新操作已被 _restarting 挡在门外;等在途的退完再关旧容器。
         # 超时兜底:个别慢查询不至于永久卡死重载(此时回到修复前的竞态概率)
@@ -364,10 +355,48 @@ class PalWorldTerminal(Star):
     def pal(self):
         pass
 
-    @pal.command("status")
-    async def status(self, event):
+    # ---- 分级命令：5 组 handler（world/guild/player/server/link）+ 6 扁平
+    # （rank/online/me/whoami/help/confirm）= 11 注册。AstrBot 只认首词,子动作
+    # (world status …) 由 Commands 层分发器自解析。门控下沉进分发（功能门 per-子动作、
+    # admin_denied 完整路径、server 写走 admin_write）;main 层只施 busy/inflight 门闩。----
+
+    @pal.command("world")
+    async def world(self, event):
+        yield event.plain_result(await self._guarded(lambda c: c.commands.world_grp(
+            self._umo(event), self._msg(event), self._is_group(event),
+            self._sender_id(event), c.commands.is_plugin_admin(self._sender_id(event)))))
+
+    @pal.command("guild")
+    async def guild(self, event):
+        yield event.plain_result(await self._guarded(lambda c: c.commands.guild_grp(
+            self._umo(event), self._msg(event), self._is_group(event),
+            self._sender_id(event), c.commands.is_plugin_admin(self._sender_id(event)))))
+
+    @pal.command("player")
+    async def player(self, event):
+        yield event.plain_result(await self._guarded(lambda c: c.commands.player_grp(
+            self._umo(event), self._msg(event), self._is_group(event),
+            self._sender_id(event), c.commands.is_plugin_admin(self._sender_id(event)))))
+
+    @pal.command("server")
+    async def server(self, event):
+        # server 组含写命令：走 _guarded 门闩即可,admin 硬门 + feature 门在
+        # Commands.server_grp→admin_write 内（门序 admin 先于 feature 不变）。
+        yield event.plain_result(await self._guarded(lambda c: c.commands.server_grp(
+            self._umo(event), self._msg(event), self._is_group(event),
+            self._sender_id(event), c.commands.is_plugin_admin(self._sender_id(event)))))
+
+    @pal.command("link")
+    async def link(self, event):
+        # link add/remove 需 is_admin（门在 Commands.link 内）;单模式守卫 T9 加。
+        yield event.plain_result(await self._guarded(lambda c: c.commands.link(
+            self._umo(event), self._msg(event), self._is_group(event),
+            self._sender_id(event), c.commands.is_plugin_admin(self._sender_id(event)))))
+
+    @pal.command("rank")
+    async def rank(self, event):
         yield event.plain_result(
-            await self._guarded_cmd(event, "status", lambda c: c.commands.status(
+            await self._guarded_cmd(event, "rank", lambda c: c.commands.rank(
                 self._umo(event), self._msg(event), self._is_group(event)))
         )
 
@@ -378,103 +407,11 @@ class PalWorldTerminal(Star):
                 self._umo(event), self._msg(event), self._is_group(event)))
         )
 
-    @pal.command("world")
-    async def world(self, event):
-        yield event.plain_result(
-            await self._guarded_cmd(event, "world", lambda c: c.commands.world(
-                self._umo(event), self._msg(event), self._is_group(event)))
-        )
-
-    @pal.command("rules")
-    async def rules(self, event):
-        yield event.plain_result(
-            await self._guarded_cmd(event, "rules", lambda c: c.commands.rules(
-                self._umo(event), self._msg(event), self._is_group(event)))
-        )
-
-    @pal.command("guilds")
-    async def guilds(self, event):
-        yield event.plain_result(
-            await self._guarded_cmd(event, "guilds", lambda c: c.commands.guilds(
-                self._umo(event), self._msg(event), self._is_group(event)))
-        )
-
-    @pal.command("guild")
-    async def guild(self, event):
-        yield event.plain_result(
-            await self._guarded_cmd(event, "guild", lambda c: c.commands.guild(
-                self._umo(event), self._msg(event), self._is_group(event)))
-        )
-
-    @pal.command("bases")
-    async def bases(self, event):
-        yield event.plain_result(
-            await self._guarded_cmd(event, "bases", lambda c: c.commands.bases(
-                self._umo(event), self._msg(event), self._is_group(event)))
-        )
-
-    @pal.command("base")
-    async def base(self, event):
-        yield event.plain_result(
-            await self._guarded_cmd(event, "base", lambda c: c.commands.base(
-                self._umo(event), self._msg(event), self._is_group(event)))
-        )
-
-    @pal.command("events")
-    async def events(self, event):
-        yield event.plain_result(
-            await self._guarded_cmd(event, "events", lambda c: c.commands.events(
-                self._umo(event), self._msg(event), self._is_group(event)))
-        )
-
-    @pal.command("today")
-    async def today(self, event):
-        yield event.plain_result(
-            await self._guarded_cmd(event, "today", lambda c: c.commands.today(
-                self._umo(event), self._msg(event), self._is_group(event)))
-        )
-
-    @pal.command("rank")
-    async def rank(self, event):
-        yield event.plain_result(
-            await self._guarded_cmd(event, "rank", lambda c: c.commands.rank(
-                self._umo(event), self._msg(event), self._is_group(event)))
-        )
-
-    @pal.command("player")
-    async def player(self, event):
-        yield event.plain_result(
-            await self._guarded_cmd(event, "player", lambda c: c.commands.player(
-                self._umo(event), self._msg(event), self._is_group(event)))
-        )
-
     @pal.command("me")
     async def me(self, event):
         yield event.plain_result(
             await self._guarded_cmd(event, "me", lambda c: c.commands.me(
                 self._umo(event), self._msg(event), self._is_group(event), self._sender_id(event)))
-        )
-
-    @pal.command("bind")
-    async def bind(self, event):
-        yield event.plain_result(
-            await self._guarded_cmd(event, "bind", lambda c: c.commands.bind(
-                self._umo(event), self._msg(event), self._is_group(event), self._sender_id(event)))
-        )
-
-    @pal.command("unbind")
-    async def unbind(self, event):
-        yield event.plain_result(
-            await self._guarded_cmd(event, "unbind", lambda c: c.commands.unbind_self(
-                self._umo(event), self._msg(event), self._is_group(event), self._sender_id(event)))
-        )
-
-    @pal.command("server")
-    async def server(self, event):
-        yield event.plain_result(
-            await self._guarded(lambda c: c.commands.server(
-                self._umo(event), self._msg(event), self._is_group(event),
-                c.commands.is_plugin_admin(self._sender_id(event))))
         )
 
     @pal.command("whoami")
@@ -488,64 +425,6 @@ class PalWorldTerminal(Star):
         yield event.plain_result(
             await self._guarded(lambda c: c.commands.help(self._msg(event), self._is_admin(event)))
         )
-
-    # ---- 服务器管控写命令（门在 admin_write 内：admin 硬门先于 feature；
-    # arg_str 传完整 message_str，Commands 内 parse_arg 自剥命令词）----
-    @pal.command("announce")
-    async def announce(self, event):
-        yield event.plain_result(await self._guarded_admin(
-            lambda c: c.commands.admin_write(
-                "announce", "server_admin_basic", self._sender_id(event), self._umo(event),
-                self._is_group(event), self._msg(event),
-                c.commands.is_plugin_admin(self._sender_id(event)))))
-
-    @pal.command("save")
-    async def save(self, event):
-        yield event.plain_result(await self._guarded_admin(
-            lambda c: c.commands.admin_write(
-                "save", "server_admin_basic", self._sender_id(event), self._umo(event),
-                self._is_group(event), self._msg(event),
-                c.commands.is_plugin_admin(self._sender_id(event)))))
-
-    @pal.command("kick")
-    async def kick(self, event):
-        yield event.plain_result(await self._guarded_admin(
-            lambda c: c.commands.admin_write(
-                "kick", "server_admin_basic", self._sender_id(event), self._umo(event),
-                self._is_group(event), self._msg(event),
-                c.commands.is_plugin_admin(self._sender_id(event)))))
-
-    @pal.command("unban")
-    async def unban(self, event):
-        yield event.plain_result(await self._guarded_admin(
-            lambda c: c.commands.admin_write(
-                "unban", "server_admin_basic", self._sender_id(event), self._umo(event),
-                self._is_group(event), self._msg(event),
-                c.commands.is_plugin_admin(self._sender_id(event)))))
-
-    @pal.command("ban")
-    async def ban(self, event):
-        yield event.plain_result(await self._guarded_admin(
-            lambda c: c.commands.admin_write(
-                "ban", "server_admin_danger", self._sender_id(event), self._umo(event),
-                self._is_group(event), self._msg(event),
-                c.commands.is_plugin_admin(self._sender_id(event)))))
-
-    @pal.command("shutdown")
-    async def shutdown(self, event):
-        yield event.plain_result(await self._guarded_admin(
-            lambda c: c.commands.admin_write(
-                "shutdown", "server_admin_danger", self._sender_id(event), self._umo(event),
-                self._is_group(event), self._msg(event),
-                c.commands.is_plugin_admin(self._sender_id(event)))))
-
-    @pal.command("stop")
-    async def stop(self, event):
-        yield event.plain_result(await self._guarded_admin(
-            lambda c: c.commands.admin_write(
-                "stop", "server_admin_danger", self._sender_id(event), self._umo(event),
-                self._is_group(event), self._msg(event),
-                c.commands.is_plugin_admin(self._sender_id(event)))))
 
     @pal.command("confirm")
     async def confirm(self, event):
