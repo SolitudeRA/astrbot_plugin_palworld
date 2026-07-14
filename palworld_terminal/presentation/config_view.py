@@ -11,9 +11,18 @@ from collections.abc import Mapping
 from datetime import UTC, datetime
 from urllib.parse import urlsplit
 
-_LIST_SECTIONS = ("servers", "custom_headers", "group_bindings", "permission_admins")
+from ..application.command_permissions import COMMAND_META
+from .command_registry import DISPATCH
+
+_LIST_SECTIONS = ("servers", "custom_headers", "group_bindings", "permission_admins",
+                  "command_permissions")
 _ROW_ID_PREFIX = {"servers": "srv", "custom_headers": "hdr", "group_bindings": "bind",
-                  "permission_admins": "adm"}
+                  "permission_admins": "adm", "command_permissions": "cmd"}
+
+# command_permissions 行校验：command 须为完整路径（COMMAND_META）或组名（DISPATCH），
+# enabled/admin_only 三态 ∈ {inherit,on,off}（与 config._TRISTATE 键全等）。
+_VALID_COMMAND_KEYS = set(COMMAND_META) | set(DISPATCH)
+_CMD_PERM_TRISTATE = frozenset({"inherit", "on", "off"})
 
 SENTINEL = "__unchanged__"
 
@@ -25,12 +34,13 @@ _SECTION_KEYS = {
     "custom_headers": {"name", "value", "value_env", "servers"},
     "group_bindings": {"umo", "server", "active"},
     "permission_admins": {"id", "note"},
+    "command_permissions": {"command", "enabled", "admin_only"},
 }
 
 _TOP_KEYS = {
     "servers", "routing", "group_bindings", "custom_headers",
-    "polling", "world", "bases", "privacy", "history", "features", "players",
-    "permission_admins", "admin_only_commands", "server_admin",
+    "polling", "world", "bases", "privacy", "history", "players",
+    "permission_admins", "command_permissions", "server_admin",
 }
 
 # server_admin 的两个带界 int 字段（范围须与 config.py::_parse_server_admin 一致）；
@@ -153,9 +163,20 @@ def validate_and_backfill(body, old_raw, env):
                 if isinstance(v, str) and len(v) > _MAX_STR:
                     return _err("too_large")
     for section in ("routing", "polling", "world", "bases", "privacy", "history",
-                    "features", "players", "server_admin"):
+                    "players", "server_admin"):
         if section in body and not isinstance(body[section], Mapping):
             return _err("invalid_shape")
+
+    # command_permissions 行校验：command ∈ COMMAND_META∪DISPATCH（完整路径或组名），
+    # enabled/admin_only 若存在须三态；非法即拒（与 servers/permission_admins 行校验同规格，
+    # 非静默）。行「必为 dict / str 上限」已由上面的列表节循环保证。
+    for i, row in enumerate(body.get("command_permissions", [])):
+        cmd = row.get("command")
+        if not isinstance(cmd, str) or cmd not in _VALID_COMMAND_KEYS:
+            return _err("invalid_field", f"command_permissions[{i}].command")
+        for axis in ("enabled", "admin_only"):
+            if axis in row and row[axis] not in _CMD_PERM_TRISTATE:
+                return _err("invalid_field", f"command_permissions[{i}].{axis}")
 
     # server_admin：object 三字段（require_confirmation:bool + 两个带界 int），
     # 类型错/越界 → invalid_shape（object-ness 已由上面的 tuple 保证）。
@@ -170,15 +191,6 @@ def validate_and_backfill(body, old_raw, env):
                 # bool 是 int 子类须显式排除；仅接受界内 int（页面已 coerce 成数值）
                 if isinstance(v, bool) or not isinstance(v, int) or not (lo <= v <= hi):
                     return _err("invalid_shape", f"server_admin.{field}")
-
-    # admin_only_commands：顶层字符串列表（仓库无此形态先例，独立校验）
-    if "admin_only_commands" in body:
-        aoc = body["admin_only_commands"]
-        if not isinstance(aoc, list) or len(aoc) > _MAX_LIST:
-            return _err("invalid_shape")
-        for c in aoc:
-            if not isinstance(c, str) or len(c) > _MAX_STR:
-                return _err("invalid_shape")
 
     # 路径化语义预校验（enum 白名单）
     for path, allowed in _ENUMS.items():
