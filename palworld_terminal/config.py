@@ -138,6 +138,34 @@ def _default_features() -> FeaturesConfig:
     return FeaturesConfig(report=True, events=True, guilds_bases=False)
 
 
+# 过渡桥（Task 8 随 FeaturesConfig 一并删）：装载迁移把旧 features 键改写为
+# command_permissions 行并删旧键，但老功能门（commands._gated/_dispatch_read/
+# admin_write/confirm/link/help 读 cfg.features.enabled(组)）尚未切到 command_overrides。
+# 故迁移后的 FeaturesConfig 由新模型派生——每组取一代表路径经 effective_enabled 复算
+# （组键/叶子/默认三级继承已内建，含 danger 不继承组键），迁移后功能门等价、绝不误关。
+_FEATURE_PROBE: dict[str, str] = {
+    "report": "world today",
+    "events": "world events",
+    "guilds_bases": "guild list",
+    "players": "rank",
+    "server_admin_basic": "server announce",
+    "server_admin_danger": "server ban",
+}
+
+
+def _derive_features_from_overrides(overrides: dict[str, CommandOverride]) -> FeaturesConfig:
+    from .application.command_permissions import effective_enabled
+
+    def e(feat: str) -> bool:
+        return effective_enabled(overrides, _FEATURE_PROBE[feat])
+
+    return FeaturesConfig(
+        report=e("report"), events=e("events"), guilds_bases=e("guilds_bases"),
+        players=e("players"), server_admin_basic=e("server_admin_basic"),
+        server_admin_danger=e("server_admin_danger"),
+    )
+
+
 @dataclass(slots=True)
 class PlayersConfig:
     rank_top_n: int
@@ -371,13 +399,16 @@ def _parse_permissions(raw: Mapping) -> PermissionsConfig:
         for k, v in overrides.items() if v            # 空覆盖行（两轴 inherit）不产 override
     }
 
+    # 函数体内相对 import：避免 config↔presentation/application 循环依赖；
+    # command_registry / command_permissions 不反向 import config，安全。
+    # （no_absolute_self_import 只禁绝对自导入前缀，相对 import 合规。）
+    from .application.command_permissions import effective_admin_only
+    from .presentation.command_registry import LOCKABLE_COMMANDS
+
     raw_cmds = raw.get("admin_only_commands", [])
-    cmds: list[str] = []
+    legacy_cmds: list[str] = []
     unknown: list[str] = []
     if isinstance(raw_cmds, list):
-        # 函数体内相对 import：避免 config↔presentation 循环依赖；command_registry
-        # 不反向 import config，安全。（no_absolute_self_import 只禁绝对自导入前缀。）
-        from .presentation.command_registry import LOCKABLE_COMMANDS
         cseen: set[str] = set()
         for c in raw_cmds:
             if not isinstance(c, str):
@@ -386,10 +417,19 @@ def _parse_permissions(raw: Mapping) -> PermissionsConfig:
             if not name or name in _NON_LOCKABLE or name in cseen:
                 continue
             cseen.add(name)
-            cmds.append(name)
-            # 未知锁条目：保留在 cmds（不改现有锁行为）但登记告警，绝不静默吞。
+            legacy_cmds.append(name)
+            # 未知锁条目：保留在 legacy_cmds（不改现有锁行为）但登记告警，绝不静默吞。
             if name not in LOCKABLE_COMMANDS:
                 unknown.append(name)
+
+    # 过渡桥（Task 8 随 legacy 字段一并删）：装载迁移已把旧存储键改写为
+    # command_permissions 行并删旧键，但老消费点（commands.admin_denied/_admin_locked）
+    # 尚未切到 command_overrides、仍读 permissions.admin_only_commands。故 legacy 字段
+    # 改由新模型派生——对老「完整路径 exact-match」消费点，派生集 ==
+    # effective_admin_only（组锁自动展开到叶子），迁移后行为等价、绝不失锁。
+    derived_locks = [p for p in LOCKABLE_COMMANDS if effective_admin_only(frozen, p)]
+    cmds = sorted(set(legacy_cmds) | set(derived_locks))
+
     return PermissionsConfig(
         admins=admins, command_overrides=frozen, invalid_command_keys=invalid,
         admin_only_commands=cmds, unknown_locks=unknown,
@@ -466,14 +506,20 @@ def parse_config(raw: Mapping, env: Mapping[str, str]) -> AppConfig:
     h = _obj(raw, "history")
     f = _obj(raw, "features")
     pl = _obj(raw, "players")
-    features = FeaturesConfig(
-        report=bool(f.get("report", True)),
-        events=bool(f.get("events", True)),
-        guilds_bases=bool(f.get("guilds_bases", False)),
-        players=bool(f.get("players", False)),
-        server_admin_basic=bool(f.get("server_admin_basic", False)),
-        server_admin_danger=bool(f.get("server_admin_danger", False)),
-    )
+    permissions = _parse_permissions(raw)
+    # 过渡桥（Task 8 删）：装载迁移后 raw 只剩 command_permissions（features 已删），
+    # 老功能门仍读 cfg.features，故迁移态下由新模型派生 features；否则沿用 raw features。
+    if "command_permissions" in raw:
+        features = _derive_features_from_overrides(permissions.command_overrides)
+    else:
+        features = FeaturesConfig(
+            report=bool(f.get("report", True)),
+            events=bool(f.get("events", True)),
+            guilds_bases=bool(f.get("guilds_bases", False)),
+            players=bool(f.get("players", False)),
+            server_admin_basic=bool(f.get("server_admin_basic", False)),
+            server_admin_danger=bool(f.get("server_admin_danger", False)),
+        )
     return AppConfig(
         servers=servers,
         skipped=skipped,
@@ -527,6 +573,6 @@ def parse_config(raw: Mapping, env: Mapping[str, str]) -> AppConfig:
             rank_top_n=_as_int(pl.get("rank_top_n", 5), 5),
             exclude_names=[s.strip() for s in str(pl.get("exclude_names", "")).split(",") if s.strip()],
         ),
-        permissions=_parse_permissions(raw),
+        permissions=permissions,
         server_admin=_parse_server_admin(raw),
     )

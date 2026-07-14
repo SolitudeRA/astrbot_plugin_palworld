@@ -129,3 +129,58 @@ def active_endpoints(overrides: Mapping[str, CommandOverride]) -> frozenset[Endp
         ):
             active.add(ep)
     return frozenset(active)
+
+
+# ---- legacy → command_permissions 三态行迁移（装载时一次性；复核 F1/B2）----
+# feature 布尔 -> (默认, 命令键列表)。旧值 != 默认才产 enable 行。
+# 键既可为组名（guild/player）也可为完整路径（world today/server announce）或扁平
+# 命令（rank/me）——parse_config 三态行清洗对三者皆能识别。
+_FEATURE_MIGRATION: dict[str, tuple[bool, tuple[str, ...]]] = {
+    "report": (True, ("world today",)),
+    "events": (True, ("world events",)),
+    "guilds_bases": (False, ("guild",)),
+    "players": (False, ("player", "rank", "me")),
+    "server_admin_basic": (False, ("server announce", "server save",
+                                   "server kick", "server unban")),
+    "server_admin_danger": (False, ("server ban", "server shutdown", "server stop")),
+}
+
+
+def migrate_legacy_to_rows(raw: Mapping) -> tuple[list[dict[str, str]], list[str]]:
+    """旧 features + admin_only_commands → command_permissions 三态行 + 非法锁键。
+
+    - features 布尔 ≠ 默认才产 enable 行（on/off）；键分派到对应命令键。
+    - admin_only_commands 各条 ∈ LOCKABLE_COMMANDS → admin_only 行，否则进 invalid。
+    - 同一命令的 enable/admin 合并成一行；未涉及的轴填 "inherit"。
+    """
+    acc: dict[str, dict[str, str]] = {}      # command -> {enabled?, admin_only?}
+    invalid: list[str] = []
+
+    f = raw.get("features", {}) or {}
+    if isinstance(f, Mapping):
+        for feat, (default, keys) in _FEATURE_MIGRATION.items():
+            val = bool(f.get(feat, default))
+            if val != default:
+                for key in keys:
+                    acc.setdefault(key, {})["enabled"] = "on" if val else "off"
+
+    raw_cmds = raw.get("admin_only_commands", [])
+    if isinstance(raw_cmds, list):
+        for c in raw_cmds:
+            if not isinstance(c, str):
+                continue
+            name = c.strip()
+            if not name:
+                continue
+            if name in LOCKABLE_COMMANDS:
+                acc.setdefault(name, {})["admin_only"] = "on"
+            else:
+                invalid.append(name)
+
+    rows: list[dict[str, str]] = [
+        {"command": cmd,
+         "enabled": v.get("enabled", "inherit"),
+         "admin_only": v.get("admin_only", "inherit")}
+        for cmd, v in acc.items()
+    ]
+    return rows, invalid
