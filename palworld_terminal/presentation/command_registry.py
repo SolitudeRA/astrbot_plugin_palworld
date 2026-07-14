@@ -1,30 +1,10 @@
 """命令注册表：gating 与 help 的唯一真相源（spec §5）。"""
 from __future__ import annotations
 
-# (name, 组)——命令 → 所属组
-COMMANDS: list[tuple[str, str]] = [
-    ("status", "core"), ("online", "core"), ("world", "core"), ("rules", "core"),
-    ("guilds", "guilds_bases"), ("guild", "guilds_bases"),
-    ("bases", "guilds_bases"), ("base", "guilds_bases"),
-    ("events", "events"), ("today", "report"),
-    ("rank", "players"), ("player", "players"),
-    ("me", "players"), ("bind", "players"), ("unbind_self", "players"),
-    ("server", "core"), ("whoami", "core"), ("help", "core"),
-    # 服务器管控写命令（feature 组把守；help 中仅管理员可见）
-    ("announce", "server_admin_basic"), ("save", "server_admin_basic"),
-    ("kick", "server_admin_basic"), ("unban", "server_admin_basic"),
-    ("ban", "server_admin_danger"), ("shutdown", "server_admin_danger"),
-    ("stop", "server_admin_danger"),
-    ("confirm", "core"),   # 二次确认元命令（core，但 help 中仅管理员可见）
-]
-COMMAND_GROUP: dict[str, str] = {name: group for name, group in COMMANDS}
-# 注：COMMANDS/COMMAND_GROUP 仍是方法级 `_gated`（commands.py）的功能组真相源；
-# help 文案已迁移到下方分级 HELP_TEXT（完整路径键），format_help 消费后者。
-
 # ============================================================================
 # 分级命令真相源（v0.9.5 Phase 1，spec §3 命令树 / §8 锚定）。
-# 上方 COMMANDS/COMMAND_GROUP/HELP_LINE 仍是 help 文案 + 方法级 _gated 的真相源
-# （format_help 消费；T9 重写分级 help 时收口）。
+# 门控（commands._gated 经 METHOD_PATH）与 help（format_help 经 HELP_TEXT）均按
+# 完整路径消费下方真相源。
 # 两种粒度分家（spec §8）：
 #   - 注册身份 = 11 首词（PAL_REGISTERED），AstrBot 只认首词，供 @pal.command 锚定。
 #   - 门控/help/锁身份 = 完整路径（PAL_COMMAND_STRINGS：`world status`/`server kick`/

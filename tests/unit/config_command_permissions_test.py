@@ -49,9 +49,3 @@ def test_invalid_command_and_axis_logged():
     assert ee(ov, "world status") is True
     assert eao(ov, "link list") is False
     assert eao(ov, "server kick") is True
-
-
-def test_legacy_fields_still_present():
-    # Task 8 前保留旧字段供未切换消费点
-    cfg = _cfg({"admin_only_commands": ["guild list"]})
-    assert cfg.permissions.admin_only_commands == ["guild list"]

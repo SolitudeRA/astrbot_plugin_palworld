@@ -8,7 +8,6 @@ from palworld_terminal.application.snapshot_service import SnapshotService
 from palworld_terminal.config import (
     AppConfig,
     BasesConfig,
-    FeaturesConfig,
     HistoryConfig,
     PermissionsConfig,
     PollingConfig,
@@ -37,7 +36,6 @@ def _cfg() -> AppConfig:
         bases=BasesConfig(True, 5000, 0.2, 3, 2000, 0.5),
         privacy=PrivacyConfig("balanced", False, False, 60, 120, 900),
         history=HistoryConfig(7, 90, 365, 180),
-        features=FeaturesConfig(report=True, events=True, guilds_bases=True),
         # 容器装配门读 command_overrides：guild 组开 → game-data 接线 + Guild/BaseService 构造。
         permissions=PermissionsConfig(
             admins=[], command_overrides={"guild": CommandOverride(enabled=True)},
