@@ -24,7 +24,7 @@ const baseState = (): SettingsState => ({
 
 const TOP_KEYS = ['servers', 'routing', 'group_bindings', 'custom_headers',
   'polling', 'world', 'bases', 'privacy', 'history', 'features', 'players',
-  'permission_admins', 'admin_only_commands']
+  'server_admin', 'permission_admins', 'admin_only_commands']
 
 describe('collectBody', () => {
   it('数值字段产出 number（非字符串）', () => {

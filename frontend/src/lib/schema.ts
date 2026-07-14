@@ -78,10 +78,17 @@ export const OBJECT_SECTIONS: ObjectSection[] = [
     { key: 'events', type: 'bool', label: '世界事件记录', default: true, hint: '/pal events' },
     { key: 'guilds_bases', type: 'bool', label: '公会与据点', default: false, hint: '依赖 /game-data；专用服务器暂不支持' },
     { key: 'players', type: 'bool', label: '玩家查询', default: false, hint: '排行 / 档案 / 自助绑定' },
+    { key: 'server_admin_basic', type: 'bool', label: '服务器管控·基础', default: false, hint: '公告 / 存档 / 踢人 / 解封等写操作，仅授权管理员可用；开启前请先配置管理员名单' },
+    { key: 'server_admin_danger', type: 'bool', label: '服务器管控·危险', default: false, hint: '封禁 / 关服 / 停服等高破坏写操作，仅授权管理员可用；stop 会终止进程、可能丢失未存档进度，慎开' },
   ]},
   { key: 'players', title: '玩家查询', subtitle: '「玩家查询」启用时生效', fields: [
     { key: 'rank_top_n', type: 'int', label: '排行榜人数', default: 5 },
     { key: 'exclude_names', type: 'string', label: '排除名单', default: '', hint: '逗号分隔；名单内玩家不进榜单、不可查询' },
+  ]},
+  { key: 'server_admin', title: '服务器管控', subtitle: '「服务器管控」任一组启用时生效；写操作仅授权管理员可用', fields: [
+    { key: 'require_confirmation', type: 'bool', label: '危险命令二次确认', default: false, hint: '开启后关服 / 封禁等危险命令须在有效期内 /pal confirm 再确认' },
+    { key: 'confirmation_timeout', type: 'int', label: '确认有效期（秒）', default: 30, hint: '二次确认的有效时长，超时作废（范围 5-600）' },
+    { key: 'audit_retention_days', type: 'int', label: '审计留存天数', default: 180, hint: '管控操作日志保留天数，到期清理（范围 1-3650；日志含玩家名 / 账号等明文信息）' },
   ]},
 ]
 
