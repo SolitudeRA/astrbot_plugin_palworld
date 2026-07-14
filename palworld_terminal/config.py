@@ -65,6 +65,7 @@ class RoutingConfig:
     access_mode: AccessMode
     default_server: str
     world_mode: str = "multi"  # "single" | "multi"
+    single_allowed_groups: list[AllowedGroupEntry] = field(default_factory=list)
 
 
 @dataclass(slots=True)
@@ -128,6 +129,12 @@ def _default_players() -> PlayersConfig:
 @dataclass(slots=True)
 class AdminEntry:
     id: str
+    note: str
+
+
+@dataclass(slots=True)
+class AllowedGroupEntry:
+    umo: str
     note: str
 
 
@@ -290,6 +297,20 @@ def _parse_bindings(raw: Mapping) -> list[BindingConfig]:
 _TRISTATE = {"inherit": None, "on": True, "off": False}
 
 
+def _parse_single_allowed_groups(raw: Mapping) -> list[AllowedGroupEntry]:
+    out: list[AllowedGroupEntry] = []
+    seen: set[str] = set()
+    for item in raw.get("single_allowed_groups", []) or []:
+        if not isinstance(item, Mapping):
+            continue
+        umo = str(item.get("umo", "") or "").strip()
+        if not umo or umo in seen:
+            continue
+        seen.add(umo)
+        out.append(AllowedGroupEntry(umo=umo, note=str(item.get("note", "") or "").strip()))
+    return out
+
+
 def _parse_permissions(raw: Mapping) -> PermissionsConfig:
     admins: list[AdminEntry] = []
     seen: set[str] = set()
@@ -426,6 +447,7 @@ def parse_config(raw: Mapping, env: Mapping[str, str]) -> AppConfig:
             access_mode=AccessMode(str(r.get("access_mode", "restricted") or "restricted")),
             default_server=str(r.get("default_server", "") or ""),
             world_mode=_one_of(r.get("world_mode", "multi"), frozenset({"single", "multi"}), "multi"),
+            single_allowed_groups=_parse_single_allowed_groups(raw),
         ),
         group_bindings=_parse_bindings(raw),
         polling=PollingConfig(
