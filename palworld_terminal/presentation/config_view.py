@@ -30,7 +30,14 @@ _SECTION_KEYS = {
 _TOP_KEYS = {
     "servers", "routing", "group_bindings", "custom_headers",
     "polling", "world", "bases", "privacy", "history", "features", "players",
-    "permission_admins", "admin_only_commands",
+    "permission_admins", "admin_only_commands", "server_admin",
+}
+
+# server_admin 的两个带界 int 字段（范围须与 config.py::_parse_server_admin 一致）；
+# 带上下界故不走 _NUM_FIELDS（仅判非负），改用独立形状校验。
+_SERVER_ADMIN_INT_BOUNDS = {
+    "confirmation_timeout": (5, 600),
+    "audit_retention_days": (1, 3650),
 }
 _MAX_LIST = 200
 _MAX_STR = 8 * 1024
@@ -144,9 +151,24 @@ def validate_and_backfill(body, old_raw, env):
             for v in it.values():
                 if isinstance(v, str) and len(v) > _MAX_STR:
                     return _err("too_large")
-    for section in ("routing", "polling", "world", "bases", "privacy", "history", "features", "players"):
+    for section in ("routing", "polling", "world", "bases", "privacy", "history",
+                    "features", "players", "server_admin"):
         if section in body and not isinstance(body[section], Mapping):
             return _err("invalid_shape")
+
+    # server_admin：object 三字段（require_confirmation:bool + 两个带界 int），
+    # 类型错/越界 → invalid_shape（object-ness 已由上面的 tuple 保证）。
+    sa = body.get("server_admin")
+    if isinstance(sa, Mapping):
+        rc = sa.get("require_confirmation")
+        if rc is not None and not isinstance(rc, bool):
+            return _err("invalid_shape", "server_admin.require_confirmation")
+        for field, (lo, hi) in _SERVER_ADMIN_INT_BOUNDS.items():
+            if field in sa:
+                v = sa[field]
+                # bool 是 int 子类须显式排除；仅接受界内 int（页面已 coerce 成数值）
+                if isinstance(v, bool) or not isinstance(v, int) or not (lo <= v <= hi):
+                    return _err("invalid_shape", f"server_admin.{field}")
 
     # admin_only_commands：顶层字符串列表（仓库无此形态先例，独立校验）
     if "admin_only_commands" in body:

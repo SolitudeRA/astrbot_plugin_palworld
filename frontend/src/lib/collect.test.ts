@@ -17,8 +17,10 @@ const baseState = (): SettingsState => ({
     privacy: { mode: 'balanced', public_exact_ping: false, public_positions: false,
       ping_good_ms: 60, ping_ok_ms: 120, uncertain_timeout: 900 },
     history: { raw_metrics_days: 7, aggregate_days: 90, session_days: 365, observation_days: 180 },
-    features: { report: true, events: true, guilds_bases: false, players: false },
+    features: { report: true, events: true, guilds_bases: false, players: false,
+      server_admin_basic: false, server_admin_danger: false },
     players: { rank_top_n: 5, exclude_names: '' },
+    server_admin: { require_confirmation: false, confirmation_timeout: 30, audit_retention_days: 180 },
   },
 })
 
@@ -38,6 +40,21 @@ describe('collectBody', () => {
     const body = collectBody(baseState()) as any
     expect(typeof body.features.report).toBe('boolean')
     expect(body.features.guilds_bases).toBe(false)
+  })
+  it('collectBody 产出 server_admin 段：数值转 number、开关转 boolean', () => {
+    const st = baseState()
+    st.sections.server_admin.confirmation_timeout = '45' // 模拟原生 input 给了字符串
+    const body = collectBody(st) as any
+    expect(typeof body.server_admin.require_confirmation).toBe('boolean')
+    expect(typeof body.server_admin.confirmation_timeout).toBe('number')
+    expect(body.server_admin.confirmation_timeout).toBe(45)
+    expect(typeof body.server_admin.audit_retention_days).toBe('number')
+    expect(body.server_admin.audit_retention_days).toBe(180)
+  })
+  it('features 段含 server_admin 两组开关', () => {
+    const body = collectBody(baseState()) as any
+    expect(typeof body.features.server_admin_basic).toBe('boolean')
+    expect(typeof body.features.server_admin_danger).toBe('boolean')
   })
   it('body 完全不含 group_bindings 键（后端缺键保留旧值）', () => {
     expect('group_bindings' in (collectBody(baseState()) as any)).toBe(false)
