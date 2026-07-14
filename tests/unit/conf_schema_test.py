@@ -91,3 +91,19 @@ def test_permission_schema_present():
     assert schema["permission_admins"]["type"] == "template_list"
     assert schema["admin_only_commands"]["type"] == "list"
     assert schema["admin_only_commands"]["default"] == []
+
+
+def test_server_admin_schema_present():
+    s = load_schema()
+    assert s["features"]["items"]["server_admin_basic"]["type"] == "bool"
+    assert s["features"]["items"]["server_admin_basic"]["default"] is False
+    assert s["features"]["items"]["server_admin_danger"]["type"] == "bool"
+    assert s["features"]["items"]["server_admin_danger"]["default"] is False
+    assert s["server_admin"]["type"] == "object"
+    items = s["server_admin"]["items"]
+    assert items["require_confirmation"]["type"] == "bool"
+    assert items["require_confirmation"]["default"] is False
+    assert items["confirmation_timeout"]["type"] == "int"
+    assert items["confirmation_timeout"]["default"] == 30
+    assert items["audit_retention_days"]["type"] == "int"
+    assert items["audit_retention_days"]["default"] == 180
