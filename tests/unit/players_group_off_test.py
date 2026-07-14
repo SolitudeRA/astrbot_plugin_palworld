@@ -23,5 +23,5 @@ async def test_players_commands_gated_off():
 def test_help_hides_players_when_off():
     off = format_help(None, False, FeaturesConfig(report=True, events=True, guilds_bases=False, players=False))
     on = format_help(None, False, FeaturesConfig(report=True, events=True, guilds_bases=False, players=True))
-    assert "/pal rank" not in off and "/pal player" not in off and "/pal unbind" not in off
-    assert "/pal rank" in on and "/pal bind" in on and "/pal unbind" in on
+    assert "/pal rank" not in off and "/pal player info" not in off and "/pal player unbind" not in off
+    assert "/pal rank" in on and "/pal player bind" in on and "/pal player unbind" in on

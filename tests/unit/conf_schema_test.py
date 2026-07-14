@@ -1,4 +1,5 @@
 import json
+import re
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -91,6 +92,24 @@ def test_permission_schema_present():
     assert schema["permission_admins"]["type"] == "template_list"
     assert schema["admin_only_commands"]["type"] == "list"
     assert schema["admin_only_commands"]["default"] == []
+
+
+def test_admin_only_commands_hint_examples_are_lockable():
+    """admin_only_commands 描述里 `反引号` 圈出的可锁示例必须真在 LOCKABLE_COMMANDS 中。
+
+    命令分级后扁平 `player` 已不可锁（只有 `player info`/`player bind`/`player unbind`）；
+    描述若再举扁平/不可锁示例，管理员照抄会得到静默 no-op 锁 → 玩家查询对全员开放
+    （fail-open）。锚定到 command_registry.LOCKABLE_COMMANDS，示例再漂移即红。
+    """
+    from palworld_terminal.presentation.command_registry import LOCKABLE_COMMANDS
+
+    desc = load_schema()["admin_only_commands"]["description"]
+    tokens = re.findall(r"`([^`]+)`", desc)
+    assert tokens, "描述里应至少有一个 `反引号` 圈出的可锁示例"
+    for tok in tokens:
+        assert tok in LOCKABLE_COMMANDS, (
+            f"admin_only_commands 描述示例 `{tok}` 不在 LOCKABLE_COMMANDS 中"
+        )
 
 
 def test_server_admin_schema_present():

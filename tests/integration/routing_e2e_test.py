@@ -67,8 +67,9 @@ async def test_restricted_denies_then_use_allows(tmp_path: Path):
         denied = await c.commands.status(UMO, "/pal status", is_group=True)
         assert "未被授权" in denied or "未指定服务器" in denied
 
-        # 2) admin authorizes via /pal server add
-        use_msg = await c.commands.server(UMO, "/pal server add alpha", is_group=True, is_admin=True)
+        # 2) admin authorizes via /pal link add
+        use_msg = await c.commands.link(
+            UMO, "/pal link add alpha", is_group=True, sender_id="test:admin", is_admin=True)
         assert "alpha" in use_msg
 
         # 3) now the same group can query status

@@ -63,6 +63,7 @@ class BindingConfig:
 class RoutingConfig:
     access_mode: AccessMode
     default_server: str
+    world_mode: str = "multi"  # "single" | "multi"
 
 
 @dataclass(slots=True)
@@ -156,19 +157,24 @@ class AdminEntry:
 class PermissionsConfig:
     admins: list[AdminEntry]
     admin_only_commands: list[str]
+    # 命令串扁平→完整路径迁移后不再匹配 LOCKABLE_COMMANDS 的锁条目。保留在
+    # admin_only_commands（不改锁行为）但在此登记，供启动告警（防静默失锁 = fail-open）。
+    unknown_locks: list[str] = field(default_factory=list)
 
 
 def _default_permissions() -> PermissionsConfig:
     return PermissionsConfig(admins=[], admin_only_commands=[])
 
 
-# 命令门不可锁集(astrbot 命令串);与 command_registry.LOCKABLE_COMMANDS 一致,
+# 命令门不可锁集(完整路径);与 command_registry._NON_LOCKABLE 全等,
 # 此处内联以免 config 依赖 presentation 层。
-# 服务器管控写命令(announce/save/kick/unban/ban/shutdown/stop)与 confirm 由
-# feature 组 + 管理员名单双闸把守,绝不可再被 admin_only_commands 锁,故一并预置。
+# server 各写子动作 + link 各子动作 + 元命令(help/whoami/confirm)由 feature 组 +
+# 管理员名单双闸把守,绝不可再被 admin_only_commands 锁,故一并预置。
 _NON_LOCKABLE = frozenset({
-    "server", "whoami", "help", "confirm",
-    "announce", "save", "kick", "unban", "ban", "shutdown", "stop",
+    "server announce", "server save", "server kick", "server unban",
+    "server ban", "server shutdown", "server stop",
+    "link list", "link add", "link remove",
+    "help", "whoami", "confirm",
 })
 
 
@@ -288,6 +294,12 @@ def _as_float(v, default: float) -> float:
         return default
 
 
+def _one_of(v, allowed: frozenset[str], default: str) -> str:
+    """枚举白名单收口：非法/缺省值回落 default。"""
+    s = str(v)
+    return s if s in allowed else default
+
+
 def _parse_bindings(raw: Mapping) -> list[BindingConfig]:
     out: list[BindingConfig] = []
     for item in raw.get("group_bindings", []) or []:
@@ -312,7 +324,11 @@ def _parse_permissions(raw: Mapping) -> PermissionsConfig:
         admins.append(AdminEntry(id=pid, note=str(item.get("note", "") or "").strip()))
     raw_cmds = raw.get("admin_only_commands", [])
     cmds: list[str] = []
+    unknown: list[str] = []
     if isinstance(raw_cmds, list):
+        # 函数体内相对 import：避免 config↔presentation 循环依赖；command_registry
+        # 不反向 import config，安全。（no_absolute_self_import 只禁绝对自导入前缀。）
+        from .presentation.command_registry import LOCKABLE_COMMANDS
         cseen: set[str] = set()
         for c in raw_cmds:
             if not isinstance(c, str):
@@ -322,7 +338,10 @@ def _parse_permissions(raw: Mapping) -> PermissionsConfig:
                 continue
             cseen.add(name)
             cmds.append(name)
-    return PermissionsConfig(admins=admins, admin_only_commands=cmds)
+            # 未知锁条目：保留在 cmds（不改现有锁行为）但登记告警，绝不静默吞。
+            if name not in LOCKABLE_COMMANDS:
+                unknown.append(name)
+    return PermissionsConfig(admins=admins, admin_only_commands=cmds, unknown_locks=unknown)
 
 
 def _resolve_header_value(item: Mapping, env: Mapping[str, str]) -> str:
@@ -409,6 +428,7 @@ def parse_config(raw: Mapping, env: Mapping[str, str]) -> AppConfig:
         routing=RoutingConfig(
             access_mode=AccessMode(str(r.get("access_mode", "restricted") or "restricted")),
             default_server=str(r.get("default_server", "") or ""),
+            world_mode=_one_of(r.get("world_mode", "multi"), frozenset({"single", "multi"}), "multi"),
         ),
         group_bindings=_parse_bindings(raw),
         polling=PollingConfig(

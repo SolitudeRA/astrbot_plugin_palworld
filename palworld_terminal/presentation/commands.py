@@ -5,7 +5,7 @@ from collections.abc import Awaitable, Callable
 
 from ..adapters.privacy_filter import hash_user_id
 from ..application.query_service import PlayerProfileDTO
-from ..presentation.command_registry import COMMAND_GROUP
+from ..presentation.command_registry import COMMAND_GROUP, DISPATCH
 from ..presentation.confirmation import PendingAction
 from ..presentation.dtos import ServerStatusRow
 from ..presentation.formatters import (
@@ -24,9 +24,10 @@ from ..presentation.formatters import (
     format_status,
     format_today,
     format_world,
+    visible_actions,
 )
 from ..presentation.locale import L
-from ..presentation.server_arg import ArgError, parse_arg
+from ..presentation.server_arg import ArgError, parse_arg, parse_group
 
 # shutdown 倒计时秒数上界（spec §3：正整数、1–86400）。
 _SHUTDOWN_MAX_SECONDS = 86400
@@ -75,6 +76,14 @@ def _gated(fn):
             return L("feature_disabled")
         return await fn(self, *args, **kwargs)
     return wrapper
+
+
+# 分发到需 sender_id 的实现方法（组内仅 player 用 bind/unbind_self）——分发器据此
+# 决定传参形态。其余读实现签名为 (umo, message_str, is_group)。
+_SENDER_METHODS = frozenset({"bind", "me", "unbind_self"})
+
+# 多 @override 兜底文案（与既有 server()/admin_write 一致）。
+_ARG_ERROR_MSG = "参数格式错误：一条命令只能指定一个 @服务器。"
 
 
 class Commands:
@@ -195,11 +204,12 @@ class Commands:
             return err
         strict = self._cfg.privacy.mode == "strict"
         which = arg.name.strip().lower()
-        if which not in ("time", "level"):
-            which = "both"
-        if which == "time" and strict:
-            return L("rank_time_strict")
-        dto = await self._query.rank(world)
+        if which not in ("today", "total", "level"):
+            which = "today"  # 缺省 today（spec §6）
+        # strict 双砍：today 与 total 同为时长榜(≈作息)均回 notice；level 不受影响。
+        if which in ("today", "total") and strict:
+            return L("rank_duration_strict")
+        dto = await self._query.rank(world, which)
         return format_rank(dto, which=which, strict=strict)
 
     @_gated
@@ -272,30 +282,126 @@ class Commands:
         await self._repo.delete_binding(phash, world.world_id)
         return L("unbind_self_ok", name=name)
 
-    async def server(self, umo, message_str, is_group, is_admin) -> str:
-        try:
-            arg = parse_arg(message_str, "server")
-        except ArgError:
-            return "参数格式错误：一条命令只能指定一个 @服务器。"
-        tokens = arg.name.split()
-        sub = tokens[0].lower() if tokens else ""
-        name = arg.server_override or (" ".join(tokens[1:]) if len(tokens) > 1 else "")
+    # ---- 分级组分发 + 门控下沉（安全模型心脏；spec §4.1 门控落点重构）----
+    # 门不再挂方法级 _gated（一个 world_grp 跨 core/events/report 三门）；分发循环内
+    # 解析出子动作后，按分发表 ActionSpec 逐子动作施门：
+    #   gate=read        —— per-子动作功能门 + admin_denied 完整路径锁（均下沉至此）。
+    #   gate=admin_write —— 走 admin_write（门序 admin 硬门先于 feature + 审计）。
+    #   gate=admin       —— 需 is_admin（link add/remove）。
+    # 组分发器命名 *_grp：world/guild/player 已是实现方法名（DISPATCH 复用），不可撞。
+    # T8 保留 *_grp 后缀（handler 串是「world」、调 world_grp），实现方法与分发器共存。
 
-        if sub in ("add", "remove"):
+    def _admin_locked(self, path: str, sender_id: str, is_admin: bool) -> bool:
+        """admin_only_commands 锁（下沉）：按完整路径判，锁定且非管理员 → True。"""
+        return path in self._cfg.permissions.admin_only_commands and not is_admin
+
+    def _world_mode(self) -> str:
+        """真实 AppConfig 恒有 routing.world_mode；默认 multi 兼容不完整测试替身。"""
+        return getattr(getattr(self._cfg, "routing", None), "world_mode", "multi")
+
+    def _group_help(self, group: str, is_admin: bool) -> str:
+        """裸组 / 未知子动作迷你帮助——**复用 format_help 同一 visible_actions 谓词**
+        （单一真相源，绝不另写过滤）：guest 绝不见管理员写动作（kick/ban/stop）。
+        """
+        vis = visible_actions(group, is_admin, self._cfg.features, self._world_mode())
+        if not vis:
+            return L("group_no_actions")
+        subs = " / ".join(sub for sub, _spec in vis)
+        return f"用法：/pal {group} <{subs}>"
+
+    @staticmethod
+    def _rebuild_arg(p) -> str:
+        """把 parse_group 拆出的 rest + 尾 @override 复原为 message_str，供复用的扁平
+        实现再经 parse_arg 解析——@override 穿过分发不丢（否则 override 被吞）。
+        """
+        parts = [p.rest] if p.rest else []
+        if p.server_override:
+            parts.append(f"@{p.server_override}")
+        return " ".join(parts)
+
+    async def _dispatch_read(
+        self, group: str, umo, message_str, is_group, sender_id, is_admin,
+    ) -> str:
+        """world/guild/player 组（全 gate=read）共享分发骨架。"""
+        try:
+            p = parse_group(message_str, group)
+        except ArgError:
+            return _ARG_ERROR_MSG
+        if not p.sub:
+            return self._group_help(group, is_admin)
+        spec = DISPATCH[group].get(p.sub)
+        if spec is None:
+            return self._group_help(group, is_admin)      # 未知子动作 → 组用法
+        method, feat_group, _gate = spec
+        # per-子动作功能门（下沉）：逐子动作查各自功能组，非方法名单组。
+        if not self._cfg.features.enabled(feat_group):
+            return L("feature_disabled")
+        # admin_denied 下沉：按完整路径判锁，锁定且非管理员不触达实现。
+        if self._admin_locked(f"{group} {p.sub}", sender_id, is_admin):
+            return L("admin_required")
+        rebuilt = self._rebuild_arg(p)
+        if method in _SENDER_METHODS:
+            return await getattr(self, method)(umo, rebuilt, is_group, sender_id)
+        return await getattr(self, method)(umo, rebuilt, is_group)
+
+    async def world_grp(self, umo, message_str, is_group, sender_id, is_admin) -> str:
+        return await self._dispatch_read("world", umo, message_str, is_group, sender_id, is_admin)
+
+    async def guild_grp(self, umo, message_str, is_group, sender_id, is_admin) -> str:
+        return await self._dispatch_read("guild", umo, message_str, is_group, sender_id, is_admin)
+
+    async def player_grp(self, umo, message_str, is_group, sender_id, is_admin) -> str:
+        return await self._dispatch_read("player", umo, message_str, is_group, sender_id, is_admin)
+
+    async def server_grp(self, umo, message_str, is_group, sender_id, is_admin) -> str:
+        """server 组（全 gate=admin_write）：每写子动作走 admin_write——门序 admin 硬门
+        先于 feature + 审计；绝不套方法级 _gated（跨 basic/danger 两组会误判）。
+        """
+        try:
+            p = parse_group(message_str, "server")
+        except ArgError:
+            return _ARG_ERROR_MSG
+        if not p.sub:
+            return self._group_help("server", is_admin)
+        spec = DISPATCH["server"].get(p.sub)
+        if spec is None:
+            return self._group_help("server", is_admin)
+        method, feat_group, _gate = spec
+        return await self.admin_write(
+            command_str=method, group=feat_group, admin_id=sender_id, umo=umo,
+            is_group=is_group, arg_str=self._rebuild_arg(p), is_admin=is_admin,
+        )
+
+    async def link(self, umo, message_str, is_group, sender_id, is_admin) -> str:
+        """link 组：list=gate read（群内可见）；add/remove=gate admin（需 is_admin，
+        非 admin_write）。底层沿用旧 /pal server 列表 + routing.use/unbind（迁入守卫）。
+        """
+        try:
+            p = parse_group(message_str, "link")
+        except ArgError:
+            return _ARG_ERROR_MSG
+        if not p.sub:
+            return self._group_help("link", is_admin)
+        spec = DISPATCH["link"].get(p.sub)
+        if spec is None:
+            return self._group_help("link", is_admin)
+        method, feat_group, gate = spec
+        if not self._cfg.features.enabled(feat_group):
+            return L("feature_disabled")
+        if gate == "admin":
             if not is_admin:
                 return L("admin_required")
-            if not is_group:
-                return L("use_only_group")
-            if not name:
-                return L("server_usage")
-            if sub == "add":
-                return await self._routing.use(umo, name)       # 底层不变
-            return await self._routing.unbind(umo, name)         # 底层不变
+            name = p.server_override or p.rest      # 保旧优先级：override 先于 rest
+            return await getattr(self, method)(umo, name, is_group)
+        # gate == read（list）
+        if self._admin_locked(f"link {p.sub}", sender_id, is_admin):
+            return L("admin_required")
+        # link 现仅 list 一个 read 子动作，故此处直调 link_list；
+        # 若日后新增第二个 read 子动作，须改回按 DISPATCH 泛化分发（getattr(method)）。
+        return await self.link_list(umo, is_group, is_admin)
 
-        if sub:  # 非空非 add/remove:打错的子命令 → 用法提示,不静默回落列表
-            return L("server_usage")
-
-        # 裸命令（空首词）= 服务器列表（原 servers() 逻辑，私聊也可）
+    async def link_list(self, umo, is_group, is_admin) -> str:
+        """旧裸 /pal server 列表逻辑迁入（ready + 群绑定状态 → format_servers）。"""
         ready_ids = {s.server_id for s in self._routing.ready_servers()}
         group = await self._repo.list_group_servers(umo) if is_group else {}
         rows = []
@@ -308,9 +414,25 @@ class Commands:
         skipped = self._cfg.skipped if self._cfg else []
         return format_servers(rows, skipped, is_admin)
 
+    async def link_add(self, umo, name, is_group) -> str:
+        """旧 /pal server add 逻辑迁入（routing.use；is_group/空名守卫）。"""
+        if not is_group:
+            return L("use_only_group")
+        if not name:
+            return L("server_usage")
+        return await self._routing.use(umo, name)
+
+    async def link_remove(self, umo, name, is_group) -> str:
+        """旧 /pal server remove 逻辑迁入（routing.unbind；is_group/空名守卫）。"""
+        if not is_group:
+            return L("use_only_group")
+        if not name:
+            return L("server_usage")
+        return await self._routing.unbind(umo, name)
+
     def help(self, message_str, is_admin) -> str:
         arg = parse_arg(message_str, "help")
-        return format_help(arg.name or None, is_admin, self._cfg.features)
+        return format_help(arg.name or None, is_admin, self._cfg.features, self._world_mode())
 
     async def whoami(self, sender_id: str) -> str:
         if sender_id.endswith(":"):  # 账号段为空(取不到 sender)

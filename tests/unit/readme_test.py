@@ -12,7 +12,7 @@ DOCS = README + "\n" + "\n".join(
 
 def test_readme_first_screen_safety_claims():
     # 安全声明必须在主 README(不接受移入子文档)。
-    # v0.9.0 定位从「只读」迁移到「受控写」:观测仍只读,但新增受控写命令
+    # v0.9.5 定位为「受控写」:观测仍只读,但含受控写命令
     # (默认全关、仅授权管理员、全程审计),首屏安全声明须如实反映。
     for phrase in ("受控写", "仅授权管理员", "审计", "不存储 IP",
                    "不公开精确位置", "启用 REST", "勿暴露公网"):
@@ -27,7 +27,7 @@ def test_readme_links_to_docs():
 
 def test_readme_requirements_and_usage():
     assert "AstrBot ≥ 4.24.1" in DOCS or "AstrBot >= 4.24.1" in DOCS
-    for phrase in ("/pal server add", "多服务器", "@server", "群授权", "安装", "配置"):
+    for phrase in ("/pal link add", "多服务器", "@server", "群授权", "安装", "配置"):
         assert phrase in DOCS, f"文档缺少用法段落: {phrase}"
 
 
@@ -85,11 +85,12 @@ def test_readme_documents_feature_groups():
 
 
 def test_readme_command_table_and_matrix():
-    # 指令详细表:表头 + 每个指令 + @server 尾缀
-    for phrase in ("指令详表", "功能组", "可用指令矩阵",
-                   "/pal status", "/pal online", "/pal world", "/pal rules",
-                   "/pal today", "/pal events", "/pal guilds", "/pal guild",
-                   "/pal bases", "/pal base", "/pal server", "/pal whoami", "/pal help",
+    # 分级指令详表(v0.9.5):5 组 + 6 扁平;表头 + 组/子动作完整路径 + @server 尾缀
+    for phrase in ("指令详表", "功能组", "可用指令矩阵", "分级",
+                   "/pal world status", "/pal online", "/pal world rules",
+                   "/pal world today", "/pal world events",
+                   "/pal guild list", "/pal guild bases", "/pal guild base",
+                   "/pal server", "/pal whoami", "/pal help",
                    "@<服务器名>"):
         assert phrase in DOCS, f"文档指令表缺少: {phrase}"
     # 功能开关指令矩阵:四组 + 关闭时行为文案
@@ -98,8 +99,25 @@ def test_readme_command_table_and_matrix():
 
 
 def test_readme_documents_players_group():
-    for phrase in ("/pal rank", "/pal player", "/pal me", "/pal bind", "/pal unbind", "players"):
+    # players 组分级:rank(扁平变体)/player 组(info/bind/unbind)/me(扁平)
+    for phrase in ("/pal rank", "/pal player info", "/pal me",
+                   "/pal player bind", "/pal player unbind", "players",
+                   "today", "total", "level"):
         assert phrase in DOCS, f"文档缺少 players 组说明: {phrase}"
+
+
+def test_readme_documents_world_mode_and_link():
+    # 单/多世界模式 + link 组(服务器选择,仅多世界)
+    for phrase in ("world_mode", "single", "multi", "单世界", "多世界",
+                   "/pal link", "/pal link add", "/pal link remove"):
+        assert phrase in DOCS, f"文档缺少 world_mode / link 说明: {phrase}"
+
+
+def test_readme_documents_lock_migration():
+    # flat→full-path 锁迁移映射表 + 「不迁移=失锁」告警(spec §7 B2)
+    for phrase in ("锁迁移", "完整路径", "失锁",
+                   "player info", "world status", "server kick"):
+        assert phrase in DOCS, f"文档缺少锁迁移映射表: {phrase}"
 
 
 def test_readme_documents_permission_management():
@@ -112,9 +130,10 @@ def test_readme_documents_permission_management():
 
 
 def test_readme_documents_server_admin_commands():
-    # v0.9.0 服务器管控:7 写命令 + confirm 二次确认,均须在文档指令表出现
-    for cmd in ("/pal announce", "/pal save", "/pal kick", "/pal unban",
-                "/pal ban", "/pal shutdown", "/pal stop", "/pal confirm"):
+    # 服务器管控(分级 server 组):7 写命令 + confirm 二次确认,均须在文档指令表出现
+    for cmd in ("/pal server announce", "/pal server save", "/pal server kick",
+                "/pal server unban", "/pal server ban", "/pal server shutdown",
+                "/pal server stop", "/pal confirm"):
         assert cmd in DOCS, f"文档缺少服务器管控命令: {cmd}"
     # 两个 feature 组 + 危险分级
     for phrase in ("服务器管控", "server_admin_basic", "server_admin_danger",

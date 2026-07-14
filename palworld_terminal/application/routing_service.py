@@ -1,11 +1,14 @@
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 
 from ..adapters.sqlite_repository import Repository
 from ..config import AppConfig, ServerConfig
 from ..domain.enums import AccessMode
 from ..presentation.locale import L
+
+_log = logging.getLogger("palworld_terminal.routing")
 
 
 @dataclass(slots=True)
@@ -18,6 +21,7 @@ class RoutingService:
     def __init__(self, repo: Repository, cfg: AppConfig) -> None:
         self._repo = repo
         self._cfg = cfg
+        self._single_multi_warned = False
 
     def _ready_servers(self) -> list[ServerConfig]:
         return [s for s in self._cfg.servers if s.ready]
@@ -36,6 +40,22 @@ class RoutingService:
         return server_id in await self._repo.get_allowed(umo)
 
     async def resolve(self, umo: str, override: str | None, is_group: bool) -> Resolution:
+        # 单世界模式：恒解析到唯一就绪服务器，早于任何 restricted/私聊/授权判定。
+        # 忽略 @override 与群绑定，_authorized 不被调用（天然放宽读取）。
+        # 写命令仍受 commands.admin_write 内的管理员硬门把守（与本方法无关）。
+        if self._cfg.routing.world_mode == "single":
+            ready = self._ready_servers()
+            if not ready:
+                return Resolution(None, L("no_server_configured"))
+            if len(ready) > 1 and not self._single_multi_warned:
+                self._single_multi_warned = True
+                _log.warning(
+                    "world_mode=single 但检测到 %d 台就绪服务器，仅使用首台「%s」；"
+                    "其余将被忽略。若需多服务器请改用 world_mode=multi。",
+                    len(ready), ready[0].server_id,
+                )
+            return Resolution(ready[0], None)
+
         if not self._ready_servers():
             return Resolution(None, L("no_server_configured"))
 
@@ -89,6 +109,15 @@ class RoutingService:
         target = srv.server_id if srv is not None else name
         await self._repo.revoke(umo, target)
         return L("unbind_ok", server=target)
+
+    def single_restricted_warning(self) -> str | None:
+        """single 世界模式下 restricted 访问控制被架空 → 返回启动告警文案，否则 None。"""
+        if (
+            self._cfg.routing.world_mode == "single"
+            and self._cfg.routing.access_mode is AccessMode.RESTRICTED
+        ):
+            return L("single_restricted_warning")
+        return None
 
     def ready_servers(self) -> list[ServerConfig]:
         return self._ready_servers()

@@ -27,7 +27,8 @@
     "description": "群↔服务器 路由与访问控制",
     "items": {
       "access_mode": { "type": "string", "description": "restricted=群需管理员授权; open=任意群任意服务器", "default": "restricted", "options": ["restricted", "open"] },
-      "default_server": { "type": "string", "description": "全局默认服务器 name（群未指定且未绑定时的兜底）", "default": "" }
+      "default_server": { "type": "string", "description": "全局默认服务器 name（群未指定且未绑定时的兜底）", "default": "" },
+      "world_mode": { "type": "string", "options": ["multi", "single"], "default": "multi", "description": "运行模式：multi 多世界（按群绑定/切换服务器）；single 单世界（所有操作对应唯一服务器）。⚠️ single + restricted 并存时访问控制不生效，读命令对所有上下文开放。" }
     }
   },
   "group_bindings": {
@@ -168,7 +169,7 @@
   },
   "admin_only_commands": {
     "type": "list",
-    "description": "锁成仅管理员的命令（astrbot 命令串，如 player、rank；server/whoami/help 不可锁）",
+    "description": "锁成仅管理员的命令（astrbot 命令串，须写完整路径，如 `player info`、`world status`、`rank`；server 组各写命令 / link 各命令 / whoami / help / confirm 不可锁）",
     "default": []
   }
 }

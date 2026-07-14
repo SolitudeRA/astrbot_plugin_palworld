@@ -46,6 +46,7 @@ _MAX_BODY = 256 * 1024
 # 路径化语义预校验规格：enum 白名单 + 数值字段类型
 _ENUMS = {
     "routing.access_mode": {"restricted", "open"},
+    "routing.world_mode": {"multi", "single"},
     "privacy.mode": {"strict", "balanced", "advanced"},
     "world.locale": {"zh-CN"},
 }

@@ -21,9 +21,10 @@ def test_permission_admins_parsed_and_filtered():
 
 
 def test_admin_only_commands_normalized():
-    cfg = _base(admin_only_commands=["player", " rank ", "player", "server", "whoami", "help", 123])
-    # 去空白/去重/剔除不可锁集{server,whoami,help}/丢非 str
-    assert sorted(cfg.permissions.admin_only_commands) == ["player", "rank"]
+    cfg = _base(admin_only_commands=[
+        "player info", " rank ", "player info", "server kick", "whoami", "help", 123])
+    # 去空白/去重/剔除不可锁集(完整路径 server kick/whoami/help)/丢非 str
+    assert sorted(cfg.permissions.admin_only_commands) == ["player info", "rank"]
 
 
 def test_admin_only_commands_non_list_degrades_empty():
