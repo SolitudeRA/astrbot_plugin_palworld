@@ -1,5 +1,4 @@
 import json
-import re
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -75,49 +74,38 @@ def test_custom_headers_template_items_and_defaults():
     assert all(items[k]["default"] == "" for k in items)
 
 
-def test_features_section():
+def test_legacy_features_and_admin_only_commands_removed():
+    # Phase 2：features 布尔组与 admin_only_commands 均已从 schema 删除，
+    # 权限统一由 command_permissions 三态行承载。
     s = load_schema()
-    assert s["features"]["type"] == "object"
-    items = s["features"]["items"]
-    assert items["report"]["default"] is True
-    assert items["events"]["default"] is True
-    assert items["guilds_bases"]["default"] is False
-    assert items["players"]["default"] is False
+    assert "features" not in s
+    assert "admin_only_commands" not in s
 
 
 def test_permission_schema_present():
-    import json
-    from pathlib import Path
-    schema = json.loads((Path(__file__).resolve().parents[2] / "_conf_schema.json").read_text(encoding="utf-8"))
-    assert schema["permission_admins"]["type"] == "template_list"
-    assert schema["admin_only_commands"]["type"] == "list"
-    assert schema["admin_only_commands"]["default"] == []
+    s = load_schema()
+    assert s["permission_admins"]["type"] == "template_list"
+    cp = s["command_permissions"]
+    assert cp["type"] == "template_list"
+    assert cp["default"] == []
+    items = cp["templates"]["command_permission"]["items"]
+    assert set(items) == {"command", "enabled", "admin_only"}
+    assert items["command"]["type"] == "string"
+    assert items["enabled"]["type"] == "string"
+    assert items["enabled"]["default"] == "inherit"
+    assert items["admin_only"]["type"] == "string"
+    assert items["admin_only"]["default"] == "inherit"
 
 
-def test_admin_only_commands_hint_examples_are_lockable():
-    """admin_only_commands 描述里 `反引号` 圈出的可锁示例必须真在 LOCKABLE_COMMANDS 中。
-
-    命令分级后扁平 `player` 已不可锁（只有 `player info`/`player bind`/`player unbind`）；
-    描述若再举扁平/不可锁示例，管理员照抄会得到静默 no-op 锁 → 玩家查询对全员开放
-    （fail-open）。锚定到 command_registry.LOCKABLE_COMMANDS，示例再漂移即红。
-    """
-    from palworld_terminal.presentation.command_registry import LOCKABLE_COMMANDS
-
-    desc = load_schema()["admin_only_commands"]["description"]
-    tokens = re.findall(r"`([^`]+)`", desc)
-    assert tokens, "描述里应至少有一个 `反引号` 圈出的可锁示例"
-    for tok in tokens:
-        assert tok in LOCKABLE_COMMANDS, (
-            f"admin_only_commands 描述示例 `{tok}` 不在 LOCKABLE_COMMANDS 中"
-        )
+def test_command_permissions_description_mentions_tristate():
+    """command_permissions 描述须点明三态取值，供设置页/管理员照抄不踩空。"""
+    desc = load_schema()["command_permissions"]["description"]
+    for token in ("inherit", "on", "off"):
+        assert token in desc, f"描述应包含三态取值 {token}"
 
 
 def test_server_admin_schema_present():
     s = load_schema()
-    assert s["features"]["items"]["server_admin_basic"]["type"] == "bool"
-    assert s["features"]["items"]["server_admin_basic"]["default"] is False
-    assert s["features"]["items"]["server_admin_danger"]["type"] == "bool"
-    assert s["features"]["items"]["server_admin_danger"]["default"] is False
     assert s["server_admin"]["type"] == "object"
     items = s["server_admin"]["items"]
     assert items["require_confirmation"]["type"] == "bool"

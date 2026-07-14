@@ -98,8 +98,7 @@ async def test_query_resolution_error_returns_error_text():
 
 def _cfg_link(servers=None):
     return SimpleNamespace(
-        features=SimpleNamespace(enabled=lambda g: True),
-        permissions=SimpleNamespace(admin_only_commands=[]),
+        permissions=SimpleNamespace(command_overrides={}),
         servers=servers if servers is not None else [],
         skipped=[],
     )

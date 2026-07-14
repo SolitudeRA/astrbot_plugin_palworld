@@ -4,7 +4,7 @@
 
 # PalWorldTerminal · 帕鲁世界终端
 
-[![version](https://img.shields.io/badge/version-v0.9.5-007ec6)](https://github.com/SolitudeRA/astrbot_plugin_palworld/releases)
+[![version](https://img.shields.io/badge/version-v0.9.6-007ec6)](https://github.com/SolitudeRA/astrbot_plugin_palworld/releases)
 [![python](https://img.shields.io/badge/python-3.11%2B-007ec6)](https://www.python.org/)
 [![AstrBot](https://img.shields.io/badge/AstrBot-%E2%89%A5%204.24.1-fe7d37)](https://github.com/AstrBotDevs/AstrBot)
 [![license](https://img.shields.io/badge/license-GPL--3.0-97ca00)](https://github.com/SolitudeRA/astrbot_plugin_palworld/blob/main/LICENSE)
@@ -97,16 +97,18 @@ v0.9.5 起指令为**分级结构**:`/pal <组> <动作>`(裸组即迷你帮助)
 
 - **多服务器**:可添加多台;名称唯一,密码推荐 `password_env` 环境变量。
 - **访问控制**:默认 `restricted`(群需管理员授权);`open` 为全开放。
-- **功能开关**:按组启停,关闭的组不采集数据、指令提示未开放:
+- **命令树控制面**:每条命令(或整组)有两个开关——**是否启用**(`enabled`)与**是否仅管理员**(`admin_only`),各取 `inherit`(继承默认)/ `on` / `off` 三态。未覆盖的命令按其**功能组默认**(下表);稀疏覆盖沿「命令 → 组 → 默认」三级继承。数据采集派生自启用状态:观测只读端点恒采集,`game-data` 仅当 `guild` 组有命令生效才采集。在设置页「权限」章可视化编辑,落盘为 `command_permissions` 三态行。
 
-| 功能组 | 默认 | 指令 |
+| 功能组(决定命令默认) | 默认 | 命令 |
 |--------|------|------|
 | `report` 日报 | 开 | `world today` |
 | `events` 世界事件 | 开 | `world events` |
-| `players` 玩家查询 | **关** | `player info` `player bind` `rank` `me` |
-| `guilds_bases` 公会与据点 | **关** | `guild list` `guild bases` 等 |
+| `players` 玩家查询 | **默认关** | `player info` `player bind` `rank` `me` |
+| `guilds_bases` 公会与据点 | **默认关** | `guild list` `guild bases` 等 |
 
-轮询间隔、FPS 阈值、隐私脱敏、数据保留、自定义请求头等全部配置项详解 → [docs/configuration.md](https://github.com/SolitudeRA/astrbot_plugin_palworld/blob/main/docs/configuration.md)
+> **从旧版升级**:旧的 `features` 功能开关与 `admin_only_commands` 名单已并入命令树,插件**首次装载时自动迁移**为等价的 `command_permissions` 三态行,无需手动改配置。对照表见 [docs/configuration.md · 命令树权限模型](https://github.com/SolitudeRA/astrbot_plugin_palworld/blob/main/docs/configuration.md#permissions权限管理)。
+
+轮询间隔、FPS 阈值、隐私脱敏、数据保留、自定义请求头、命令树权限等全部配置项详解 → [docs/configuration.md](https://github.com/SolitudeRA/astrbot_plugin_palworld/blob/main/docs/configuration.md)
 
 ## 安全与隐私
 
@@ -124,7 +126,7 @@ v0.9.5 起指令为**分级结构**:`/pal <组> <动作>`(裸组即迷你帮助)
 
 ## 详细文档
 
-- [配置项详解](https://github.com/SolitudeRA/astrbot_plugin_palworld/blob/main/docs/configuration.md) —— 轮询 / 世界与展示 / 据点推导 / 数据保留 / 自定义请求头 / 插件页面 / 功能开关
+- [配置项详解](https://github.com/SolitudeRA/astrbot_plugin_palworld/blob/main/docs/configuration.md) —— 轮询 / 世界与展示 / 据点推导 / 数据保留 / 自定义请求头 / 插件页面 / 命令树权限模型(含旧版迁移对照)
 - [完整指令与功能开关](https://github.com/SolitudeRA/astrbot_plugin_palworld/blob/main/docs/commands.md) —— 分级指令详表(5 组 + 6 扁平)、功能开关矩阵、锁迁移映射表、服务器管控、多世界与群授权、权限管理、降级行为
 
 ## 开源协议

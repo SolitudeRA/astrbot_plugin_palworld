@@ -111,18 +111,18 @@ def test_format_servers_admin_shows_skipped_section():
 
 
 def test_format_help_role_separation():
-    from palworld_terminal.config import FeaturesConfig
-    feats = FeaturesConfig(report=True, events=True, guilds_bases=True)
-    admin = format_help(None, is_admin=True, features=feats)
+    from tests.unit._perm import all_on
+    ov = all_on()
+    admin = format_help(None, is_admin=True, overrides=ov)
     assert "/pal link add" in admin  # 管理员服务器授权（原 /pal server add）
-    guest = format_help(None, is_admin=False, features=feats)
+    guest = format_help(None, is_admin=False, overrides=ov)
     assert "/pal link add" not in guest and "/pal world status" in guest
 
 
 def test_format_help_filters_disabled_groups():
-    from palworld_terminal.config import FeaturesConfig
-    off = format_help(None, is_admin=False, features=FeaturesConfig(True, True, False))
+    from tests.unit._perm import overrides
+    off = format_help(None, is_admin=False, overrides=overrides(guilds_bases=False))
     assert "/pal guild info" not in off and "/pal guild bases" not in off
     assert "/pal world status" in off
-    on = format_help(None, is_admin=False, features=FeaturesConfig(True, True, True))
+    on = format_help(None, is_admin=False, overrides=overrides(guilds_bases=True))
     assert "/pal guild info" in on and "/pal guild bases" in on

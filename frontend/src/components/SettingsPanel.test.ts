@@ -16,12 +16,10 @@ const cfg = () => ({ ok: true, config: {
   privacy: { mode: 'balanced', public_exact_ping: false, public_positions: false,
     ping_good_ms: 60, ping_ok_ms: 120, uncertain_timeout: 900 },
   history: { raw_metrics_days: 7, aggregate_days: 90, session_days: 365, observation_days: 180 },
-  features: { report: true, events: true, guilds_bases: false, players: false,
-    server_admin_basic: false, server_admin_danger: false },
   players: { rank_top_n: 5, exclude_names: '' },
   server_admin: { require_confirmation: false, confirmation_timeout: 30, audit_retention_days: 180 },
   permission_admins: [],
-  admin_only_commands: [],
+  command_permissions: [],
 }, page_version: 1 })
 
 beforeEach(() => {
@@ -30,33 +28,30 @@ beforeEach(() => {
 const mountAt = (chapter: string) => mount(SettingsPanel, { props: { chapter } })
 
 describe('SettingsPanel', () => {
-  it('feature 章渲染功能开关与玩家查询节', async () => {
+  it('权限章渲染玩家查询节（players 重新安家于权限章）', async () => {
     (window.AstrBotPluginPage!.apiGet as any).mockResolvedValue(cfg())
-    const w = mountAt('feature'); await flushPromises()
-    expect(w.text()).toContain('功能开关')
-    expect(w.text()).toContain('玩家查询')
+    const w = mountAt('permissions'); await flushPromises()
+    expect(w.text()).toContain('玩家查询') // players 配置节标题
+    expect(w.text()).toContain('排行榜人数')
   })
-  it('feature 章渲染服务器管控两组开关 + server_admin 配置段', async () => {
+  it('权限章渲染 server_admin 配置节（server_admin 重新安家于权限章）', async () => {
     (window.AstrBotPluginPage!.apiGet as any).mockResolvedValue(cfg())
-    const w = mountAt('feature'); await flushPromises()
-    expect(w.text()).toContain('服务器管控·基础') // features 段两组开关
-    expect(w.text()).toContain('服务器管控·危险')
+    const w = mountAt('permissions'); await flushPromises()
     expect(w.text()).toContain('危险命令二次确认') // server_admin 配置段字段
     expect(w.text()).toContain('审计留存天数')
   })
   it('保存 body 携带 server_admin 段（类型正确，往返闭合）', async () => {
     (window.AstrBotPluginPage!.apiGet as any).mockResolvedValue(cfg());
     (window.AstrBotPluginPage!.apiPost as any).mockResolvedValue({ ok: true, warnings: {} })
-    const w = mountAt('feature'); await flushPromises()
+    const w = mountAt('permissions'); await flushPromises()
     await w.get('button.pw-save').trigger('click'); await flushPromises()
     const [, body] = (window.AstrBotPluginPage!.apiPost as any).mock.calls[0]
     expect(typeof body.server_admin.require_confirmation).toBe('boolean')
     expect(typeof body.server_admin.confirmation_timeout).toBe('number')
-    expect(typeof body.features.server_admin_basic).toBe('boolean')
   })
   it('config 缺 server_admin 键不崩，applyConfig 退化为空段', async () => {
     (window.AstrBotPluginPage!.apiGet as any).mockResolvedValue({ ok: true, config: {} })
-    const w = mountAt('feature'); await flushPromises()
+    const w = mountAt('permissions'); await flushPromises()
     expect(w.text()).toContain('服务器管控') // 段仍按 schema 渲染，不因缺键崩
   })
   it('access 章渲染访问控制节 + 保存条', async () => {
@@ -71,15 +66,16 @@ describe('SettingsPanel', () => {
     const w = mountAt('access'); await flushPromises()
     expect(w.text()).toContain('未登录')
   })
-  it('保存 apiPost body 不含 group_bindings 且类型正确（body 恒全量，与当前章无关）', async () => {
+  it('保存 apiPost body 不含 group_bindings/features，含 command_permissions（body 恒全量）', async () => {
     (window.AstrBotPluginPage!.apiGet as any).mockResolvedValue(cfg());
     (window.AstrBotPluginPage!.apiPost as any).mockResolvedValue({ ok: true, warnings: {} })
     const w = mountAt('access'); await flushPromises()
     await w.get('button.pw-save').trigger('click'); await flushPromises()
     const [, body] = (window.AstrBotPluginPage!.apiPost as any).mock.calls[0]
     expect('group_bindings' in body).toBe(false)
+    expect('features' in body).toBe(false)
+    expect(Array.isArray(body.command_permissions)).toBe(true)
     expect(typeof body.polling.metrics_seconds).toBe('number')
-    expect(typeof body.features.report).toBe('boolean')
   })
   it('保存业务错误 credential_redirect → 就地提示，不塌整页', async () => {
     (window.AstrBotPluginPage!.apiGet as any).mockResolvedValue(cfg());
@@ -113,26 +109,41 @@ describe('SettingsPanel', () => {
     expect(w.text()).not.toContain('有未保存的更改') // applyConfig 复位
   })
 
-  it('权限章渲染 callout + 名单 + 命令 chip', async () => {
+  it('权限章渲染 callout + 受托名单 + 命令树', async () => {
     (window.AstrBotPluginPage!.apiGet as any).mockResolvedValue(cfg())
     const w = mountAt('permissions'); await flushPromises()
     expect(w.text()).toContain('受托') // 受托名单区块
-    expect(w.text()).toContain('/pal player info') // 命令 chip 网格含具体命令(完整路径)
+    expect(w.text()).toContain('命令权限') // 命令树区块标题
+    expect(w.text()).toContain('/pal player info') // 命令树含具体命令完整路径
     expect(w.text()).toContain('名单为空') // 空名单提示
     expect(w.text()).toContain('名册全局') // 爆炸半径安全警句(勿静默删除)
   })
 
-  it('权限章：点击命令 chip 切换锁定态并置 dirty', async () => {
+  it('权限章：点击命令树三态段 → 覆盖命令权限并置 dirty，collectBody 产出该行', async () => {
     (window.AstrBotPluginPage!.apiGet as any).mockResolvedValue(cfg())
     const w = mountAt('permissions'); await flushPromises()
-    expect((w.vm as any).state.admin_only_commands).toEqual([])
-    const chips = w.findAll('.cmd-chip')
-    const playerChip = chips.find((c) => c.text() === '/pal player info')!
-    await playerChip.trigger('click')
-    expect((w.vm as any).state.admin_only_commands).toContain('player info')
+    expect((w.vm as any).state.command_perms).toEqual({})
+    const row = w.findAll('.ct-leaf').find((r) => r.text().includes('player info'))!
+    const adminCell = row.findAll('.ct-cell')[1]
+    await adminCell.findAll('.seg').find((b) => b.text() === '仅管理')!.trigger('click')
+    expect((w.vm as any).state.command_perms['player info']).toEqual({ enabled: 'inherit', admin_only: 'on' })
     expect(w.text()).toContain('有未保存的更改')
-    await playerChip.trigger('click')
-    expect((w.vm as any).state.admin_only_commands).not.toContain('player info')
+    const body = collectBody((w.vm as any).state)
+    expect(body.command_permissions).toEqual([{ command: 'player info', enabled: 'inherit', admin_only: 'on' }])
+  })
+
+  it('权限章：applyConfig 从 command_permissions 行还原树 state（hydrate 往返）', async () => {
+    const c = cfg()
+    c.config.command_permissions = [{ command: 'guild list', enabled: 'inherit', admin_only: 'on' }];
+    (window.AstrBotPluginPage!.apiGet as any).mockResolvedValue(c)
+    const w = mountAt('permissions'); await flushPromises()
+    // 树 state 读回该覆盖行
+    expect((w.vm as any).state.command_perms['guild list']).toEqual({ enabled: 'inherit', admin_only: 'on' })
+    // CommandTree 该叶子 admin 格「仅管理」段显覆盖态（act）
+    const row = w.findAll('.ct-leaf').find((r) => r.text().includes('guild list'))!
+    const adminCell = row.findAll('.ct-cell')[1]
+    const seg = adminCell.findAll('.seg').find((b) => b.text() === '仅管理')!
+    expect(seg.classes()).toContain('act')
   })
 
   it('config 缺 permission 两键不崩、collectBody 产出空数组', async () => {
@@ -140,6 +151,6 @@ describe('SettingsPanel', () => {
     const w = mountAt('permissions'); await flushPromises()
     const body = collectBody((w.vm as any).state)
     expect(body.permission_admins).toEqual([])
-    expect(body.admin_only_commands).toEqual([])
+    expect(body.command_permissions).toEqual([])
   })
 })

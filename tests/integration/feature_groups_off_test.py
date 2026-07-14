@@ -8,13 +8,20 @@ from palworld_terminal.presentation.locale import L
 
 
 def _cfg(guilds_bases=False, events=True, bases_enabled=True):
+    # 经 command_permissions 三态行驱动（容器装配门读 command_overrides；命令层 features
+    # 由派生桥复算，两端一致）。空行集 → 全默认（events 开、guilds_bases 关）。
+    cmds = []
+    if guilds_bases:
+        cmds.append({"command": "guild", "enabled": "on"})
+    if not events:
+        cmds.append({"command": "world events", "enabled": "off"})
     return parse_config({
         "servers": [{"name": "alpha", "enabled": True, "base_url": "http://127.0.0.1:8212",
                      "username": "admin", "password": "pw"}],
         "routing": {"access_mode": "open", "default_server": ""}, "group_bindings": [],
         "polling": {}, "world": {}, "bases": {"enabled": bases_enabled},
         "privacy": {"mode": "balanced"}, "history": {},
-        "features": {"report": True, "events": events, "guilds_bases": guilds_bases},
+        "command_permissions": cmds,
     }, {})
 
 

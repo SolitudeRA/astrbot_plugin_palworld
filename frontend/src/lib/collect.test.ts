@@ -1,12 +1,12 @@
 import { describe, it, expect } from 'vitest'
-import { collectBody, collectSecret, SENTINEL, type SettingsState } from './collect'
+import { collectBody, collectSecret, SENTINEL, type SettingsState, type CmdPerm } from './collect'
 
 const baseState = (): SettingsState => ({
   servers: [{ __row_id: 'srv-0', name: 'a', enabled: true, base_url: 'http://x', username: 'admin',
     password: '', password_env: '', timeout: 10, verify_tls: true, timezone: '' }],
   custom_headers: [],
   permission_admins: [],
-  admin_only_commands: [],
+  command_perms: {},
   sections: {
     routing: { access_mode: 'restricted', default_server: '' },
     polling: { metrics_seconds: 30, players_seconds: 30, info_seconds: 600, settings_seconds: 1800,
@@ -17,16 +17,24 @@ const baseState = (): SettingsState => ({
     privacy: { mode: 'balanced', public_exact_ping: false, public_positions: false,
       ping_good_ms: 60, ping_ok_ms: 120, uncertain_timeout: 900 },
     history: { raw_metrics_days: 7, aggregate_days: 90, session_days: 365, observation_days: 180 },
-    features: { report: true, events: true, guilds_bases: false, players: false,
-      server_admin_basic: false, server_admin_danger: false },
     players: { rank_top_n: 5, exclude_names: '' },
     server_admin: { require_confirmation: false, confirmation_timeout: 30, audit_retention_days: 180 },
   },
 })
 
+// 命令树 state 稀疏 map：仅列出被覆盖命令，未列轴退化 inherit（保插入顺序）
+function makeTreeState(overrides: Record<string, Partial<CmdPerm>>): SettingsState {
+  const command_perms: Record<string, CmdPerm> = {}
+  for (const k of Object.keys(overrides)) {
+    command_perms[k] = { enabled: 'inherit', admin_only: 'inherit', ...overrides[k] }
+  }
+  return { servers: [], custom_headers: [], permission_admins: [], command_perms, sections: {} }
+}
+
+// 后端 config_view._TOP_KEYS（Phase 2：无 features/admin_only_commands，含 command_permissions）
 const TOP_KEYS = ['servers', 'routing', 'group_bindings', 'custom_headers',
-  'polling', 'world', 'bases', 'privacy', 'history', 'features', 'players',
-  'server_admin', 'permission_admins', 'admin_only_commands']
+  'polling', 'world', 'bases', 'privacy', 'history', 'players',
+  'server_admin', 'permission_admins', 'command_permissions']
 
 describe('collectBody', () => {
   it('数值字段产出 number（非字符串）', () => {
@@ -37,9 +45,11 @@ describe('collectBody', () => {
     expect(typeof body.polling.jitter_ratio).toBe('number')
   })
   it('布尔字段产出 boolean（治 bool("false")===true 陷阱）', () => {
-    const body = collectBody(baseState()) as any
-    expect(typeof body.features.report).toBe('boolean')
-    expect(body.features.guilds_bases).toBe(false)
+    const st = baseState(); st.sections.bases.enabled = 'false' // 模拟脏字符串
+    const body = collectBody(st) as any
+    expect(typeof body.bases.enabled).toBe('boolean')
+    expect(body.bases.enabled).toBe(false) // 严格 === true，杜绝 'false'→true
+    expect(body.privacy.public_exact_ping).toBe(false)
   })
   it('collectBody 产出 server_admin 段：数值转 number、开关转 boolean', () => {
     const st = baseState()
@@ -51,26 +61,44 @@ describe('collectBody', () => {
     expect(typeof body.server_admin.audit_retention_days).toBe('number')
     expect(body.server_admin.audit_retention_days).toBe(180)
   })
-  it('features 段含 server_admin 两组开关', () => {
-    const body = collectBody(baseState()) as any
-    expect(typeof body.features.server_admin_basic).toBe('boolean')
-    expect(typeof body.features.server_admin_danger).toBe('boolean')
-  })
   it('body 完全不含 group_bindings 键（后端缺键保留旧值）', () => {
     expect('group_bindings' in (collectBody(baseState()) as any)).toBe(false)
+  })
+  it('body 完全不含 features / admin_only_commands（Phase 2 已由 command_permissions 取代）', () => {
+    const body = collectBody(baseState()) as any
+    expect('features' in body).toBe(false)
+    expect('admin_only_commands' in body).toBe(false)
+    expect(Array.isArray(body.command_permissions)).toBe(true)
   })
   it('顶层键 ⊆ 后端 _TOP_KEYS', () => {
     for (const k of Object.keys(collectBody(baseState()))) expect(TOP_KEYS).toContain(k)
   })
-  it('collectBody 含 permission_admins(剥 meta)与 admin_only_commands 数组', () => {
-    const state: any = {
-      servers: [], custom_headers: [], sections: {},
-      permission_admins: [{ __row_id: 'adm-0', __local_key: 'local-1', id: 'aiocqhttp:1', note: 'x' }],
-      admin_only_commands: ['player', 'rank'],
-    }
-    const body = collectBody(state)
-    expect(body.permission_admins).toEqual([{ __row_id: 'adm-0', id: 'aiocqhttp:1', note: 'x' }])
-    expect(body.admin_only_commands).toEqual(['player', 'rank'])
+  it('collectBody 含 permission_admins(剥 meta)与 command_permissions 稀疏行', () => {
+    const body = collectBody(makeTreeState({}))
+    expect(body.command_permissions).toEqual([]) // 全 inherit → 空
+    const st: any = makeTreeState({})
+    st.permission_admins = [{ __row_id: 'adm-0', __local_key: 'local-1', id: 'aiocqhttp:1', note: 'x' }]
+    expect(collectBody(st).permission_admins).toEqual([{ __row_id: 'adm-0', id: 'aiocqhttp:1', note: 'x' }])
+  })
+  it('command_permissions 稀疏三态行（两轴皆 inherit 的命令省略，保插入顺序）', () => {
+    const state = makeTreeState({ guild: { enabled: 'on' }, 'world today': { enabled: 'off' } })
+    expect(collectBody(state).command_permissions).toEqual([
+      { command: 'guild', enabled: 'on', admin_only: 'inherit' },
+      { command: 'world today', enabled: 'off', admin_only: 'inherit' },
+    ])
+  })
+  it('command_permissions 全 inherit 的命令不产行（稀疏）', () => {
+    const state = makeTreeState({ 'world status': { enabled: 'inherit', admin_only: 'inherit' }, 'player info': { admin_only: 'on' } })
+    expect(collectBody(state).command_permissions).toEqual([
+      { command: 'player info', enabled: 'inherit', admin_only: 'on' },
+    ])
+  })
+  it('组名行覆盖整组：写组名一行、不逐叶展开', () => {
+    const state = makeTreeState({ server: { enabled: 'on' } })
+    const rows = collectBody(state).command_permissions as { command: string }[]
+    expect(rows).toEqual([{ command: 'server', enabled: 'on', admin_only: 'inherit' }])
+    // 整组启用只写组名行；ban/shutdown/stop 等 danger 叶子不随组写（复核 F2，由后端不继承组）
+    expect(rows.some((r) => ['server ban', 'server shutdown', 'server stop'].includes(r.command))).toBe(false)
   })
   it('server 行保留 __row_id；新建行(无 id)不注入哨兵到空密码', () => {
     const st = baseState(); st.servers.push({ __row_id: '', name: 'b', enabled: true, base_url: '',

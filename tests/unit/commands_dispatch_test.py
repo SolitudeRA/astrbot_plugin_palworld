@@ -12,19 +12,11 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
+from palworld_terminal.application.command_permissions import CommandOverride
 from palworld_terminal.application.routing_service import Resolution
 from palworld_terminal.presentation.commands import Commands
 from palworld_terminal.presentation.locale import L
-
-
-class _Features:
-    """按组开关；默认 True（core 恒开）。"""
-
-    def __init__(self, **groups: bool) -> None:
-        self._groups = groups
-
-    def enabled(self, group: str) -> bool:
-        return self._groups.get(group, True)
+from tests.unit._perm import overrides
 
 
 class _Clock:
@@ -103,10 +95,17 @@ class _FakeAdmin:
         )
 
 
-def _cfg(features=None, locked=(), require=False):
+def _cfg(feats=None, locked=(), require=False):
+    """feats: {功能组: bool} 门开关（镜像旧 _Features，默认全开）；
+    locked: 完整路径列表，逐路径落 admin_only=True（叶子锁）。"""
+    ov = dict(overrides(**(feats or {})))
+    for path in locked:
+        prev = ov.get(path)
+        ov[path] = CommandOverride(
+            enabled=prev.enabled if prev is not None else None, admin_only=True,
+        )
     return SimpleNamespace(
-        features=features or _Features(),
-        permissions=SimpleNamespace(admin_only_commands=list(locked)),
+        permissions=SimpleNamespace(command_overrides=ov),
         server_admin=SimpleNamespace(require_confirmation=require, confirmation_timeout=30),
         servers=[],
         skipped=[],
@@ -125,8 +124,9 @@ def _mk(routing=None, query=None, repo=None, cfg=None, admin=None):
 # ============================================================================
 
 async def test_world_per_subaction_feature_gate():
-    feats = _Features(events=False, report=False)  # core 恒开；events/report 关
-    c = _mk(_ErrRouting(), _BoomQuery(), _BoomRepo(), _cfg(features=feats))
+    # core 恒开；events/report 关
+    c = _mk(_ErrRouting(), _BoomQuery(), _BoomRepo(),
+            _cfg(feats={"events": False, "report": False}))
     # status(core) 过功能门 → 触达实现 → 回路由错误串（证明未被门拦）
     assert await c.world_grp("u", "/pal world status", True, "s", False) == "ROUTING_ERR"
     # events(events 组关) → feature_disabled，不触达实现
@@ -142,8 +142,7 @@ async def test_world_overview_routes_to_world_impl():
 
 
 async def test_guild_per_subaction_feature_gate():
-    feats = _Features(guilds_bases=False)
-    c = _mk(_ErrRouting(), _BoomQuery(), _BoomRepo(), _cfg(features=feats))
+    c = _mk(_ErrRouting(), _BoomQuery(), _BoomRepo(), _cfg(feats={"guilds_bases": False}))
     assert await c.guild_grp("u", "/pal guild list", True, "s", False) == L("feature_disabled")
     assert await c.guild_grp("u", "/pal guild info X", True, "s", False) == L("feature_disabled")
     assert await c.guild_grp("u", "/pal guild bases", True, "s", False) == L("feature_disabled")
@@ -163,9 +162,9 @@ async def test_admin_denied_downshift_full_path():
     assert out2 == "ROUTING_ERR"
 
 
-async def test_admin_lock_is_full_path_not_flat():
-    # 旧扁平锁值 "player" 不匹配完整路径 "player info" → 不锁（完整路径语义）。
-    c = _mk(_ErrRouting(), _BoomQuery(), _BoomRepo(), _cfg(locked=["player"]))
+async def test_admin_lock_is_leaf_isolated():
+    # 锁一个兄弟叶子 "player bind" 绝不波及 "player info"（完整路径叶子隔离语义）。
+    c = _mk(_ErrRouting(), _BoomQuery(), _BoomRepo(), _cfg(locked=["player bind"]))
     out = await c.player_grp("u", "/pal player info Alice", True, "nonadmin", False)
     assert out == "ROUTING_ERR"  # 未被锁 → 触达实现
 
@@ -257,8 +256,8 @@ async def test_server_write_nonadmin_admin_required():
 async def test_server_write_admin_hard_gate_before_feature():
     # 门序铁律：admin 硬门先于 feature——组关也必须回 admin_required（防配置态泄漏）。
     admin = _FakeAdmin()
-    feats = _Features(server_admin_basic=False, server_admin_danger=False)
-    c = _mk(_ErrRouting(), None, None, _cfg(features=feats), admin=admin)
+    c = _mk(_ErrRouting(), None, None,
+            _cfg(feats={"server_admin_basic": False, "server_admin_danger": False}), admin=admin)
     out = await c.server_grp("u", "/pal server stop", True, "nonadmin", False)
     assert out == L("admin_required")
     assert admin.calls == []

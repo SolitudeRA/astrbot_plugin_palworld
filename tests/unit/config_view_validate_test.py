@@ -1,5 +1,9 @@
 """config/save 校验与哨仓回填：形状/类型/白名单/体积/语义/哨兵/凭证重定向。"""
-from palworld_terminal.presentation.config_view import SENTINEL, validate_and_backfill
+from palworld_terminal.presentation.config_view import (
+    SENTINEL,
+    redact_config,
+    validate_and_backfill,
+)
 
 
 def _old():
@@ -35,7 +39,6 @@ def _body(**over):
         "routing": {"access_mode": "restricted", "default_server": ""},
         "polling": {"metrics_seconds": 30}, "world": {"fps_smooth": 50},
         "bases": {}, "privacy": {"mode": "balanced"}, "history": {},
-        "features": {"report": True, "events": True, "guilds_bases": True},
     }
     b.update(over)
     return b
@@ -197,17 +200,49 @@ def test_non_string_base_url_no_crash():
     assert ok is False and isinstance(err, dict) and "error" in err
 
 
-def test_features_section_accepted_and_passthrough_unstripped():
-    # F-C1：features 顶层节须在白名单内，且原样透传（不判 invalid_shape、不被剥离）
-    body = _body(features={"report": True, "events": True, "guilds_bases": True})
+def test_command_permissions_row_shape_ok():
+    body = {"command_permissions": [
+        {"command": "guild", "enabled": "on", "admin_only": "inherit"},
+        {"command": "guild list", "enabled": "inherit", "admin_only": "on"},
+    ]}
     ok, cand = validate_and_backfill(body, _old(), {})
     assert ok is True
-    assert cand["features"] == {"report": True, "events": True, "guilds_bases": True}
+    assert cand["command_permissions"][0]["command"] == "guild"
+    assert cand["command_permissions"][1]["admin_only"] == "on"
 
 
-def test_features_section_not_mapping_rejected():
-    body = _body(features=["not", "a", "mapping"])
-    ok, err = validate_and_backfill(body, _old(), {})
+def test_command_permissions_row_rejects_bad():
+    # 非法三态值
+    ok, _ = validate_and_backfill(
+        {"command_permissions": [{"command": "guild", "enabled": "yes"}]}, _old(), {})
+    assert ok is False
+    # 未知命令
+    ok, _ = validate_and_backfill(
+        {"command_permissions": [{"command": "nope"}]}, _old(), {})
+    assert ok is False
+    # 非列表形状
+    ok, _ = validate_and_backfill(
+        {"command_permissions": {"not": "list"}}, _old(), {})
+    assert ok is False
+
+
+def test_command_permissions_row_id_and_meta_stripped():
+    red = redact_config({"command_permissions": [
+        {"command": "guild", "enabled": "on", "admin_only": "inherit"}]})
+    assert red["command_permissions"][0]["__row_id"] == "cmd-0"
+    ok, cand = validate_and_backfill(
+        {"command_permissions": [red["command_permissions"][0]]}, _old(), {})
+    assert ok is True
+    row = cand["command_permissions"][0]
+    assert "__row_id" not in row
+    assert row == {"command": "guild", "enabled": "on", "admin_only": "inherit"}
+
+
+def test_top_keys_dropped_legacy():
+    # features / admin_only_commands 已从白名单删除，作为顶层键一律拒绝
+    ok, err = validate_and_backfill({"features": {"report": True}}, _old(), {})
+    assert ok is False and err["error"] == "invalid_shape"
+    ok, err = validate_and_backfill({"admin_only_commands": ["x"]}, _old(), {})
     assert ok is False and err["error"] == "invalid_shape"
 
 

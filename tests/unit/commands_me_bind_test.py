@@ -17,8 +17,9 @@ _SALT = b"x" * 32
 
 
 def _cfg(exclude=None, mode="balanced"):
+    from tests.unit._perm import all_on
     return SimpleNamespace(
-        features=SimpleNamespace(enabled=lambda g: True),
+        permissions=SimpleNamespace(command_overrides=all_on()),
         privacy=SimpleNamespace(mode=mode),
         players=SimpleNamespace(rank_top_n=5, exclude_names=exclude or []),
         world=SimpleNamespace(timezone="Asia/Tokyo"),

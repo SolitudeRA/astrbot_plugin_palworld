@@ -8,29 +8,22 @@ from __future__ import annotations
 
 from palworld_terminal.presentation.command_registry import HELP_TEXT
 from palworld_terminal.presentation.formatters import format_help
+from tests.unit._perm import overrides
 
 
-class _Features:
-    def __init__(self, groups: dict[str, bool]) -> None:
-        self._groups = groups
-
-    def enabled(self, group: str) -> bool:
-        return self._groups.get(group, False)
-
-
-def _feats(**over) -> _Features:
-    # core 恒开（真实 FeaturesConfig.enabled("core") 恒 True）——confirm/link 等 core 动作
-    # 的可见性由角色门决定，功能门恒通过。
+def _feats(**over):
+    # 镜像旧 _feats：server 组默认开、guilds_bases/events/report/players 默认关；
+    # core 恒开（confirm/link 可见性由角色门决定，功能门对 core 恒通过）。
     base = {
-        "core": True, "server_admin_basic": True, "server_admin_danger": True,
+        "server_admin_basic": True, "server_admin_danger": True,
         "guilds_bases": False, "events": False, "report": False, "players": False,
     }
     base.update(over)
-    return _Features(base)
+    return overrides(**base)
 
 
 def test_help_hides_write_commands_from_non_admin():
-    out = format_help(None, is_admin=False, features=_feats())
+    out = format_help(None, is_admin=False, overrides=_feats())
     assert "/pal server kick" not in out
     assert "/pal server ban" not in out
     assert "/pal server announce" not in out
@@ -38,7 +31,7 @@ def test_help_hides_write_commands_from_non_admin():
 
 
 def test_help_shows_write_commands_to_admin_when_enabled():
-    out = format_help(None, is_admin=True, features=_feats())
+    out = format_help(None, is_admin=True, overrides=_feats())
     for frag in ("/pal server announce", "/pal server save", "/pal server kick",
                  "/pal server unban", "/pal server ban", "/pal server shutdown",
                  "/pal server stop", "/pal confirm"):
@@ -48,7 +41,7 @@ def test_help_shows_write_commands_to_admin_when_enabled():
 def test_help_hides_write_commands_when_group_disabled_even_for_admin():
     out = format_help(
         None, is_admin=True,
-        features=_feats(server_admin_basic=False, server_admin_danger=False),
+        overrides=_feats(server_admin_basic=False, server_admin_danger=False),
     )
     assert "/pal server kick" not in out       # danger 组关
     assert "/pal server announce" not in out   # basic 组关

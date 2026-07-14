@@ -118,8 +118,12 @@ class _StubQuery:
 
 
 def _cmds(mode="strict"):
-    features = SimpleNamespace(enabled=lambda g: True)
-    cfg = SimpleNamespace(features=features, privacy=SimpleNamespace(mode=mode))
+    from palworld_terminal.application.command_permissions import CommandOverride
+    cfg = SimpleNamespace(
+        permissions=SimpleNamespace(
+            command_overrides={"rank": CommandOverride(enabled=True)}),
+        privacy=SimpleNamespace(mode=mode),
+    )
     c = Commands(routing=None, query=_StubQuery(), repo=None, cfg=cfg,
                  clock=SimpleNamespace(now=lambda: 0))
 

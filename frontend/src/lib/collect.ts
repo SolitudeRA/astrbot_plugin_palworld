@@ -1,14 +1,18 @@
-import { OBJECT_SECTIONS, type FieldType } from './schema'
+import { OBJECT_SECTIONS, type FieldType, type Tri } from './schema'
 
 export const SENTINEL = '__unchanged__'
+
+// 命令树单元格三态（enable / admin_only 两轴）。命令树 state 为稀疏 map：
+// 键为命令完整路径或组名，仅「被触碰过」的命令进 map，两轴皆 inherit 的行 collect 时省略。
+export interface CmdPerm { enabled: Tri; admin_only: Tri }
 
 export interface SettingsState {
   servers: Record<string, unknown>[]
   custom_headers: Record<string, unknown>[]
-  // T9 接线前 SettingsPanel 尚未在 state 里初始化这两键，故声明为可选；
-  // collectBody 以 ?? [] 兜底，避免破坏既有 SettingsState 构造点的类型/运行时
+  // 可选：部分 SettingsState 构造点（含旧测试）不带这些键，collectBody 以兜底避免崩
   permission_admins?: Record<string, unknown>[]
-  admin_only_commands?: string[]
+  // 命令权限树 state：command(路径/组名) -> 两轴三态。稀疏，仅含被覆盖的命令
+  command_perms?: Record<string, CmdPerm>
   sections: Record<string, Record<string, unknown>>
 }
 
@@ -64,9 +68,16 @@ export function collectBody(state: SettingsState): Record<string, unknown> {
   const body: Record<string, unknown> = {}
   body.servers = state.servers.map(collectServer)
   body.custom_headers = state.custom_headers.map(collectHeader)
-  // ?? []：T9 接线前 SettingsPanel 的 state 尚无这两键，缺省即空，避免 undefined.map 崩溃
+  // ?? []：缺省即空，避免 undefined.map 崩溃
   body.permission_admins = (state.permission_admins ?? []).map(collectAdmin)
-  body.admin_only_commands = [...(state.admin_only_commands ?? [])]
+  // command_permissions：命令树 state → 稀疏三态行。两轴皆 inherit 的命令省略；
+  // 组名行覆盖整组、完整路径行覆盖单叶。保插入顺序（hydrate 时按 config 行序、编辑时追加）
+  const perms = state.command_perms ?? {}
+  body.command_permissions = Object.keys(perms).reduce<Record<string, string>[]>((rows, command) => {
+    const { enabled, admin_only } = perms[command]
+    if (enabled !== 'inherit' || admin_only !== 'inherit') rows.push({ command, enabled, admin_only })
+    return rows
+  }, [])
   for (const section of OBJECT_SECTIONS) {
     const vals = state.sections[section.key] ?? {}
     const out: Record<string, unknown> = {}

@@ -13,9 +13,12 @@ from __future__ import annotations
 from types import SimpleNamespace
 
 from palworld_terminal.application.admin_service import AdminResult, TargetResult
+from palworld_terminal.application.command_permissions import CommandOverride
 from palworld_terminal.presentation.commands import Commands
 from palworld_terminal.presentation.confirmation import ConfirmationStore
 from palworld_terminal.presentation.locale import L
+
+_SERVER_WRITES = ("announce", "save", "kick", "unban", "ban", "shutdown", "stop")
 
 
 class _Clock:
@@ -24,14 +27,6 @@ class _Clock:
 
     def now(self) -> float:
         return self.t
-
-
-class _Features:
-    def __init__(self, on: bool = True) -> None:
-        self.on = on
-
-    def enabled(self, group: str) -> bool:
-        return self.on
 
 
 class _FakeRouting:
@@ -115,8 +110,10 @@ class _FakeAdmin:
 
 
 def _cfg(group_on: bool = True, require: bool = False, timeout: int = 30):
+    # 门控查完整路径生效值：逐 server 写命令落 enable=group_on（危险命令不从组键继承）。
+    ov = {f"server {c}": CommandOverride(enabled=group_on) for c in _SERVER_WRITES}
     return SimpleNamespace(
-        features=_Features(group_on),
+        permissions=SimpleNamespace(command_overrides=ov),
         server_admin=SimpleNamespace(
             require_confirmation=require, confirmation_timeout=timeout
         ),
@@ -340,7 +337,8 @@ async def test_confirm_stale_when_group_disabled_after_pending():
     await c.admin_write(
         "stop", "server_admin_danger", "p:1", "umo", True, "", is_admin=True
     )
-    cfg.features.on = False  # danger 组在确认前被关
+    # danger 命令在确认前被关（叶子 enable=False）
+    cfg.permissions.command_overrides["server stop"] = CommandOverride(enabled=False)
     out = await c.confirm("p:1", "umo", True, is_admin=True)
     assert out == L("admin_confirm_stale")
     assert ("stop",) not in admin.calls  # 复检失败：不执行

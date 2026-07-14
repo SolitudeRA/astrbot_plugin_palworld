@@ -56,12 +56,14 @@ except Exception:  # test / standalone environment: lightweight stubs
     filter = _Filter()  # type: ignore
 
 try:  # AstrBot 以 data.plugins.<目录>.main 命名空间加载，插件目录不在 sys.path
+    from .palworld_terminal.application.command_permissions import migrate_legacy_to_rows
     from .palworld_terminal.config import parse_config
     from .palworld_terminal.container import Container
     from .palworld_terminal.infrastructure.clock import SystemClock
     from .palworld_terminal.presentation import web_api
     from .palworld_terminal.presentation.locale import L
 except ImportError:  # 测试/独立环境从仓库根以顶级模块导入
+    from palworld_terminal.application.command_permissions import migrate_legacy_to_rows
     from palworld_terminal.config import parse_config
     from palworld_terminal.container import Container
     from palworld_terminal.infrastructure.clock import SystemClock
@@ -79,8 +81,39 @@ def _resolve_data_dir() -> Path:
         return Path(os.getcwd())
 
 
+def _migrate_permissions_config(config) -> None:
+    """装载时一次性把 legacy 权限配置迁移成 command_permissions 行并落库（复核 F1/B2）。
+
+    幂等：command_permissions 已在场 → 跳过；legacy 键（features/admin_only_commands）
+    都缺席 → 跳过（全新装不动、不 save）。否则迁移写回 config 并删旧键、持久化。
+
+    根治读路径失锁：老用户升级后 storage 仍是旧键，GET 下发的 raw 不含
+    command_permissions，前端树从空初始化、一保存即把不含旧锁的配置落库使旧锁永久
+    失效。此处把 legacy 迁成行写回存储并删旧键，使 存储/GET/运行时/保存 四者同源。
+    """
+    if "command_permissions" in config:
+        return
+    if "features" not in config and "admin_only_commands" not in config:
+        return
+    rows, invalid = migrate_legacy_to_rows(config)
+    config["command_permissions"] = rows
+    config.pop("features", None)
+    config.pop("admin_only_commands", None)
+    # 不可迁移的 legacy 锁（非 LOCKABLE）无法转成行、迁移后即消失；不得静默丢弃，
+    # 装载时告警一次，让管理员知晓其锁未生效（承接 Phase 1 unknown_locks 安全可见性）。
+    if invalid:
+        _log.warning(
+            "以下 legacy admin_only_commands 条目不是可锁命令、迁移无法保留，锁未生效：%s",
+            "、".join(invalid),
+        )
+    # AstrBotConfig 落盘方法为 save_config()（与 _apply_and_restart 一致）；测试替身同名。
+    save = getattr(config, "save_config", None)
+    if callable(save):
+        save()
+
+
 @register("astrbot_plugin_palworld", "SolitudeRA",
-          "监测 Palworld 专用服务器,分级指令提供状态查询、日报、玩家档案与受控服务器管控", "v0.9.5",
+          "监测 Palworld 专用服务器,分级指令提供状态查询、日报、玩家档案与受控服务器管控", "v0.9.6",
           "https://github.com/SolitudeRA/astrbot_plugin_palworld")
 class PalWorldTerminal(Star):
     def __init__(self, context, config):
@@ -98,6 +131,8 @@ class PalWorldTerminal(Star):
         self._idle.set()
 
     async def initialize(self) -> None:
+        # 读取配置 / 建容器之前，先一次性迁移 legacy 权限配置并落库（复核 F1/B2）。
+        _migrate_permissions_config(self._raw_config)
         cfg = parse_config(self._raw_config, os.environ)
         data_dir = _resolve_data_dir()
         self._container = Container(cfg, data_dir, SystemClock())
@@ -107,18 +142,18 @@ class PalWorldTerminal(Star):
 
     def _log_startup_warnings(self) -> None:
         """装配后暴露安全相关启动告警（spec §5/§7）：single+restricted 访问控制架空、
-        admin_only_commands 未知锁条目（格式迁移后失锁 = fail-open）。"""
+        非法命令权限配置项（command_permissions 未知命令 / 轴违规，均未生效 = 配置失效）。"""
         c = self._container
         if c is None:
             return
         warn = c.routing.single_restricted_warning()
         if warn is not None:
             _log.warning(warn)
-        unknown = c.config.permissions.unknown_locks
-        if unknown:
+        invalid = c.config.permissions.invalid_command_keys
+        if invalid:
             _log.warning(
-                "以下 admin_only_commands 条目不是合法命令路径、锁未生效：%s",
-                "、".join(unknown),
+                "以下 command_permissions 配置项非法（未知命令或轴违规）、未生效：%s",
+                "、".join(invalid),
             )
 
     async def terminate(self) -> None:

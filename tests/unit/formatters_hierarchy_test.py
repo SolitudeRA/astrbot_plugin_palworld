@@ -14,21 +14,8 @@ from palworld_terminal.presentation.command_registry import (
 )
 from palworld_terminal.presentation.commands import Commands
 from palworld_terminal.presentation.formatters import format_help, visible_actions
-
-
-class _Features:
-    """按组开关；默认 True（core 恒开）。"""
-
-    def __init__(self, **groups: bool) -> None:
-        self._groups = groups
-
-    def enabled(self, group: str) -> bool:
-        return self._groups.get(group, True)
-
-
-def _all_on() -> _Features:
-    return _Features()
-
+from tests.unit._perm import all_on as _all_on
+from tests.unit._perm import overrides
 
 # ============================================================================
 # visible_actions —— 单一真相源（role filter + feature filter + 单模式省 link）
@@ -53,8 +40,8 @@ def test_visible_actions_link_add_remove_admin_only():
 
 
 def test_visible_actions_feature_gate():
-    assert visible_actions("guild", True, _Features(guilds_bases=False), "multi") == []
-    on = {sub for sub, _spec in visible_actions("guild", True, _Features(guilds_bases=True), "multi")}
+    assert visible_actions("guild", True, overrides(guilds_bases=False), "multi") == []
+    on = {sub for sub, _spec in visible_actions("guild", True, overrides(guilds_bases=True), "multi")}
     assert on == {"list", "info", "bases", "base"}
 
 
@@ -63,7 +50,7 @@ def test_visible_actions_feature_gate():
 # ============================================================================
 
 def test_format_help_admin_hierarchical_full_paths():
-    out = format_help(None, is_admin=True, features=_all_on(), world_mode="multi")
+    out = format_help(None, is_admin=True, overrides=_all_on(), world_mode="multi")
     for frag in ("/pal world status", "/pal guild info", "/pal player bind",
                  "/pal server kick", "/pal server stop", "/pal link add",
                  "/pal rank", "/pal confirm"):
@@ -71,7 +58,7 @@ def test_format_help_admin_hierarchical_full_paths():
 
 
 def test_format_help_guest_hides_writes_and_confirm():
-    out = format_help(None, is_admin=False, features=_all_on(), world_mode="multi")
+    out = format_help(None, is_admin=False, overrides=_all_on(), world_mode="multi")
     for frag in ("/pal server kick", "/pal server ban", "/pal server stop",
                  "/pal server announce", "/pal link add", "/pal link remove",
                  "/pal confirm"):
@@ -82,21 +69,21 @@ def test_format_help_guest_hides_writes_and_confirm():
 
 def test_format_help_omits_guild_when_disabled():
     out = format_help(None, is_admin=True,
-                      features=_Features(guilds_bases=False), world_mode="multi")
+                      overrides=overrides(guilds_bases=False), world_mode="multi")
     assert "/pal guild info" not in out and "/pal guild list" not in out
     assert "/pal world status" in out
 
 
 def test_format_help_single_mode_omits_link_group():
-    single = format_help(None, is_admin=True, features=_all_on(), world_mode="single")
+    single = format_help(None, is_admin=True, overrides=_all_on(), world_mode="single")
     assert "/pal link" not in single
-    multi = format_help(None, is_admin=True, features=_all_on(), world_mode="multi")
+    multi = format_help(None, is_admin=True, overrides=_all_on(), world_mode="multi")
     assert "/pal link add" in multi
 
 
 def test_format_help_confirm_admin_only():
-    guest = format_help(None, is_admin=False, features=_all_on(), world_mode="multi")
-    admin = format_help(None, is_admin=True, features=_all_on(), world_mode="multi")
+    guest = format_help(None, is_admin=False, overrides=_all_on(), world_mode="multi")
+    admin = format_help(None, is_admin=True, overrides=_all_on(), world_mode="multi")
     assert "/pal confirm" not in guest
     assert "/pal confirm" in admin
 
@@ -115,10 +102,10 @@ def test_help_text_covers_all_command_paths_exactly():
 # 裸组迷你帮助角色隔离（安全线）：_group_help 复用同一 visible_actions 谓词
 # ============================================================================
 
-def _cmds(features=None):
+def _cmds(overrides_map=None):
     cfg = SimpleNamespace(
-        features=features or _all_on(),
-        permissions=SimpleNamespace(admin_only_commands=[]),
+        permissions=SimpleNamespace(
+            command_overrides=_all_on() if overrides_map is None else overrides_map),
         server_admin=SimpleNamespace(require_confirmation=False, confirmation_timeout=30),
         servers=[], skipped=[],
     )
@@ -139,7 +126,7 @@ async def test_bare_server_group_help_shows_writes_to_admin():
 
 
 async def test_bare_guild_group_help_empty_when_disabled():
-    c = _cmds(features=_Features(guilds_bases=False))
+    c = _cmds(overrides(guilds_bases=False))
     out = await c.guild_grp("u", "/pal guild", True, "guest", False)
     for frag in ("list", "info", "bases", "base"):
         assert frag not in out, frag

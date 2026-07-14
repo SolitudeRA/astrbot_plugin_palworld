@@ -1,14 +1,16 @@
 """players 组 OFF 语义端到端：关组→四命令回 feature_disabled、help 不列（spec §5/§6）。"""
 from types import SimpleNamespace
 
-from palworld_terminal.config import FeaturesConfig
 from palworld_terminal.presentation.commands import Commands
 from palworld_terminal.presentation.formatters import format_help
+from tests.unit._perm import overrides
 
 
 def _cmds(players_on):
-    features = FeaturesConfig(report=True, events=True, guilds_bases=False, players=players_on)
-    cfg = SimpleNamespace(features=features, privacy=SimpleNamespace(mode="balanced"))
+    cfg = SimpleNamespace(
+        permissions=SimpleNamespace(command_overrides=overrides(players=players_on)),
+        privacy=SimpleNamespace(mode="balanced"),
+    )
     return Commands(routing=None, query=None, repo=None, cfg=cfg, clock=SimpleNamespace(now=lambda: 0))
 
 
@@ -21,7 +23,7 @@ async def test_players_commands_gated_off():
 
 
 def test_help_hides_players_when_off():
-    off = format_help(None, False, FeaturesConfig(report=True, events=True, guilds_bases=False, players=False))
-    on = format_help(None, False, FeaturesConfig(report=True, events=True, guilds_bases=False, players=True))
+    off = format_help(None, False, overrides(players=False))
+    on = format_help(None, False, overrides(players=True))
     assert "/pal rank" not in off and "/pal player info" not in off and "/pal player unbind" not in off
     assert "/pal rank" in on and "/pal player bind" in on and "/pal player unbind" in on

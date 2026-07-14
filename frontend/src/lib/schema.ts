@@ -74,14 +74,6 @@ export const OBJECT_SECTIONS: ObjectSection[] = [
     { key: 'session_days', type: 'int', label: '玩家会话', default: 365 },
     { key: 'observation_days', type: 'int', label: '观察记录', default: 180 },
   ]},
-  { key: 'features', title: '功能开关', subtitle: '关闭的功能不采集数据，相关命令会提示未开放', fields: [
-    { key: 'report', type: 'bool', label: '日报 / 在线统计', default: true, hint: '/pal today' },
-    { key: 'events', type: 'bool', label: '世界事件记录', default: true, hint: '/pal events' },
-    { key: 'guilds_bases', type: 'bool', label: '公会与据点', default: false, hint: '依赖 /game-data；专用服务器暂不支持' },
-    { key: 'players', type: 'bool', label: '玩家查询', default: false, hint: '排行 / 档案 / 自助绑定' },
-    { key: 'server_admin_basic', type: 'bool', label: '服务器管控·基础', default: false, hint: '公告 / 存档 / 踢人 / 解封等写操作，仅授权管理员可用；开启前请先配置管理员名单' },
-    { key: 'server_admin_danger', type: 'bool', label: '服务器管控·危险', default: false, hint: '封禁 / 关服 / 停服等高破坏写操作，仅授权管理员可用；stop 会终止进程、可能丢失未存档进度，慎开' },
-  ]},
   { key: 'players', title: '玩家查询', subtitle: '「玩家查询」启用时生效', fields: [
     { key: 'rank_top_n', type: 'int', label: '排行榜人数', default: 5 },
     { key: 'exclude_names', type: 'string', label: '排除名单', default: '', hint: '逗号分隔；名单内玩家不进榜单、不可查询' },
@@ -93,15 +85,59 @@ export const OBJECT_SECTIONS: ObjectSection[] = [
   ]},
 ]
 
-// 可锁命令(astrbot 命令串)+ 所属功能组。内容须 == 后端 LOCKABLE_COMMANDS,
-// 由 tests/unit/frontend_pal_commands_test.py 跨端锚定。
-export const PAL_COMMANDS: { cmd: string; g: string }[] = [
-  { cmd: 'world status', g: 'core' }, { cmd: 'world overview', g: 'core' },
-  { cmd: 'world rules', g: 'core' }, { cmd: 'world events', g: 'events' },
-  { cmd: 'world today', g: 'report' },
-  { cmd: 'guild list', g: 'guilds_bases' }, { cmd: 'guild info', g: 'guilds_bases' },
-  { cmd: 'guild bases', g: 'guilds_bases' }, { cmd: 'guild base', g: 'guilds_bases' },
-  { cmd: 'player info', g: 'players' }, { cmd: 'player bind', g: 'players' },
-  { cmd: 'player unbind', g: 'players' },
-  { cmd: 'rank', g: 'players' }, { cmd: 'online', g: 'core' }, { cmd: 'me', g: 'players' },
+// 命令权限三态：inherit=继承默认 / on=强制开启（enable）或锁为仅管理员（admin_only）/
+// off=强制关闭（enable）或放开（admin_only）。与后端 config._TRISTATE / _conf_schema.json
+// command_permissions 行取值全等。
+export type Tri = 'inherit' | 'on' | 'off'
+
+// 命令组中文展示名（权限章命令树分组头）。null 组（扁平命令）归「其他」段。
+export const GROUP_LABELS: Record<string, string> = {
+  world: '世界', guild: '公会', player: '玩家', server: '服务器管控', link: '服务器授权',
+}
+
+export interface PalTreeNode {
+  group: string | null // 组命令填组名（world/guild/player/server/link）；扁平命令为 null（其他段）
+  path: string // 完整命令路径（`world status` / 扁平 `rank`）——与后端 COMMAND_META 键全等
+  label: string // UI 展示名（无方括号，保 PAL_TREE 数组 JSON 可解析）
+  enableConfigurable: boolean // 可配置启用（feat_group != core）
+  adminConfigurable: boolean // 可配置仅管理员（path ∈ LOCKABLE_COMMANDS）
+  adminForced: boolean // 强制仅管理员（gate ∈ admin/admin_write）
+  danger: boolean // 危险写命令（path ∈ DANGER_COMMANDS）
+}
+
+// 完整命令树描述：覆盖全部命令（COMMAND_META 全集，非仅可锁 15），供权限章树 UI 渲染。
+// 每项各标志须与后端 command_permissions 派生谓词全等（enable_configurable /
+// admin_configurable / admin_forced_true / DANGER_COMMANDS）——由
+// tests/unit/frontend_pal_commands_test.py::test_frontend_tree_matches_backend_meta 跨端锚定。
+// 【JSON 可解析】数组字面量用双引号键/值 + true/false/null，无嵌套 []，
+// 便于 Python 端抽出数组文本直接 json.loads；改动请保持此形态。
+export const PAL_TREE: PalTreeNode[] = [
+  {"group": "world", "path": "world status", "label": "世界状态", "enableConfigurable": false, "adminConfigurable": true, "adminForced": false, "danger": false},
+  {"group": "world", "path": "world overview", "label": "世界概览", "enableConfigurable": false, "adminConfigurable": true, "adminForced": false, "danger": false},
+  {"group": "world", "path": "world rules", "label": "世界规则", "enableConfigurable": false, "adminConfigurable": true, "adminForced": false, "danger": false},
+  {"group": "world", "path": "world events", "label": "世界事件", "enableConfigurable": true, "adminConfigurable": true, "adminForced": false, "danger": false},
+  {"group": "world", "path": "world today", "label": "今日日报", "enableConfigurable": true, "adminConfigurable": true, "adminForced": false, "danger": false},
+  {"group": "guild", "path": "guild list", "label": "公会列表", "enableConfigurable": true, "adminConfigurable": true, "adminForced": false, "danger": false},
+  {"group": "guild", "path": "guild info", "label": "公会详情", "enableConfigurable": true, "adminConfigurable": true, "adminForced": false, "danger": false},
+  {"group": "guild", "path": "guild bases", "label": "据点列表", "enableConfigurable": true, "adminConfigurable": true, "adminForced": false, "danger": false},
+  {"group": "guild", "path": "guild base", "label": "据点详情", "enableConfigurable": true, "adminConfigurable": true, "adminForced": false, "danger": false},
+  {"group": "player", "path": "player info", "label": "玩家查询", "enableConfigurable": true, "adminConfigurable": true, "adminForced": false, "danger": false},
+  {"group": "player", "path": "player bind", "label": "绑定玩家", "enableConfigurable": true, "adminConfigurable": true, "adminForced": false, "danger": false},
+  {"group": "player", "path": "player unbind", "label": "解绑玩家", "enableConfigurable": true, "adminConfigurable": true, "adminForced": false, "danger": false},
+  {"group": "server", "path": "server announce", "label": "全服广播", "enableConfigurable": true, "adminConfigurable": false, "adminForced": true, "danger": false},
+  {"group": "server", "path": "server save", "label": "保存存档", "enableConfigurable": true, "adminConfigurable": false, "adminForced": true, "danger": false},
+  {"group": "server", "path": "server kick", "label": "踢出玩家", "enableConfigurable": true, "adminConfigurable": false, "adminForced": true, "danger": false},
+  {"group": "server", "path": "server unban", "label": "解封玩家", "enableConfigurable": true, "adminConfigurable": false, "adminForced": true, "danger": false},
+  {"group": "server", "path": "server ban", "label": "封禁玩家", "enableConfigurable": true, "adminConfigurable": false, "adminForced": true, "danger": true},
+  {"group": "server", "path": "server shutdown", "label": "倒计时关服", "enableConfigurable": true, "adminConfigurable": false, "adminForced": true, "danger": true},
+  {"group": "server", "path": "server stop", "label": "立即停止", "enableConfigurable": true, "adminConfigurable": false, "adminForced": true, "danger": true},
+  {"group": "link", "path": "link list", "label": "服务器列表", "enableConfigurable": false, "adminConfigurable": false, "adminForced": false, "danger": false},
+  {"group": "link", "path": "link add", "label": "授权服务器", "enableConfigurable": false, "adminConfigurable": false, "adminForced": true, "danger": false},
+  {"group": "link", "path": "link remove", "label": "撤销授权", "enableConfigurable": false, "adminConfigurable": false, "adminForced": true, "danger": false},
+  {"group": null, "path": "rank", "label": "排行榜", "enableConfigurable": true, "adminConfigurable": true, "adminForced": false, "danger": false},
+  {"group": null, "path": "online", "label": "当前在线", "enableConfigurable": false, "adminConfigurable": true, "adminForced": false, "danger": false},
+  {"group": null, "path": "me", "label": "我的信息", "enableConfigurable": true, "adminConfigurable": true, "adminForced": false, "danger": false},
+  {"group": null, "path": "help", "label": "帮助", "enableConfigurable": false, "adminConfigurable": false, "adminForced": false, "danger": false},
+  {"group": null, "path": "whoami", "label": "我的账号标识", "enableConfigurable": false, "adminConfigurable": false, "adminForced": false, "danger": false},
+  {"group": null, "path": "confirm", "label": "确认执行", "enableConfigurable": false, "adminConfigurable": false, "adminForced": true, "danger": false}
 ]

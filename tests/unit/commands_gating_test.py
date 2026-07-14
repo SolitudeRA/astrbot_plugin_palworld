@@ -1,16 +1,20 @@
-"""命令 gating：禁用组命令回 feature_disabled、不触达底层（spec §5/§6）。"""
-from palworld_terminal.config import parse_config
+"""命令 gating：禁用命令回 feature_disabled、不触达底层（spec §5/§6）。
+
+门控查命令生效值（command_overrides 组键/叶子/默认三级继承），非旧 features 组。
+"""
+from types import SimpleNamespace
+
+import pytest
+
+from palworld_terminal.application.command_permissions import CommandOverride as CO
 from palworld_terminal.presentation.commands import Commands
 from palworld_terminal.presentation.locale import L
+from tests.unit._perm import overrides
 
 
 def _cfg(guilds_bases: bool, events: bool = True, report: bool = True):
-    return parse_config({
-        "servers": [], "routing": {"access_mode": "open", "default_server": ""},
-        "group_bindings": [], "polling": {}, "world": {}, "bases": {},
-        "privacy": {"mode": "balanced"}, "history": {},
-        "features": {"report": report, "events": events, "guilds_bases": guilds_bases},
-    }, {})
+    ov = overrides(guilds_bases=guilds_bases, events=events, report=report)
+    return SimpleNamespace(permissions=SimpleNamespace(command_overrides=ov))
 
 
 class _BoomQuery:
@@ -52,3 +56,27 @@ async def test_enabled_group_not_gated():
 
     cmds = Commands(_Routing(), _BoomQuery(), _Repo(), cfg=_cfg(guilds_bases=True), clock=None)
     assert await cmds.guilds("u", "", True) == "ROUTING_ERR"
+
+
+# ---- 继承感知门控：组键 disable 波及叶子；叶子 admin_only 锁非管理员 ----
+
+def _mk(overrides_map):
+    cfg = SimpleNamespace(permissions=SimpleNamespace(command_overrides=overrides_map))
+    return Commands(routing=None, query=_BoomQuery(), repo=_Repo(), cfg=cfg,
+                    clock=SimpleNamespace(now=lambda: 0))
+
+
+@pytest.mark.asyncio
+async def test_group_disable_blocks_leaf():
+    # 组键 guild.enabled=False → 叶子 guild list 继承为关 → feature_disabled，不触达底层。
+    cmds = _mk({"guild": CO(enabled=False)})
+    out = await cmds.guild_grp("umo", "list", True, "u1", False)
+    assert out == L("feature_disabled")
+
+
+@pytest.mark.asyncio
+async def test_leaf_admin_lock_denies_guest():
+    # guild 开 + 叶子 guild list 锁 admin_only → 非管理员回 admin_required。
+    cmds = _mk({"guild": CO(enabled=True), "guild list": CO(admin_only=True)})
+    out = await cmds.guild_grp("umo", "list", True, "guest", False)
+    assert out == L("admin_required")

@@ -1,7 +1,7 @@
 name: astrbot_plugin_palworld
 display_name: PalWorldTerminal · 帕鲁世界终端
 desc: 监测 Palworld 专用服务器,提供群内状态查询、日报、玩家档案与受控服务器管控（基于官方 REST API）
-version: v0.9.5
+version: v0.9.6
 author: SolitudeRA
 repo: https://github.com/SolitudeRA/astrbot_plugin_palworld
 astrbot_version: ">=4.24.1"

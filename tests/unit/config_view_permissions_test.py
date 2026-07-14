@@ -13,19 +13,30 @@ def test_permission_admins_roundtrip_and_row_id():
     assert red["permission_admins"][0]["__row_id"] == "adm-0"
 
 
-def test_admin_only_commands_valid():
-    ok, res = _ok({"admin_only_commands": ["player", "rank"]})
-    assert ok and res["admin_only_commands"] == ["player", "rank"]
+def test_command_permissions_valid():
+    ok, res = _ok({"command_permissions": [
+        {"command": "player info", "enabled": "inherit", "admin_only": "on"}]})
+    assert ok
+    assert res["command_permissions"][0]["admin_only"] == "on"
 
 
-def test_admin_only_commands_non_list_rejected():
-    ok, err = _ok({"admin_only_commands": {"evil": 1}})
+def test_command_permissions_non_list_rejected():
+    ok, err = _ok({"command_permissions": {"evil": 1}})
     assert not ok and err["error"] == "invalid_shape"
 
 
-def test_admin_only_commands_non_str_element_rejected():
-    ok, err = _ok({"admin_only_commands": ["player", 123]})
-    assert not ok and err["error"] == "invalid_shape"
+def test_command_permissions_unknown_command_rejected():
+    ok, err = _ok({"command_permissions": [{"command": "bogus"}]})
+    assert not ok and err["error"] == "invalid_field"
+
+
+def test_command_permissions_strips_meta():
+    ok, res = _ok({"command_permissions": [
+        {"command": "guild", "enabled": "on", "admin_only": "inherit",
+         "__row_id": "cmd-0", "junk": 1}]})
+    assert ok
+    assert res["command_permissions"][0] == {
+        "command": "guild", "enabled": "on", "admin_only": "inherit"}
 
 
 def test_permission_admins_strips_meta():

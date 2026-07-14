@@ -8,17 +8,6 @@ def _base(**over):
     return parse_config(raw, {})
 
 
-def test_feature_groups_default_off_and_enabled_dict_synced():
-    cfg = _base()
-    assert cfg.features.server_admin_basic is False
-    assert cfg.features.server_admin_danger is False
-    # enabled() 字典必须认这两键，否则组恒 disabled 静默失效
-    assert cfg.features.enabled("server_admin_basic") is False
-    cfg2 = _base(features={"server_admin_basic": True, "server_admin_danger": True})
-    assert cfg2.features.enabled("server_admin_basic") is True
-    assert cfg2.features.enabled("server_admin_danger") is True
-
-
 def test_server_admin_defaults():
     sa = _base().server_admin
     assert sa.require_confirmation is False
