@@ -4,6 +4,7 @@
 """
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
 
 from ..presentation.command_registry import (
@@ -69,3 +70,41 @@ def default_enabled(path: str) -> bool:
 def group_of(path: str) -> str | None:
     m = COMMAND_META.get(path)
     return m.group if m is not None else None
+
+
+@dataclass(frozen=True, slots=True)
+class CommandOverride:
+    enabled: bool | None = None
+    admin_only: bool | None = None
+
+
+def effective_enabled(overrides: Mapping[str, CommandOverride], path: str) -> bool:
+    if not enable_configurable(path):
+        return default_enabled(path)
+    leaf = overrides.get(path)
+    if leaf is not None and leaf.enabled is not None:
+        return leaf.enabled
+    if path in DANGER_COMMANDS:
+        return default_enabled(path)            # danger 不从组键继承（F2）
+    grp = group_of(path)
+    if grp is not None:
+        g = overrides.get(grp)
+        if g is not None and g.enabled is not None:
+            return g.enabled
+    return default_enabled(path)
+
+
+def effective_admin_only(overrides: Mapping[str, CommandOverride], path: str) -> bool:
+    if admin_forced_true(path):
+        return True
+    if not admin_configurable(path):
+        return False
+    leaf = overrides.get(path)
+    if leaf is not None and leaf.admin_only is not None:
+        return leaf.admin_only
+    grp = group_of(path)
+    if grp is not None:
+        g = overrides.get(grp)
+        if g is not None and g.admin_only is not None:
+            return g.admin_only
+    return False
