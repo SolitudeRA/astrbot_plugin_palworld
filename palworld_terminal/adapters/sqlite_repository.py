@@ -240,11 +240,45 @@ class Repository:
             for r in rows
         ]
 
+    # ---- admin audit ----
+    async def insert_audit(
+        self, *, ts: int, admin_id: str, action: str, server_name: str,
+        target_name: str | None, target_hash: str | None, detail: str | None,
+        success: int, error: str | None,
+    ) -> None:
+        await self._db.execute_write(
+            "INSERT INTO admin_audit"
+            " (ts, admin_id, action, server_name, target_name,"
+            "  target_hash, detail, success, error)"
+            " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (ts, admin_id, action, server_name, target_name,
+             target_hash, detail, success, error),
+        )
+
+    async def list_audit(self, limit: int) -> list[dict[str, Any]]:
+        rows = await self._db.query(
+            "SELECT ts, admin_id, action, server_name, target_name, target_hash,"
+            " detail, success, error FROM admin_audit"
+            " ORDER BY ts DESC, id DESC LIMIT ?",
+            (limit,),
+        )
+        return [dict(r) for r in rows]
+
+    async def prune_audit(self, before_ts: int) -> int:
+        async with self._db.write_tx() as conn:
+            cur = await conn.execute(
+                "DELETE FROM admin_audit WHERE ts < ?", (before_ts,)
+            )
+            return cur.rowcount
+
     # ---- retention ----
-    async def prune(self, history: HistoryConfig, now: int) -> None:
+    async def prune(
+        self, history: HistoryConfig, now: int, audit_retention_days: int
+    ) -> None:
         metric_cutoff = now - history.raw_metrics_days * _SECONDS_PER_DAY
         obs_cutoff = now - history.observation_days * _SECONDS_PER_DAY
         session_cutoff = now - history.session_days * _SECONDS_PER_DAY
+        audit_cutoff = now - audit_retention_days * _SECONDS_PER_DAY
         async with self._db.write_tx() as conn:
             await conn.execute(
                 "DELETE FROM world_metrics WHERE observed_at < ?", (metric_cutoff,)
@@ -265,6 +299,10 @@ class Repository:
             await conn.execute(
                 "DELETE FROM hidden_players WHERE world_id NOT IN"
                 " (SELECT world_id FROM worlds)"
+            )
+            # 管理审计留存（与历史留存同一入口，spec 服务器管控）。
+            await conn.execute(
+                "DELETE FROM admin_audit WHERE ts < ?", (audit_cutoff,)
             )
             # world_events / daily_aggregates 长期保留（spec §9.3）。
 
