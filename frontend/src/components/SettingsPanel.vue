@@ -3,10 +3,11 @@ import { reactive, ref, onMounted, computed } from 'vue'
 import { apiGet, apiPost } from '../lib/bridge'
 import { Unauthorized, BusinessError } from '../lib/errors'
 import { collectBody, type SettingsState } from '../lib/collect'
-import { OBJECT_SECTIONS, SERVER_FIELDS, HEADER_FIELDS } from '../lib/schema'
+import { OBJECT_SECTIONS, SERVER_FIELDS, HEADER_FIELDS, PAL_COMMANDS } from '../lib/schema'
 import { CHAPTERS } from '../lib/chapters'
 import ServerCard from './ServerCard.vue'
 import HeaderCard from './HeaderCard.vue'
+import AdminCard from './AdminCard.vue'
 import SectionForm from './SectionForm.vue'
 
 const props = defineProps<{ chapter: string }>()
@@ -16,13 +17,14 @@ const fatalMsg = ref('')
 const saving = ref(false)
 const notice = reactive<{ msg: string; error: boolean }>({ msg: '', error: false })
 
-const state = reactive<SettingsState>({ servers: [], custom_headers: [], sections: {} })
+const state = reactive<SettingsState>({ servers: [], custom_headers: [], sections: {}, permission_admins: [], admin_only_commands: [] })
 const dirty = ref(false)
 
 const chapterMeta = computed(() => CHAPTERS.find((c) => c.id === props.chapter))
 const chapterTitle = computed(() => chapterMeta.value?.label ?? '')
 const currentSections = computed(() => OBJECT_SECTIONS.filter((s) => chapterMeta.value?.blocks?.includes(s.key)))
 const isAccess = computed(() => props.chapter === 'access')
+const isPermissions = computed(() => props.chapter === 'permissions')
 
 const ERR: Record<string, string> = {
   save_in_progress: '保存进行中，请稍候', too_frequent: '保存过于频繁，请稍后再试',
@@ -52,6 +54,20 @@ function applyConfig(c: Record<string, any>) {
   state.custom_headers = (c.custom_headers ?? []).map((h: Record<string, unknown>) => ({ ...h }))
   state.sections = {}
   for (const sec of OBJECT_SECTIONS) state.sections[sec.key] = { ...(c[sec.key] ?? {}) }
+  // ?? []：空 config / 旧配置缺这两键时不崩，退化为空名单 / 无锁定命令
+  state.permission_admins = (c.permission_admins ?? []).map((a: Record<string, unknown>) => ({ ...a, __local_key: `local-${++localSeq}` }))
+  state.admin_only_commands = [...(c.admin_only_commands ?? [])]
+}
+
+function emptyAdmin(): Record<string, unknown> {
+  return { __row_id: '', __local_key: `local-${++localSeq}`, id: '', note: '' }
+}
+function toggleCmd(cmd: string) {
+  const arr = state.admin_only_commands ?? (state.admin_only_commands = [])
+  const i = arr.indexOf(cmd)
+  if (i >= 0) arr.splice(i, 1)
+  else arr.push(cmd)
+  dirty.value = true
 }
 
 async function load() {
@@ -121,6 +137,31 @@ async function save() {
         </section>
       </template>
 
+      <template v-if="isPermissions">
+        <div class="callout">
+          <p class="callout-t">两层权限模型</p>
+          <p>管理员命令的准入由两层共同决定：<b>受托名单</b>决定「谁是管理员」，<b>锁定命令</b>决定「哪些命令只有管理员能用」。未锁定的命令所有群成员都能用。</p>
+          <p class="callout-warn">名册全局：加入者在其所在每个群都有管理员权，含对任意群 server add/remove；多群共用同一 bot 请谨慎。</p>
+        </div>
+        <section>
+          <div class="group-head"><span class="t">受托名单</span><span class="c">名单内成员可执行下方锁定的命令</span></div>
+          <p v-if="!(state.permission_admins ?? []).length" class="grouphint">名单为空 → 群里暂无人可执行管理员命令</p>
+          <AdminCard v-for="(a, i) in state.permission_admins" :key="(a.__row_id as string) || (a.__local_key as string)" :model-value="a" :index-label="'受托 ' + pad(i + 1)"
+            @update:model-value="(v) => { state.permission_admins![i] = v; dirty = true }" @delete="state.permission_admins!.splice(i, 1); dirty = true" />
+          <button class="add" @click="state.permission_admins!.push(emptyAdmin()); dirty = true">＋ 添加受托成员</button>
+        </section>
+        <section>
+          <div class="group-head"><span class="t">锁定命令</span><span class="c">点亮的命令仅受托名单可执行</span></div>
+          <p class="grouphint">未点亮的命令，所有群成员都能用。server / whoami / help 始终按内置规则处理，不在此列表。</p>
+          <div class="cmd-grid">
+            <button v-for="c in PAL_COMMANDS" :key="c.cmd" type="button" class="cmd-chip"
+              :class="{ on: (state.admin_only_commands ?? []).includes(c.cmd) }"
+              :aria-pressed="(state.admin_only_commands ?? []).includes(c.cmd)"
+              @click="toggleCmd(c.cmd)">/pal {{ c.cmd }}</button>
+          </div>
+        </section>
+      </template>
+
       <SectionForm v-for="sec in currentSections" :key="sec.key" :section="sec"
         :model-value="state.sections[sec.key]" @update:model-value="(v) => { state.sections[sec.key] = v; dirty = true }" />
 
@@ -133,3 +174,17 @@ async function save() {
     </template>
   </div>
 </template>
+
+<style scoped>
+.callout { background: color-mix(in srgb, var(--focus) 7%, var(--card)); border: 1px solid color-mix(in srgb, var(--focus) 30%, var(--rule)); border-left: 3px solid var(--focus); border-radius: var(--r); padding: 13px 16px; display: flex; flex-direction: column; gap: 6px; }
+.callout p { margin: 0; font-size: 12.5px; color: var(--ink-2); line-height: 1.55; }
+.callout p b { color: var(--ink); font-weight: 600; }
+.callout .callout-t { font-size: 13.5px; font-weight: 600; color: var(--ink); }
+.callout .callout-warn { color: var(--warn); }
+.cmd-grid { display: flex; flex-wrap: wrap; gap: 8px; }
+.cmd-chip { font-family: var(--sans); font-size: 12.5px; color: var(--ink-2); background: var(--sink); border: 1px solid var(--rule-2); border-radius: 100px; padding: 6px 14px; cursor: pointer; transition: background .14s, border-color .14s, color .14s; }
+.cmd-chip:hover { border-color: var(--ink-3); color: var(--ink); }
+.cmd-chip:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.cmd-chip.on { color: var(--on-amber); background: var(--amber); border-color: var(--amber); font-weight: 600; }
+.cmd-chip.on:hover { background: var(--amber-h); }
+</style>

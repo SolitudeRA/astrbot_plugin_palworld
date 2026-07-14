@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { mount, flushPromises } from '@vue/test-utils'
 import SettingsPanel from './SettingsPanel.vue'
+import { collectBody } from '../lib/collect'
 
 const cfg = () => ({ ok: true, config: {
   servers: [{ __row_id: 'srv-0', name: 'a', enabled: true, base_url: 'http://x', username: 'admin',
@@ -17,6 +18,8 @@ const cfg = () => ({ ok: true, config: {
   history: { raw_metrics_days: 7, aggregate_days: 90, session_days: 365, observation_days: 180 },
   features: { report: true, events: true, guilds_bases: false, players: false },
   players: { rank_top_n: 5, exclude_names: '' },
+  permission_admins: [],
+  admin_only_commands: [],
 }, page_version: 1 })
 
 beforeEach(() => {
@@ -83,5 +86,34 @@ describe('SettingsPanel', () => {
     expect(w.text()).toContain('有未保存的更改')
     await w.get('button.pw-save').trigger('click'); await flushPromises()
     expect(w.text()).not.toContain('有未保存的更改') // applyConfig 复位
+  })
+
+  it('权限章渲染 callout + 名单 + 命令 chip', async () => {
+    (window.AstrBotPluginPage!.apiGet as any).mockResolvedValue(cfg())
+    const w = mountAt('permissions'); await flushPromises()
+    expect(w.text()).toContain('受托') // 受托名单区块
+    expect(w.text()).toContain('/pal player') // 命令 chip 网格含具体命令
+    expect(w.text()).toContain('名单为空') // 空名单提示
+  })
+
+  it('权限章：点击命令 chip 切换锁定态并置 dirty', async () => {
+    (window.AstrBotPluginPage!.apiGet as any).mockResolvedValue(cfg())
+    const w = mountAt('permissions'); await flushPromises()
+    expect((w.vm as any).state.admin_only_commands).toEqual([])
+    const chips = w.findAll('.cmd-chip')
+    const playerChip = chips.find((c) => c.text() === '/pal player')!
+    await playerChip.trigger('click')
+    expect((w.vm as any).state.admin_only_commands).toContain('player')
+    expect(w.text()).toContain('有未保存的更改')
+    await playerChip.trigger('click')
+    expect((w.vm as any).state.admin_only_commands).not.toContain('player')
+  })
+
+  it('config 缺 permission 两键不崩、collectBody 产出空数组', async () => {
+    (window.AstrBotPluginPage!.apiGet as any).mockResolvedValue({ ok: true, config: {} })
+    const w = mountAt('permissions'); await flushPromises()
+    const body = collectBody((w.vm as any).state)
+    expect(body.permission_admins).toEqual([])
+    expect(body.admin_only_commands).toEqual([])
   })
 })

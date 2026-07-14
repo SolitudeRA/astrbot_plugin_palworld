@@ -13,6 +13,7 @@ export const CHAPTERS: Chapter[] = [
   { id: 'world', label: '世界与据点', group: '配置', kind: 'settings', blocks: ['world', 'bases'] },
   { id: 'privacy', label: '隐私与留存', group: '配置', kind: 'settings', blocks: ['privacy', 'history'] },
   { id: 'feature', label: '功能开关', group: '配置', kind: 'settings', blocks: ['features', 'players'] },
+  { id: 'permissions', label: '权限', group: '配置', kind: 'settings', blocks: [] },
 ]
 
 export const DEFAULT_CHAPTER = 'access'
