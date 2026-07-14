@@ -3,12 +3,14 @@ from pathlib import Path
 from palworld_terminal.adapters import normalizer as normalizer_mod
 from palworld_terminal.adapters import privacy_filter as privacy_mod
 from palworld_terminal.adapters.palworld_rest import RestResponse
+from palworld_terminal.application.command_permissions import CommandOverride
 from palworld_terminal.application.snapshot_service import SnapshotService
 from palworld_terminal.config import (
     AppConfig,
     BasesConfig,
     FeaturesConfig,
     HistoryConfig,
+    PermissionsConfig,
     PollingConfig,
     PrivacyConfig,
     RoutingConfig,
@@ -36,6 +38,10 @@ def _cfg() -> AppConfig:
         privacy=PrivacyConfig("balanced", False, False, 60, 120, 900),
         history=HistoryConfig(7, 90, 365, 180),
         features=FeaturesConfig(report=True, events=True, guilds_bases=True),
+        # 容器装配门读 command_overrides：guild 组开 → game-data 接线 + Guild/BaseService 构造。
+        permissions=PermissionsConfig(
+            admins=[], command_overrides={"guild": CommandOverride(enabled=True)},
+        ),
     )
 
 

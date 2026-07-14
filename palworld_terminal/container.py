@@ -13,8 +13,8 @@ from .adapters.palworld_rest import PalworldRestClient, RestResponse
 from .adapters.sqlite_repository import Repository
 from .application.admin_service import AdminService
 from .application.base_service import BaseService
+from .application.command_permissions import active_endpoints, effective_enabled
 from .application.event_service import EventService
-from .application.feature_groups import active_endpoints
 from .application.guild_service import GuildService
 from .application.player_service import PlayerService
 from .application.query_service import QueryService
@@ -114,11 +114,13 @@ class Container:
             _log.warning("metadata load failed dir=%s error=%s", metadata_dir, exc)
         cache = TTLCache(self._clock)
 
-        events = EventService(repo, self._clock) if self._cfg.features.events else None
+        ov = self._cfg.permissions.command_overrides
+        events = EventService(repo, self._clock) if effective_enabled(ov, "world events") else None
         players = PlayerService(repo, salt, self._cfg, self._clock)
-        guilds = GuildService(repo, salt, self._clock) if self._cfg.features.guilds_bases else None
+        _game_data_on = EndpointName.GAME_DATA in active_endpoints(ov)
+        guilds = GuildService(repo, salt, self._clock) if _game_data_on else None
         bases = (BaseService(repo, self._cfg.bases, self._clock, salt)
-                 if self._cfg.features.guilds_bases else None)
+                 if _game_data_on else None)
         players.events = events
         if guilds is not None:
             guilds.events = events
@@ -151,7 +153,7 @@ class Container:
             servers=[s for s in self._cfg.servers if s.ready],
             polling=self._cfg.polling, locks=locks, clock=self._clock,
             on_response=self._on_response, rng_seed=None, fetcher=self._fetch,
-            endpoints=active_endpoints(self._cfg.features),
+            endpoints=active_endpoints(self._cfg.permissions.command_overrides),
         )
         await self._scheduler.start()
 

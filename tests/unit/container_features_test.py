@@ -1,21 +1,24 @@
-"""容器按 features 条件装配：禁用组不构造服务、scheduler 端点排除 game-data。"""
+"""容器按生效值条件装配：禁用组不构造服务、scheduler 端点随 command_overrides 开关。"""
 from pathlib import Path
 
+from palworld_terminal.application.command_permissions import CommandOverride as CO
 from palworld_terminal.config import parse_config
 from palworld_terminal.container import Container
 from palworld_terminal.domain.enums import EndpointName
 from palworld_terminal.infrastructure.clock import FakeClock
 
 
-def _cfg(guilds_bases: bool, events: bool = True):
-    return parse_config({
+def _cfg(overrides: dict[str, CO]):
+    # 直接注入 command_overrides（不经 features）：证明容器装配门读生效值而非旧 features。
+    cfg = parse_config({
         "servers": [{"name": "alpha", "enabled": True, "base_url": "http://127.0.0.1:8212",
                      "username": "admin", "password": "pw"}],
         "routing": {"access_mode": "open", "default_server": ""}, "group_bindings": [],
         "polling": {}, "world": {}, "bases": {"enabled": True},
         "privacy": {"mode": "balanced"}, "history": {},
-        "features": {"report": True, "events": events, "guilds_bases": guilds_bases},
     }, {})
+    cfg.permissions.command_overrides = dict(overrides)
+    return cfg
 
 
 class _FakeRest:
@@ -39,21 +42,24 @@ async def _build(cfg, tmp_path, captured):
     return c
 
 
-async def test_guilds_bases_off_excludes_game_data_and_nulls_services(tmp_path: Path):
+async def test_defaults_exclude_game_data_null_guilds_bases_keep_events(tmp_path: Path):
+    # command_overrides={}：events 默认开 → EventService 非 None；
+    # guilds_bases 默认关 → game-data 端点排除、GuildService/BaseService 为 None。
     captured = {}
-    c = await _build(_cfg(guilds_bases=False), tmp_path, captured)
+    c = await _build(_cfg({}), tmp_path, captured)
     try:
         assert EndpointName.GAME_DATA not in captured["endpoints"]
         assert {EndpointName.INFO, EndpointName.METRICS,
                 EndpointName.PLAYERS, EndpointName.SETTINGS} <= captured["endpoints"]
         assert c._snapshot._guilds is None and c._snapshot._bases is None
+        assert c._snapshot._events is not None
     finally:
         await c.stop()
 
 
-async def test_guilds_bases_on_wires_game_data(tmp_path: Path):
+async def test_guild_enabled_wires_game_data(tmp_path: Path):
     captured = {}
-    c = await _build(_cfg(guilds_bases=True), tmp_path, captured)
+    c = await _build(_cfg({"guild": CO(enabled=True)}), tmp_path, captured)
     try:
         assert EndpointName.GAME_DATA in captured["endpoints"]
         assert c._snapshot._guilds is not None and c._snapshot._bases is not None
@@ -61,8 +67,8 @@ async def test_guilds_bases_on_wires_game_data(tmp_path: Path):
         await c.stop()
 
 
-async def test_events_off_nulls_event_service(tmp_path: Path):
-    c = await _build(_cfg(guilds_bases=False, events=False), tmp_path, {})
+async def test_world_events_disabled_nulls_event_service(tmp_path: Path):
+    c = await _build(_cfg({"world events": CO(enabled=False)}), tmp_path, {})
     try:
         assert c._snapshot._events is None
     finally:
