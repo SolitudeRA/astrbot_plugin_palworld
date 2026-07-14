@@ -5,6 +5,7 @@ import re
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 
+from .application.command_permissions import CommandOverride
 from .domain.enums import AccessMode
 
 _ILLEGAL = (":", "@")
@@ -156,14 +157,16 @@ class AdminEntry:
 @dataclass(slots=True)
 class PermissionsConfig:
     admins: list[AdminEntry]
-    admin_only_commands: list[str]
-    # 命令串扁平→完整路径迁移后不再匹配 LOCKABLE_COMMANDS 的锁条目。保留在
-    # admin_only_commands（不改锁行为）但在此登记，供启动告警（防静默失锁 = fail-open）。
+    command_overrides: dict[str, CommandOverride]
+    # command_permissions 三态行清洗时的非法登记（未知命令 / 轴违规），供启动告警。
+    invalid_command_keys: list[str] = field(default_factory=list)
+    # legacy（Task 8 删）：命令门锁名单 + 迁移后失配的未知锁条目，未切换消费点仍读。
+    admin_only_commands: list[str] = field(default_factory=list)
     unknown_locks: list[str] = field(default_factory=list)
 
 
 def _default_permissions() -> PermissionsConfig:
-    return PermissionsConfig(admins=[], admin_only_commands=[])
+    return PermissionsConfig(admins=[], command_overrides={})
 
 
 # 命令门不可锁集(完整路径);与 command_registry._NON_LOCKABLE 全等,
@@ -311,6 +314,9 @@ def _parse_bindings(raw: Mapping) -> list[BindingConfig]:
     return out
 
 
+_TRISTATE = {"inherit": None, "on": True, "off": False}
+
+
 def _parse_permissions(raw: Mapping) -> PermissionsConfig:
     admins: list[AdminEntry] = []
     seen: set[str] = set()
@@ -322,6 +328,49 @@ def _parse_permissions(raw: Mapping) -> PermissionsConfig:
             continue
         seen.add(pid)
         admins.append(AdminEntry(id=pid, note=str(item.get("note", "") or "").strip()))
+
+    # command_permissions 三态行 → command_overrides（本任务；不含 legacy 迁移）。
+    # 函数体内相对 import：避免 config↔application/presentation 循环依赖。
+    from .application.command_permissions import (
+        COMMAND_META,
+        admin_configurable,
+        admin_forced_true,
+        enable_configurable,
+    )
+    from .presentation.command_registry import DISPATCH
+
+    valid_group_keys = set(DISPATCH.keys())
+    overrides: dict[str, dict] = {}
+    invalid: list[str] = []
+    for row in raw.get("command_permissions", []) or []:
+        if not isinstance(row, Mapping):
+            continue
+        cmd = str(row.get("command", "") or "").strip()
+        if not cmd:
+            continue
+        is_group = cmd in valid_group_keys
+        is_path = cmd in COMMAND_META
+        if not is_group and not is_path:
+            invalid.append(cmd)                       # 未知命令，登记不静默
+            continue
+        en = _TRISTATE.get(str(row.get("enabled", "inherit")), None)
+        ao = _TRISTATE.get(str(row.get("admin_only", "inherit")), None)
+        rec = overrides.setdefault(cmd, {})
+        if en is not None:
+            if is_group or enable_configurable(cmd):
+                rec["enabled"] = en
+            else:
+                invalid.append(f"{cmd}:enabled")       # 轴违规登记（F3）
+        if ao is not None:
+            if is_group or (admin_configurable(cmd) and not admin_forced_true(cmd)):
+                rec["admin_only"] = ao
+            else:
+                invalid.append(f"{cmd}:admin_only")     # 轴违规登记（F3）
+    frozen = {
+        k: CommandOverride(enabled=v.get("enabled"), admin_only=v.get("admin_only"))
+        for k, v in overrides.items() if v            # 空覆盖行（两轴 inherit）不产 override
+    }
+
     raw_cmds = raw.get("admin_only_commands", [])
     cmds: list[str] = []
     unknown: list[str] = []
@@ -341,7 +390,10 @@ def _parse_permissions(raw: Mapping) -> PermissionsConfig:
             # 未知锁条目：保留在 cmds（不改现有锁行为）但登记告警，绝不静默吞。
             if name not in LOCKABLE_COMMANDS:
                 unknown.append(name)
-    return PermissionsConfig(admins=admins, admin_only_commands=cmds, unknown_locks=unknown)
+    return PermissionsConfig(
+        admins=admins, command_overrides=frozen, invalid_command_keys=invalid,
+        admin_only_commands=cmds, unknown_locks=unknown,
+    )
 
 
 def _resolve_header_value(item: Mapping, env: Mapping[str, str]) -> str:

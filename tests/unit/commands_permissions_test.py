@@ -7,6 +7,7 @@ from palworld_terminal.presentation.commands import Commands
 def _cmds(admins=(), locked=()):
     perms = PermissionsConfig(
         admins=[AdminEntry(id=a, note="") for a in admins],
+        command_overrides={},
         admin_only_commands=list(locked),
     )
     cfg = SimpleNamespace(permissions=perms)
