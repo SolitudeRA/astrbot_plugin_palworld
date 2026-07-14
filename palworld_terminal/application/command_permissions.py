@@ -7,6 +7,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from dataclasses import dataclass
 
+from ..domain.enums import EndpointName
 from ..presentation.command_registry import (
     DISPATCH,
     FLAT_ACTIONS,
@@ -108,3 +109,23 @@ def effective_admin_only(overrides: Mapping[str, CommandOverride], path: str) ->
         if g is not None and g.admin_only is not None:
             return g.admin_only
     return False
+
+
+OBSERVATION_FLOOR: frozenset[EndpointName] = frozenset({
+    EndpointName.INFO, EndpointName.METRICS, EndpointName.PLAYERS, EndpointName.SETTINGS,
+})
+
+_DERIVED_ENDPOINT_FEATURE: dict[EndpointName, str] = {
+    EndpointName.GAME_DATA: "guilds_bases",
+}
+
+
+def active_endpoints(overrides: Mapping[str, CommandOverride]) -> frozenset[EndpointName]:
+    active = set(OBSERVATION_FLOOR)
+    for ep, feat in _DERIVED_ENDPOINT_FEATURE.items():
+        if any(
+            m.feat_group == feat and effective_enabled(overrides, p)
+            for p, m in COMMAND_META.items()
+        ):
+            active.add(ep)
+    return frozenset(active)
