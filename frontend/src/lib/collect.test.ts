@@ -5,6 +5,8 @@ const baseState = (): SettingsState => ({
   servers: [{ __row_id: 'srv-0', name: 'a', enabled: true, base_url: 'http://x', username: 'admin',
     password: '', password_env: '', timeout: 10, verify_tls: true, timezone: '' }],
   custom_headers: [],
+  permission_admins: [],
+  admin_only_commands: [],
   sections: {
     routing: { access_mode: 'restricted', default_server: '' },
     polling: { metrics_seconds: 30, players_seconds: 30, info_seconds: 600, settings_seconds: 1800,
@@ -21,7 +23,8 @@ const baseState = (): SettingsState => ({
 })
 
 const TOP_KEYS = ['servers', 'routing', 'group_bindings', 'custom_headers',
-  'polling', 'world', 'bases', 'privacy', 'history', 'features', 'players']
+  'polling', 'world', 'bases', 'privacy', 'history', 'features', 'players',
+  'permission_admins', 'admin_only_commands']
 
 describe('collectBody', () => {
   it('数值字段产出 number（非字符串）', () => {
@@ -41,6 +44,16 @@ describe('collectBody', () => {
   })
   it('顶层键 ⊆ 后端 _TOP_KEYS', () => {
     for (const k of Object.keys(collectBody(baseState()))) expect(TOP_KEYS).toContain(k)
+  })
+  it('collectBody 含 permission_admins(剥 meta)与 admin_only_commands 数组', () => {
+    const state: any = {
+      servers: [], custom_headers: [], sections: {},
+      permission_admins: [{ __row_id: 'adm-0', __local_key: 'local-1', id: 'aiocqhttp:1', note: 'x' }],
+      admin_only_commands: ['player', 'rank'],
+    }
+    const body = collectBody(state)
+    expect(body.permission_admins).toEqual([{ __row_id: 'adm-0', id: 'aiocqhttp:1', note: 'x' }])
+    expect(body.admin_only_commands).toEqual(['player', 'rank'])
   })
   it('server 行保留 __row_id；新建行(无 id)不注入哨兵到空密码', () => {
     const st = baseState(); st.servers.push({ __row_id: '', name: 'b', enabled: true, base_url: '',

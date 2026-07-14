@@ -78,7 +78,7 @@ def _resolve_data_dir() -> Path:
 
 
 @register("astrbot_plugin_palworld", "SolitudeRA",
-          "监测 Palworld 专用服务器,提供群内状态查询、日报与玩家档案(只读)", "v0.8.5",
+          "监测 Palworld 专用服务器,提供群内状态查询、日报与玩家档案(只读)", "v0.8.7",
           "https://github.com/SolitudeRA/astrbot_plugin_palworld")
 class PalWorldTerminal(Star):
     def __init__(self, context, config):
@@ -140,6 +140,25 @@ class PalWorldTerminal(Star):
         try:
             if (m := self._busy_msg()):
                 return m
+            res = call(self._container)
+            if inspect.isawaitable(res):
+                res = await res
+            return res
+        finally:
+            self._inflight -= 1
+            if self._inflight == 0:
+                self._idle.set()
+
+    async def _guarded_cmd(self, event, command_str, call):
+        """可锁命令的门:先判 admin_only_commands 再走 _guarded。"""
+        self._inflight += 1
+        self._idle.clear()
+        try:
+            if (m := self._busy_msg()):
+                return m
+            denied = self._container.commands.admin_denied(command_str, self._sender_id(event))
+            if denied is not None:
+                return denied
             res = call(self._container)
             if inspect.isawaitable(res):
                 res = await res
@@ -292,10 +311,11 @@ class PalWorldTerminal(Star):
         gid = getattr(event, "get_group_id", lambda: "")()
         return bool(gid)
 
-    @staticmethod
-    def _is_admin(event) -> bool:
-        role = getattr(event, "role", "")
-        return role == "admin" or bool(getattr(event, "is_admin", False))
+    def _is_admin(self, event) -> bool:
+        c = self._container
+        if c is None:
+            return False
+        return c.commands.is_plugin_admin(self._sender_id(event))
 
     @staticmethod
     def _sender_id(event) -> str:
@@ -312,93 +332,105 @@ class PalWorldTerminal(Star):
     @pal.command("status")
     async def status(self, event):
         yield event.plain_result(
-            await self._guarded(lambda c: c.commands.status(self._umo(event), self._msg(event), self._is_group(event)))
+            await self._guarded_cmd(event, "status", lambda c: c.commands.status(
+                self._umo(event), self._msg(event), self._is_group(event)))
         )
 
     @pal.command("online")
     async def online(self, event):
         yield event.plain_result(
-            await self._guarded(lambda c: c.commands.online(self._umo(event), self._msg(event), self._is_group(event)))
+            await self._guarded_cmd(event, "online", lambda c: c.commands.online(
+                self._umo(event), self._msg(event), self._is_group(event)))
         )
 
     @pal.command("world")
     async def world(self, event):
         yield event.plain_result(
-            await self._guarded(lambda c: c.commands.world(self._umo(event), self._msg(event), self._is_group(event)))
+            await self._guarded_cmd(event, "world", lambda c: c.commands.world(
+                self._umo(event), self._msg(event), self._is_group(event)))
         )
 
     @pal.command("rules")
     async def rules(self, event):
         yield event.plain_result(
-            await self._guarded(lambda c: c.commands.rules(self._umo(event), self._msg(event), self._is_group(event)))
+            await self._guarded_cmd(event, "rules", lambda c: c.commands.rules(
+                self._umo(event), self._msg(event), self._is_group(event)))
         )
 
     @pal.command("guilds")
     async def guilds(self, event):
         yield event.plain_result(
-            await self._guarded(lambda c: c.commands.guilds(self._umo(event), self._msg(event), self._is_group(event)))
+            await self._guarded_cmd(event, "guilds", lambda c: c.commands.guilds(
+                self._umo(event), self._msg(event), self._is_group(event)))
         )
 
     @pal.command("guild")
     async def guild(self, event):
         yield event.plain_result(
-            await self._guarded(lambda c: c.commands.guild(self._umo(event), self._msg(event), self._is_group(event)))
+            await self._guarded_cmd(event, "guild", lambda c: c.commands.guild(
+                self._umo(event), self._msg(event), self._is_group(event)))
         )
 
     @pal.command("bases")
     async def bases(self, event):
         yield event.plain_result(
-            await self._guarded(lambda c: c.commands.bases(self._umo(event), self._msg(event), self._is_group(event)))
+            await self._guarded_cmd(event, "bases", lambda c: c.commands.bases(
+                self._umo(event), self._msg(event), self._is_group(event)))
         )
 
     @pal.command("base")
     async def base(self, event):
         yield event.plain_result(
-            await self._guarded(lambda c: c.commands.base(self._umo(event), self._msg(event), self._is_group(event)))
+            await self._guarded_cmd(event, "base", lambda c: c.commands.base(
+                self._umo(event), self._msg(event), self._is_group(event)))
         )
 
     @pal.command("events")
     async def events(self, event):
         yield event.plain_result(
-            await self._guarded(lambda c: c.commands.events(self._umo(event), self._msg(event), self._is_group(event)))
+            await self._guarded_cmd(event, "events", lambda c: c.commands.events(
+                self._umo(event), self._msg(event), self._is_group(event)))
         )
 
     @pal.command("today")
     async def today(self, event):
         yield event.plain_result(
-            await self._guarded(lambda c: c.commands.today(self._umo(event), self._msg(event), self._is_group(event)))
+            await self._guarded_cmd(event, "today", lambda c: c.commands.today(
+                self._umo(event), self._msg(event), self._is_group(event)))
         )
 
     @pal.command("rank")
     async def rank(self, event):
         yield event.plain_result(
-            await self._guarded(lambda c: c.commands.rank(self._umo(event), self._msg(event), self._is_group(event)))
+            await self._guarded_cmd(event, "rank", lambda c: c.commands.rank(
+                self._umo(event), self._msg(event), self._is_group(event)))
         )
 
     @pal.command("player")
     async def player(self, event):
         yield event.plain_result(
-            await self._guarded(lambda c: c.commands.player(self._umo(event), self._msg(event), self._is_group(event)))
+            await self._guarded_cmd(event, "player", lambda c: c.commands.player(
+                self._umo(event), self._msg(event), self._is_group(event)))
         )
 
     @pal.command("me")
     async def me(self, event):
         yield event.plain_result(
-            await self._guarded(lambda c: c.commands.me(
+            await self._guarded_cmd(event, "me", lambda c: c.commands.me(
                 self._umo(event), self._msg(event), self._is_group(event), self._sender_id(event)))
         )
 
     @pal.command("bind")
     async def bind(self, event):
         yield event.plain_result(
-            await self._guarded(lambda c: c.commands.bind(
+            await self._guarded_cmd(event, "bind", lambda c: c.commands.bind(
                 self._umo(event), self._msg(event), self._is_group(event), self._sender_id(event)))
         )
 
     @pal.command("unbind")
     async def unbind(self, event):
         yield event.plain_result(
-            await self._guarded(lambda c: c.commands.unbind_self(
+            await self._guarded_cmd(event, "unbind", lambda c: c.commands.unbind_self(
                 self._umo(event), self._msg(event), self._is_group(event), self._sender_id(event)))
         )
 
@@ -406,7 +438,14 @@ class PalWorldTerminal(Star):
     async def server(self, event):
         yield event.plain_result(
             await self._guarded(lambda c: c.commands.server(
-                self._umo(event), self._msg(event), self._is_group(event), self._is_admin(event)))
+                self._umo(event), self._msg(event), self._is_group(event),
+                c.commands.is_plugin_admin(self._sender_id(event))))
+        )
+
+    @pal.command("whoami")
+    async def whoami(self, event):
+        yield event.plain_result(
+            await self._guarded(lambda c: c.commands.whoami(self._sender_id(event)))
         )
 
     @pal.command("help")

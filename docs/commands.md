@@ -22,6 +22,7 @@
 | `/pal bind` | `<玩家名>` | `players` | 所有人 | 绑定平台账号 ↔ 玩家(供 `/pal me` 识别本人) |
 | `/pal unbind` | — | `players` | 所有人 | 解除我的玩家绑定(与 `/pal bind` 对称) |
 | `/pal server` | `[add\|remove <名称>]` | `core` | 所有人（add/remove 管理员·仅群聊） | 裸命令=服务器列表+本群授权/活动；`add`/`remove` 授权/撤销本群 |
+| `/pal whoami` | — | `core` | 所有人（**建议私聊**） | 查看我的账号标识 `平台:账号`(如 `aiocqhttp:12345`);报给超管加入受托名单用 |
 | `/pal help` | — | `core` | 所有人 | 帮助(按当前启用的组过滤指令) |
 
 任意查询指令末尾可加 **`@<服务器名>`** 单次指定目标服务器(详见下文「多服务器与群授权」)。
@@ -32,7 +33,7 @@
 
 | 功能组 | 默认 | 对应指令 | 开启时 | 关闭时指令行为 |
 |--------|------|----------|--------|----------------|
-| `core`(不可关闭) | 恒开 | `status` `online` `world` `rules` `server` `help` | ✅ 可用 | —(无法关闭) |
+| `core`(不可关闭) | 恒开 | `status` `online` `world` `rules` `server` `whoami` `help` | ✅ 可用 | —(无法关闭) |
 | `report` | 开 | `today` | ✅ 可用 | ❌ 回「未开放」、help 隐藏 |
 | `events` | 开 | `events` | ✅ 可用(并记录世界事件) | ❌ 回「未开放」、不生成事件 |
 | `guilds_bases` | **关** | `guilds` `guild` `bases` `base` | ✅ 可用 | ❌ 回「未开放」、help 隐藏 |
@@ -48,6 +49,16 @@
 - `/pal server add <名称>`（管理员，仅群聊）：授权本群使用该服务器并设为活动服务器。
 - `/pal server remove <名称>`（管理员，仅群聊）：撤销本群对该服务器的授权。
 - **@server 尾缀**:任意查询指令可在末尾加 `@<服务器名>` 单次指定目标服务器,如 `/pal status @alpha`、`/pal guild 晨曦联盟 @beta`(服务器名不含空格,公会/据点名可含空格)。
+
+## 权限管理
+
+本插件用**两层权限模型**,与 AstrBot 全局管理员(`admins_id`)相互独立——`_is_admin` **只认**插件自己的受托名单,不认 AstrBot 的 `admins_id`,也不看 `event.role`。
+
+- **受托名单(`permission_admins`)**:超管在设置页「权限」章逐条维护(每行含 `id` = `平台:账号`,和可选 `note` 备注)。**只有**名单内的账号被视为本插件的管理员。玩家在群里(建议私聊)发 `/pal whoami` 得到自己的 `平台:账号`,报给超管加入。
+- **内置 server 门**:`/pal server add`、`/pal server remove` 恒需管理员,现改由受托名单判定(名单外成员执行会被拒)。
+- **命令门(`admin_only_commands`)**:超管可把任意查询命令锁成仅管理员可用(填 astrbot 命令串,如 `player`、`rank`)。被锁命令对名单外成员回「该命令需要管理员权限。」。**不可锁集** = `{server, whoami, help}`(这三条永远对所有人开放,填入会被忽略)。
+
+> **安全告知**:受托名单是**全局**的——加入者在其所在的**每个群**都拥有管理员权(含对任意群执行 `server add`/`server remove`)。多适配器实例 / 多群共用同一 bot 时共享同一命名空间,请谨慎授权。`id`/`note` 以**明文**落盘到 `data/config/`,`note` 勿填真实姓名、联系方式等 PII。详见[配置项详解 · 权限](configuration.md#permissions权限管理)。
 
 ## 降级行为
 

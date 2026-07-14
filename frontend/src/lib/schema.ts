@@ -84,3 +84,15 @@ export const OBJECT_SECTIONS: ObjectSection[] = [
     { key: 'exclude_names', type: 'string', label: '排除名单', default: '', hint: '逗号分隔；名单内玩家不进榜单、不可查询' },
   ]},
 ]
+
+// 可锁命令(astrbot 命令串)+ 所属功能组。内容须 == 后端 LOCKABLE_COMMANDS,
+// 由 tests/unit/frontend_pal_commands_test.py 跨端锚定。
+export const PAL_COMMANDS: { cmd: string; g: string }[] = [
+  { cmd: 'status', g: 'core' }, { cmd: 'online', g: 'core' },
+  { cmd: 'world', g: 'core' }, { cmd: 'rules', g: 'core' },
+  { cmd: 'guilds', g: 'guilds_bases' }, { cmd: 'guild', g: 'guilds_bases' },
+  { cmd: 'bases', g: 'guilds_bases' }, { cmd: 'base', g: 'guilds_bases' },
+  { cmd: 'events', g: 'events' }, { cmd: 'today', g: 'report' },
+  { cmd: 'rank', g: 'players' }, { cmd: 'player', g: 'players' },
+  { cmd: 'me', g: 'players' }, { cmd: 'bind', g: 'players' }, { cmd: 'unbind', g: 'players' },
+]

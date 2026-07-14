@@ -4,7 +4,7 @@
 
 # PalWorldTerminal · 帕鲁世界终端
 
-[![version](https://img.shields.io/badge/version-v0.8.5-007ec6)](https://github.com/SolitudeRA/astrbot_plugin_palworld/releases)
+[![version](https://img.shields.io/badge/version-v0.8.7-007ec6)](https://github.com/SolitudeRA/astrbot_plugin_palworld/releases)
 [![python](https://img.shields.io/badge/python-3.11%2B-007ec6)](https://www.python.org/)
 [![AstrBot](https://img.shields.io/badge/AstrBot-%E2%89%A5%204.24.1-fe7d37)](https://github.com/AstrBotDevs/AstrBot)
 [![license](https://img.shields.io/badge/license-GPL--3.0-97ca00)](https://github.com/SolitudeRA/astrbot_plugin_palworld/blob/main/LICENSE)
@@ -27,6 +27,7 @@
 - **世界事件记录** —— 上下线、服务器重启等大事记(`/pal events`)
 - **玩家排行与档案** —— 时长榜 / 等级榜、逐人查询、自助绑定与隐藏(`/pal rank`、`/pal me`)
 - **多服务器 + 群授权** —— 一个插件监测多台服务器,按群授权、按群切换
+- **细粒度授权** —— 独立受托管理员名单(`/pal whoami` 自查标识),可把敏感命令锁成仅管理员
 - **网关安全接入** —— 自定义请求头支持零信任网关鉴权(如 Cloudflare Access),REST API 不必暴露公网
 - **WebUI 设置页** —— 可视化配置全部选项,亮暗双主题
 - **隐私优先** —— 只读、不存 IP、玩家标识 HMAC 哈希落库、坐标量化为粗网格
@@ -100,11 +101,12 @@
 - **需在服务器端启用 REST**:Palworld 服务器须开启 REST API(`RESTAPIEnabled=True` 并设置管理员密码)。
 - **勿暴露公网**:REST API 请勿直接暴露到公网,走 localhost / 内网 / VPN / 反向代理;密码建议用环境变量(`password_env`)而非明文。
 - **支持网关鉴权接入**:自定义请求头可为所有轮询请求携带零信任网关凭证(如 Cloudflare Access 的 `CF-Access-Client-Id` / `CF-Access-Client-Secret`),让 REST API 藏在反向代理 / 网关之后而非直连;凭证推荐存环境变量(`value_env`),设置页不回显明文,并可用「限定服务器」把凭证头只发给指定服务器。
+- **受托管理员名单全局生效**:插件管理员由独立的受托名单判定(不复用 AstrBot `admins_id`)。名单**全局**——加入者在其所在的每个群都有管理员权,多群共用一个 bot 时请谨慎授权;`note` 明文落盘,勿填 PII。详见 [docs/configuration.md](https://github.com/SolitudeRA/astrbot_plugin_palworld/blob/main/docs/configuration.md#permissions权限管理)。
 
 ## 详细文档
 
 - [配置项详解](https://github.com/SolitudeRA/astrbot_plugin_palworld/blob/main/docs/configuration.md) —— 轮询 / 世界与展示 / 据点推导 / 数据保留 / 自定义请求头 / 插件页面 / 功能开关
-- [完整指令与功能开关](https://github.com/SolitudeRA/astrbot_plugin_palworld/blob/main/docs/commands.md) —— 17 条指令详表、功能开关矩阵、多服务器与群授权、降级行为
+- [完整指令与功能开关](https://github.com/SolitudeRA/astrbot_plugin_palworld/blob/main/docs/commands.md) —— 18 条指令详表、功能开关矩阵、多服务器与群授权、权限管理、降级行为
 
 ## 开源协议
 

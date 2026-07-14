@@ -139,5 +139,25 @@
       "rank_top_n": { "type": "int", "description": "排行榜显示人数", "default": 5 },
       "exclude_names": { "type": "string", "description": "排除出榜/查询的玩家名（逗号分隔）", "default": "" }
     }
+  },
+  "permission_admins": {
+    "type": "template_list",
+    "description": "受托群管理员：这些账号可在群里执行管理员命令（注意：名册全局，加入者在其所在每个群都有管理员权）",
+    "default": [],
+    "templates": {
+      "admin": {
+        "name": "管理员",
+        "display_item": "id",
+        "items": {
+          "id": { "type": "string", "description": "账号标识 平台:账号（如 aiocqhttp:12345，群里发 /pal whoami 可查）", "default": "" },
+          "note": { "type": "string", "description": "备注（可选，明文存储于配置文件，勿填真实姓名/联系方式等敏感信息）", "default": "" }
+        }
+      }
+    }
+  },
+  "admin_only_commands": {
+    "type": "list",
+    "description": "锁成仅管理员的命令（astrbot 命令串，如 player、rank；server/whoami/help 不可锁）",
+    "default": []
   }
 }

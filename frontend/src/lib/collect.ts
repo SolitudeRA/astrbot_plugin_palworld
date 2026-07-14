@@ -5,6 +5,10 @@ export const SENTINEL = '__unchanged__'
 export interface SettingsState {
   servers: Record<string, unknown>[]
   custom_headers: Record<string, unknown>[]
+  // T9 接线前 SettingsPanel 尚未在 state 里初始化这两键，故声明为可选；
+  // collectBody 以 ?? [] 兜底，避免破坏既有 SettingsState 构造点的类型/运行时
+  permission_admins?: Record<string, unknown>[]
+  admin_only_commands?: string[]
   sections: Record<string, Record<string, unknown>>
 }
 
@@ -52,10 +56,17 @@ function collectHeader(row: Record<string, unknown>): Record<string, unknown> {
   }
 }
 
+function collectAdmin(row: Record<string, unknown>): Record<string, unknown> {
+  return { __row_id: (row.__row_id as string) || null, id: str(row.id), note: str(row.note) }
+}
+
 export function collectBody(state: SettingsState): Record<string, unknown> {
   const body: Record<string, unknown> = {}
   body.servers = state.servers.map(collectServer)
   body.custom_headers = state.custom_headers.map(collectHeader)
+  // ?? []：T9 接线前 SettingsPanel 的 state 尚无这两键，缺省即空，避免 undefined.map 崩溃
+  body.permission_admins = (state.permission_admins ?? []).map(collectAdmin)
+  body.admin_only_commands = [...(state.admin_only_commands ?? [])]
   for (const section of OBJECT_SECTIONS) {
     const vals = state.sections[section.key] ?? {}
     const out: Record<string, unknown> = {}

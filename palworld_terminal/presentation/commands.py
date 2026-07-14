@@ -270,3 +270,16 @@ class Commands:
     def help(self, message_str, is_admin) -> str:
         arg = parse_arg(message_str, "help")
         return format_help(arg.name or None, is_admin, self._cfg.features)
+
+    async def whoami(self, sender_id: str) -> str:
+        if sender_id.endswith(":"):  # 账号段为空(取不到 sender)
+            return L("whoami_no_sender")
+        return L("whoami", id=sender_id)
+
+    def is_plugin_admin(self, sender_id: str) -> bool:
+        return sender_id in {a.id for a in self._cfg.permissions.admins}
+
+    def admin_denied(self, command_str: str, sender_id: str) -> str | None:
+        if command_str in self._cfg.permissions.admin_only_commands and not self.is_plugin_admin(sender_id):
+            return L("admin_required")
+        return None

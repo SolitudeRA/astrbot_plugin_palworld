@@ -10,8 +10,9 @@ import math
 from collections.abc import Mapping
 from urllib.parse import urlsplit
 
-_LIST_SECTIONS = ("servers", "custom_headers", "group_bindings")
-_ROW_ID_PREFIX = {"servers": "srv", "custom_headers": "hdr", "group_bindings": "bind"}
+_LIST_SECTIONS = ("servers", "custom_headers", "group_bindings", "permission_admins")
+_ROW_ID_PREFIX = {"servers": "srv", "custom_headers": "hdr", "group_bindings": "bind",
+                  "permission_admins": "adm"}
 
 SENTINEL = "__unchanged__"
 
@@ -22,11 +23,13 @@ _SECTION_KEYS = {
                 "password_env", "timeout", "verify_tls", "timezone"},
     "custom_headers": {"name", "value", "value_env", "servers"},
     "group_bindings": {"umo", "server", "active"},
+    "permission_admins": {"id", "note"},
 }
 
 _TOP_KEYS = {
     "servers", "routing", "group_bindings", "custom_headers",
     "polling", "world", "bases", "privacy", "history", "features", "players",
+    "permission_admins", "admin_only_commands",
 }
 _MAX_LIST = 200
 _MAX_STR = 8 * 1024
@@ -143,6 +146,15 @@ def validate_and_backfill(body, old_raw, env):
     for section in ("routing", "polling", "world", "bases", "privacy", "history", "features", "players"):
         if section in body and not isinstance(body[section], Mapping):
             return _err("invalid_shape")
+
+    # admin_only_commands：顶层字符串列表（仓库无此形态先例，独立校验）
+    if "admin_only_commands" in body:
+        aoc = body["admin_only_commands"]
+        if not isinstance(aoc, list) or len(aoc) > _MAX_LIST:
+            return _err("invalid_shape")
+        for c in aoc:
+            if not isinstance(c, str) or len(c) > _MAX_STR:
+                return _err("invalid_shape")
 
     # 路径化语义预校验（enum 白名单）
     for path, allowed in _ENUMS.items():

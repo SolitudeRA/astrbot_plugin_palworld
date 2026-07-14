@@ -9,7 +9,7 @@ COMMANDS: list[tuple[str, str]] = [
     ("events", "events"), ("today", "report"),
     ("rank", "players"), ("player", "players"),
     ("me", "players"), ("bind", "players"), ("unbind_self", "players"),
-    ("server", "core"), ("help", "core"),
+    ("server", "core"), ("whoami", "core"), ("help", "core"),
 ]
 COMMAND_GROUP: dict[str, str] = {name: group for name, group in COMMANDS}
 
@@ -25,5 +25,19 @@ HELP_LINE: dict[str, str] = {
     "me": "/pal me [hide|show]  我的信息",
     "bind": "/pal bind <玩家名>  绑定我的玩家",
     "unbind_self": "/pal unbind  解除我的玩家绑定",
-    "server": "/pal server  服务器列表", "help": "/pal help  帮助",
+    "server": "/pal server  服务器列表",
+    "whoami": "/pal whoami  查看我的账号标识（建议私聊使用）",
+    "help": "/pal help  帮助",
 }
+
+# astrbot 命令串真相源(用户 /pal <X> 里的 X)。与 COMMANDS 的键(方法名)区分:
+# unbind(串) vs unbind_self(方法名)。由 command_names_test 锚定到 main.py 注册。
+# 注:whoami 随 T4 的 handler 一并加入本表。
+PAL_COMMAND_STRINGS: list[str] = [
+    "status", "online", "world", "rules", "guilds", "guild", "bases", "base",
+    "events", "today", "rank", "player", "me", "bind", "unbind",
+    "server", "whoami", "help",
+]
+
+# 可被 admin_only_commands 锁定的命令串 = 全部 − 不可锁集{server,whoami,help}
+LOCKABLE_COMMANDS: frozenset[str] = frozenset(PAL_COMMAND_STRINGS) - {"server", "whoami", "help"}
