@@ -1047,25 +1047,31 @@ git commit -m "feat(fe): FEATURE 两组 + 审计只读章定义"
 
 ---
 
-## Task 12: 前端 SettingsPanel —— 两组开关 + server_admin 段
+## Task 12: SettingsPanel 两组开关 + server_admin 段 + 后端 _TOP_KEYS 往返闭合
 
 **Files:**
-- Modify: `frontend/src/components/SettingsPanel.vue`、`frontend/src/lib/collect.ts`
-- Test: `frontend/src/components/SettingsPanel.test.ts`、`collect.test.ts`（扩）
+- Modify: `frontend/src/components/SettingsPanel.vue`、`frontend/src/lib/collect.ts`、**`palworld_terminal/presentation/config_view.py`（后端往返，T11 揭出的缺口）**
+- Test: `frontend/src/components/SettingsPanel.test.ts`、`collect.test.ts`（扩）、**`tests/unit/config_view_*_test.py`（后端 server_admin 校验）**
 
-- [ ] **Step 1: 写失败测试**：功能分组章渲染两新开关；server_admin 段（require_confirmation 开关 + confirmation_timeout 数字 + audit_retention_days 数字）；collect 往返含 server_admin。
+**Interfaces / 背景（T11 揭出的跨任务缺口，必修）**：T11 让 `collectBody` 产出顶层 `server_admin` 键（可保存配置段），但后端 `config_view.py::_TOP_KEYS`（`validate_and_backfill` 的 `issubset` 白名单）**未含** `server_admin` → 自定义设置页保存携带 server_admin 时被拒 `invalid_shape`。本任务必须端到端闭合往返。
 
-- [ ] **Step 2: 运行确认失败** `cd frontend && npm run test:run && cd ..`
+- [ ] **Step 1: 写失败测试（前端 + 后端）**：
+  - 前端：功能分组章渲染两新开关；server_admin 段（require_confirmation 开关 + confirmation_timeout 数字 + audit_retention_days 数字）；collect 往返含 server_admin。
+  - **后端**：新增/扩 `tests/unit/config_view_server_admin_test.py`——`validate_and_backfill` 接受携带 `server_admin`（三字段合法值）的 body 返回 ok；非法形状（非 object / 字段类型错 / 越界）被拒 `invalid_shape`；`redact_config` 往返保留 server_admin。
 
-- [ ] **Step 3: 实现**：SettingsPanel features 段加两 toggle（照现有 features 开关）；加 server_admin 配置块（照现有 object 段如 polling/history）；`collect.ts` `collectBody` 加 `server_admin`（照现有 object 收集）+ `SettingsState` 加字段 + applyConfig `?? {}` 缺键容错。**不得用 v-html**。
+- [ ] **Step 2: 运行确认失败** `cd frontend && npm run test:run && cd .. && ./.venv/Scripts/python.exe -m pytest tests/unit/config_view_server_admin_test.py -v`
 
-- [ ] **Step 4: 运行确认通过** `cd frontend && npm run test:run && npm run typecheck && cd .. && ./.venv/Scripts/python.exe -m pytest tests/unit/frontend_source_test.py -v`
+- [ ] **Step 3: 实现（前端 + 后端）**：
+  - 前端：SettingsPanel features 段加两 toggle（照现有 features 开关）；加 server_admin 配置块（照现有 object 段如 polling/history）；`collect.ts` `collectBody` 加 `server_admin`（照现有 object 收集）+ `SettingsState` 加字段 + applyConfig `?? {}` 缺键容错。**不得用 v-html**。
+  - **后端 `config_view.py`**：`_TOP_KEYS` 加 `"server_admin"`；加 server_admin 形状校验（object，三字段 require_confirmation:bool / confirmation_timeout:int / audit_retention_days:int，越界/类型错→`invalid_shape`；照现有 object 段如 `polling`/`history` 的校验范式）。先读 config_view.py 现有 `_TOP_KEYS` 与 object 段校验风格对齐。
+
+- [ ] **Step 4: 运行确认通过** `cd frontend && npm run test:run && npm run typecheck && cd .. && ./.venv/Scripts/python.exe -m pytest tests/unit/config_view_server_admin_test.py tests/unit/frontend_source_test.py -q && ./.venv/Scripts/python.exe -m pytest -q && ./.venv/Scripts/python.exe -m ruff check . && ./.venv/Scripts/python.exe -m mypy palworld_terminal/`
 
 - [ ] **Step 5: 提交**
 
 ```bash
-git add frontend/src/components/SettingsPanel.vue frontend/src/lib/collect.ts frontend/src/components/SettingsPanel.test.ts frontend/src/lib/collect.test.ts
-git commit -m "feat(fe): 设置页两组开关 + server_admin 配置段"
+git add frontend/src/components/SettingsPanel.vue frontend/src/lib/collect.ts palworld_terminal/presentation/config_view.py frontend/src/components/SettingsPanel.test.ts frontend/src/lib/collect.test.ts tests/unit/config_view_server_admin_test.py
+git commit -m "feat(fe): 设置页两组开关 + server_admin 段 + 后端 _TOP_KEYS 往返闭合"
 ```
 
 ---
