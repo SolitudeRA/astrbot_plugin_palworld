@@ -1,5 +1,6 @@
 from types import SimpleNamespace
 
+from palworld_terminal.application.command_permissions import CommandOverride
 from palworld_terminal.application.query_service import RankBoardsDTO
 from palworld_terminal.presentation.commands import Commands
 
@@ -11,8 +12,11 @@ class _Query:
 
 
 def _cmds(mode="balanced", players_on=True):
-    features = SimpleNamespace(enabled=lambda g: players_on if g == "players" else True)
-    cfg = SimpleNamespace(features=features, privacy=SimpleNamespace(mode=mode))
+    ov = {"rank": CommandOverride(enabled=players_on)}
+    cfg = SimpleNamespace(
+        permissions=SimpleNamespace(command_overrides=ov),
+        privacy=SimpleNamespace(mode=mode),
+    )
     c = Commands(routing=None, query=_Query(), repo=None, cfg=cfg, clock=SimpleNamespace(now=lambda: 0))
     async def _rw(umo, msg, sub, is_group):
         return SimpleNamespace(world_id="w1", server_id="w"), SimpleNamespace(name=msg, server_override=None), None

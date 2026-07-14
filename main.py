@@ -142,18 +142,18 @@ class PalWorldTerminal(Star):
 
     def _log_startup_warnings(self) -> None:
         """装配后暴露安全相关启动告警（spec §5/§7）：single+restricted 访问控制架空、
-        admin_only_commands 未知锁条目（格式迁移后失锁 = fail-open）。"""
+        非法命令权限配置项（command_permissions 未知命令 / 轴违规，均未生效 = 配置失效）。"""
         c = self._container
         if c is None:
             return
         warn = c.routing.single_restricted_warning()
         if warn is not None:
             _log.warning(warn)
-        unknown = c.config.permissions.unknown_locks
-        if unknown:
+        invalid = c.config.permissions.invalid_command_keys
+        if invalid:
             _log.warning(
-                "以下 admin_only_commands 条目不是合法命令路径、锁未生效：%s",
-                "、".join(unknown),
+                "以下 command_permissions 配置项非法（未知命令或轴违规）、未生效：%s",
+                "、".join(invalid),
             )
 
     async def terminate(self) -> None:

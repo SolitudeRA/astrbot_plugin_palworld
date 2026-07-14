@@ -85,6 +85,19 @@ FLAT_ACTIONS: dict[str, ActionSpec] = {
     "confirm": ("confirm", "core", "admin"),  # 仅管理员可见/可用
 }
 
+# 读方法名 → 完整路径（供 commands._gated）。仅收 gate==read 方法（写走 admin_write）。
+# 必须覆盖全部 @_gated 方法，否则运行时 METHOD_PATH[fn.__name__] KeyError
+# （command_permissions_meta_test.test_all_gated_methods_in_method_path 防回归）。
+METHOD_PATH: dict[str, str] = {
+    method: f"{grp} {sub}"
+    for grp, actions in DISPATCH.items()
+    for sub, (method, _feat, gate) in actions.items()
+    if gate == "read"
+}
+METHOD_PATH.update({
+    name: name for name, (_m, _f, gate) in FLAT_ACTIONS.items() if gate == "read"
+})
+
 # 注册身份：11 首词（5 组 + 6 扁平）——供 @pal.command 注册锚定（T8 翻新时消费）。
 PAL_REGISTERED: list[str] = [*DISPATCH.keys(), *FLAT_ACTIONS.keys()]
 

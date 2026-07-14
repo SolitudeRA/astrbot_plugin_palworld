@@ -4,8 +4,9 @@ import functools
 from collections.abc import Awaitable, Callable
 
 from ..adapters.privacy_filter import hash_user_id
+from ..application.command_permissions import effective_admin_only, effective_enabled
 from ..application.query_service import PlayerProfileDTO
-from ..presentation.command_registry import COMMAND_GROUP, DISPATCH
+from ..presentation.command_registry import DISPATCH, METHOD_PATH
 from ..presentation.confirmation import PendingAction
 from ..presentation.dtos import ServerStatusRow
 from ..presentation.formatters import (
@@ -66,13 +67,14 @@ def _target_display(name: str | None, userid: str | None) -> str:
 
 
 def _gated(fn):
-    """命令组 gating：按方法名查 COMMAND_GROUP 得组，未启用则回 feature_disabled，
-    不触达底层（spec §5）。gating 与 help 物理共享同一张表，消除漂移面。
+    """命令 gating：按方法名查 METHOD_PATH 得完整路径，查该路径生效值（组键/叶子/默认
+    三级继承），未启用则回 feature_disabled、不触达底层（spec §5）。
+    METHOD_PATH 须覆盖全部 @_gated 方法，否则此处 KeyError（meta 测试防回归）。
     """
     @functools.wraps(fn)
     async def wrapper(self, *args, **kwargs):
-        group = COMMAND_GROUP[fn.__name__]
-        if not self._cfg.features.enabled(group):
+        path = METHOD_PATH[fn.__name__]
+        if not effective_enabled(self._cfg.permissions.command_overrides, path):
             return L("feature_disabled")
         return await fn(self, *args, **kwargs)
     return wrapper
@@ -292,8 +294,12 @@ class Commands:
     # T8 保留 *_grp 后缀（handler 串是「world」、调 world_grp），实现方法与分发器共存。
 
     def _admin_locked(self, path: str, sender_id: str, is_admin: bool) -> bool:
-        """admin_only_commands 锁（下沉）：按完整路径判，锁定且非管理员 → True。"""
-        return path in self._cfg.permissions.admin_only_commands and not is_admin
+        """命令锁（下沉）：按完整路径查生效 admin_only（组键/叶子/gate 强制三级），
+        锁定且非管理员 → True。"""
+        return (
+            effective_admin_only(self._cfg.permissions.command_overrides, path)
+            and not is_admin
+        )
 
     def _world_mode(self) -> str:
         """真实 AppConfig 恒有 routing.world_mode；默认 multi 兼容不完整测试替身。"""
@@ -303,7 +309,9 @@ class Commands:
         """裸组 / 未知子动作迷你帮助——**复用 format_help 同一 visible_actions 谓词**
         （单一真相源，绝不另写过滤）：guest 绝不见管理员写动作（kick/ban/stop）。
         """
-        vis = visible_actions(group, is_admin, self._cfg.features, self._world_mode())
+        vis = visible_actions(
+            group, is_admin, self._cfg.permissions.command_overrides, self._world_mode(),
+        )
         if not vis:
             return L("group_no_actions")
         subs = " / ".join(sub for sub, _spec in vis)
@@ -332,9 +340,9 @@ class Commands:
         spec = DISPATCH[group].get(p.sub)
         if spec is None:
             return self._group_help(group, is_admin)      # 未知子动作 → 组用法
-        method, feat_group, _gate = spec
-        # per-子动作功能门（下沉）：逐子动作查各自功能组，非方法名单组。
-        if not self._cfg.features.enabled(feat_group):
+        method, _feat_group, _gate = spec
+        # per-子动作功能门（下沉）：逐子动作查完整路径生效值（组键/叶子/默认三级继承）。
+        if not effective_enabled(self._cfg.permissions.command_overrides, f"{group} {p.sub}"):
             return L("feature_disabled")
         # admin_denied 下沉：按完整路径判锁，锁定且非管理员不触达实现。
         if self._admin_locked(f"{group} {p.sub}", sender_id, is_admin):
@@ -385,8 +393,8 @@ class Commands:
         spec = DISPATCH["link"].get(p.sub)
         if spec is None:
             return self._group_help("link", is_admin)
-        method, feat_group, gate = spec
-        if not self._cfg.features.enabled(feat_group):
+        method, _feat_group, gate = spec
+        if not effective_enabled(self._cfg.permissions.command_overrides, f"link {p.sub}"):
             return L("feature_disabled")
         if gate == "admin":
             if not is_admin:
@@ -432,7 +440,10 @@ class Commands:
 
     def help(self, message_str, is_admin) -> str:
         arg = parse_arg(message_str, "help")
-        return format_help(arg.name or None, is_admin, self._cfg.features, self._world_mode())
+        return format_help(
+            arg.name or None, is_admin,
+            self._cfg.permissions.command_overrides, self._world_mode(),
+        )
 
     async def whoami(self, sender_id: str) -> str:
         if sender_id.endswith(":"):  # 账号段为空(取不到 sender)
@@ -449,8 +460,10 @@ class Commands:
         # 与组开关无关（防「组开时才 admin_required」的配置态泄漏）。
         if not is_admin:
             return L("admin_required")
-        # 门 2：feature 组门。
-        if not self._cfg.features.enabled(group):
+        # 门 2：feature 门（按完整路径生效值；门序仍在 admin 硬门之后，铁律不变）。
+        if not effective_enabled(
+            self._cfg.permissions.command_overrides, f"server {command_str}"
+        ):
             return L("feature_disabled")
 
         try:
@@ -567,8 +580,10 @@ class Commands:
         p = self._confirmations.claim(admin_id)
         if p is None:
             return L("admin_no_pending")
-        # 执行前复检：danger 组仍启用 + 重跑目标授权（任一失败 → 丢弃回 stale）。
-        if not self._cfg.features.enabled(p.group):
+        # 执行前复检：danger 命令仍启用 + 重跑目标授权（任一失败 → 丢弃回 stale）。
+        if not effective_enabled(
+            self._cfg.permissions.command_overrides, f"server {p.command_str}"
+        ):
             return L("admin_confirm_stale")
         resolution = await self._routing.resolve(p.umo, None, is_group)
         if resolution.server is None:
@@ -621,6 +636,7 @@ class Commands:
         return sender_id in {a.id for a in self._cfg.permissions.admins}
 
     def admin_denied(self, command_str: str, sender_id: str) -> str | None:
-        if command_str in self._cfg.permissions.admin_only_commands and not self.is_plugin_admin(sender_id):
+        if effective_admin_only(self._cfg.permissions.command_overrides, command_str) \
+                and not self.is_plugin_admin(sender_id):
             return L("admin_required")
         return None

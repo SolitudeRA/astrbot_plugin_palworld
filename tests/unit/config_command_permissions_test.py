@@ -1,7 +1,10 @@
-from palworld_terminal.config import parse_config
 from palworld_terminal.application.command_permissions import (
-    effective_enabled as ee, effective_admin_only as eao,
+    effective_admin_only as eao,
 )
+from palworld_terminal.application.command_permissions import (
+    effective_enabled as ee,
+)
+from palworld_terminal.config import parse_config
 
 
 def _cfg(raw):

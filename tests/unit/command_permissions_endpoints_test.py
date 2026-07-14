@@ -1,5 +1,9 @@
 from palworld_terminal.application.command_permissions import (
-    CommandOverride as CO, active_endpoints, OBSERVATION_FLOOR,
+    OBSERVATION_FLOOR,
+    active_endpoints,
+)
+from palworld_terminal.application.command_permissions import (
+    CommandOverride as CO,
 )
 from palworld_terminal.domain.enums import EndpointName as E
 

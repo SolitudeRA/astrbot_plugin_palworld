@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from ..application.command_permissions import effective_enabled
 from ..application.query_service import PlayerProfileDTO, RankBoardsDTO
 from ..config import SkippedServer
 from ..domain.enums import Confidence, PingBucket
@@ -138,14 +139,15 @@ _GROUP_LABEL: dict[str, str] = {
 _FLAT_LABEL = "其他"
 
 
-def _action_visible(spec: ActionSpec, is_admin: bool, features) -> bool:
-    """单一可见性判定：功能门 + 角色门。
+def _action_visible(path: str, spec: ActionSpec, is_admin: bool, overrides) -> bool:
+    """单一可见性判定：功能门（生效值）+ 角色门。
 
     写动作（gate=admin_write）与需管理员的动作（gate=admin，含 link add/remove、
-    confirm）仅管理员可见——非管理员绝不泄漏其存在（安全线）。
+    confirm）仅管理员可见——非管理员绝不泄漏其存在（安全线）。功能门只换数据源
+    （查完整路径生效值），角色语义不变——不引入「锁读→不可见」。
     """
-    _method, feat_group, gate = spec
-    if not features.enabled(feat_group):
+    _method, _feat_group, gate = spec
+    if not effective_enabled(overrides, path):
         return False
     if gate in ("admin_write", "admin"):
         return is_admin
@@ -153,11 +155,11 @@ def _action_visible(spec: ActionSpec, is_admin: bool, features) -> bool:
 
 
 def visible_actions(
-    group: str, is_admin: bool, features, world_mode: str = "multi",
+    group: str, is_admin: bool, overrides, world_mode: str = "multi",
 ) -> list[tuple[str, ActionSpec]]:
     """分级 help + 裸组迷你帮助的**单一过滤真相源**（谓词）。
 
-    返回组内按功能门 + 角色过滤后的可见 (子动作, ActionSpec) 有序列表。
+    返回组内按功能门（生效值）+ 角色过滤后的可见 (子动作, ActionSpec) 有序列表。
     单世界模式省略整个 link 组（视觉；运行时守卫在 main 的 link handler）。
     _group_help（commands.py 裸组迷你帮助）复用本函数——绝不另写一份过滤。
     """
@@ -166,7 +168,7 @@ def visible_actions(
     return [
         (sub, spec)
         for sub, spec in DISPATCH.get(group, {}).items()
-        if _action_visible(spec, is_admin, features)
+        if _action_visible(f"{group} {sub}", spec, is_admin, overrides)
     ]
 
 
@@ -175,16 +177,16 @@ def _help_line(path: str) -> str:
     return f"/pal {path}  {desc}" if desc else f"/pal {path}"
 
 
-def format_help(topic: str | None, is_admin: bool, features, world_mode: str = "multi") -> str:
+def format_help(topic: str | None, is_admin: bool, overrides, world_mode: str = "multi") -> str:
     lines = ["PalWorldTerminal 命令："]
     for group in DISPATCH:  # world/guild/player/server/link（插入序）
-        vis = visible_actions(group, is_admin, features, world_mode)
+        vis = visible_actions(group, is_admin, overrides, world_mode)
         if not vis:
             continue
         lines.append(f"【{_GROUP_LABEL.get(group, group)}】")
         lines.extend(_help_line(f"{group} {sub}") for sub, _spec in vis)
     flat = [name for name, spec in FLAT_ACTIONS.items()
-            if _action_visible(spec, is_admin, features)]
+            if _action_visible(name, spec, is_admin, overrides)]
     if flat:
         lines.append(f"【{_FLAT_LABEL}】")
         lines.extend(_help_line(name) for name in flat)

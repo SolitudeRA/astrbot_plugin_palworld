@@ -1,6 +1,13 @@
 from palworld_terminal.application.command_permissions import (
-    CommandOverride as CO, effective_enabled as ee, effective_admin_only as eao,
+    CommandOverride as CO,
 )
+from palworld_terminal.application.command_permissions import (
+    effective_admin_only as eao,
+)
+from palworld_terminal.application.command_permissions import (
+    effective_enabled as ee,
+)
+
 
 def test_enable_default_and_inheritance():
     assert ee({}, "world today") is True
