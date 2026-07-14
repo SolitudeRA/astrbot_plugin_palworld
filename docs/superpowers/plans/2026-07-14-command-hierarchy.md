@@ -479,6 +479,8 @@ Expected: FAIL（26 注册 ≠ 11 PAL_REGISTERED）
 
 - [ ] **Step 3: main.py 翻 11 handler**
 
+**组方法收口（T7 揭出）**：T7 因撞名用了 `world_grp/guild_grp/player_grp/server_grp` 组分发器（旧实现 world/guild/player/server 仍在）。本任务删旧扁平实现方法后，把 `*_grp` 改名为裸组名（`world/guild/player/server`）、重定位被复用的实现体、同步更新 `DISPATCH` 里指向旧实现名的方法名（如 world.overview 原指 "world" impl，改指新实现名）+ getattr 锚定。
+
 `main.py`：删 26 个旧扁平 `@pal.command`；加 5 组 handler（world/guild/player/server/link）+ 6 扁平（rank/online/me/whoami/help/confirm）。组 handler 照现有 server handler 范式，走 busy/inflight 门（`_guarded` 或拆出的只做门闩的包裹），传 `sender_id` + `is_admin`：
 
 ```python
