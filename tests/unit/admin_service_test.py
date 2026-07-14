@@ -52,6 +52,43 @@ async def test_announce_success_audits():
 
 
 @pytest.mark.asyncio
+async def test_shutdown_sends_waittime_and_message():
+    captured: dict = {}
+
+    async def fetch(server_id, endpoint):
+        return SimpleNamespace(ok=True, data=[])
+
+    async def post(server_id, path, json_body):
+        captured["path"] = path
+        captured["body"] = json_body
+        return SimpleNamespace(ok=True, status=200, error=None)
+
+    svc = AdminService(
+        routing=_FakeRouting(),
+        fetch=fetch,
+        post=post,
+        repo=_FakeRepo(),
+        salt=b"salt",
+        clock=SimpleNamespace(now=lambda: 1000),
+    )
+    res = await svc.shutdown("p:1", "umo", True, 60, "维护")
+    assert res.ok
+    assert captured["path"] == "shutdown"
+    assert captured["body"] == {"waittime": 60, "message": "维护"}
+    a = svc._repo.audits[0]
+    assert a["action"] == "shutdown" and a["success"] == 1
+
+
+@pytest.mark.asyncio
+async def test_shutdown_disconnect_treated_initiated():
+    err = SimpleNamespace(ok=False, status=None, error="network error")
+    svc = _svc(err)
+    res = await svc.shutdown("p:1", "umo", True, 30, "")
+    assert res.ok  # 断连=已发起（保留 initiated_ok_on_disconnect）
+    assert svc._repo.audits[0]["success"] == 1
+
+
+@pytest.mark.asyncio
 async def test_stop_disconnect_treated_initiated():
     err = SimpleNamespace(ok=False, status=None, error="network error")
     svc = _svc(err)

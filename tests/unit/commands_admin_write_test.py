@@ -72,8 +72,8 @@ class _FakeAdmin:
             params={"server": "Alpha", "action": "stop", "target": "", "error": ""},
         )
 
-    async def shutdown(self, admin_id, umo, is_group):
-        self.calls.append(("shutdown",))
+    async def shutdown(self, admin_id, umo, is_group, seconds, message):
+        self.calls.append(("shutdown", seconds, message))
         return AdminResult(
             ok=True, message_key="admin_shutdown_initiated",
             params={"server": "Alpha", "action": "shutdown", "target": "", "error": ""},
@@ -218,6 +218,79 @@ async def test_admin_danger_ban_pending_carries_resolved_target():
     assert exec_calls[0][2] == "steam_76561198000003210"  # userid
     assert exec_calls[0][3] == "Alice"  # 首发解析到的角色名（审计落名字，非把 userid 当名字）
     assert "3210" in done
+
+
+# ---- shutdown 秒数/公告参数链路 ----
+
+async def test_admin_shutdown_parses_seconds_and_message():
+    admin = _FakeAdmin()
+    c = _cmds(admin=admin, cfg=_cfg(group_on=True, require=False))
+    out = await c.admin_write(
+        "shutdown", "server_admin_danger", "p:1", "umo", True, "60 维护", is_admin=True
+    )
+    assert ("shutdown", 60, "维护") in admin.calls
+    assert "Alpha" in out
+
+
+async def test_admin_shutdown_seconds_only_empty_message():
+    admin = _FakeAdmin()
+    c = _cmds(admin=admin, cfg=_cfg(group_on=True, require=False))
+    await c.admin_write(
+        "shutdown", "server_admin_danger", "p:1", "umo", True, "45", is_admin=True
+    )
+    assert ("shutdown", 45, "") in admin.calls
+
+
+async def test_admin_shutdown_invalid_seconds_returns_usage():
+    admin = _FakeAdmin()
+    c = _cmds(admin=admin, cfg=_cfg(group_on=True, require=False))
+    out = await c.admin_write(
+        "shutdown", "server_admin_danger", "p:1", "umo", True, "abc 维护", is_admin=True
+    )
+    assert out == L("admin_shutdown_usage")
+    assert not any(x[0] == "shutdown" for x in admin.calls)  # 非法秒数：不触达底层
+
+
+async def test_admin_shutdown_missing_seconds_returns_usage():
+    admin = _FakeAdmin()
+    c = _cmds(admin=admin, cfg=_cfg(group_on=True, require=False))
+    out = await c.admin_write(
+        "shutdown", "server_admin_danger", "p:1", "umo", True, "", is_admin=True
+    )
+    assert out == L("admin_shutdown_usage")
+    assert not any(x[0] == "shutdown" for x in admin.calls)
+
+
+async def test_admin_shutdown_seconds_over_upper_bound_returns_usage():
+    admin = _FakeAdmin()
+    c = _cmds(admin=admin, cfg=_cfg(group_on=True, require=False))
+    out = await c.admin_write(
+        "shutdown", "server_admin_danger", "p:1", "umo", True, "99999999 x", is_admin=True
+    )
+    assert out == L("admin_shutdown_usage")
+    assert not any(x[0] == "shutdown" for x in admin.calls)
+
+
+async def test_admin_shutdown_confirm_flow_preserves_seconds():
+    # danger + require_confirmation：pending payload 须携带 seconds+message，
+    # confirm 执行时原样传入（不丢秒数）。
+    admin = _FakeAdmin()
+    clock = _Clock(0)
+    store = ConfirmationStore(clock)
+    cfg = _cfg(group_on=True, require=True, timeout=30)
+    c = _cmds(admin=admin, cfg=cfg, clock=clock, confirmations=store)
+
+    preview = await c.admin_write(
+        "shutdown", "server_admin_danger", "p:1", "umo", True, "120 例行维护", is_admin=True
+    )
+    assert not any(x[0] == "shutdown" for x in admin.calls)  # 预览未执行
+    assert "120" in preview  # 预览含秒数
+
+    done = await c.confirm("p:1", "umo", True, is_admin=True)
+    shutdown_calls = [x for x in admin.calls if x[0] == "shutdown"]
+    assert shutdown_calls and shutdown_calls[0][1] == 120  # confirm 用对 seconds
+    assert shutdown_calls[0][2] == "例行维护"  # message 不丢
+    assert "120" in done
 
 
 # ---- confirm 无 pending ----

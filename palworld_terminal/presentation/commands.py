@@ -31,6 +31,19 @@ from ..presentation.server_arg import ArgError, parse_arg
 # 危险写命令：执行前需二次确认（当 server_admin.require_confirmation 开启时）。
 _DANGER = frozenset({"ban", "shutdown", "stop"})
 
+# shutdown 倒计时秒数上界（spec §3：正整数、1–86400）。
+_SHUTDOWN_MAX_SECONDS = 86400
+
+
+def _parse_shutdown_seconds(token: str) -> int | None:
+    """解析 shutdown 首 token 为倒计时秒数：正整数且 ≤ 上界，否则 None。"""
+    if not token.isdigit():  # 空串/负号/非数字均落此（isdigit 对 "-5"/"" 返 False）
+        return None
+    seconds = int(token)
+    if seconds < 1 or seconds > _SHUTDOWN_MAX_SECONDS:
+        return None
+    return seconds
+
 # 写命令 → 面向用户的中文动作名（渲染消息/预览用；同时区分 stop 与 shutdown 的
 # 「已发起」文案——二者共用 admin_shutdown_initiated 键，靠 action 值区分）。
 _ACTION_LABEL = {
@@ -377,7 +390,26 @@ class Commands:
             result = await self._admin.save(admin_id, umo, is_group)
             return self._render_result(result)
 
-        if command_str in ("shutdown", "stop"):
+        if command_str == "shutdown":
+            # 首 token=倒计时秒数（正整数 + 上界校验），其余=公告（可空）。
+            parts = rest.split(maxsplit=1)
+            seconds = _parse_shutdown_seconds(parts[0] if parts else "")
+            if seconds is None:
+                return L("admin_shutdown_usage")
+            message = parts[1] if len(parts) > 1 else ""
+            if require:
+                resolution = await self._routing.resolve(umo, None, is_group)
+                if resolution.server is None:
+                    return L("admin_resolve_failed", reason=resolution.error or "")
+                return self._store_pending(
+                    command_str, group, admin_id, umo, resolution.server,
+                    payload={"seconds": seconds, "message": message},
+                    target_disp=L("admin_shutdown_summary", seconds=seconds),
+                )
+            result = await self._admin.shutdown(admin_id, umo, is_group, seconds, message)
+            return self._render_result(result)
+
+        if command_str == "stop":
             if require:
                 resolution = await self._routing.resolve(umo, None, is_group)
                 if resolution.server is None:
@@ -386,8 +418,7 @@ class Commands:
                     command_str, group, admin_id, umo, resolution.server,
                     payload={}, target_disp="",
                 )
-            method = self._admin.shutdown if command_str == "shutdown" else self._admin.stop
-            result = await method(admin_id, umo, is_group)
+            result = await self._admin.stop(admin_id, umo, is_group)
             return self._render_result(result)
 
         return L("feature_disabled")  # 未知写命令：不触达底层
@@ -430,8 +461,12 @@ class Commands:
             )
             target_disp = _target_display(p.payload.get("name"), p.payload["userid"])
         elif p.command_str == "shutdown":
-            result = await self._admin.shutdown(admin_id, p.umo, is_group)
-            target_disp = ""
+            # 复用首发存入 payload 的 seconds+message（confirm 不重解析，秒数不丢）。
+            seconds = p.payload["seconds"]
+            result = await self._admin.shutdown(
+                admin_id, p.umo, is_group, seconds, p.payload.get("message", "")
+            )
+            target_disp = L("admin_shutdown_summary", seconds=seconds)
         elif p.command_str == "stop":
             result = await self._admin.stop(admin_id, p.umo, is_group)
             target_disp = ""

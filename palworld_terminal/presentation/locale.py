@@ -47,6 +47,8 @@ MESSAGES: dict[str, str] = {
     "admin_announce_usage": "用法：/pal announce <要广播的公告内容>",
     "admin_target_usage": "用法：/pal {action} <玩家名 或 steam_ 前缀 userid>（可在后面加理由）",
     "admin_unban_usage": "用法：/pal unban <steam_ 前缀的 userid>",
+    "admin_shutdown_usage": "用法：/pal shutdown <秒数> [公告]（秒数须为 1–86400 的整数，倒计时结束后关服）",
+    "admin_shutdown_summary": "（{seconds} 秒后关服）",
     "admin_confirm_preview": (
         "⚠️ 即将执行【{action}】{target}，目标服务器「{server}」。"
         "请在 {timeout} 秒内发送 /pal confirm 确认，逾期自动作废。"

@@ -143,14 +143,19 @@ class AdminService:
             json_body=None,
         )
 
-    async def shutdown(self, admin_id: str, umo: str, is_group: bool) -> AdminResult:
+    async def shutdown(
+        self, admin_id: str, umo: str, is_group: bool, seconds: int, message: str
+    ) -> AdminResult:
+        # REST body {"waittime": <秒int>, "message": <公告str>} → 倒计时关服。
+        detail = f"{seconds}s: {message}" if message else f"{seconds}s"
         return await self._execute(
             admin_id,
             umo,
             is_group,
             action="shutdown",
             path="shutdown",
-            json_body=None,
+            json_body={"waittime": seconds, "message": message},
+            detail=detail,
             initiated_ok_on_disconnect=True,
         )
 
