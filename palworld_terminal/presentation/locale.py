@@ -6,6 +6,10 @@ MESSAGES: dict[str, str] = {
     "server_unknown": "服务器「{server}」不存在或未就绪。",
     "not_authorized": "本会话未被授权使用服务器「{server}」。请管理员先执行 /pal server add {server}。",
     "private_restricted": "restricted 模式下私聊不可查询，请在群聊中使用。",
+    "single_restricted_warning": (
+        "当前为单世界模式（world_mode=single），访问控制 access_mode=restricted 已被架空："
+        "所有会话（含私聊）都可直接读取唯一服务器。如需按会话授权，请改用 world_mode=multi。"
+    ),
     "active_server_stale": "当前绑定的服务器已不可用，请管理员重新执行 /pal server add <名称>。",
     "degraded": "当前无法获取 Palworld 世界数据。最后成功更新：{minutes} 分钟前。",
     "degraded_never": "当前无法获取 Palworld 世界数据（尚无成功记录）。",
