@@ -64,3 +64,89 @@ _NON_LOCKABLE: frozenset[str] = frozenset({
 
 # 可被 admin_only_commands 锁定的命令串 = 全部 − 不可锁集
 LOCKABLE_COMMANDS: frozenset[str] = frozenset(PAL_COMMAND_STRINGS) - _NON_LOCKABLE
+
+
+# ============================================================================
+# 分级命令真相源（v0.9.5 Phase 1，spec §3 命令树 / §8 锚定）——additive。
+# 上方旧扁平 26 常量（COMMANDS/HELP_LINE/PAL_COMMAND_STRINGS/LOCKABLE_COMMANDS/
+# _NON_LOCKABLE）保持不动、command_names_test 仍锚它们；T8 收口时统一改名删旧。
+# 两种粒度分家（spec §8）：
+#   - 注册身份 = 11 首词（PAL_REGISTERED），AstrBot 只认首词，供 @pal.command 锚定。
+#   - 门控/help/锁身份 = 完整路径（PAL_COMMAND_PATHS：`world status`/`server kick`/
+#     `rank`），功能门/管理员门/可锁性都按完整路径判定。
+# ============================================================================
+
+# 子动作分发规格：(实现方法名, 功能门组, gate)。
+#   gate="read"        —— 功能门 + 可选 admin_only 锁（查询类）。
+#   gate="admin_write" —— server 管控写：admin 硬门 + feature 门 + 审计（走 admin_write）。
+#   gate="admin"       —— 需管理员但非 admin_write（如 link add/remove、confirm，
+#                          照现 server add/remove 的 is_admin 判定）。
+# 方法名此刻不必已存在（T7 建组分发/实现方法）；getattr introspection 锚定留 T7。
+ActionSpec = tuple[str, str, str]
+
+# {组: {子动作: ActionSpec}}——路由 + help 生成 + 锚定的单一真相源。
+DISPATCH: dict[str, dict[str, ActionSpec]] = {
+    "world": {
+        "status": ("status", "core", "read"),
+        "overview": ("world", "core", "read"),   # overview = 旧 /pal world 方法
+        "rules": ("rules", "core", "read"),
+        "events": ("events", "events", "read"),
+        "today": ("today", "report", "read"),
+    },
+    "guild": {
+        "list": ("guilds", "guilds_bases", "read"),
+        "info": ("guild", "guilds_bases", "read"),
+        "bases": ("bases", "guilds_bases", "read"),
+        "base": ("base", "guilds_bases", "read"),
+    },
+    "player": {
+        "info": ("player", "players", "read"),
+        "bind": ("bind", "players", "read"),
+        "unbind": ("unbind_self", "players", "read"),  # 串 unbind → 方法 unbind_self
+    },
+    "server": {  # 写命令：门序 admin 硬门先于 feature；basic/danger 分组不可混
+        "announce": ("announce", "server_admin_basic", "admin_write"),
+        "save": ("save", "server_admin_basic", "admin_write"),
+        "kick": ("kick", "server_admin_basic", "admin_write"),
+        "unban": ("unban", "server_admin_basic", "admin_write"),
+        "ban": ("ban", "server_admin_danger", "admin_write"),
+        "shutdown": ("shutdown", "server_admin_danger", "admin_write"),
+        "stop": ("stop", "server_admin_danger", "admin_write"),
+    },
+    "link": {  # 服务器选择/绑定（多模式）；单模式运行时拒 + help 省略（T9）
+        "list": ("link_list", "core", "read"),
+        "add": ("link_add", "core", "admin"),
+        "remove": ("link_remove", "core", "admin"),
+    },
+}
+
+# 扁平（顶层）命令 → ActionSpec（单一命令名，无组前缀）。
+FLAT_ACTIONS: dict[str, ActionSpec] = {
+    "rank": ("rank", "players", "read"),
+    "online": ("online", "core", "read"),
+    "me": ("me", "players", "read"),
+    "help": ("help", "core", "read"),
+    "whoami": ("whoami", "core", "read"),
+    "confirm": ("confirm", "core", "admin"),  # 仅管理员可见/可用
+}
+
+# 注册身份：11 首词（5 组 + 6 扁平）——供 @pal.command 注册锚定（T8 翻新时消费）。
+PAL_REGISTERED: list[str] = [*DISPATCH.keys(), *FLAT_ACTIONS.keys()]
+
+# 门控/help/锁身份：完整路径集（`world status` … + 扁平命令名）。
+PAL_COMMAND_PATHS: frozenset[str] = frozenset(
+    [f"{group} {sub}" for group, actions in DISPATCH.items() for sub in actions]
+    + list(FLAT_ACTIONS)
+)
+
+# 不可锁集（完整路径）：server 各动作 + link 各动作 + 元命令（help/whoami/confirm）。
+# 这些由 feature 组 + 管理员名单双闸把守，绝不可再被 admin_only_commands 锁。
+# T8 收口时会与 config._NON_LOCKABLE 跨源全等锚定（本任务不改 config）。
+_NON_LOCKABLE_PATHS: frozenset[str] = frozenset(
+    [f"server {sub}" for sub in DISPATCH["server"]]
+    + [f"link {sub}" for sub in DISPATCH["link"]]
+    + ["help", "whoami", "confirm"]
+)
+
+# 可被 admin_only_commands 锁定的完整路径 = 全部 − 不可锁集。
+LOCKABLE_PATHS: frozenset[str] = frozenset(PAL_COMMAND_PATHS) - _NON_LOCKABLE_PATHS
