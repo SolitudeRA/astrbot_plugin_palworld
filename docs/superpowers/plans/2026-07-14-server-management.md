@@ -881,7 +881,9 @@ git commit -m "feat(cmd): admin_write 中央编排 + confirm 复检 + AdminServi
 - [ ] **Step 1: registry 三表 + command_names 硬编码断言更新（先红）**
 
 `command_registry.py`：`COMMANDS` 加 `("announce","server_admin_basic")`…`("stop","server_admin_danger")` 7 项 + `("confirm","core")`；`HELP_LINE` 加 8 条（confirm 含）；`PAL_COMMAND_STRINGS` 加 8 串（announce/save/kick/unban/ban/shutdown/stop/confirm）。
-`command_names_test.py::test_lockable_excludes_non_lockable`（:22-25）硬编码集合从 `{"server","whoami","help"}` 改到 12 项全集。
+`command_names_test.py::test_lockable_excludes_non_lockable`（:22-25）硬编码集合从 `{"server","whoami","help"}` 改到 11 项全集 `{server,whoami,help,confirm,announce,save,kick,unban,ban,shutdown,stop}`。
+
+**恢复 T1 的桥接（关键）**：T1 因提前扩张 `config._NON_LOCKABLE` 而把 PR#18 的 `test_non_lockable_matches_registry_complement` 放宽成「子集检查 + 硬钉 8 预注册写命令」。本任务注册 8 写命令进 `PAL_COMMAND_STRINGS` + registry 非锁集扩张到 11 后，registry 侧与 config._NON_LOCKABLE 全等成立——**须把该测试收缩钉子（8→0）恢复为原全等断言** `config._NON_LOCKABLE == frozenset(PAL_COMMAND_STRINGS) − set(LOCKABLE_COMMANDS)`。注：registry 的 `LOCKABLE_COMMANDS` 定义（现 `PAL_COMMAND_STRINGS − {server,whoami,help}`）也须改为减 11 项非锁集（与 config._NON_LOCKABLE 同集），否则写命令会落进 LOCKABLE。
 
 - [ ] **Step 2: help 角色隔离测试（先红）**
 
