@@ -104,6 +104,17 @@ def test_command_permissions_description_mentions_tristate():
         assert token in desc, f"描述应包含三态取值 {token}"
 
 
+def test_single_allowed_groups_is_top_level_template_list():
+    s = load_schema()
+    assert "single_allowed_groups" not in s["routing"].get("items", {})  # 不可嵌 routing
+    sag = s["single_allowed_groups"]
+    assert sag["type"] == "template_list"
+    assert sag["default"] == []
+    items = sag["templates"]["group"]["items"]
+    assert set(items) == {"umo", "note"}
+    assert sag["templates"]["group"]["display_item"] == "umo"
+
+
 def test_server_admin_schema_present():
     s = load_schema()
     assert s["server_admin"]["type"] == "object"

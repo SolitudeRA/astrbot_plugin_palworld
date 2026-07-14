@@ -43,3 +43,17 @@ def test_permission_admins_strips_meta():
     ok, res = _ok({"permission_admins": [{"id": "aiocqhttp:1", "note": "x", "__row_id": "adm-0", "junk": 1}]})
     assert ok
     assert res["permission_admins"][0] == {"id": "aiocqhttp:1", "note": "x"}
+
+
+def test_single_allowed_groups_roundtrip_row_id():
+    cfg = {"single_allowed_groups": [{"umo": "aiocqhttp:GroupMessage:1", "note": "x"}]}
+    out = redact_config(cfg)
+    assert out["single_allowed_groups"][0]["__row_id"] == "sag-0"
+    assert out["single_allowed_groups"][0]["umo"] == "aiocqhttp:GroupMessage:1"
+
+
+def test_single_allowed_groups_strips_meta():
+    ok, res = _ok({"single_allowed_groups": [
+        {"__row_id": "sag-0", "umo": "u", "note": "n", "junk": "x"}]})
+    assert ok
+    assert set(res["single_allowed_groups"][0]) == {"umo", "note"}

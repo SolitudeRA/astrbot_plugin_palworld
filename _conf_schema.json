@@ -155,6 +155,21 @@
       }
     }
   },
+  "single_allowed_groups": {
+    "type": "template_list",
+    "description": "单世界模式授权群名单：仅 world_mode=single 且 access_mode=restricted 时生效，列出的会话（群/私聊）才能查询唯一服务器。UMO 可在群里发 /pal whereami 获取。（多世界模式忽略本表）",
+    "default": [],
+    "templates": {
+      "group": {
+        "name": "授权群",
+        "display_item": "umo",
+        "items": {
+          "umo": { "type": "string", "description": "会话标识 unified_msg_origin，如 aiocqhttp:GroupMessage:123456（群里发 /pal whereami 可查）", "default": "" },
+          "note": { "type": "string", "description": "备注（可选，明文存储于配置文件，勿填真实姓名/联系方式等敏感信息）", "default": "" }
+        }
+      }
+    }
+  },
   "command_permissions": {
     "type": "template_list",
     "description": "命令权限覆盖（三态行）。每行为一个命令指定 是否启用 / 是否仅管理员 的覆盖；未列出的命令按默认。command 写完整路径（如 world status、player info）或组名（如 guild、player，对该组所有子命令生效）；enabled/admin_only 取 inherit（继承默认）/ on / off。建议在插件设置页「权限」章可视化编辑，本表为落盘真相源",
