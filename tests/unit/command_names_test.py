@@ -26,6 +26,12 @@ def test_lockable_excludes_non_lockable():
 
 
 def test_non_lockable_matches_registry_complement():
-    # config._NON_LOCKABLE(命令门内联)必须与 registry 的不可锁集互补:
-    # 任一处改了不可锁集而另一处没跟,此处转红。
-    assert _NON_LOCKABLE == frozenset(PAL_COMMAND_STRINGS) - set(LOCKABLE_COMMANDS)
+    # config._NON_LOCKABLE(命令门内联)对已注册命令必须与 registry 的不可锁集互补:
+    # 任一处改了已注册命令的不可锁集而另一处没跟,此处转红(防漂移)。
+    registry_non_lockable = frozenset(PAL_COMMAND_STRINGS) - set(LOCKABLE_COMMANDS)
+    assert registry_non_lockable <= _NON_LOCKABLE
+    # _NON_LOCKABLE 额外预置的是尚未注册的服务器管控写命令(T4/T6+ 才注册进 registry);
+    # 这些命令由 feature 组 + 管理员名单把守,绝不可被 admin_only_commands 锁,故提前钉死。
+    assert _NON_LOCKABLE - registry_non_lockable == frozenset({
+        "confirm", "announce", "save", "kick", "unban", "ban", "shutdown", "stop",
+    })
