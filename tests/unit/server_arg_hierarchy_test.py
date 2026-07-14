@@ -17,6 +17,7 @@ def test_group_word_absent_still_parses():
     # AstrBot 某些版本会剥掉组词，只留子动作
     p = parse_group("info 战狼帮", "guild")
     assert p.sub == "info" and p.rest == "战狼帮"
+    assert p.server_override is None
 
 
 def test_bare_group_empty_sub():

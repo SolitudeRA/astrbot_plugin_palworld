@@ -169,7 +169,7 @@
   },
   "admin_only_commands": {
     "type": "list",
-    "description": "锁成仅管理员的命令（astrbot 命令串，如 player、rank；server/whoami/help 不可锁）",
+    "description": "锁成仅管理员的命令（astrbot 命令串，须写完整路径，如 `player info`、`world status`、`rank`；server 组各写命令 / link 各命令 / whoami / help / confirm 不可锁）",
     "default": []
   }
 }

@@ -396,6 +396,8 @@ class Commands:
         # gate == read（list）
         if self._admin_locked(f"link {p.sub}", sender_id, is_admin):
             return L("admin_required")
+        # link 现仅 list 一个 read 子动作，故此处直调 link_list；
+        # 若日后新增第二个 read 子动作，须改回按 DISPATCH 泛化分发（getattr(method)）。
         return await self.link_list(umo, is_group, is_admin)
 
     async def link_list(self, umo, is_group, is_admin) -> str:
