@@ -529,6 +529,17 @@ class Repository:
         )
         return [self._row_to_session(r) for r in rows]
 
+    async def total_durations(self, world_id: str) -> dict[str, int]:
+        """各 player_key 在留存期内(受 prune 按 session_days 裁剪)的累计
+        observed_seconds。直接 Σ 求和、无日窗/墙钟封顶——与 sessions_in_day 的
+        当日窗口交叠逻辑不同套(留存期累计时长榜 total 用)。"""
+        rows = await self._db.query(
+            "SELECT player_key, SUM(observed_seconds) AS total FROM player_sessions"
+            " WHERE world_id = ? GROUP BY player_key",
+            (world_id,),
+        )
+        return {r["player_key"]: int(r["total"]) for r in rows if r["total"] is not None}
+
     # ---- observations ----
     async def insert_observation(self, o: PlayerObservation) -> None:
         await self._db.execute_write(

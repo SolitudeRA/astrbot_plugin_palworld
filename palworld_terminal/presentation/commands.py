@@ -195,11 +195,12 @@ class Commands:
             return err
         strict = self._cfg.privacy.mode == "strict"
         which = arg.name.strip().lower()
-        if which not in ("time", "level"):
-            which = "both"
-        if which == "time" and strict:
-            return L("rank_time_strict")
-        dto = await self._query.rank(world)
+        if which not in ("today", "total", "level"):
+            which = "today"  # 缺省 today（spec §6）
+        # strict 双砍：today 与 total 同为时长榜(≈作息)均回 notice；level 不受影响。
+        if which in ("today", "total") and strict:
+            return L("rank_duration_strict")
+        dto = await self._query.rank(world, which)
         return format_rank(dto, which=which, strict=strict)
 
     @_gated

@@ -27,7 +27,7 @@ MESSAGES: dict[str, str] = {
     "derived_note": "（插件推导）",
     "feature_disabled": "该功能未开放：当前配置或服务器不支持。",
     "rank_empty": "本服务器暂无玩家排行数据。",
-    "rank_time_strict": "时长榜在 strict 隐私模式下停用。",
+    "rank_duration_strict": "时长榜（今日/累计）在 strict 隐私模式下停用。",
     "player_not_found": "未找到玩家「{name}」。",
     "me_unbound": "你还没绑定玩家，请用 /pal bind <玩家名> 绑定。",
     "me_hidden": "已将你从玩家排行/查询中隐藏。用 /pal me show 可恢复。",

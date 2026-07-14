@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from ..adapters.sqlite_repository import Repository
 from ..config import AppConfig
@@ -37,8 +37,9 @@ class PlayerProfileDTO:
 
 @dataclass(slots=True)
 class RankBoardsDTO:
-    time_rows: list[tuple[str, int]]   # (name, seconds)
+    time_rows: list[tuple[str, int]]   # (name, seconds) 今日在线时长
     level_rows: list[tuple[str, int]]  # (name, level)
+    total_rows: list[tuple[str, int]] = field(default_factory=list)  # (name, seconds) 留存期累计
 
 
 class QueryService:
@@ -280,8 +281,8 @@ class QueryService:
             return cached
         raw = self._settings_cache.get(world.server_id, {})
         rows: list[RuleRow] = []
-        for field, value in raw.items():
-            label, unit = self._meta.setting_label(field)
+        for field_name, value in raw.items():
+            label, unit = self._meta.setting_label(field_name)
             rows.append(RuleRow(label=label, value=f"{value}{unit}"))
         advanced_note = None
         if self._cfg.privacy.mode == "advanced":
@@ -345,49 +346,78 @@ class QueryService:
         keys |= await self._repo.get_hidden_keys(world.world_id)
         return keys
 
-    async def rank(self, world: World) -> RankBoardsDTO:
+    def _converge_by_name(
+        self, pairs: list[tuple[str, int]], excluded_names: set[str], n: int,
+    ) -> list[tuple[str, int]]:
+        """(name, secs) 列表按显示名归并求和,被排除/隐藏名字整组剔除,取 Top-N。
+        今日/total 两榜共用同一名字级收敛剔除(存在性收敛:不让同名另一 key 补位,
+        泄露被隐藏者的活动)。"""
+        name_totals: dict[str, int] = {}
+        for name, secs in pairs:
+            if secs <= 0:
+                continue
+            name_totals[name] = name_totals.get(name, 0) + secs
+        for name in excluded_names:
+            name_totals.pop(name, None)
+        return sorted(name_totals.items(), key=lambda kv: (-kv[1], kv[0]))[:n]
+
+    async def rank(self, world: World, mode: str = "both") -> RankBoardsDTO:
         excluded = await self.load_excluded_keys(world)
         n = self._cfg.players.rank_top_n
         now = self._clock.now()
 
-        _day, start, end = day_bounds(self._cfg, world, now)
-        sessions = await self._repo.sessions_in_day(world.world_id, start, end)
-        # 时长按会话与今日窗口的墙钟交叠计入、以 observed_seconds 封顶——
-        # 跨午夜会话不再把昨日时长整段灌进今日榜,采样缺口也不虚增。
-        # 按显示名归并;被排除/隐藏 key 的名字整组剔除(存在性收敛:
-        # 不让同名的另一个 key 补位,泄露被隐藏者仍在线的事实)。
-        name_totals: dict[str, int] = {}
-        banned_names: set[str] = set()
-        for s in sessions:
-            ident = await self._repo.get_player(world.world_id, s.player_key)
-            name = ident.latest_name if ident is not None else s.player_key[:8]
-            if s.player_key in excluded:
-                banned_names.add(name)
-                continue
-            wall_end = s.left_at if s.left_at is not None else now
-            overlap = min(end, wall_end) - max(start, s.joined_at)
-            secs = min(s.observed_seconds, max(overlap, 0))
-            if secs <= 0:
-                continue
-            name_totals[name] = name_totals.get(name, 0) + secs
-        for name in banned_names:
-            name_totals.pop(name, None)
-        time_rows = sorted(name_totals.items(), key=lambda kv: (-kv[1], kv[0]))[:n]
+        time_rows: list[tuple[str, int]] = []
+        if mode in ("both", "today", "time"):
+            _day, start, end = day_bounds(self._cfg, world, now)
+            sessions = await self._repo.sessions_in_day(world.world_id, start, end)
+            # 时长按会话与今日窗口的墙钟交叠计入、以 observed_seconds 封顶——
+            # 跨午夜会话不再把昨日时长整段灌进今日榜,采样缺口也不虚增。
+            pairs: list[tuple[str, int]] = []
+            banned_names: set[str] = set()
+            for s in sessions:
+                ident = await self._repo.get_player(world.world_id, s.player_key)
+                name = ident.latest_name if ident is not None else s.player_key[:8]
+                if s.player_key in excluded:
+                    banned_names.add(name)
+                    continue
+                wall_end = s.left_at if s.left_at is not None else now
+                overlap = min(end, wall_end) - max(start, s.joined_at)
+                secs = min(s.observed_seconds, max(overlap, 0))
+                pairs.append((name, secs))
+            time_rows = self._converge_by_name(pairs, banned_names, n)
 
-        players = await self._repo.list_players_by_level(world.world_id)
-        # 与时长榜同一收敛语义:名字被任何被排除/隐藏 key 占用即整组不上榜
-        hidden_names = {p.latest_name for p in players if p.player_key in excluded}
+        total_rows: list[tuple[str, int]] = []
+        if mode == "total":
+            # total = 留存期内(受 prune session_days 裁剪)累计 Σobserved_seconds,
+            # 直接求和、无墙钟窗口封顶(与今日榜逻辑不同套)。隐私必须复用同一名字级
+            # 收敛:被排除/隐藏 key 的整组名字剔除,不得只按 player_key 裸过滤。
+            durations = await self._repo.total_durations(world.world_id)
+            pairs = []
+            banned_names = set()
+            for player_key, secs in durations.items():
+                ident = await self._repo.get_player(world.world_id, player_key)
+                name = ident.latest_name if ident is not None else player_key[:8]
+                if player_key in excluded:
+                    banned_names.add(name)
+                    continue
+                pairs.append((name, secs))
+            total_rows = self._converge_by_name(pairs, banned_names, n)
+
         level_rows: list[tuple[str, int]] = []
-        seen: set[str] = set()
-        for p in players:
-            if p.latest_name in hidden_names or p.latest_name in seen:
-                continue
-            seen.add(p.latest_name)
-            level_rows.append((p.latest_name, p.latest_level))
-            if len(level_rows) >= n:
-                break
+        if mode in ("both", "level"):
+            players = await self._repo.list_players_by_level(world.world_id)
+            # 与时长榜同一收敛语义:名字被任何被排除/隐藏 key 占用即整组不上榜
+            hidden_names = {p.latest_name for p in players if p.player_key in excluded}
+            seen: set[str] = set()
+            for p in players:
+                if p.latest_name in hidden_names or p.latest_name in seen:
+                    continue
+                seen.add(p.latest_name)
+                level_rows.append((p.latest_name, p.latest_level))
+                if len(level_rows) >= n:
+                    break
 
-        return RankBoardsDTO(time_rows=time_rows, level_rows=level_rows)
+        return RankBoardsDTO(time_rows=time_rows, level_rows=level_rows, total_rows=total_rows)
 
     async def name_banned(self, world: World, name: str, excluded: set[str]) -> bool:
         """名字级收敛判定(与 rank 两榜同语义):同名任一 key 被排除/隐藏

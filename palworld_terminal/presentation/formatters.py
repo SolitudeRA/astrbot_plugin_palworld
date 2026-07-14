@@ -222,9 +222,15 @@ def format_player(dto: PlayerProfileDTO, *, strict: bool) -> str:
 
 def format_rank(dto: RankBoardsDTO, *, which: str, strict: bool) -> str:
     blocks: list[str] = []
-    if which in ("both", "time") and not strict and dto.time_rows:
+    if which in ("both", "today", "time") and not strict and dto.time_rows:
         lines = ["今日在线时长榜："]
         for name, secs in dto.time_rows:
+            lines.append(f"· {name} {_fmt_duration(secs)}")
+        blocks.append("\n".join(lines))
+    # total 同为时长榜,strict 下同砍(not strict 守卫覆盖 total 块)。
+    if which in ("both", "total") and not strict and dto.total_rows:
+        lines = ["留存期内累计时长榜："]
+        for name, secs in dto.total_rows:
             lines.append(f"· {name} {_fmt_duration(secs)}")
         blocks.append("\n".join(lines))
     if which in ("both", "level") and dto.level_rows:
