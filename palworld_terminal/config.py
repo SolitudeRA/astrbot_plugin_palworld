@@ -63,6 +63,7 @@ class BindingConfig:
 class RoutingConfig:
     access_mode: AccessMode
     default_server: str
+    world_mode: str = "multi"  # "single" | "multi"
 
 
 @dataclass(slots=True)
@@ -288,6 +289,12 @@ def _as_float(v, default: float) -> float:
         return default
 
 
+def _one_of(v, allowed: frozenset[str], default: str) -> str:
+    """枚举白名单收口：非法/缺省值回落 default。"""
+    s = str(v)
+    return s if s in allowed else default
+
+
 def _parse_bindings(raw: Mapping) -> list[BindingConfig]:
     out: list[BindingConfig] = []
     for item in raw.get("group_bindings", []) or []:
@@ -409,6 +416,7 @@ def parse_config(raw: Mapping, env: Mapping[str, str]) -> AppConfig:
         routing=RoutingConfig(
             access_mode=AccessMode(str(r.get("access_mode", "restricted") or "restricted")),
             default_server=str(r.get("default_server", "") or ""),
+            world_mode=_one_of(r.get("world_mode", "multi"), frozenset({"single", "multi"}), "multi"),
         ),
         group_bindings=_parse_bindings(raw),
         polling=PollingConfig(
