@@ -157,6 +157,9 @@ class AdminEntry:
 class PermissionsConfig:
     admins: list[AdminEntry]
     admin_only_commands: list[str]
+    # 命令串扁平→完整路径迁移后不再匹配 LOCKABLE_COMMANDS 的锁条目。保留在
+    # admin_only_commands（不改锁行为）但在此登记，供启动告警（防静默失锁 = fail-open）。
+    unknown_locks: list[str] = field(default_factory=list)
 
 
 def _default_permissions() -> PermissionsConfig:
@@ -319,7 +322,11 @@ def _parse_permissions(raw: Mapping) -> PermissionsConfig:
         admins.append(AdminEntry(id=pid, note=str(item.get("note", "") or "").strip()))
     raw_cmds = raw.get("admin_only_commands", [])
     cmds: list[str] = []
+    unknown: list[str] = []
     if isinstance(raw_cmds, list):
+        # 函数体内相对 import：避免 config↔presentation 循环依赖；command_registry
+        # 不反向 import config，安全。（no_absolute_self_import 只禁绝对自导入前缀。）
+        from .presentation.command_registry import LOCKABLE_COMMANDS
         cseen: set[str] = set()
         for c in raw_cmds:
             if not isinstance(c, str):
@@ -329,7 +336,10 @@ def _parse_permissions(raw: Mapping) -> PermissionsConfig:
                 continue
             cseen.add(name)
             cmds.append(name)
-    return PermissionsConfig(admins=admins, admin_only_commands=cmds)
+            # 未知锁条目：保留在 cmds（不改现有锁行为）但登记告警，绝不静默吞。
+            if name not in LOCKABLE_COMMANDS:
+                unknown.append(name)
+    return PermissionsConfig(admins=admins, admin_only_commands=cmds, unknown_locks=unknown)
 
 
 def _resolve_header_value(item: Mapping, env: Mapping[str, str]) -> str:
