@@ -3,10 +3,11 @@
 背景:astrbot_namespace_load_test 只覆盖模块导入;函数体内的惰性问题
 (如曾在实机炸掉 /pal me 的函数内绝对自导入)导入时不触发。本测试在
 同等命名空间条件下真正 initialize 插件、种入世界与玩家数据,把全部
-18 条命令带参数走一遍(server 走裸/add/remove 三种参数,calls 共 20 项;
-bind 成功后再走 unbind/me,复现当年实机 bug 的等价深分支)——任何仅在真实
-AstrBot 加载形态下才暴露的运行时环境差异
-在此转红。features 全开、access_mode=open,让各命令体尽量走深。
+26 条命令带参数走一遍(server 走裸/add/remove 三种参数,calls 共 28 项;
+bind 成功后再走 unbind/me,复现当年实机 bug 的等价深分支;8 条服务器管控
+写命令 require_confirmation 默认关直执、kick/ban 经 _FakeRest 种在线玩家
+走到 execute_target)——任何仅在真实 AstrBot 加载形态下才暴露的运行时环境差异
+在此转红。features 全开(含 server_admin_*)、access_mode=open,让各命令体尽量走深。
 """
 import sys
 
@@ -17,9 +18,31 @@ class _FakeContext:
     pass
 
 
+class _FakeRestResp:
+    def __init__(self, ok=True, status=200, data=None, error=None):
+        self.ok = ok
+        self.status = status
+        self.data = data
+        self.duration_ms = 0
+        self.payload_bytes = 0
+        self.error = error
+
+
 class _FakeRest:
     async def close(self):
         pass
+
+    async def fetch(self, endpoint):
+        # AdminService.resolve_target 实时拉 /players 做名字→userid 解析;
+        # 种一个在线 Alice 令 kick/ban 走到 execute_target 深分支。
+        return _FakeRestResp(ok=True, data={"players": [
+            {"name": "Alice", "userid": "steam_76561198000000001", "level": 1},
+        ]})
+
+    async def post(self, path, json_body):
+        # 写端点:2xx 成功 stub,令 announce/save/kick/unban/ban/shutdown/stop
+        # 走完 _execute→insert_audit 深分支。
+        return _FakeRestResp(ok=True, status=200)
 
 
 class _FakeSched:
@@ -74,7 +97,8 @@ def _raw_config() -> dict:
         "history": {"raw_metrics_days": 7, "aggregate_days": 90, "session_days": 365,
                     "observation_days": 180},
         # 全组开启:关掉的组命令直接回「未开放」,不进函数体,冒烟就白跑
-        "features": {"report": True, "events": True, "guilds_bases": True, "players": True},
+        "features": {"report": True, "events": True, "guilds_bases": True, "players": True,
+                     "server_admin_basic": True, "server_admin_danger": True},
         # sender = get_platform_name():get_sender_id() = test:u1(见 _Ev),
         # 令 server add/remove 越过 is_admin 门,重新走进 routing.use/unbind 深分支
         "permission_admins": [{"id": "test:u1", "note": "冒烟管理员"}],
@@ -125,6 +149,16 @@ async def test_all_commands_run_under_namespaced_load(tmp_path, monkeypatch):
                 (plugin.unbind, "unbind"),    # 绑定后解绑,走 delete_binding 深分支
                 (plugin.server, "server"), (plugin.whoami, "whoami"), (plugin.help, ""),
                 (plugin.server, "server add alpha"), (plugin.server, "server remove alpha"),
+                # 服务器管控写命令(require_confirmation 默认关 → 直执,不进 pending);
+                # kick/ban 的 Alice 由 _FakeRest.fetch 种在线 → 走到 execute_target。
+                (plugin.announce, "announce 服务器 5 分钟后维护"),
+                (plugin.save, "save"),
+                (plugin.kick, "kick Alice 违规"),
+                (plugin.unban, "unban steam_76561198000000002"),
+                (plugin.ban, "ban Alice 破坏据点"),
+                (plugin.shutdown, "shutdown 60 例行维护"),
+                (plugin.stop, "stop"),
+                (plugin.confirm, "confirm"),  # 无 pending → admin_no_pending(仍回文本)
             ]
             for handler, msg in calls:
                 outputs = [out async for out in handler(_Ev(msg))]

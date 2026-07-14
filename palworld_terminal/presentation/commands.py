@@ -28,9 +28,6 @@ from ..presentation.formatters import (
 from ..presentation.locale import L
 from ..presentation.server_arg import ArgError, parse_arg
 
-# 危险写命令：执行前需二次确认（当 server_admin.require_confirmation 开启时）。
-_DANGER = frozenset({"ban", "shutdown", "stop"})
-
 # shutdown 倒计时秒数上界（spec §3：正整数、1–86400）。
 _SHUTDOWN_MAX_SECONDS = 86400
 

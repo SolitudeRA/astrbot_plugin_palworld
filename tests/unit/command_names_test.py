@@ -20,18 +20,20 @@ def test_pal_command_strings_match_main_registrations():
 
 
 def test_lockable_excludes_non_lockable():
-    assert LOCKABLE_COMMANDS == frozenset(PAL_COMMAND_STRINGS) - {"server", "whoami", "help"}
+    non_lockable = {
+        "server", "whoami", "help", "confirm",
+        "announce", "save", "kick", "unban", "ban", "shutdown", "stop",
+    }
+    assert LOCKABLE_COMMANDS == frozenset(PAL_COMMAND_STRINGS) - non_lockable
     assert "unbind" in LOCKABLE_COMMANDS    # 命令串是 unbind,不是 unbind_self
     assert "server" not in LOCKABLE_COMMANDS and "help" not in LOCKABLE_COMMANDS
+    # 服务器管控写命令 + confirm 一律不可锁
+    assert not (non_lockable & LOCKABLE_COMMANDS)
 
 
 def test_non_lockable_matches_registry_complement():
-    # config._NON_LOCKABLE(命令门内联)对已注册命令必须与 registry 的不可锁集互补:
-    # 任一处改了已注册命令的不可锁集而另一处没跟,此处转红(防漂移)。
+    # config._NON_LOCKABLE(命令门内联)必须与 registry 的不可锁集全等:
+    # 任一处改了不可锁集而另一处没跟,此处转红(防漂移)。8 写命令 + confirm 已注册进
+    # registry(T8),两侧全集相等——原全等断言恢复(桥接钉子 8→0)。
     registry_non_lockable = frozenset(PAL_COMMAND_STRINGS) - set(LOCKABLE_COMMANDS)
-    assert registry_non_lockable <= _NON_LOCKABLE
-    # _NON_LOCKABLE 额外预置的是尚未注册的服务器管控写命令(T4/T6+ 才注册进 registry);
-    # 这些命令由 feature 组 + 管理员名单把守,绝不可被 admin_only_commands 锁,故提前钉死。
-    assert _NON_LOCKABLE - registry_non_lockable == frozenset({
-        "confirm", "announce", "save", "kick", "unban", "ban", "shutdown", "stop",
-    })
+    assert registry_non_lockable == _NON_LOCKABLE
