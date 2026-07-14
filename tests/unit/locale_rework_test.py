@@ -12,5 +12,5 @@ def test_hint_strings_drop_old_command_names():
     for key in ("no_server_resolved", "not_authorized", "active_server_stale"):
         assert "/pal use" not in MESSAGES[key], key
     assert "/pal servers" not in MESSAGES["no_server_resolved"]
-    # 改后指向新命令
-    assert "/pal server add" in MESSAGES["not_authorized"]
+    # 改后指向新分级命令（服务器授权已收进 /pal link 组）
+    assert "/pal link add" in MESSAGES["not_authorized"]

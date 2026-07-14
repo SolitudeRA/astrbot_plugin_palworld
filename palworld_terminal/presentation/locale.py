@@ -2,15 +2,17 @@ from __future__ import annotations
 
 MESSAGES: dict[str, str] = {
     "no_server_configured": "尚未配置 Palworld 服务器，请在插件配置页添加。",
-    "no_server_resolved": "本会话未指定服务器。管理员可用 /pal server add <名称> 授权，或 /pal server 查看可用服务器。",
+    "no_server_resolved": "本会话未指定服务器。管理员可用 /pal link add <名称> 授权，/pal link list 查看服务器。",
     "server_unknown": "服务器「{server}」不存在或未就绪。",
-    "not_authorized": "本会话未被授权使用服务器「{server}」。请管理员先执行 /pal server add {server}。",
+    "not_authorized": "本会话未被授权使用服务器「{server}」。请管理员先执行 /pal link add {server}。",
+    "link_single_mode": "当前为单世界模式，无需选择服务器：所有操作对应唯一服务器。",
+    "group_no_actions": "该命令组暂无可用命令（可能未开放或需要管理员权限）。",
     "private_restricted": "restricted 模式下私聊不可查询，请在群聊中使用。",
     "single_restricted_warning": (
         "当前为单世界模式（world_mode=single），访问控制 access_mode=restricted 已被架空："
         "所有会话（含私聊）都可直接读取唯一服务器。如需按会话授权，请改用 world_mode=multi。"
     ),
-    "active_server_stale": "当前绑定的服务器已不可用，请管理员重新执行 /pal server add <名称>。",
+    "active_server_stale": "当前绑定的服务器已不可用，请管理员重新执行 /pal link add <名称>。",
     "degraded": "当前无法获取 Palworld 世界数据。最后成功更新：{minutes} 分钟前。",
     "degraded_never": "当前无法获取 Palworld 世界数据（尚无成功记录）。",
     "auth_error": "世界数据接口配置异常，请联系管理员。",
@@ -29,16 +31,16 @@ MESSAGES: dict[str, str] = {
     "rank_empty": "本服务器暂无玩家排行数据。",
     "rank_duration_strict": "时长榜（今日/累计）在 strict 隐私模式下停用。",
     "player_not_found": "未找到玩家「{name}」。",
-    "me_unbound": "你还没绑定玩家，请用 /pal bind <玩家名> 绑定。",
+    "me_unbound": "你还没绑定玩家，请用 /pal player bind <玩家名> 绑定。",
     "me_hidden": "已将你从玩家排行/查询中隐藏。用 /pal me show 可恢复。",
     "me_shown": "已恢复你在玩家排行/查询中的可见性。",
     "bind_ok": "已绑定到玩家「{name}」。",
     "bind_not_found": "未找到玩家「{name}」，无法绑定。",
-    "player_usage": "用法：/pal player <玩家名>",
-    "bind_usage": "用法：/pal bind <玩家名>",
+    "player_usage": "用法：/pal player info <玩家名>",
+    "bind_usage": "用法：/pal player bind <玩家名>",
     "whoami": "你的账号标识：{id}（建议私聊 bot 执行本命令，再把标识报给管理员加入受托名单）",
     "whoami_no_sender": "当前场景无法识别你的账号，请在群聊里再试。",
-    "server_usage": "用法：/pal server add <名称> 或 /pal server remove <名称>",
+    "server_usage": "用法：/pal link add <名称> 或 /pal link remove <名称>",
     "unbind_self_ok": "已解除你与玩家「{name}」的绑定。",
     "unbind_self_none": "你还没有绑定玩家，无需解绑。",
     # ---- 服务器管控（写命令 / 二次确认）----
@@ -49,10 +51,10 @@ MESSAGES: dict[str, str] = {
     "target_none": "未找到目标玩家「{target}」。",
     "target_unreachable": "无法获取服务器在线玩家列表（服务器可能不可达），请稍后重试。",
     "target_multi": "目标「{target}」有多个同名玩家（{candidates}）。请用 steam_ 前缀的 userid 精确指定。",
-    "admin_announce_usage": "用法：/pal announce <要广播的公告内容>",
-    "admin_target_usage": "用法：/pal {action} <玩家名 或 steam_ 前缀 userid>（可在后面加理由）",
-    "admin_unban_usage": "用法：/pal unban <steam_ 前缀的 userid>",
-    "admin_shutdown_usage": "用法：/pal shutdown <秒数> [公告]（秒数须为 1–86400 的整数，倒计时结束后关服）",
+    "admin_announce_usage": "用法：/pal server announce <要广播的公告内容>",
+    "admin_target_usage": "用法：/pal server {action} <玩家名 或 steam_ 前缀 userid>（可在后面加理由）",
+    "admin_unban_usage": "用法：/pal server unban <steam_ 前缀的 userid>",
+    "admin_shutdown_usage": "用法：/pal server shutdown <秒数> [公告]（秒数须为 1–86400 的整数，倒计时结束后关服）",
     "admin_shutdown_summary": "（{seconds} 秒后关服）",
     "admin_confirm_preview": (
         "⚠️ 即将执行【{action}】{target}，目标服务器「{server}」。"

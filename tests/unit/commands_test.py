@@ -185,5 +185,5 @@ def test_help_role_separation():
     cmds = Commands(
         _FakeRouting(Resolution(_server(), None)), _FakeQuery(), _FakeRepo(), _cfg_all_on(), None
     )
-    assert "server add" in cmds.help("/pal help", is_admin=True)
-    assert "server add" not in cmds.help("/pal help", is_admin=False)
+    assert "/pal link add" in cmds.help("/pal help", is_admin=True)
+    assert "/pal link add" not in cmds.help("/pal help", is_admin=False)

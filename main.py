@@ -60,11 +60,13 @@ try:  # AstrBot 以 data.plugins.<目录>.main 命名空间加载，插件目录
     from .palworld_terminal.container import Container
     from .palworld_terminal.infrastructure.clock import SystemClock
     from .palworld_terminal.presentation import web_api
+    from .palworld_terminal.presentation.locale import L
 except ImportError:  # 测试/独立环境从仓库根以顶级模块导入
     from palworld_terminal.config import parse_config
     from palworld_terminal.container import Container
     from palworld_terminal.infrastructure.clock import SystemClock
     from palworld_terminal.presentation import web_api
+    from palworld_terminal.presentation.locale import L
 
 
 _log = logging.getLogger("palworld_terminal.main")
@@ -101,6 +103,23 @@ class PalWorldTerminal(Star):
         self._container = Container(cfg, data_dir, SystemClock())
         await self._container.start()
         self._maybe_register_web_api()
+        self._log_startup_warnings()
+
+    def _log_startup_warnings(self) -> None:
+        """装配后暴露安全相关启动告警（spec §5/§7）：single+restricted 访问控制架空、
+        admin_only_commands 未知锁条目（格式迁移后失锁 = fail-open）。"""
+        c = self._container
+        if c is None:
+            return
+        warn = c.routing.single_restricted_warning()
+        if warn is not None:
+            _log.warning(warn)
+        unknown = c.config.permissions.unknown_locks
+        if unknown:
+            _log.warning(
+                "以下 admin_only_commands 条目不是合法命令路径、锁未生效：%s",
+                "、".join(unknown),
+            )
 
     async def terminate(self) -> None:
         if self._container is not None:
@@ -388,10 +407,17 @@ class PalWorldTerminal(Star):
 
     @pal.command("link")
     async def link(self, event):
-        # link add/remove 需 is_admin（门在 Commands.link 内）;单模式守卫 T9 加。
-        yield event.plain_result(await self._guarded(lambda c: c.commands.link(
+        # link add/remove 需 is_admin（门在 Commands.link 内）；单模式守卫见 _link_dispatch。
+        yield event.plain_result(await self._guarded(lambda c: self._link_dispatch(c, event)))
+
+    def _link_dispatch(self, c, event):
+        # 单世界模式守卫（唯一防线，先于任何 routing.use/unbind = DB 写）：单模式无需选择
+        # 服务器，直接回提示，绝不触达 Commands.link（help 省略 link 组只是视觉，此处才是拦截）。
+        if c.config.routing.world_mode == "single":
+            return L("link_single_mode")
+        return c.commands.link(
             self._umo(event), self._msg(event), self._is_group(event),
-            self._sender_id(event), c.commands.is_plugin_admin(self._sender_id(event)))))
+            self._sender_id(event), c.commands.is_plugin_admin(self._sender_id(event)))
 
     @pal.command("rank")
     async def rank(self, event):

@@ -3,7 +3,12 @@ from __future__ import annotations
 from ..application.query_service import PlayerProfileDTO, RankBoardsDTO
 from ..config import SkippedServer
 from ..domain.enums import Confidence, PingBucket
-from ..presentation.command_registry import COMMANDS, HELP_LINE
+from ..presentation.command_registry import (
+    DISPATCH,
+    FLAT_ACTIONS,
+    HELP_TEXT,
+    ActionSpec,
+)
 from ..presentation.dtos import (
     BaseDetailDTO,
     BaseDTO,
@@ -122,33 +127,68 @@ def format_servers(
     return "\n".join(lines)
 
 
-_HELP_ADMIN_EXTRA = [
-    "管理员命令：",
-    "/pal server add <名称>  授权本群并设为活动服务器（仅群聊）",
-    "/pal server remove <名称>  撤销本群授权",
-]
+# 命令组显示标签（分级 help / 裸组迷你帮助共用；避免英文词汇泄漏干扰功能门测试）。
+_GROUP_LABEL: dict[str, str] = {
+    "world": "世界查询",
+    "guild": "公会与据点",
+    "player": "玩家",
+    "server": "服务器管控（管理员）",
+    "link": "服务器选择",
+}
+_FLAT_LABEL = "其他"
 
 
-_ADMIN_GROUPS = frozenset({"server_admin_basic", "server_admin_danger"})
+def _action_visible(spec: ActionSpec, is_admin: bool, features) -> bool:
+    """单一可见性判定：功能门 + 角色门。
+
+    写动作（gate=admin_write）与需管理员的动作（gate=admin，含 link add/remove、
+    confirm）仅管理员可见——非管理员绝不泄漏其存在（安全线）。
+    """
+    _method, feat_group, gate = spec
+    if not features.enabled(feat_group):
+        return False
+    if gate in ("admin_write", "admin"):
+        return is_admin
+    return True
 
 
-def format_help(topic: str | None, is_admin: bool, features) -> str:
+def visible_actions(
+    group: str, is_admin: bool, features, world_mode: str = "multi",
+) -> list[tuple[str, ActionSpec]]:
+    """分级 help + 裸组迷你帮助的**单一过滤真相源**（谓词）。
+
+    返回组内按功能门 + 角色过滤后的可见 (子动作, ActionSpec) 有序列表。
+    单世界模式省略整个 link 组（视觉；运行时守卫在 main 的 link handler）。
+    _group_help（commands.py 裸组迷你帮助）复用本函数——绝不另写一份过滤。
+    """
+    if group == "link" and world_mode == "single":
+        return []
+    return [
+        (sub, spec)
+        for sub, spec in DISPATCH.get(group, {}).items()
+        if _action_visible(spec, is_admin, features)
+    ]
+
+
+def _help_line(path: str) -> str:
+    desc = HELP_TEXT.get(path, "")
+    return f"/pal {path}  {desc}" if desc else f"/pal {path}"
+
+
+def format_help(topic: str | None, is_admin: bool, features, world_mode: str = "multi") -> str:
     lines = ["PalWorldTerminal 命令："]
-    for name, group in COMMANDS:
-        if group in _ADMIN_GROUPS:
-            # 写命令：组已开 且 是管理员 才展示（非管理员绝不泄漏其存在）
-            if is_admin and features.enabled(group):
-                lines.append(HELP_LINE[name])
-        elif name == "confirm":
-            # confirm 是 core，但仅对管理员有意义，仅管理员可见
-            if is_admin:
-                lines.append(HELP_LINE[name])
-        elif group == "core" or features.enabled(group):
-            lines.append(HELP_LINE[name])
+    for group in DISPATCH:  # world/guild/player/server/link（插入序）
+        vis = visible_actions(group, is_admin, features, world_mode)
+        if not vis:
+            continue
+        lines.append(f"【{_GROUP_LABEL.get(group, group)}】")
+        lines.extend(_help_line(f"{group} {sub}") for sub, _spec in vis)
+    flat = [name for name, spec in FLAT_ACTIONS.items()
+            if _action_visible(spec, is_admin, features)]
+    if flat:
+        lines.append(f"【{_FLAT_LABEL}】")
+        lines.extend(_help_line(name) for name in flat)
     lines.append("提示：命令末尾可加 @服务器名 指定服务器。")
-    if is_admin:
-        lines.append("")
-        lines.extend(_HELP_ADMIN_EXTRA)
     return "\n".join(lines)
 
 

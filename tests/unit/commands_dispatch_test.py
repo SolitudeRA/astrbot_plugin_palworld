@@ -365,6 +365,10 @@ async def test_link_list_reaches_impl():
 
 
 async def test_link_bare_group_returns_group_help():
+    # 裸组迷你帮助复用 visible_actions 谓词（T9 角色隔离）：guest 只见 list（读），
+    # add/remove（gate=admin）对 guest 不可见——与 format_help 同一真相源。
     c = _mk(None, None, None, _cfg())
-    out = await c.link("u", "/pal link", True, "s", False)
-    assert "list" in out and "add" in out
+    guest = await c.link("u", "/pal link", True, "s", False)
+    assert "list" in guest and "add" not in guest and "remove" not in guest
+    admin = await c.link("u", "/pal link", True, "s", True)
+    assert "list" in admin and "add" in admin and "remove" in admin

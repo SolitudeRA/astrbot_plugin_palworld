@@ -18,31 +18,8 @@ COMMANDS: list[tuple[str, str]] = [
     ("confirm", "core"),   # 二次确认元命令（core，但 help 中仅管理员可见）
 ]
 COMMAND_GROUP: dict[str, str] = {name: group for name, group in COMMANDS}
-
-# help 展示文案（带参数提示），保持与旧 _HELP_GUEST 一致的措辞
-HELP_LINE: dict[str, str] = {
-    "status": "/pal status  世界状态", "online": "/pal online  当前在线",
-    "world": "/pal world  世界概览", "rules": "/pal rules  世界规则",
-    "guilds": "/pal guilds  公会列表", "guild": "/pal guild <名称>  公会详情",
-    "bases": "/pal bases  据点列表", "base": "/pal base <名称|#序号>  据点详情",
-    "events": "/pal events  世界事件", "today": "/pal today  今日日报",
-    "rank": "/pal rank [today|total|level]  排行榜",
-    "player": "/pal player <玩家名>  玩家查询",
-    "me": "/pal me [hide|show]  我的信息",
-    "bind": "/pal bind <玩家名>  绑定我的玩家",
-    "unbind_self": "/pal unbind  解除我的玩家绑定",
-    "server": "/pal server  服务器列表",
-    "whoami": "/pal whoami  查看我的账号标识（建议私聊使用）",
-    "help": "/pal help  帮助",
-    "announce": "/pal announce <消息>  全服广播",
-    "save": "/pal save  保存世界存档",
-    "kick": "/pal kick <玩家名|userid> [理由]  踢出玩家",
-    "unban": "/pal unban <userid>  解封玩家",
-    "ban": "/pal ban <玩家名|userid> [理由]  封禁玩家",
-    "shutdown": "/pal shutdown <秒> [公告]  倒计时关服",
-    "stop": "/pal stop  立即停止服务",
-    "confirm": "/pal confirm  确认执行上一条危险操作",
-}
+# 注：COMMANDS/COMMAND_GROUP 仍是方法级 `_gated`（commands.py）的功能组真相源；
+# help 文案已迁移到下方分级 HELP_TEXT（完整路径键），format_help 消费后者。
 
 # ============================================================================
 # 分级命令真相源（v0.9.5 Phase 1，spec §3 命令树 / §8 锚定）。
@@ -129,3 +106,36 @@ _NON_LOCKABLE: frozenset[str] = frozenset(
 
 # 可被 admin_only_commands 锁定的完整路径 = 全部 − 不可锁集。
 LOCKABLE_COMMANDS: frozenset[str] = frozenset(PAL_COMMAND_STRINGS) - _NON_LOCKABLE
+
+# 分级 help 文案：完整路径 → 描述（含参数提示）。format_help / 裸组迷你帮助的展示真相源。
+# 键须与 PAL_COMMAND_STRINGS 双向全等（formatters_hierarchy_test 防漂移锚定）。
+HELP_TEXT: dict[str, str] = {
+    "world status": "世界状态",
+    "world overview": "世界概览",
+    "world rules": "世界规则",
+    "world events": "世界事件",
+    "world today": "今日日报",
+    "guild list": "公会列表",
+    "guild info": "公会详情（<名称>）",
+    "guild bases": "据点列表",
+    "guild base": "据点详情（<名称|#序号>）",
+    "player info": "玩家查询（<玩家名>）",
+    "player bind": "绑定我的玩家（<玩家名>）",
+    "player unbind": "解除我的玩家绑定",
+    "server announce": "全服广播（<消息>）",
+    "server save": "保存世界存档",
+    "server kick": "踢出玩家（<玩家名|userid> [理由]）",
+    "server unban": "解封玩家（<userid>）",
+    "server ban": "封禁玩家（<玩家名|userid> [理由]）",
+    "server shutdown": "倒计时关服（<秒> [公告]）",
+    "server stop": "立即停止服务",
+    "link list": "服务器列表",
+    "link add": "授权本群并设为活动服务器（<名称>）",
+    "link remove": "撤销本群授权（<名称>）",
+    "rank": "排行榜（[today|total|level]）",
+    "online": "当前在线",
+    "me": "我的信息（[hide|show]）",
+    "help": "帮助",
+    "whoami": "查看我的账号标识（建议私聊使用）",
+    "confirm": "确认执行上一条危险操作",
+}

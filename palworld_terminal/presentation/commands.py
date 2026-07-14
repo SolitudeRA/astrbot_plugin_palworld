@@ -24,6 +24,7 @@ from ..presentation.formatters import (
     format_status,
     format_today,
     format_world,
+    visible_actions,
 )
 from ..presentation.locale import L
 from ..presentation.server_arg import ArgError, parse_arg, parse_group
@@ -294,11 +295,18 @@ class Commands:
         """admin_only_commands 锁（下沉）：按完整路径判，锁定且非管理员 → True。"""
         return path in self._cfg.permissions.admin_only_commands and not is_admin
 
+    def _world_mode(self) -> str:
+        """真实 AppConfig 恒有 routing.world_mode；默认 multi 兼容不完整测试替身。"""
+        return getattr(getattr(self._cfg, "routing", None), "world_mode", "multi")
+
     def _group_help(self, group: str, is_admin: bool) -> str:
-        """裸组 / 未知子动作的用法 stub（列出合法子动作）。
-        T9 换成复用 format_help 同一角色/功能谓词（本任务先给字面清单，不碰 locale）。
+        """裸组 / 未知子动作迷你帮助——**复用 format_help 同一 visible_actions 谓词**
+        （单一真相源，绝不另写过滤）：guest 绝不见管理员写动作（kick/ban/stop）。
         """
-        subs = " / ".join(DISPATCH[group].keys())
+        vis = visible_actions(group, is_admin, self._cfg.features, self._world_mode())
+        if not vis:
+            return L("group_no_actions")
+        subs = " / ".join(sub for sub, _spec in vis)
         return f"用法：/pal {group} <{subs}>"
 
     @staticmethod
@@ -422,7 +430,7 @@ class Commands:
 
     def help(self, message_str, is_admin) -> str:
         arg = parse_arg(message_str, "help")
-        return format_help(arg.name or None, is_admin, self._cfg.features)
+        return format_help(arg.name or None, is_admin, self._cfg.features, self._world_mode())
 
     async def whoami(self, sender_id: str) -> str:
         if sender_id.endswith(":"):  # 账号段为空(取不到 sender)
