@@ -4,10 +4,15 @@ from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from typing import Any
 
+from ..adapters.normalizer import normalize_players
 from ..adapters.palworld_rest import _ADMIN_PATH, RestResponse
 from ..adapters.privacy_filter import hash_user_id
+from ..domain.enums import EndpointName
 
 _NETWORK_ERROR = "network error"
+
+# 可被直接识别为原始 userid 的前缀（钉死；冲突边界：真名恰以此开头者需改用 userid 精确指定）。
+_USERID_PREFIXES = ("steam_",)
 
 FetchFn = Callable[[str, str], Awaitable[RestResponse]]
 PostFn = Callable[[str, str, "dict[str, Any] | None"], Awaitable[RestResponse]]
@@ -18,6 +23,14 @@ class AdminResult:
     ok: bool
     message_key: str
     params: dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass(slots=True)
+class TargetResult:
+    kind: str  # "userid" | "unique" | "multi" | "none"
+    userid: str | None = None
+    name: str | None = None
+    candidates: list[dict[str, str]] = field(default_factory=list)
 
 
 class AdminService:
@@ -150,4 +163,111 @@ class AdminService:
             path="stop",
             json_body=None,
             initiated_ok_on_disconnect=True,
+        )
+
+    async def resolve_target(self, server_id: str, token: str) -> TargetResult:
+        """把用户输入的目标 token 解析成可用于写操作的原始 userid。
+
+        以 ``steam_`` 前缀开头 → 直接当 userid（不拉取）；否则视作角色名，
+        **实时** 拉 /players 原始响应按 ``name`` 精确匹配求 ``userId``。
+        0/1/多 命中 → ``none``/``unique``/``multi``。明文 userid 用完即弃。
+        """
+        if token.startswith(_USERID_PREFIXES):
+            return TargetResult(kind="userid", userid=token)
+
+        resp = await self._fetch(server_id, EndpointName.PLAYERS)
+        rows = (
+            normalize_players(resp.data, self._clock.now())
+            if resp.ok and resp.data is not None
+            else []
+        )
+        matches = [
+            r for r in rows if r.get("name") == token and r.get("userId")
+        ]
+        if not matches:
+            return TargetResult(kind="none", name=token)
+        if len(matches) == 1:
+            return TargetResult(
+                kind="unique", userid=str(matches[0]["userId"]), name=token
+            )
+        candidates = [
+            {"name": str(r.get("name") or ""), "userid": str(r["userId"])}
+            for r in matches
+        ]
+        return TargetResult(kind="multi", name=token, candidates=candidates)
+
+    async def _target_write(
+        self,
+        admin_id: str,
+        umo: str,
+        is_group: bool,
+        *,
+        action: str,
+        path: str,
+        token: str,
+        reason: str,
+    ) -> AdminResult:
+        resolution = await self._routing.resolve(umo, None, is_group)
+        if resolution.server is None:
+            return AdminResult(
+                ok=False,
+                message_key="admin_resolve_failed",
+                params={"reason": resolution.error or ""},
+            )
+        target = await self.resolve_target(resolution.server.server_id, token)
+        if target.kind == "none":
+            # 未命中：未实际发起，不 post、不审计。
+            return AdminResult(
+                ok=False, message_key="target_none", params={"target": token}
+            )
+        if target.kind == "multi":
+            # 重名歧义：未实际发起，不 post、不审计。
+            return AdminResult(
+                ok=False,
+                message_key="target_multi",
+                params={
+                    "target": token,
+                    "candidates": [c["name"] for c in target.candidates],
+                },
+            )
+        return await self._execute(
+            admin_id,
+            umo,
+            is_group,
+            action=action,
+            path=path,
+            json_body={"userid": target.userid, "message": reason},
+            target_name=target.name,  # userid 直传时为 None：不落明文 id 到 name
+            target_userid=target.userid,
+            detail=reason,
+        )
+
+    async def kick(
+        self, admin_id: str, umo: str, is_group: bool, token: str, reason: str
+    ) -> AdminResult:
+        return await self._target_write(
+            admin_id, umo, is_group, action="kick", path="kick", token=token,
+            reason=reason,
+        )
+
+    async def ban(
+        self, admin_id: str, umo: str, is_group: bool, token: str, reason: str
+    ) -> AdminResult:
+        return await self._target_write(
+            admin_id, umo, is_group, action="ban", path="ban", token=token,
+            reason=reason,
+        )
+
+    async def unban(
+        self, admin_id: str, umo: str, is_group: bool, userid: str
+    ) -> AdminResult:
+        # 解封无名字解析：直接用 userid（审计 hash，不落明文）。
+        return await self._execute(
+            admin_id,
+            umo,
+            is_group,
+            action="unban",
+            path="unban",
+            json_body={"userid": userid},
+            target_userid=userid,
         )
