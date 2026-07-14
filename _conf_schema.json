@@ -73,7 +73,7 @@
       "players_seconds": { "type": "int", "description": "players 轮询间隔(秒)", "default": 30 },
       "info_seconds": { "type": "int", "description": "info 轮询间隔(秒)", "default": 600 },
       "settings_seconds": { "type": "int", "description": "settings 轮询间隔(秒)", "default": 1800 },
-      "game_data_seconds": { "type": "int", "description": "game-data 轮询间隔(秒)（仅在 features.guilds_bases 开启时生效）", "default": 120 },
+      "game_data_seconds": { "type": "int", "description": "game-data 轮询间隔(秒)（仅当有 guild 组命令在 command_permissions 中生效启用时才轮询该端点）", "default": 120 },
       "jitter_ratio": { "type": "float", "description": "间隔抖动比例", "default": 0.10 },
       "max_concurrency": { "type": "int", "description": "全局在途 HTTP 请求上限", "default": 6 }
     }
@@ -91,7 +91,7 @@
   },
   "bases": {
     "type": "object",
-    "description": "据点推导参数（仅在 features.guilds_bases 开启时生效）",
+    "description": "据点推导参数（仅当 guild 组命令启用时生效；启用与否由 command_permissions 决定）",
     "items": {
       "enabled": { "type": "bool", "description": "启用据点/PalBox 推导", "default": true },
       "assignment_radius": { "type": "int", "description": "据点归属半径", "default": 5000 },
@@ -125,7 +125,7 @@
   },
   "server_admin": {
     "type": "object",
-    "description": "服务器管控参数（features.server_admin_basic/danger 开启时生效）。安全告知：本组命令为写操作，采用 OPEN 访问模式——任一 permission_admins 管理员可从任意群/私聊管控任意「就绪」服务器（爆炸半径覆盖全部已配置服务器），务必收紧管理员名单；stop 直接终止服务器进程，不触发存档，可能丢失未保存进度；审计日志与二次确认记录含玩家名/账号等明文 PII，按 audit_retention_days 留存后清理",
+    "description": "服务器管控参数（对应 server 写命令；须在 command_permissions 中启用相应命令/组，默认全关）。安全告知：本组命令为写操作，采用 OPEN 访问模式——任一 permission_admins 管理员可从任意群/私聊管控任意「就绪」服务器（爆炸半径覆盖全部已配置服务器），务必收紧管理员名单；stop 直接终止服务器进程，不触发存档，可能丢失未保存进度；审计日志与二次确认记录含玩家名/账号等明文 PII，按 audit_retention_days 留存后清理",
     "items": {
       "require_confirmation": { "type": "bool", "description": "危险组命令是否需二次确认（/pal confirm）；开启后关服/封禁等须在 confirmation_timeout 秒内确认", "default": false },
       "confirmation_timeout": { "type": "int", "description": "二次确认有效期(秒)，超时作废（范围 5-600）", "default": 30 },
@@ -134,7 +134,7 @@
   },
   "players": {
     "type": "object",
-    "description": "玩家个体查询参数（features.players 开启时生效）",
+    "description": "玩家个体查询参数（对应 player 组 / rank / me 命令；须在 command_permissions 中启用，默认关）",
     "items": {
       "rank_top_n": { "type": "int", "description": "排行榜显示人数", "default": 5 },
       "exclude_names": { "type": "string", "description": "排除出榜/查询的玩家名（逗号分隔）", "default": "" }
