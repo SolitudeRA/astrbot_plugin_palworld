@@ -17,7 +17,26 @@ class _FakeRepo:
 
 
 class _FakeRouting:
-    async def resolve(self, umo, override, is_group):
+    async def resolve(self, umo, override, is_group, *, for_write=False):
+        return SimpleNamespace(
+            server=SimpleNamespace(server_id="s1", name="Alpha"), error=None
+        )
+
+
+class _SingleRestrictedRouting:
+    """忠实模拟 single+restricted+空名单：读路径(for_write=False)拒；写路径放行。
+
+    验证写路径确实以 ``for_write=True`` 调 resolve——漏穿线则 for_write 默认 False，
+    单模式非授权群被读名单拒 → server=None → admin_resolve_failed。
+    """
+
+    def __init__(self):
+        self.calls: list[bool] = []
+
+    async def resolve(self, umo, override, is_group, *, for_write=False):
+        self.calls.append(for_write)
+        if not for_write:
+            return SimpleNamespace(server=None, error="single_not_authorized")
         return SimpleNamespace(
             server=SimpleNamespace(server_id="s1", name="Alpha"), error=None
         )
@@ -224,6 +243,45 @@ async def test_kick_none_does_not_post_or_audit():
     res = await svc.kick("p:1", "umo", True, "Zed", "afk")
     assert not res.ok and res.message_key == "target_none"
     assert svc._repo.audits == []
+
+
+def _svc_single_restricted(routing, players=None):
+    async def fetch(server_id, endpoint):
+        return SimpleNamespace(ok=True, data={"players": players or []})
+
+    async def post(server_id, path, json_body):
+        return SimpleNamespace(ok=True, status=200, error=None)
+
+    return AdminService(
+        routing=routing,
+        fetch=fetch,
+        post=post,
+        repo=_FakeRepo(),
+        salt=b"s",
+        clock=SimpleNamespace(now=lambda: 1),
+    )
+
+
+@pytest.mark.asyncio
+async def test_single_restricted_announce_bypasses_allowlist():
+    # _execute 写路径：单模式非授权群管理员 announce 仍解析到服务器执行（不被读名单拒）。
+    routing = _SingleRestrictedRouting()
+    svc = _svc_single_restricted(routing)
+    res = await svc.announce("admin:1", "unlisted_group", True, "hello")
+    assert res.message_key != "admin_resolve_failed"
+    assert res.ok
+    assert routing.calls == [True]  # 以 for_write=True 调 resolve
+
+
+@pytest.mark.asyncio
+async def test_single_restricted_kick_bypasses_allowlist():
+    # _target_write 写路径：单模式非授权群 kick 也绕过读名单（覆盖第二处 resolve）。
+    routing = _SingleRestrictedRouting()
+    svc = _svc_single_restricted(routing, players=[{"name": "Alice", "userId": "steam_1"}])
+    res = await svc.kick("admin:1", "unlisted_group", True, "Alice", "afk")
+    assert res.message_key != "admin_resolve_failed"
+    assert res.ok
+    assert routing.calls[0] is True
 
 
 @pytest.mark.asyncio

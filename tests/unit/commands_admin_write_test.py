@@ -34,9 +34,11 @@ class _FakeRouting:
         self._name = server_name
         self._id = server_id
         self.resolve_calls: list[tuple] = []
+        self.write_flags: list[bool] = []
 
-    async def resolve(self, umo, override, is_group):
+    async def resolve(self, umo, override, is_group, *, for_write=False):
         self.resolve_calls.append((umo, override, is_group))
+        self.write_flags.append(for_write)
         return SimpleNamespace(
             server=SimpleNamespace(server_id=self._id, name=self._name), error=None
         )
@@ -50,7 +52,7 @@ class _FakeRoutingRevoke:
         self._id = server_id
         self.revoked = False
 
-    async def resolve(self, umo, override, is_group):
+    async def resolve(self, umo, override, is_group, *, for_write=False):
         if self.revoked:
             return SimpleNamespace(server=None, error="not_authorized")
         return SimpleNamespace(
@@ -366,6 +368,50 @@ async def test_confirm_stale_when_server_revoked_after_pending():
     # pending 已被 claim 原子 pop 丢弃：第二次 confirm 无 pending
     again = await c.confirm("p:1", "umo", True, is_admin=True)
     assert again == L("admin_no_pending")
+
+
+# ---- 单模式绕过读名单：写路径 resolve 须以 for_write=True 调用 ----
+
+
+async def test_admin_write_paths_pass_for_write_true():
+    # commands.py 4 处写路径 resolve：kick 目标解析 / shutdown+确认 / stop+确认 / confirm。
+    # 单模式下 for_write=True 才能绕过读名单；漏穿线则默认 False → 非授权群被拒。
+    clock = _Clock(0)
+    store = ConfirmationStore(clock)
+    cfg = _cfg(group_on=True, require=True, timeout=30)
+
+    # kick 目标解析路径（require 不影响 kick 的目标 resolve 先行）
+    r_kick = _FakeRouting()
+    c = _cmds(admin=_FakeAdmin(), cfg=cfg, clock=clock,
+              confirmations=ConfirmationStore(clock), routing=r_kick)
+    await c.admin_write("kick", "server_admin_basic", "p:1", "umo", True, "Alice afk",
+                        is_admin=True)
+    assert r_kick.write_flags and all(f is True for f in r_kick.write_flags)
+
+    # shutdown + 确认路径
+    r_sd = _FakeRouting()
+    c = _cmds(admin=_FakeAdmin(), cfg=cfg, clock=clock, confirmations=store, routing=r_sd)
+    await c.admin_write("shutdown", "server_admin_danger", "p:1", "umo", True, "60 维护",
+                        is_admin=True)
+    assert r_sd.write_flags == [True]
+
+    # stop + 确认路径
+    r_stop = _FakeRouting()
+    c = _cmds(admin=_FakeAdmin(), cfg=cfg, clock=clock,
+              confirmations=ConfirmationStore(clock), routing=r_stop)
+    await c.admin_write("stop", "server_admin_danger", "p:1", "umo", True, "",
+                        is_admin=True)
+    assert r_stop.write_flags == [True]
+
+    # confirm 复检路径（p.umo）
+    r_cf = _FakeRouting()
+    st = ConfirmationStore(clock)
+    c = _cmds(admin=_FakeAdmin(), cfg=cfg, clock=clock, confirmations=st, routing=r_cf)
+    await c.admin_write("stop", "server_admin_danger", "p:1", "umo", True, "",
+                        is_admin=True)
+    r_cf.write_flags.clear()
+    await c.confirm("p:1", "umo", True, is_admin=True)
+    assert r_cf.write_flags == [True]  # confirm 内 resolve 也 for_write=True
 
 
 # ---- claim 原子性：连发两次 confirm，只执行一次 ----

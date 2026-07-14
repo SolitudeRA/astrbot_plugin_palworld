@@ -66,7 +66,8 @@ class AdminService:
         if path not in _ADMIN_PATH:
             raise ValueError(f"unknown admin path: {path!r}")
 
-        resolution = await self._routing.resolve(umo, None, is_group)
+        # 写路径：for_write=True → 单模式绕过读授权名单（admin 硬门已在上游把守）。
+        resolution = await self._routing.resolve(umo, None, is_group, for_write=True)
         if resolution.server is None:
             return AdminResult(
                 ok=False,
@@ -216,7 +217,8 @@ class AdminService:
         token: str,
         reason: str,
     ) -> AdminResult:
-        resolution = await self._routing.resolve(umo, None, is_group)
+        # 写路径：for_write=True → 单模式绕过读授权名单。
+        resolution = await self._routing.resolve(umo, None, is_group, for_write=True)
         if resolution.server is None:
             return AdminResult(
                 ok=False,
