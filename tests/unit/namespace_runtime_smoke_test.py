@@ -75,7 +75,9 @@ def _raw_config() -> dict:
                     "observation_days": 180},
         # 全组开启:关掉的组命令直接回「未开放」,不进函数体,冒烟就白跑
         "features": {"report": True, "events": True, "guilds_bases": True, "players": True},
-        "permission_admins": [],
+        # sender = get_platform_name():get_sender_id() = test:u1(见 _Ev),
+        # 令 server add/remove 越过 is_admin 门,重新走进 routing.use/unbind 深分支
+        "permission_admins": [{"id": "test:u1", "note": "冒烟管理员"}],
         "admin_only_commands": [],
     }
 

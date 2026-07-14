@@ -1,6 +1,7 @@
 import re
 from pathlib import Path
 
+from palworld_terminal.config import _NON_LOCKABLE
 from palworld_terminal.presentation.command_registry import (
     LOCKABLE_COMMANDS,
     PAL_COMMAND_STRINGS,
@@ -22,3 +23,9 @@ def test_lockable_excludes_non_lockable():
     assert LOCKABLE_COMMANDS == frozenset(PAL_COMMAND_STRINGS) - {"server", "whoami", "help"}
     assert "unbind" in LOCKABLE_COMMANDS    # 命令串是 unbind,不是 unbind_self
     assert "server" not in LOCKABLE_COMMANDS and "help" not in LOCKABLE_COMMANDS
+
+
+def test_non_lockable_matches_registry_complement():
+    # config._NON_LOCKABLE(命令门内联)必须与 registry 的不可锁集互补:
+    # 任一处改了不可锁集而另一处没跟,此处转红。
+    assert _NON_LOCKABLE == frozenset(PAL_COMMAND_STRINGS) - set(LOCKABLE_COMMANDS)

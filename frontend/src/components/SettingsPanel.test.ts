@@ -94,6 +94,7 @@ describe('SettingsPanel', () => {
     expect(w.text()).toContain('受托') // 受托名单区块
     expect(w.text()).toContain('/pal player') // 命令 chip 网格含具体命令
     expect(w.text()).toContain('名单为空') // 空名单提示
+    expect(w.text()).toContain('名册全局') // 爆炸半径安全警句(勿静默删除)
   })
 
   it('权限章：点击命令 chip 切换锁定态并置 dirty', async () => {

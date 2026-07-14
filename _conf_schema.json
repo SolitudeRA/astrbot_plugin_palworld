@@ -149,7 +149,7 @@
         "name": "管理员",
         "display_item": "id",
         "items": {
-          "id": { "type": "string", "description": "账号标识 平台:账号（如 aiocqhttp:12345，群里发 /pal whoami 可查）" },
+          "id": { "type": "string", "description": "账号标识 平台:账号（如 aiocqhttp:12345，群里发 /pal whoami 可查）", "default": "" },
           "note": { "type": "string", "description": "备注（可选，明文存储于配置文件，勿填真实姓名/联系方式等敏感信息）", "default": "" }
         }
       }
