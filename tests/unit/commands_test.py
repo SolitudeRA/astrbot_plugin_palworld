@@ -11,7 +11,7 @@ WID = "alpha:guid-1:0"
 
 def _cfg_all_on():
     return parse_config({
-        "servers": [], "routing": {"access_mode": "open", "default_server": ""},
+        "servers": [], "routing": {"access_mode": "open", "default_server": "", "world_mode": "multi"},
         "group_bindings": [], "polling": {}, "world": {}, "bases": {},
         "privacy": {"mode": "balanced"}, "history": {},
         "features": {"report": True, "events": True, "guilds_bases": True},

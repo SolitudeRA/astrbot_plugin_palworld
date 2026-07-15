@@ -450,6 +450,11 @@ class Commands:
             return L("whoami_no_sender")
         return L("whoami", id=sender_id)
 
+    async def whereami(self, umo: str) -> str:
+        if not umo:
+            return L("whereami_no_umo")
+        return L("whereami", umo=umo)
+
     # ---- 服务器管控写编排（本功能安全模型的心脏；门序为铁律）----
 
     async def admin_write(
@@ -482,7 +487,8 @@ class Commands:
                 return L("admin_target_usage", action=_ACTION_LABEL[command_str])
             # 目标解析与执行须落在同一台服务器：用 override=None（与 AdminService
             # ._execute 的路由一致，避免「在 A 解析、在 B 执行」的错位）。
-            resolution = await self._routing.resolve(umo, None, is_group)
+            # 写路径：for_write=True → 单模式绕过读授权名单（admin 硬门已在上文把守）。
+            resolution = await self._routing.resolve(umo, None, is_group, for_write=True)
             if resolution.server is None:
                 return L("admin_resolve_failed", reason=resolution.error or "")
             server = resolution.server
@@ -533,7 +539,8 @@ class Commands:
                 return L("admin_shutdown_usage")
             message = parts[1] if len(parts) > 1 else ""
             if require:
-                resolution = await self._routing.resolve(umo, None, is_group)
+                # 写路径：for_write=True → 单模式绕过读授权名单。
+                resolution = await self._routing.resolve(umo, None, is_group, for_write=True)
                 if resolution.server is None:
                     return L("admin_resolve_failed", reason=resolution.error or "")
                 return self._store_pending(
@@ -546,7 +553,8 @@ class Commands:
 
         if command_str == "stop":
             if require:
-                resolution = await self._routing.resolve(umo, None, is_group)
+                # 写路径：for_write=True → 单模式绕过读授权名单。
+                resolution = await self._routing.resolve(umo, None, is_group, for_write=True)
                 if resolution.server is None:
                     return L("admin_resolve_failed", reason=resolution.error or "")
                 return self._store_pending(
@@ -585,7 +593,8 @@ class Commands:
             self._cfg.permissions.command_overrides, f"server {p.command_str}"
         ):
             return L("admin_confirm_stale")
-        resolution = await self._routing.resolve(p.umo, None, is_group)
+        # 写路径：for_write=True → 单模式绕过读授权名单（confirm 已过 admin 硬门）。
+        resolution = await self._routing.resolve(p.umo, None, is_group, for_write=True)
         if resolution.server is None:
             return L("admin_confirm_stale")
 

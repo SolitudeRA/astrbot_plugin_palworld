@@ -64,7 +64,9 @@ class BindingConfig:
 class RoutingConfig:
     access_mode: AccessMode
     default_server: str
-    world_mode: str = "multi"  # "single" | "multi"
+    world_mode: str = "single"  # "single" | "multi"
+    single_allowed_groups: list[AllowedGroupEntry] = field(default_factory=list)
+    setup_confirmed: bool = False  # 首次模式确认标志；随 routing 往返；靠 AstrBot 回填→新装恒 False
 
 
 @dataclass(slots=True)
@@ -132,6 +134,12 @@ class AdminEntry:
 
 
 @dataclass(slots=True)
+class AllowedGroupEntry:
+    umo: str
+    note: str
+
+
+@dataclass(slots=True)
 class PermissionsConfig:
     admins: list[AdminEntry]
     command_overrides: dict[str, CommandOverride]
@@ -151,7 +159,7 @@ _NON_LOCKABLE = frozenset({
     "server announce", "server save", "server kick", "server unban",
     "server ban", "server shutdown", "server stop",
     "link list", "link add", "link remove",
-    "help", "whoami", "confirm",
+    "help", "whoami", "whereami", "confirm",
 })
 
 
@@ -290,6 +298,20 @@ def _parse_bindings(raw: Mapping) -> list[BindingConfig]:
 _TRISTATE = {"inherit": None, "on": True, "off": False}
 
 
+def _parse_single_allowed_groups(raw: Mapping) -> list[AllowedGroupEntry]:
+    out: list[AllowedGroupEntry] = []
+    seen: set[str] = set()
+    for item in raw.get("single_allowed_groups", []) or []:
+        if not isinstance(item, Mapping):
+            continue
+        umo = str(item.get("umo", "") or "").strip()
+        if not umo or umo in seen:
+            continue
+        seen.add(umo)
+        out.append(AllowedGroupEntry(umo=umo, note=str(item.get("note", "") or "").strip()))
+    return out
+
+
 def _parse_permissions(raw: Mapping) -> PermissionsConfig:
     admins: list[AdminEntry] = []
     seen: set[str] = set()
@@ -425,7 +447,9 @@ def parse_config(raw: Mapping, env: Mapping[str, str]) -> AppConfig:
         routing=RoutingConfig(
             access_mode=AccessMode(str(r.get("access_mode", "restricted") or "restricted")),
             default_server=str(r.get("default_server", "") or ""),
-            world_mode=_one_of(r.get("world_mode", "multi"), frozenset({"single", "multi"}), "multi"),
+            world_mode=_one_of(r.get("world_mode", "single"), frozenset({"single", "multi"}), "single"),
+            single_allowed_groups=_parse_single_allowed_groups(raw),
+            setup_confirmed=(r.get("setup_confirmed") is True),
         ),
         group_bindings=_parse_bindings(raw),
         polling=PollingConfig(

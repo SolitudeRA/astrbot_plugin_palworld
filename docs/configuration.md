@@ -8,12 +8,36 @@
 
 ## routing(访问控制)
 
-- **world_mode(运行模式)**:默认 `multi` 多世界(一个插件监测多台,按群授权/切换服务器);`single` 单世界(所有操作对应唯一服务器,取第一台就绪服务器)。单世界模式下 `link` 组隐藏且运行时拒绝,`@server` 覆盖与群绑定被忽略。
-- **access_mode**:默认 `restricted`(群需管理员授权才能查询某服务器);`open` 为任意群可查任意服务器。
-- **group_bindings(可选预设授权)**:等价于管理员执行 `/pal link add`,仅作**初始种子**,不覆盖运行时改动。
+- **world_mode(运行模式)**:**默认 `single` 单世界**(所有操作对应唯一服务器,取第一台就绪服务器;`link` 组隐藏且运行时拒绝,`@server` 覆盖与群绑定被忽略);`multi` 多世界(一个插件监测多台,按群授权/切换服务器)。切换入口是插件齿轮配置里的模式主开关(自定义设置页无模式开关,只按当前模式呈现对应配置)。**无存量用户,改默认直接生效、无迁移**(AstrBot 会把 schema 默认回填到已存配置并落盘,回填只会写 `single`,正是所需)。
+- **setup_confirmed(首次设置确认标志)**:bool,默认 `false`。首次设置闸的标志——为 `true` 前(尚未完成首次模式选择),除 `/pal help`/`/pal whoami`/`/pal whereami` 外的 `/pal` 命令一律回引导语(命令闸生效,见[指令文档 · 首次使用](commands.md#首次使用首次设置闸))。**一般无需手动改动**:设置页首次引导屏选运行模式并确认后自动写入 `true`(连同 `world_mode`)。全新安装靠 AstrBot 把 schema 默认回填到配置,`setup_confirmed` 恒为 `false`,故首次装机必经一次设置页确认。
+- **access_mode**:默认 `restricted`;`open` 为任意会话可查。restricted 的授权方式随模式不同——单世界查授权群名单 `single_allowed_groups`,多世界查 `/pal link` 群授权(DB 名单)。
+- **single_allowed_groups(单世界授权群名单)**:见下小节,**仅 `world_mode=single` + `access_mode=restricted` 时生效**;多世界忽略。
+- **group_bindings(可选预设授权)**:仅**多世界**有意义,等价于管理员执行 `/pal link add`,仅作**初始种子**,不覆盖运行时改动;单世界忽略。
 - **privacy.mode**:`strict` / `balanced`(默认)/ `advanced`(当前版本按 balanced 生效)。
 
-> **⚠️ 单世界 × restricted 访问告警**:当 `world_mode=single` 且 `access_mode=restricted` 时,**访问控制被架空**——所有会话(含私聊)都可直接读取唯一服务器,读命令对所有上下文开放。若需按会话/群授权,请改用 `world_mode=multi`。该告警在插件启动日志中输出;**写命令仍受管理员硬门约束**(单世界不放宽写权限)。
+### single_allowed_groups(单世界授权群名单)
+
+单世界模式下 `restricted` 访问的读授权名单(顶层配置键,与 `group_bindings` 同为 `template_list` 范式)。只有名单内的会话(群/私聊)可查询唯一服务器;`open` 模式忽略本名单。
+
+| 字段 | 类型 | 默认 | 含义 |
+| --- | --- | --- | --- |
+| `single_allowed_groups` | 名单(逐条) | 空 | 每行 `umo`(会话标识 unified_msg_origin,如 `aiocqhttp:GroupMessage:123456`)+ 可选 `note`(备注)。群里发 `/pal whereami` 可取本会话 UMO,交管理员在设置页「连接」章添加 |
+
+- **取 UMO**:在目标群里发 `/pal whereami`,回显本会话标识;私聊亦有各自 UMO,按同一名单判定。
+- **⚠️ 空名单 = 全群不可读**:`single` + `restricted` + 空名单是安全默认(fail-closed)——**当前无人可查询**。插件启动日志会告警提示用 `/pal whereami` + 设置页补名单。全新装机(默认 `single` + 默认 `restricted` + 空名单)即此状态,需管理员完成一次授权引导。
+- **写命令不受本名单约束**:`server` 组 7 条写命令仅受管理员硬门(`permission_admins` 受托名单)把守,**不查授权群名单**——授权管理员可从任意群/私聊管理唯一服务器。
+- **明文落盘、勿填 PII**:`umo`/`note` 以**明文**保存到 `data/config/`,`note` 请勿填真实姓名、联系方式等 PII(镜像 `permission_admins` 安全约束)。
+
+> **多世界不受影响**:`world_mode=multi` 下本名单被忽略,读授权仍走 `/pal link` 群授权;无迁移、多模式行为零改动。
+
+### 模式互转（设置页切换与授权迁移）
+
+`world_mode` 除首次设置与齿轮裸切外,可在设置页「连接」章的切换控件更改。切换时可按需迁移授权(move 语义,切回不复活):
+
+- 单世界 → 多世界:把选中的 `single_allowed_groups` 群写入多世界群绑定(`group_bindings`)、清空单世界名单。
+- 多世界 → 单世界:把选中群的绑定并入 `single_allowed_groups`、清空多世界绑定;多台就绪时可选保留一台并永久删除其余台的全部历史数据(不可恢复)。
+
+删除其余台的数据、或从配置中移除服务器后残留的历史数据,可在「连接」章底部的「残留数据清理」小节清除(服务端重算孤儿集,只删已不在配置中的服务器数据)。
 
 ## permissions(权限管理)
 

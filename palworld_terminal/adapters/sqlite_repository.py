@@ -96,6 +96,94 @@ class Repository:
                     "DELETE FROM group_servers WHERE server_id=?", (server_id,)
                 )
 
+    async def list_allowed_bindings(self) -> list[tuple[str, str]]:
+        """全表 allowed=1 的 (umo, server_id) 对（不聚合）。供预览端点按 umo 聚合，
+        以及 multi→single 迁移的真实源集（distinct umo）与 migrate_umos ⊆ 源 校验。"""
+        rows = await self._db.query(
+            "SELECT umo, server_id FROM group_servers WHERE allowed=1"
+        )
+        return [(r[0], r[1]) for r in rows]
+
+    async def list_orphan_server_ids(self, valid_server_ids: set[str]) -> list[str]:
+        """DB 中出现（servers∪worlds∪group_servers）但不在 valid_server_ids 的
+        server_id——供孤儿清理端点列待清台。UNION 去重、sorted 稳定序。"""
+        rows = await self._db.query(
+            "SELECT server_id FROM servers "
+            "UNION SELECT server_id FROM worlds "
+            "UNION SELECT server_id FROM group_servers"
+        )
+        seen = {r[0] for r in rows}
+        return sorted(sid for sid in seen if sid not in valid_server_ids)
+
+    async def bind_umos_to_server(self, umos: list[str], server_id: str) -> None:
+        """批量把 umos 绑到 server_id：allowed=1 恒置；active pin——该 umo 尚无任何
+        active 行时把本行 active 升到 1，否则保持既有（不夺别台 active）。镜像
+        seed_bindings seed-only-active + set_active one-active-per-umo 不变量。"""
+        now = self._clock.now()
+        async with self._db.write_tx() as conn:
+            for umo in umos:
+                cursor = await conn.execute(
+                    "SELECT 1 FROM group_servers WHERE umo=? AND active=1 LIMIT 1",
+                    (umo,),
+                )
+                has_active = await cursor.fetchone()
+                await cursor.close()
+                want_active = 0 if has_active else 1
+                await conn.execute(
+                    "INSERT INTO group_servers "
+                    "(umo, server_id, allowed, active, updated_at) "
+                    "VALUES (?, ?, 1, ?, ?) "
+                    "ON CONFLICT(umo, server_id) DO UPDATE SET "
+                    "  allowed=1, "
+                    "  active=CASE WHEN ?=1 THEN 1 ELSE group_servers.active END, "
+                    "  updated_at=excluded.updated_at",
+                    (umo, server_id, want_active, now, want_active),
+                )
+
+    async def clear_all_group_servers(self) -> int:
+        """清空全部 DB group_servers（multi→single move 清源）。返回删除行数。"""
+        async with self._db.write_tx() as conn:
+            cursor = await conn.execute("DELETE FROM group_servers")
+            return cursor.rowcount
+
+    _PURGE_WORLD_TABLES = (
+        "players", "player_sessions", "player_observations", "guilds",
+        "palboxes", "bases", "base_observations", "world_metrics",
+        "world_events", "daily_aggregates", "player_bindings", "hidden_players",
+    )
+
+    async def purge_server_data(self, server_id: str) -> dict[str, int]:
+        """server 级 purge：解析该 server 的 world_id 集 → 逐表删 12 张 world_id 键表 +
+        删 group_servers/worlds/servers 的 server_id 行。单台一个 write_tx（任一 DELETE
+        抛错整台回滚）。空 world_id 集短路（跳过 12 表、绝不发空 IN ()）。返回各表计数。"""
+        counts: dict[str, int] = {}
+        async with self._db.write_tx() as conn:
+            cur = await conn.execute(
+                "SELECT world_id FROM worlds WHERE server_id=?", (server_id,)
+            )
+            world_rows = await cur.fetchall()
+            await cur.close()
+            world_ids = [r[0] for r in world_rows]
+            if world_ids:
+                placeholders = ",".join("?" for _ in world_ids)
+                for table in self._PURGE_WORLD_TABLES:
+                    cursor = await conn.execute(
+                        f"DELETE FROM {table} WHERE world_id IN ({placeholders})",
+                        tuple(world_ids),
+                    )
+                    counts[table] = cursor.rowcount
+                    await cursor.close()
+            else:
+                for table in self._PURGE_WORLD_TABLES:
+                    counts[table] = 0
+            for table in ("group_servers", "worlds", "servers"):
+                cursor = await conn.execute(
+                    f"DELETE FROM {table} WHERE server_id=?", (server_id,)
+                )
+                counts[table] = cursor.rowcount
+                await cursor.close()
+        return counts
+
     async def get_binding_active(self, umo: str) -> str | None:
         rows = await self._db.query(
             "SELECT server_id FROM group_servers WHERE umo=? AND active=1 LIMIT 1",

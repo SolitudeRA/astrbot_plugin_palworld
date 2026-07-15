@@ -28,7 +28,8 @@
     "items": {
       "access_mode": { "type": "string", "description": "restricted=群需管理员授权; open=任意群任意服务器", "default": "restricted", "options": ["restricted", "open"] },
       "default_server": { "type": "string", "description": "全局默认服务器 name（群未指定且未绑定时的兜底）", "default": "" },
-      "world_mode": { "type": "string", "options": ["multi", "single"], "default": "multi", "description": "运行模式：multi 多世界（按群绑定/切换服务器）；single 单世界（所有操作对应唯一服务器）。⚠️ single + restricted 并存时访问控制不生效，读命令对所有上下文开放。" }
+      "world_mode": { "type": "string", "options": ["multi", "single"], "default": "single", "description": "运行模式（主开关）：single 单世界（唯一服务器，群授权走插件设置页「连接」章的授权群名单 + /pal whereami）；multi 多世界（多台服务器，用 /pal link 绑定切换）。切换模式后请到插件设置页配置对应模式。" },
+      "setup_confirmed": { "type": "bool", "default": false, "description": "首次设置确认标志：一般由插件设置页在你完成模式选择后自动写入，通常无需手动改动。" }
     }
   },
   "group_bindings": {
@@ -150,6 +151,21 @@
         "display_item": "id",
         "items": {
           "id": { "type": "string", "description": "账号标识 平台:账号（如 aiocqhttp:12345，群里发 /pal whoami 可查）", "default": "" },
+          "note": { "type": "string", "description": "备注（可选，明文存储于配置文件，勿填真实姓名/联系方式等敏感信息）", "default": "" }
+        }
+      }
+    }
+  },
+  "single_allowed_groups": {
+    "type": "template_list",
+    "description": "单世界模式授权群名单：仅 world_mode=single 且 access_mode=restricted 时生效，列出的会话（群/私聊）才能查询唯一服务器。UMO 可在群里发 /pal whereami 获取。（多世界模式忽略本表）",
+    "default": [],
+    "templates": {
+      "group": {
+        "name": "授权群",
+        "display_item": "umo",
+        "items": {
+          "umo": { "type": "string", "description": "会话标识 unified_msg_origin，如 aiocqhttp:GroupMessage:123456（群里发 /pal whereami 可查）", "default": "" },
           "note": { "type": "string", "description": "备注（可选，明文存储于配置文件，勿填真实姓名/联系方式等敏感信息）", "default": "" }
         }
       }

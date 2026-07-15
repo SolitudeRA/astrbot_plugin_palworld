@@ -3,7 +3,7 @@ import { computed, ref } from 'vue'
 import { PAL_TREE, GROUP_LABELS, type PalTreeNode, type Tri } from '../lib/schema'
 import type { CmdPerm } from '../lib/collect'
 
-const props = defineProps<{ modelValue: Record<string, CmdPerm> }>()
+const props = defineProps<{ modelValue: Record<string, CmdPerm>; hideGroups?: string[] }>()
 const emit = defineEmits<{ 'update:modelValue': [v: Record<string, CmdPerm>]; change: [] }>()
 
 type Axis = 'enabled' | 'admin_only'
@@ -20,6 +20,7 @@ const groups = computed<Grp[]>(() => {
   const order: string[] = []
   const byKey: Record<string, PalTreeNode[]> = {}
   for (const n of PAL_TREE) {
+    if ((props.hideGroups ?? []).includes(n.group ?? '')) continue
     const k = n.group ?? '__flat__'
     if (!(k in byKey)) { byKey[k] = []; order.push(k) }
     byKey[k].push(n)

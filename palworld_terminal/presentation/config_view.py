@@ -15,9 +15,10 @@ from ..application.command_permissions import COMMAND_META
 from .command_registry import DISPATCH
 
 _LIST_SECTIONS = ("servers", "custom_headers", "group_bindings", "permission_admins",
-                  "command_permissions")
+                  "command_permissions", "single_allowed_groups")
 _ROW_ID_PREFIX = {"servers": "srv", "custom_headers": "hdr", "group_bindings": "bind",
-                  "permission_admins": "adm", "command_permissions": "cmd"}
+                  "permission_admins": "adm", "command_permissions": "cmd",
+                  "single_allowed_groups": "sag"}
 
 # command_permissions 行校验：command 须为完整路径（COMMAND_META）或组名（DISPATCH），
 # enabled/admin_only 三态 ∈ {inherit,on,off}（与 config._TRISTATE 键全等）。
@@ -35,12 +36,14 @@ _SECTION_KEYS = {
     "group_bindings": {"umo", "server", "active"},
     "permission_admins": {"id", "note"},
     "command_permissions": {"command", "enabled", "admin_only"},
+    "single_allowed_groups": {"umo", "note"},
 }
 
 _TOP_KEYS = {
     "servers", "routing", "group_bindings", "custom_headers",
     "polling", "world", "bases", "privacy", "history", "players",
     "permission_admins", "command_permissions", "server_admin",
+    "single_allowed_groups",
 }
 
 # server_admin 的两个带界 int 字段（范围须与 config.py::_parse_server_admin 一致）；
@@ -177,6 +180,14 @@ def validate_and_backfill(body, old_raw, env):
         for axis in ("enabled", "admin_only"):
             if axis in row and row[axis] not in _CMD_PERM_TRISTATE:
                 return _err("invalid_field", f"command_permissions[{i}].{axis}")
+
+    # routing.setup_confirmed：首次引导确认闸（bool），存在且非 bool → invalid_shape
+    # （镜像 server_admin.require_confirmation 守卫；routing object-ness 已由上面 tuple 保证）。
+    rt = body.get("routing")
+    if isinstance(rt, Mapping):
+        sc = rt.get("setup_confirmed")
+        if sc is not None and not isinstance(sc, bool):
+            return _err("invalid_shape", "routing.setup_confirmed")
 
     # server_admin：object 三字段（require_confirmation:bool + 两个带界 int），
     # 类型错/越界 → invalid_shape（object-ness 已由上面的 tuple 保证）。

@@ -31,7 +31,7 @@ def _server(name: str, ready: bool = True) -> ServerConfig:
 def _cfg(servers, access=AccessMode.RESTRICTED, default="") -> AppConfig:
     return AppConfig(
         servers=servers, skipped=[],
-        routing=RoutingConfig(access_mode=access, default_server=default),
+        routing=RoutingConfig(access_mode=access, default_server=default, world_mode="multi"),
         group_bindings=[],
         polling=PollingConfig(30, 30, 600, 1800, 120, 0.1, 6),
         world=WorldConfig("Asia/Tokyo", "zh-CN", 50, 35, 20),

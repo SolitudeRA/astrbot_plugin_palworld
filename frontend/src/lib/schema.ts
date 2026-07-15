@@ -33,8 +33,10 @@ export const HEADER_FIELDS: FieldSpec[] = [
 export const OBJECT_SECTIONS: ObjectSection[] = [
   { key: 'routing', title: '访问控制', subtitle: '哪些群可以查询，以及默认查询哪台服务器', fields: [
     { key: 'access_mode', type: 'enum', label: '访问模式', default: 'restricted', options: ['restricted', 'open'], hint: 'restricted 需管理员授权；open 全开放' },
-    { key: 'world_mode', type: 'enum', label: '运行模式', default: 'multi', options: ['multi', 'single'], hint: 'multi 多世界（按群绑定/切换服务器）；single 单世界（所有操作对应唯一服务器）。⚠️ single + restricted 并存时访问控制不生效' },
+    { key: 'world_mode', type: 'enum', label: '运行模式', default: 'single', options: ['multi', 'single'], hint: 'single 单世界（所有操作对应唯一服务器）；multi 多世界（按群绑定/切换服务器）' },
     { key: 'default_server', type: 'string', label: '默认服务器', default: '', hint: '群里没指定、也没绑定时查询它' },
+    // 首次引导确认标记：恒隐藏（不渲染成表单字段），仅为让 collectBody 逐字段重建时回传（coerce bool 严格 === true）。
+    { key: 'setup_confirmed', type: 'bool', label: '首次设置已确认', default: false },
   ]},
   { key: 'polling', title: '轮询间隔', subtitle: '每类数据多久从服务器拉取一次，单位：秒', fields: [
     { key: 'metrics_seconds', type: 'int', label: '性能指标', default: 30, hint: '帧率、在线人数等；对应 metrics 接口' },
@@ -139,5 +141,6 @@ export const PAL_TREE: PalTreeNode[] = [
   {"group": null, "path": "me", "label": "我的信息", "enableConfigurable": true, "adminConfigurable": true, "adminForced": false, "danger": false},
   {"group": null, "path": "help", "label": "帮助", "enableConfigurable": false, "adminConfigurable": false, "adminForced": false, "danger": false},
   {"group": null, "path": "whoami", "label": "我的账号标识", "enableConfigurable": false, "adminConfigurable": false, "adminForced": false, "danger": false},
+  {"group": null, "path": "whereami", "label": "本群标识", "enableConfigurable": false, "adminConfigurable": false, "adminForced": false, "danger": false},
   {"group": null, "path": "confirm", "label": "确认执行", "enableConfigurable": false, "adminConfigurable": false, "adminForced": true, "danger": false}
 ]

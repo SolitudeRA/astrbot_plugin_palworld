@@ -72,3 +72,21 @@ describe('CommandTree 三态编辑与组头批量', () => {
     expect(adminCell.findAll('.seg')).toHaveLength(0)
   })
 })
+
+describe('CommandTree hideGroups 显示过滤（单模式隐藏 link）', () => {
+  it('hideGroups=[link] 时不渲染 link 组', () => {
+    const wrapper = mount(CommandTree, { props: { modelValue: {}, hideGroups: ['link'] } })
+    expect(wrapper.text()).not.toContain('服务器授权')  // GROUP_LABELS.link
+  })
+  it('hideGroups=[link] 仍渲染其他组，且不触碰 modelValue（不删隐藏组权限、不发 emit）', () => {
+    const mv: Record<string, CmdPerm> = { 'link list': { enabled: 'off', admin_only: 'inherit' } }
+    const wrapper = mount(CommandTree, { props: { modelValue: mv, hideGroups: ['link'] } })
+    expect(wrapper.text()).toContain('世界')          // 未隐藏组照常渲染
+    expect(wrapper.text()).not.toContain('服务器授权')  // link 组隐藏
+    expect(wrapper.emitted('update:modelValue')).toBeFalsy()  // 纯显示过滤，不改 state
+    expect(mv['link list']).toEqual({ enabled: 'off', admin_only: 'inherit' })  // 隐藏组权限原样保留
+  })
+  it('hideGroups 缺省时 link 组正常渲染（多模式默认）', () => {
+    expect(mountTree().text()).toContain('服务器授权')
+  })
+})

@@ -11,6 +11,9 @@ export interface SettingsState {
   custom_headers: Record<string, unknown>[]
   // 可选：部分 SettingsState 构造点（含旧测试）不带这些键，collectBody 以兜底避免崩
   permission_admins?: Record<string, unknown>[]
+  // 单世界受限模式的授权群名单（顶层键 single_allowed_groups，行结构 {umo, note}）。
+  // collectBody 无条件回传（含 multi 模式）——防切模式保存时把名单抹除
+  single_allowed_groups?: Record<string, unknown>[]
   // 命令权限树 state：command(路径/组名) -> 两轴三态。稀疏，仅含被覆盖的命令
   command_perms?: Record<string, CmdPerm>
   sections: Record<string, Record<string, unknown>>
@@ -64,12 +67,18 @@ function collectAdmin(row: Record<string, unknown>): Record<string, unknown> {
   return { __row_id: (row.__row_id as string) || null, id: str(row.id), note: str(row.note) }
 }
 
+function collectGroup(row: Record<string, unknown>): Record<string, unknown> {
+  return { __row_id: (row.__row_id as string) || null, umo: str(row.umo), note: str(row.note) }
+}
+
 export function collectBody(state: SettingsState): Record<string, unknown> {
   const body: Record<string, unknown> = {}
   body.servers = state.servers.map(collectServer)
   body.custom_headers = state.custom_headers.map(collectHeader)
   // ?? []：缺省即空，避免 undefined.map 崩溃
   body.permission_admins = (state.permission_admins ?? []).map(collectAdmin)
+  // 无条件回传（含 multi）：切到 multi 保存时不抹除单模式授权群名单（数据安全）
+  body.single_allowed_groups = (state.single_allowed_groups ?? []).map(collectGroup)
   // command_permissions：命令树 state → 稀疏三态行。两轴皆 inherit 的命令省略；
   // 组名行覆盖整组、完整路径行覆盖单叶。保插入顺序（hydrate 时按 config 行序、编辑时追加）
   const perms = state.command_perms ?? {}

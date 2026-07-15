@@ -32,5 +32,5 @@ def test_non_lockable_full_paths():
         "server announce", "server save", "server kick", "server unban",
         "server ban", "server shutdown", "server stop",
         "link list", "link add", "link remove",
-        "help", "whoami", "confirm",
+        "help", "whoami", "whereami", "confirm",
     })

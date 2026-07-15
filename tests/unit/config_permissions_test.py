@@ -24,3 +24,20 @@ def test_permissions_default_empty():
     cfg = _base()
     assert cfg.permissions.admins == []
     assert cfg.permissions.command_overrides == {}
+
+
+def test_single_allowed_groups_parsed_and_deduped():
+    raw = {"single_allowed_groups": [
+        {"umo": "aiocqhttp:GroupMessage:1", "note": "主群"},
+        {"umo": "  aiocqhttp:GroupMessage:2  ", "note": ""},
+        {"umo": "aiocqhttp:GroupMessage:1", "note": "重复"},  # 去重
+        {"umo": "", "note": "空"},                              # 去空
+    ]}
+    cfg = parse_config(raw, {})
+    umos = [e.umo for e in cfg.routing.single_allowed_groups]
+    assert umos == ["aiocqhttp:GroupMessage:1", "aiocqhttp:GroupMessage:2"]
+
+
+def test_single_allowed_groups_default_empty():
+    cfg = parse_config({}, {})
+    assert cfg.routing.single_allowed_groups == []

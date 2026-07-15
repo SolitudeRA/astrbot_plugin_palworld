@@ -8,9 +8,13 @@ MESSAGES: dict[str, str] = {
     "link_single_mode": "当前为单世界模式，无需选择服务器：所有操作对应唯一服务器。",
     "group_no_actions": "该命令组暂无可用命令（可能未开放或需要管理员权限）。",
     "private_restricted": "restricted 模式下私聊不可查询，请在群聊中使用。",
-    "single_restricted_warning": (
-        "当前为单世界模式（world_mode=single），访问控制 access_mode=restricted 已被架空："
-        "所有会话（含私聊）都可直接读取唯一服务器。如需按会话授权，请改用 world_mode=multi。"
+    "single_not_authorized": (
+        "本群未被授权查询本服务器。请在群里发 /pal whereami 获取本群标识，"
+        "交管理员在插件设置页「连接」章的授权群名单中添加。"
+    ),
+    "setup_required": (
+        "🔧 帕鲁世界终端尚未完成首次设置。请打开插件设置页，"
+        "选择运行模式（单服务器 / 多服务器）并确认后即可使用。"
     ),
     "active_server_stale": "当前绑定的服务器已不可用，请管理员重新执行 /pal link add <名称>。",
     "degraded": "当前无法获取 Palworld 世界数据。最后成功更新：{minutes} 分钟前。",
@@ -40,6 +44,8 @@ MESSAGES: dict[str, str] = {
     "bind_usage": "用法：/pal player bind <玩家名>",
     "whoami": "你的账号标识：{id}（建议私聊 bot 执行本命令，再把标识报给管理员加入受托名单）",
     "whoami_no_sender": "当前场景无法识别你的账号，请在群聊里再试。",
+    "whereami": "本群标识（UMO）：{umo}（把它交给管理员，在设置页「连接」章的授权群名单中添加即可授权本群查询）",
+    "whereami_no_umo": "当前场景无法识别群标识，请在目标群聊里再试。",
     "server_usage": "用法：/pal link add <名称> 或 /pal link remove <名称>",
     "unbind_self_ok": "已解除你与玩家「{name}」的绑定。",
     "unbind_self_none": "你还没有绑定玩家，无需解绑。",

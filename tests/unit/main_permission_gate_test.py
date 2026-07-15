@@ -18,7 +18,7 @@ class _Ev:
 def _raw(admins, locked):
     return {
         "servers": [], "group_bindings": [],
-        "routing": {"access_mode": "open", "default_server": ""},
+        "routing": {"access_mode": "open", "default_server": "", "setup_confirmed": True},
         "polling": {}, "world": {}, "bases": {}, "privacy": {}, "history": {},
         "features": {"players": True},
         "permission_admins": [{"id": a, "note": ""} for a in admins],

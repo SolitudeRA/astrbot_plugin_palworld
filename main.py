@@ -59,6 +59,7 @@ try:  # AstrBot 以 data.plugins.<目录>.main 命名空间加载，插件目录
     from .palworld_terminal.application.command_permissions import migrate_legacy_to_rows
     from .palworld_terminal.config import parse_config
     from .palworld_terminal.container import Container
+    from .palworld_terminal.domain.enums import AccessMode
     from .palworld_terminal.infrastructure.clock import SystemClock
     from .palworld_terminal.presentation import web_api
     from .palworld_terminal.presentation.locale import L
@@ -66,12 +67,17 @@ except ImportError:  # 测试/独立环境从仓库根以顶级模块导入
     from palworld_terminal.application.command_permissions import migrate_legacy_to_rows
     from palworld_terminal.config import parse_config
     from palworld_terminal.container import Container
+    from palworld_terminal.domain.enums import AccessMode
     from palworld_terminal.infrastructure.clock import SystemClock
     from palworld_terminal.presentation import web_api
     from palworld_terminal.presentation.locale import L
 
 
 _log = logging.getLogger("palworld_terminal.main")
+
+# 首次设置逗口集（放行首词）：未确认前仍可用的元命令。须 ⊆ FLAT_ACTIONS
+# （setup_gate_test.test_setup_exempt_subset_of_flat_actions 锚定）。
+_SETUP_EXEMPT = frozenset({"help", "whoami", "whereami"})
 
 
 def _resolve_data_dir() -> Path:
@@ -113,7 +119,7 @@ def _migrate_permissions_config(config) -> None:
 
 
 @register("astrbot_plugin_palworld", "SolitudeRA",
-          "监测 Palworld 专用服务器,分级指令提供状态查询、日报、玩家档案与受控服务器管控", "v0.9.6",
+          "监测 Palworld 专用服务器,分级指令提供状态查询、日报、玩家档案与受控服务器管控", "v0.9.7",
           "https://github.com/SolitudeRA/astrbot_plugin_palworld")
 class PalWorldTerminal(Star):
     def __init__(self, context, config):
@@ -141,14 +147,19 @@ class PalWorldTerminal(Star):
         self._log_startup_warnings()
 
     def _log_startup_warnings(self) -> None:
-        """装配后暴露安全相关启动告警（spec §5/§7）：single+restricted 访问控制架空、
-        非法命令权限配置项（command_permissions 未知命令 / 轴违规，均未生效 = 配置失效）。"""
+        """装配后暴露安全相关启动告警（spec §5/§7）：单模式 restricted 授权名单为空
+        （所有会话都无法查询）、非法命令权限配置项（command_permissions 未知命令 / 轴违规，
+        均未生效 = 配置失效）。"""
         c = self._container
         if c is None:
             return
-        warn = c.routing.single_restricted_warning()
-        if warn is not None:
-            _log.warning(warn)
+        r = c.config.routing
+        if (r.world_mode == "single" and r.access_mode is AccessMode.RESTRICTED
+                and not r.single_allowed_groups):
+            _log.warning(
+                "单世界模式 + restricted 但授权群名单为空：当前所有群/私聊都无法查询。"
+                "请在群里发 /pal whereami 获取群标识，在设置页「连接」章的授权群名单中添加。"
+            )
         invalid = c.config.permissions.invalid_command_keys
         if invalid:
             _log.warning(
@@ -176,6 +187,16 @@ class PalWorldTerminal(Star):
             f"{p}/status/overview", self._web_status, ["GET"], "服务器状态概览")
         self._context.register_web_api(
             f"{p}/audit/list", self._web_audit, ["GET"], "管理审计日志(只读)")
+        self._context.register_web_api(
+            f"{p}/mode/transfer/preview", self._web_mode_transfer_preview, ["GET"],
+            "模式转移预览(只读)")
+        self._context.register_web_api(
+            f"{p}/mode/transfer", self._web_mode_transfer, ["POST"], "模式转移(原子编排)")
+        self._context.register_web_api(
+            f"{p}/mode/orphans", self._web_orphans_list, ["GET"], "孤儿服务器数据列表(只读)")
+        self._context.register_web_api(
+            f"{p}/mode/orphans/purge", self._web_orphans_purge, ["POST"],
+            "清理孤儿服务器数据")
 
     def _busy_msg(self) -> str | None:
         if self._restarting or self._container is None:
@@ -185,7 +206,16 @@ class PalWorldTerminal(Star):
     def _build_container(self, cfg):
         return Container(cfg, _resolve_data_dir(), SystemClock())
 
-    async def _guarded(self, call):
+    def _setup_gate(self, command_str: str) -> str | None:
+        """首次设置闸：未确认前，非逗口命令一律回引导语。读 live 配置。
+        调用点已在 _busy_msg() 之后 → self._container 必非 None。"""
+        if command_str in _SETUP_EXEMPT:
+            return None
+        if self._container.config.routing.setup_confirmed:
+            return None
+        return L("setup_required")
+
+    async def _guarded(self, call, command_str):
         """在途门闩内执行一次只读操作;重载中一律回 busy 文案。
 
         计数先于 busy 判定(flag+counter 握手):若重载已置 _restarting,
@@ -196,6 +226,8 @@ class PalWorldTerminal(Star):
         try:
             if (m := self._busy_msg()):
                 return m
+            if (g := self._setup_gate(command_str)):
+                return g
             res = call(self._container)
             if inspect.isawaitable(res):
                 res = await res
@@ -212,6 +244,8 @@ class PalWorldTerminal(Star):
         try:
             if (m := self._busy_msg()):
                 return m
+            if (g := self._setup_gate(command_str)):
+                return g
             denied = self._container.commands.admin_denied(command_str, self._sender_id(event))
             if denied is not None:
                 return denied
@@ -374,6 +408,67 @@ class PalWorldTerminal(Star):
             self._last_save_ts = payload.pop("saved_ts")
         return jsonify(payload)
 
+    async def _web_mode_transfer_preview(self):
+        from quart import jsonify, request
+        if not self._has_identity():
+            return self._deny_unauthorized()
+        target = request.args.get("target", "single")
+        self._inflight += 1   # 只读端点走在途门闩（镜像 _web_status/_web_audit）
+        self._idle.clear()
+        try:
+            container = None if self._restarting else self._container
+            _code, payload = await web_api.handle_mode_transfer_preview(
+                container, self._restarting, target)
+        finally:
+            self._inflight -= 1
+            if self._inflight == 0:
+                self._idle.set()
+        return jsonify(payload)
+
+    async def _web_orphans_list(self):
+        from quart import jsonify
+        if not self._has_identity():
+            return self._deny_unauthorized()
+        self._inflight += 1
+        self._idle.clear()
+        try:
+            container = None if self._restarting else self._container
+            _code, payload = await web_api.handle_orphans_list(container, self._restarting)
+        finally:
+            self._inflight -= 1
+            if self._inflight == 0:
+                self._idle.set()
+        return jsonify(payload)
+
+    async def _web_mode_transfer(self):
+        import time
+
+        from quart import jsonify, request
+        if not self._has_identity():
+            return self._deny_unauthorized()
+        body = await request.get_json(silent=True)
+        # 写端点：只持 _save_lock、绝不自增 _inflight（否则 _wait_quiescent 等自己白等）
+        _code, payload = await web_api.handle_mode_transfer(
+            body, get_raw=lambda: self._raw_config,
+            get_container=lambda: self._container, busy_msg=self._busy_msg,
+            lock=self._save_lock, now=int(time.time()),
+            apply_and_restart=self._apply_and_restart,
+            current_username=self._current_username)
+        return jsonify(payload)
+
+    async def _web_orphans_purge(self):
+        import time
+
+        from quart import jsonify, request
+        if not self._has_identity():
+            return self._deny_unauthorized()
+        body = await request.get_json(silent=True)
+        _code, payload = await web_api.handle_orphans_purge(
+            body, get_container=lambda: self._container, busy_msg=self._busy_msg,
+            lock=self._save_lock, now=int(time.time()),
+            current_username=self._current_username)
+        return jsonify(payload)
+
     # ---- context helpers ----
     @staticmethod
     def _umo(event) -> str:
@@ -409,8 +504,8 @@ class PalWorldTerminal(Star):
     def pal(self):
         pass
 
-    # ---- 分级命令：5 组 handler（world/guild/player/server/link）+ 6 扁平
-    # （rank/online/me/whoami/help/confirm）= 11 注册。AstrBot 只认首词,子动作
+    # ---- 分级命令：5 组 handler（world/guild/player/server/link）+ 7 扁平
+    # （rank/online/me/whoami/whereami/help/confirm）= 12 注册。AstrBot 只认首词,子动作
     # (world status …) 由 Commands 层分发器自解析。门控下沉进分发（功能门 per-子动作、
     # admin_denied 完整路径、server 写走 admin_write）;main 层只施 busy/inflight 门闩。----
 
@@ -418,19 +513,19 @@ class PalWorldTerminal(Star):
     async def world(self, event):
         yield event.plain_result(await self._guarded(lambda c: c.commands.world_grp(
             self._umo(event), self._msg(event), self._is_group(event),
-            self._sender_id(event), c.commands.is_plugin_admin(self._sender_id(event)))))
+            self._sender_id(event), c.commands.is_plugin_admin(self._sender_id(event))), "world"))
 
     @pal.command("guild")
     async def guild(self, event):
         yield event.plain_result(await self._guarded(lambda c: c.commands.guild_grp(
             self._umo(event), self._msg(event), self._is_group(event),
-            self._sender_id(event), c.commands.is_plugin_admin(self._sender_id(event)))))
+            self._sender_id(event), c.commands.is_plugin_admin(self._sender_id(event))), "guild"))
 
     @pal.command("player")
     async def player(self, event):
         yield event.plain_result(await self._guarded(lambda c: c.commands.player_grp(
             self._umo(event), self._msg(event), self._is_group(event),
-            self._sender_id(event), c.commands.is_plugin_admin(self._sender_id(event)))))
+            self._sender_id(event), c.commands.is_plugin_admin(self._sender_id(event))), "player"))
 
     @pal.command("server")
     async def server(self, event):
@@ -438,12 +533,12 @@ class PalWorldTerminal(Star):
         # Commands.server_grp→admin_write 内（门序 admin 先于 feature 不变）。
         yield event.plain_result(await self._guarded(lambda c: c.commands.server_grp(
             self._umo(event), self._msg(event), self._is_group(event),
-            self._sender_id(event), c.commands.is_plugin_admin(self._sender_id(event)))))
+            self._sender_id(event), c.commands.is_plugin_admin(self._sender_id(event))), "server"))
 
     @pal.command("link")
     async def link(self, event):
         # link add/remove 需 is_admin（门在 Commands.link 内）；单模式守卫见 _link_dispatch。
-        yield event.plain_result(await self._guarded(lambda c: self._link_dispatch(c, event)))
+        yield event.plain_result(await self._guarded(lambda c: self._link_dispatch(c, event), "link"))
 
     def _link_dispatch(self, c, event):
         # 单世界模式守卫（唯一防线，先于任何 routing.use/unbind = DB 写）：单模式无需选择
@@ -478,13 +573,19 @@ class PalWorldTerminal(Star):
     @pal.command("whoami")
     async def whoami(self, event):
         yield event.plain_result(
-            await self._guarded(lambda c: c.commands.whoami(self._sender_id(event)))
+            await self._guarded(lambda c: c.commands.whoami(self._sender_id(event)), "whoami")
+        )
+
+    @pal.command("whereami")
+    async def whereami(self, event):
+        yield event.plain_result(
+            await self._guarded(lambda c: c.commands.whereami(self._umo(event)), "whereami")
         )
 
     @pal.command("help")
     async def help(self, event):
         yield event.plain_result(
-            await self._guarded(lambda c: c.commands.help(self._msg(event), self._is_admin(event)))
+            await self._guarded(lambda c: c.commands.help(self._msg(event), self._is_admin(event)), "help")
         )
 
     @pal.command("confirm")
@@ -492,4 +593,4 @@ class PalWorldTerminal(Star):
         # confirm 走 _guarded（core）；admin 硬门在 Commands.confirm 内自判。
         yield event.plain_result(await self._guarded(lambda c: c.commands.confirm(
             self._sender_id(event), self._umo(event), self._is_group(event),
-            c.commands.is_plugin_admin(self._sender_id(event)))))
+            c.commands.is_plugin_admin(self._sender_id(event))), "confirm"))

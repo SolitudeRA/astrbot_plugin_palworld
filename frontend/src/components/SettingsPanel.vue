@@ -8,8 +8,12 @@ import { CHAPTERS } from '../lib/chapters'
 import ServerCard from './ServerCard.vue'
 import HeaderCard from './HeaderCard.vue'
 import AdminCard from './AdminCard.vue'
+import GroupCard from './GroupCard.vue'
 import CommandTree from './CommandTree.vue'
 import SectionForm from './SectionForm.vue'
+import ModeOnboarding from './ModeOnboarding.vue'
+import ModeTransfer from './ModeTransfer.vue'
+import OrphanCleanup from './OrphanCleanup.vue'
 
 const props = defineProps<{ chapter: string }>()
 
@@ -18,14 +22,37 @@ const fatalMsg = ref('')
 const saving = ref(false)
 const notice = reactive<{ msg: string; error: boolean }>({ msg: '', error: false })
 
-const state = reactive<SettingsState>({ servers: [], custom_headers: [], sections: {}, permission_admins: [], command_perms: {} })
+const state = reactive<SettingsState>({ servers: [], custom_headers: [], sections: {}, permission_admins: [], command_perms: {}, single_allowed_groups: [] })
 const dirty = ref(false)
+// 每次「转移完成 / 保存成功」自增，作为 refresh-key 传给 OrphanCleanup 令其重拉孤儿集
+// （兄弟组件改配置产生的新孤儿不会滞留在旧空列表里）。
+const orphanRefresh = ref(0)
 
 const chapterMeta = computed(() => CHAPTERS.find((c) => c.id === props.chapter))
 const chapterTitle = computed(() => chapterMeta.value?.label ?? '')
 const currentSections = computed(() => OBJECT_SECTIONS.filter((s) => chapterMeta.value?.blocks?.includes(s.key)))
 const isAccess = computed(() => props.chapter === 'access')
 const isPermissions = computed(() => props.chapter === 'permissions')
+
+// 全部已配置服务器名（含非就绪）——转移向导删除侧摘要用（M = 所有非 surviving 台）
+const serverNames = computed(() => state.servers.map((s) => String((s as Record<string, unknown>).name ?? '')))
+
+// 运行模式（single/multi）。兜底 'multi' 为 fail-safe：呈现全部字段、不隐藏不截断；
+// applyConfig 已 seed，实践中 world_mode 恒有值，兜底几乎不触发。
+const worldMode = computed(() => (state.sections.routing?.world_mode as string) ?? 'multi')
+const singleRestricted = computed(() =>
+  worldMode.value === 'single' && ((state.sections.routing?.access_mode as string) ?? 'restricted') === 'restricted')
+// 首次引导：未确认（setup_confirmed !== true）时 ready 相态渲染引导屏取代正常章节。
+// 严格 === true 与后端 is True 对齐；缺键 / 非布尔一律视为未确认。
+const needsOnboarding = computed(() => state.sections.routing?.setup_confirmed !== true)
+// 按模式过滤 routing 段字段：页面无模式开关 → 恒隐藏 world_mode；single 再隐藏 default_server。
+// 仅过滤展示，state.sections.routing 仍保全值，collectBody 照常回传（不丢 world_mode）。
+const visibleSections = computed(() => currentSections.value.map((s) => {
+  if (s.key !== 'routing') return s
+  const hide = new Set<string>(['world_mode', 'setup_confirmed'])
+  if (worldMode.value === 'single') hide.add('default_server')
+  return { ...s, fields: s.fields.filter((f) => !hide.has(f.key)) }
+}))
 
 const ERR: Record<string, string> = {
   save_in_progress: '保存进行中，请稍候', too_frequent: '保存过于频繁，请稍后再试',
@@ -55,8 +82,17 @@ function applyConfig(c: Record<string, any>) {
   state.custom_headers = (c.custom_headers ?? []).map((h: Record<string, unknown>) => ({ ...h }))
   state.sections = {}
   for (const sec of OBJECT_SECTIONS) state.sections[sec.key] = { ...(c[sec.key] ?? {}) }
+  // seed world_mode：防空值被 coerce 成 '' 撞枚举校验；'multi' 为 fail-safe（呈现全字段）
+  if (!state.sections.routing) state.sections.routing = {}
+  if (!state.sections.routing.world_mode) state.sections.routing.world_mode = 'multi'
+  // 单模式表单只渲染 servers[0]：空配置补一台占位（绝不截断已有——仅在 length===0 时补）
+  if (worldMode.value === 'single' && state.servers.length === 0) {
+    state.servers = [emptyRow(SERVER_FIELDS)]
+  }
   // ?? []：空 config / 旧配置缺键时不崩，退化为空名单 / 无命令覆盖
   state.permission_admins = (c.permission_admins ?? []).map((a: Record<string, unknown>) => ({ ...a, __local_key: `local-${++localSeq}` }))
+  // 无条件 hydrate（不管当前模式）：由 singleRestricted 只控制显示，collect 恒回传防抹除
+  state.single_allowed_groups = (c.single_allowed_groups ?? []).map((g: Record<string, unknown>) => ({ ...g, __local_key: `local-${++localSeq}` }))
   // 命令权限行 → 稀疏树 state（保 config 行序；缺轴退化 inherit；忽略非法/空 command）
   const perms: Record<string, CmdPerm> = {}
   for (const row of (c.command_permissions ?? []) as Record<string, unknown>[]) {
@@ -70,8 +106,19 @@ function applyConfig(c: Record<string, any>) {
   state.command_perms = perms
 }
 
+// 转移完成：先按后端回传 config 重水化，再自增 orphanRefresh——转移（尤其 multi→single 带
+// purge_others 部分失败）可能产出新孤儿，联动 OrphanCleanup 重拉，避免其滞留旧空列表。
+function onTransferApplied(c: Record<string, unknown>) {
+  applyConfig(c)
+  orphanRefresh.value++
+}
+
 function emptyAdmin(): Record<string, unknown> {
   return { __row_id: '', __local_key: `local-${++localSeq}`, id: '', note: '' }
+}
+
+function emptyGroup(): Record<string, unknown> {
+  return { __row_id: '', __local_key: `local-${++localSeq}`, umo: '', note: '' }
 }
 
 async function load() {
@@ -93,8 +140,20 @@ function toast(msg: string, error = false) {
   setTimeout(() => { if (notice.msg === msg) { notice.msg = ''; notice.error = false } }, error ? 6000 : 3000)
 }
 
-async function save() {
-  if (saving.value) return
+// 引导屏确认：写所选模式 + setup_confirmed=true，await 保存。落库后 GET 回传 setup_confirmed:true
+// → needsOnboarding 翻假 → 转正常章节；同时后端命令闸清（Task 2）。
+// 保存失败（未鉴权/会话过期/瞬时 RequestFailed/restart_failed_rolled_back）时还原 setup_confirmed，
+// 令引导屏复现，防前端「已确认」而后端仍 setup_confirmed=false 的写侧半态死锁（spec §8）。
+async function onConfirmMode(mode: 'single' | 'multi') {
+  if (!state.sections.routing) state.sections.routing = {}
+  state.sections.routing.world_mode = mode
+  state.sections.routing.setup_confirmed = true
+  const ok = await save()
+  if (!ok) state.sections.routing.setup_confirmed = false  // 保存失败→还原，引导屏复现
+}
+
+async function save(): Promise<boolean> {
+  if (saving.value) return false
   saving.value = true; notice.msg = ''; notice.error = false
   try {
     const res = await apiPost<{ ok: boolean; warnings?: Record<string, unknown[]>; config?: Record<string, any> }>('config/save', collectBody(state))
@@ -107,11 +166,14 @@ async function save() {
     const skips = [...((w.skipped_servers as unknown[]) ?? []), ...((w.skipped_headers as unknown[]) ?? [])]
     if (skips.length) toast(`已保存，${skips.length} 条无效条目未生效`)
     else toast('已保存，已生效')
+    orphanRefresh.value++  // 保存可能移除了服务器（删卡片后保存）→ 令孤儿节重拉
+    return true
   } catch (e) {
     if (e instanceof BusinessError) toast(mapError(e), true)
     else if (e instanceof Unauthorized) toast('未登录或登录已过期，请重新登录 Dashboard', true)
     else if (e instanceof Error) toast(e.message.includes('__unchanged__') ? e.message : '保存失败，请重试', true)
     else toast('保存失败，请重试', true)
+    return false
   } finally {
     saving.value = false
   }
@@ -123,14 +185,27 @@ async function save() {
     <p v-if="phase === 'loading'" class="pw-muted">加载中…</p>
     <div v-else-if="phase === 'error'" class="pw-fatal">{{ fatalMsg }}<button class="pw-primary" @click="load">重试</button></div>
     <template v-else>
-      <div class="chapter-head"><h2>{{ chapterTitle }}</h2></div>
+      <ModeOnboarding v-if="needsOnboarding" @confirm="onConfirmMode" />
+      <template v-else>
+      <div class="chapter-head"><h2>{{ chapterTitle }}</h2>
+        <span v-if="!isAccess" class="mode-badge">当前模式：{{ worldMode === 'single' ? '单服务器' : '多服务器' }}</span>
+      </div>
 
       <template v-if="isAccess">
+        <ModeTransfer :world-mode="worldMode" :dirty="dirty" :server-names="serverNames"
+          @applied="onTransferApplied" @notify="(m, e) => toast(m, e)" />
         <section>
           <div class="group-head"><span class="t">服务器</span><span class="c">要监测的 Palworld 服务器</span></div>
-          <ServerCard v-for="(s, i) in state.servers" :key="(s.__row_id as string) || (s.__local_key as string)" :model-value="s" :index-label="'服务器 ' + pad(i + 1)"
-            @update:model-value="(v) => { state.servers[i] = v; dirty = true }" @delete="state.servers.splice(i, 1); dirty = true" />
-          <button class="add" @click="state.servers.push(emptyRow(SERVER_FIELDS)); dirty = true">＋ 添加服务器</button>
+          <template v-if="worldMode === 'multi'">
+            <ServerCard v-for="(s, i) in state.servers" :key="(s.__row_id as string) || (s.__local_key as string)" :model-value="s" :index-label="'服务器 ' + pad(i + 1)"
+              @update:model-value="(v) => { state.servers[i] = v; dirty = true }" @delete="state.servers.splice(i, 1); dirty = true" />
+            <button class="add" @click="state.servers.push(emptyRow(SERVER_FIELDS)); dirty = true">＋ 添加服务器</button>
+          </template>
+          <!-- 单模式：只编辑 servers[0]（不显示增删），多余的服务器保留在 state 里原样回传（绝不截断）。
+               v-else-if 空守卫：seed + phase 门已保证渲染时 servers[0] 存在，此处再兜一层防空窗崩 -->
+          <ServerCard v-else-if="state.servers[0]" :key="(state.servers[0].__row_id as string) || (state.servers[0].__local_key as string)"
+            :model-value="state.servers[0]" :index-label="'服务器'" :hide-delete="true"
+            @update:model-value="(v) => { state.servers[0] = v; dirty = true }" @delete="() => {}" />
         </section>
         <section>
           <div class="group-head"><span class="t">自定义请求头</span><span class="c">每次请求都会带上</span></div>
@@ -139,6 +214,14 @@ async function save() {
             @update:model-value="(v) => { state.custom_headers[i] = v; dirty = true }" @delete="state.custom_headers.splice(i, 1); dirty = true" />
           <button class="add" @click="state.custom_headers.push(emptyRow(HEADER_FIELDS)); dirty = true">＋ 添加请求头</button>
         </section>
+        <section v-if="singleRestricted">
+          <div class="group-head"><span class="t">授权群名单</span><span class="c">单世界受限模式下，仅这些会话可查询服务器</span></div>
+          <p class="grouphint">群里发 /pal whereami 获取群标识后填入。名单为空 = 当前无人可查询。</p>
+          <GroupCard v-for="(g, i) in state.single_allowed_groups" :key="(g.__row_id as string) || (g.__local_key as string)" :model-value="g" :index-label="'授权群 ' + pad(i + 1)"
+            @update:model-value="(v) => { state.single_allowed_groups![i] = v; dirty = true }" @delete="state.single_allowed_groups!.splice(i, 1); dirty = true" />
+          <button class="add" @click="state.single_allowed_groups!.push(emptyGroup()); dirty = true">＋ 添加授权群</button>
+        </section>
+        <OrphanCleanup :refresh-key="orphanRefresh" @notify="(m, e) => toast(m, e)" />
       </template>
 
       <template v-if="isPermissions">
@@ -157,12 +240,12 @@ async function save() {
         <section>
           <div class="group-head"><span class="t">命令权限</span><span class="c">逐条 / 按组设置命令的启用与仅管理员</span></div>
           <p class="grouphint">未覆盖（默认）的命令按内置规则处理。写操作 / 授权类命令内置仅管理员、核心命令内置常开，均不可改。</p>
-          <CommandTree :model-value="state.command_perms ?? {}"
+          <CommandTree :model-value="state.command_perms ?? {}" :hide-groups="worldMode === 'single' ? ['link'] : []"
             @update:model-value="(v) => { state.command_perms = v }" @change="dirty = true" />
         </section>
       </template>
 
-      <SectionForm v-for="sec in currentSections" :key="sec.key" :section="sec"
+      <SectionForm v-for="sec in visibleSections" :key="sec.key" :section="sec"
         :model-value="state.sections[sec.key]" @update:model-value="(v) => { state.sections[sec.key] = v; dirty = true }" />
 
       <div class="savebar">
@@ -171,11 +254,15 @@ async function save() {
         <span v-else-if="dirty" class="unsaved">有未保存的更改</span>
         <span class="note">所有修改（含服务器、请求头）都用这里统一保存</span>
       </div>
+      </template>
     </template>
   </div>
 </template>
 
 <style scoped>
+/* 只读模式标识：仿 muted chip，靠右贴于章标题；窄屏允许换行避免溢出 */
+.chapter-head { flex-wrap: wrap; row-gap: 6px; }
+.mode-badge { margin-left: auto; align-self: center; font-size: 11.5px; color: var(--ink-2); background: color-mix(in srgb, var(--focus) 6%, var(--card)); border: 1px solid var(--rule); border-radius: var(--r); padding: 4px 10px; white-space: nowrap; }
 .callout { background: color-mix(in srgb, var(--focus) 7%, var(--card)); border: 1px solid color-mix(in srgb, var(--focus) 30%, var(--rule)); border-left: 3px solid var(--focus); border-radius: var(--r); padding: 13px 16px; display: flex; flex-direction: column; gap: 6px; }
 .callout p { margin: 0; font-size: 12.5px; color: var(--ink-2); line-height: 1.55; }
 .callout p b { color: var(--ink); font-weight: 600; }
