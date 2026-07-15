@@ -187,7 +187,7 @@ async function save() {
         <section>
           <div class="group-head"><span class="t">命令权限</span><span class="c">逐条 / 按组设置命令的启用与仅管理员</span></div>
           <p class="grouphint">未覆盖（默认）的命令按内置规则处理。写操作 / 授权类命令内置仅管理员、核心命令内置常开，均不可改。</p>
-          <CommandTree :model-value="state.command_perms ?? {}"
+          <CommandTree :model-value="state.command_perms ?? {}" :hide-groups="worldMode === 'single' ? ['link'] : []"
             @update:model-value="(v) => { state.command_perms = v }" @change="dirty = true" />
         </section>
       </template>
