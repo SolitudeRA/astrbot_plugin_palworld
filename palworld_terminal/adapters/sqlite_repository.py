@@ -140,6 +140,12 @@ class Repository:
                     (umo, server_id, want_active, now, want_active),
                 )
 
+    async def clear_all_group_servers(self) -> int:
+        """清空全部 DB group_servers（multi→single move 清源）。返回删除行数。"""
+        async with self._db.write_tx() as conn:
+            cursor = await conn.execute("DELETE FROM group_servers")
+            return cursor.rowcount
+
     async def get_binding_active(self, umo: str) -> str | None:
         rows = await self._db.query(
             "SELECT server_id FROM group_servers WHERE umo=? AND active=1 LIMIT 1",

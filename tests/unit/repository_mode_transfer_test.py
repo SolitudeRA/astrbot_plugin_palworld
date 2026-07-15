@@ -94,3 +94,20 @@ async def test_bind_umos_keeps_inactive_when_other_active_exists(repo):
     rows = await repo._db.query(
         "SELECT active FROM group_servers WHERE umo='u1' AND server_id='a'")
     assert rows[0][0] == 0
+
+
+async def test_clear_all_group_servers_wipes_and_returns_count(repo):
+    await repo.sync_servers([_srv("a"), _srv("b")])
+    await repo.set_active("u1", "a")
+    await repo.set_active("u2", "b")
+    # 无关表不受影响
+    await repo._db.execute_write(
+        "INSERT INTO worlds (world_id, server_id, worldguid, epoch) "
+        "VALUES ('a:w', 'a', 'g', 0)")
+    cleared = await repo.clear_all_group_servers()
+    assert cleared == 2
+    assert await repo.get_allowed("u1") == set()
+    assert await repo.get_allowed("u2") == set()
+    # worlds 未被误删
+    rows = await repo._db.query("SELECT COUNT(*) FROM worlds")
+    assert rows[0][0] == 1
