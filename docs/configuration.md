@@ -9,6 +9,7 @@
 ## routing(访问控制)
 
 - **world_mode(运行模式)**:**默认 `single` 单世界**(所有操作对应唯一服务器,取第一台就绪服务器;`link` 组隐藏且运行时拒绝,`@server` 覆盖与群绑定被忽略);`multi` 多世界(一个插件监测多台,按群授权/切换服务器)。切换入口是插件齿轮配置里的模式主开关(自定义设置页无模式开关,只按当前模式呈现对应配置)。**无存量用户,改默认直接生效、无迁移**(AstrBot 会把 schema 默认回填到已存配置并落盘,回填只会写 `single`,正是所需)。
+- **setup_confirmed(首次设置确认标志)**:bool,默认 `false`。首次设置闸的标志——为 `true` 前(尚未完成首次模式选择),除 `/pal help`/`/pal whoami`/`/pal whereami` 外的 `/pal` 命令一律回引导语(命令闸生效,见[指令文档 · 首次使用](commands.md#首次使用首次设置闸))。**一般无需手动改动**:设置页首次引导屏选运行模式并确认后自动写入 `true`(连同 `world_mode`)。全新安装靠 AstrBot 把 schema 默认回填到配置,`setup_confirmed` 恒为 `false`,故首次装机必经一次设置页确认。
 - **access_mode**:默认 `restricted`;`open` 为任意会话可查。restricted 的授权方式随模式不同——单世界查授权群名单 `single_allowed_groups`,多世界查 `/pal link` 群授权(DB 名单)。
 - **single_allowed_groups(单世界授权群名单)**:见下小节,**仅 `world_mode=single` + `access_mode=restricted` 时生效**;多世界忽略。
 - **group_bindings(可选预设授权)**:仅**多世界**有意义,等价于管理员执行 `/pal link add`,仅作**初始种子**,不覆盖运行时改动;单世界忽略。
