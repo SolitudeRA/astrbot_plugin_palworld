@@ -8,7 +8,7 @@ const cfg = () => ({ ok: true, config: {
   servers: [{ __row_id: 'srv-0', name: 'a', enabled: true, base_url: 'http://x', username: 'admin',
     password: '', password_set: true, password_env: '', timeout: 10, verify_tls: true, timezone: '' }],
   custom_headers: [],
-  routing: { access_mode: 'restricted', default_server: '' },
+  routing: { access_mode: 'restricted', default_server: '', setup_confirmed: true },
   polling: { metrics_seconds: 30, players_seconds: 30, info_seconds: 600, settings_seconds: 1800,
     game_data_seconds: 120, jitter_ratio: 0.1, max_concurrency: 6 },
   world: { timezone: 'Asia/Tokyo', locale: 'zh-CN', fps_smooth: 50, fps_moderate: 35, fps_laggy: 20 },
@@ -59,7 +59,8 @@ describe('SettingsPanel', () => {
     expect(typeof body.server_admin.confirmation_timeout).toBe('number')
   })
   it('config 缺 server_admin 键不崩，applyConfig 退化为空段', async () => {
-    (window.AstrBotPluginPage!.apiGet as any).mockResolvedValue({ ok: true, config: {} })
+    // 已确认安装（routing.setup_confirmed）方渲染正常章节；server_admin 仍缺，验退化不崩
+    (window.AstrBotPluginPage!.apiGet as any).mockResolvedValue({ ok: true, config: { routing: { setup_confirmed: true } } })
     const w = mountAt('permissions'); await flushPromises()
     expect(w.text()).toContain('服务器管控') // 段仍按 schema 渲染，不因缺键崩
   })
@@ -164,7 +165,7 @@ describe('SettingsPanel', () => {
   })
 
   it('single 模式隐藏 world_mode/default_server 字段但 collect 仍回传 world_mode', async () => {
-    const w = await mountAccess({ routing: { access_mode: 'restricted', default_server: '', world_mode: 'single' } })
+    const w = await mountAccess({ routing: { access_mode: 'restricted', default_server: '', world_mode: 'single', setup_confirmed: true } })
     // routing 表单不渲染 world_mode（恒隐藏）/ default_server（single 隐藏）标签
     expect(w.text()).not.toContain('默认服务器')
     expect(w.text()).not.toContain('运行模式')
@@ -176,7 +177,7 @@ describe('SettingsPanel', () => {
   })
 
   it('multi 模式呈现 default_server 字段与「多服务器」标识（world_mode 仍恒隐藏，fail-safe 全字段）', async () => {
-    const w = await mountAccess({ routing: { access_mode: 'restricted', default_server: '', world_mode: 'multi' } })
+    const w = await mountAccess({ routing: { access_mode: 'restricted', default_server: '', world_mode: 'multi', setup_confirmed: true } })
     expect(w.text()).toContain('默认服务器') // 多模式保留默认服务器字段
     expect(w.text()).not.toContain('运行模式') // world_mode 字段任何模式都隐藏
     expect(w.text()).toContain('多服务器')
@@ -194,7 +195,7 @@ describe('SettingsPanel', () => {
 
   it('single 模式渲染单台服务器表单、不显示增删、不截断 state.servers（保存仍含 2 台）', async () => {
     const w = await mountAccess({
-      routing: { access_mode: 'restricted', default_server: '', world_mode: 'single' },
+      routing: { access_mode: 'restricted', default_server: '', world_mode: 'single', setup_confirmed: true },
       servers: [{ __row_id: 'srv-0', name: 'A' }, { __row_id: 'srv-1', name: 'B' }],
     })
     // 单模式只编辑 servers[0] → 无「＋ 添加服务器」增按钮
@@ -212,25 +213,25 @@ describe('SettingsPanel', () => {
   })
 
   it('single + restricted 显示授权群名单区', async () => {
-    const w = await mountAccess({ routing: { access_mode: 'restricted', default_server: '', world_mode: 'single' } })
+    const w = await mountAccess({ routing: { access_mode: 'restricted', default_server: '', world_mode: 'single', setup_confirmed: true } })
     expect(w.text()).toContain('授权群名单')
     expect(w.text()).toContain('单世界受限模式下，仅这些会话可查询服务器')
     expect(w.text()).toContain('/pal whereami')
   })
 
   it('single + open 不显示授权群名单区（受限才呈现）', async () => {
-    const w = await mountAccess({ routing: { access_mode: 'open', default_server: '', world_mode: 'single' } })
+    const w = await mountAccess({ routing: { access_mode: 'open', default_server: '', world_mode: 'single', setup_confirmed: true } })
     expect(w.text()).not.toContain('授权群名单')
   })
 
   it('multi 模式不显示授权群名单区（仅 single+restricted）', async () => {
-    const w = await mountAccess({ routing: { access_mode: 'restricted', default_server: '', world_mode: 'multi' } })
+    const w = await mountAccess({ routing: { access_mode: 'restricted', default_server: '', world_mode: 'multi', setup_confirmed: true } })
     expect(w.text()).not.toContain('授权群名单')
   })
 
   it('applyConfig 无条件 hydrate single_allowed_groups，collect 往返闭合（含 multi 不抹除）', async () => {
     const w = await mountAccess({
-      routing: { access_mode: 'restricted', default_server: '', world_mode: 'multi' },
+      routing: { access_mode: 'restricted', default_server: '', world_mode: 'multi', setup_confirmed: true },
       single_allowed_groups: [{ __row_id: 'sag-0', umo: 'aiocqhttp:GroupMessage:1', note: '主群' }],
     })
     // multi 模式虽不显示名单区，state 仍 hydrate、collect 仍回传（防切模式抹除）
@@ -247,7 +248,7 @@ describe('SettingsPanel', () => {
 
   it('single 模式 + 空 servers 配置渲染不崩（applyConfig seed 补一台占位）', async () => {
     const w = await mountAccess({
-      routing: { access_mode: 'restricted', default_server: '', world_mode: 'single' },
+      routing: { access_mode: 'restricted', default_server: '', world_mode: 'single', setup_confirmed: true },
       servers: [],
     })
     // 空配置 seed 补一台占位（绝不截断已有；此处本无已有）→ state 有 1 台
@@ -257,5 +258,28 @@ describe('SettingsPanel', () => {
     // 单台占位仍能 collect
     const body = collectBody((w.vm as any).state) as any
     expect(body.servers).toHaveLength(1)
+  })
+
+  it('未确认时显示引导屏、取代正常章节', async () => {
+    const w = await mountAccess({ routing: { access_mode: 'restricted', default_server: '', setup_confirmed: false } })
+    expect(w.findComponent({ name: 'ModeOnboarding' }).exists()).toBe(true)
+    expect(w.text()).not.toContain('保存设置')
+  })
+
+  it('已确认时不显引导屏、显示正常章节', async () => {
+    const w = await mountAccess()  // cfg() 已 setup_confirmed:true
+    expect(w.findComponent({ name: 'ModeOnboarding' }).exists()).toBe(false)
+    expect(w.text()).toContain('保存设置')
+  })
+
+  it('确认写 world_mode + setup_confirmed 并保存', async () => {
+    const post = (window.AstrBotPluginPage!.apiPost as any)
+    post.mockResolvedValue({ ok: true, warnings: {} })
+    const w = await mountAccess({ routing: { access_mode: 'restricted', default_server: '', setup_confirmed: false } })
+    await w.findComponent({ name: 'ModeOnboarding' }).vm.$emit('confirm', 'multi')
+    await flushPromises()
+    const body = post.mock.calls.at(-1)![1]
+    expect(body.routing.world_mode).toBe('multi')
+    expect(body.routing.setup_confirmed).toBe(true)
   })
 })

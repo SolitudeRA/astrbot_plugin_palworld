@@ -11,6 +11,7 @@ import AdminCard from './AdminCard.vue'
 import GroupCard from './GroupCard.vue'
 import CommandTree from './CommandTree.vue'
 import SectionForm from './SectionForm.vue'
+import ModeOnboarding from './ModeOnboarding.vue'
 
 const props = defineProps<{ chapter: string }>()
 
@@ -33,11 +34,14 @@ const isPermissions = computed(() => props.chapter === 'permissions')
 const worldMode = computed(() => (state.sections.routing?.world_mode as string) ?? 'multi')
 const singleRestricted = computed(() =>
   worldMode.value === 'single' && ((state.sections.routing?.access_mode as string) ?? 'restricted') === 'restricted')
+// 首次引导：未确认（setup_confirmed !== true）时 ready 相态渲染引导屏取代正常章节。
+// 严格 === true 与后端 is True 对齐；缺键 / 非布尔一律视为未确认。
+const needsOnboarding = computed(() => state.sections.routing?.setup_confirmed !== true)
 // 按模式过滤 routing 段字段：页面无模式开关 → 恒隐藏 world_mode；single 再隐藏 default_server。
 // 仅过滤展示，state.sections.routing 仍保全值，collectBody 照常回传（不丢 world_mode）。
 const visibleSections = computed(() => currentSections.value.map((s) => {
   if (s.key !== 'routing') return s
-  const hide = new Set<string>(['world_mode'])
+  const hide = new Set<string>(['world_mode', 'setup_confirmed'])
   if (worldMode.value === 'single') hide.add('default_server')
   return { ...s, fields: s.fields.filter((f) => !hide.has(f.key)) }
 }))
@@ -121,6 +125,15 @@ function toast(msg: string, error = false) {
   setTimeout(() => { if (notice.msg === msg) { notice.msg = ''; notice.error = false } }, error ? 6000 : 3000)
 }
 
+// 引导屏确认：写所选模式 + setup_confirmed=true，随即保存。落库后 GET 回传 setup_confirmed:true
+// → needsOnboarding 翻假 → 转正常章节；同时后端命令闸清（Task 2）。
+function onConfirmMode(mode: 'single' | 'multi') {
+  if (!state.sections.routing) state.sections.routing = {}
+  state.sections.routing.world_mode = mode
+  state.sections.routing.setup_confirmed = true
+  save()
+}
+
 async function save() {
   if (saving.value) return
   saving.value = true; notice.msg = ''; notice.error = false
@@ -151,6 +164,8 @@ async function save() {
     <p v-if="phase === 'loading'" class="pw-muted">加载中…</p>
     <div v-else-if="phase === 'error'" class="pw-fatal">{{ fatalMsg }}<button class="pw-primary" @click="load">重试</button></div>
     <template v-else>
+      <ModeOnboarding v-if="needsOnboarding" @confirm="onConfirmMode" />
+      <template v-else>
       <div class="chapter-head"><h2>{{ chapterTitle }}</h2>
         <span class="mode-badge">当前模式：{{ worldMode === 'single' ? '单服务器' : '多服务器' }} · 切换请到插件齿轮配置</span>
       </div>
@@ -215,6 +230,7 @@ async function save() {
         <span v-else-if="dirty" class="unsaved">有未保存的更改</span>
         <span class="note">所有修改（含服务器、请求头）都用这里统一保存</span>
       </div>
+      </template>
     </template>
   </div>
 </template>
