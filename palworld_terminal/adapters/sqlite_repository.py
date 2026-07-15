@@ -96,6 +96,25 @@ class Repository:
                     "DELETE FROM group_servers WHERE server_id=?", (server_id,)
                 )
 
+    async def list_allowed_bindings(self) -> list[tuple[str, str]]:
+        """全表 allowed=1 的 (umo, server_id) 对（不聚合）。供预览端点按 umo 聚合，
+        以及 multi→single 迁移的真实源集（distinct umo）与 migrate_umos ⊆ 源 校验。"""
+        rows = await self._db.query(
+            "SELECT umo, server_id FROM group_servers WHERE allowed=1"
+        )
+        return [(r[0], r[1]) for r in rows]
+
+    async def list_orphan_server_ids(self, valid_server_ids: set[str]) -> list[str]:
+        """DB 中出现（servers∪worlds∪group_servers）但不在 valid_server_ids 的
+        server_id——供孤儿清理端点列待清台。UNION 去重、sorted 稳定序。"""
+        rows = await self._db.query(
+            "SELECT server_id FROM servers "
+            "UNION SELECT server_id FROM worlds "
+            "UNION SELECT server_id FROM group_servers"
+        )
+        seen = {r[0] for r in rows}
+        return sorted(sid for sid in seen if sid not in valid_server_ids)
+
     async def get_binding_active(self, umo: str) -> str | None:
         rows = await self._db.query(
             "SELECT server_id FROM group_servers WHERE umo=? AND active=1 LIMIT 1",
