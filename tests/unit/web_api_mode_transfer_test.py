@@ -366,3 +366,68 @@ async def test_candidate_preserves_untouched_fields(repo):
     assert cfg.routing.setup_confirmed is True
     survivor = next(s for s in cfg.servers if s.server_id == "b")
     assert survivor.password == "pw" and survivor.ready is True
+
+
+# ---- multi → single purge_others ----
+async def test_multi_to_single_purge_others_deletes_and_isolates(repo):
+    from tests.unit.repository_mode_transfer_test import _seed_world_data
+    h = await _mk(_base_raw("multi", [_srv_row("keep"), _srv_row("gone")]), repo)
+    await _seed_world_data(repo, "keep", "keep:w")
+    await _seed_world_data(repo, "gone", "gone:w")
+    await repo.set_active("u1", "keep")
+    code, p = await _call(h, {"target_mode": "single", "surviving_server_id": "keep",
+                              "migrate_umos": ["u1"], "purge_others": True})
+    assert p["ok"] is True
+    # gone 台被真删（world 数据 + 三张 server 行）
+    rows = await repo._db.query("SELECT COUNT(*) FROM players WHERE world_id='gone:w'")
+    assert rows[0][0] == 0
+    rows = await repo._db.query("SELECT server_id FROM servers ORDER BY server_id")
+    assert [r[0] for r in rows] == ["keep"]
+    # 保留台数据隔离（keep:w 世界数据仍在）
+    rows = await repo._db.query("SELECT COUNT(*) FROM players WHERE world_id='keep:w'")
+    assert rows[0][0] == 1
+    # 候选 servers 仅留保留台
+    assert [s["name"] for s in p["config"]["servers"]] == ["keep"]
+    # 回执摘要含 purge 计数
+    assert "gone" in p["summary"]["purged"]
+
+
+async def test_multi_to_single_purges_non_ready_server_with_data(repo):
+    # M-c：曾就绪现非就绪（清密码）但 DB 有 world 历史的非 surviving 台 → 被真删、不留孤儿。
+    from tests.unit.repository_mode_transfer_test import _seed_world_data
+    h = await _mk(_base_raw("multi", [_srv_row("keep"), _srv_row("ghost", password="")]),
+                  repo)
+    await _seed_world_data(repo, "keep", "keep:w")
+    await _seed_world_data(repo, "ghost", "ghost:w")   # ghost 非就绪但有历史
+    code, p = await _call(h, {"target_mode": "single", "surviving_server_id": "keep",
+                              "migrate_umos": [], "purge_others": True})
+    assert p["ok"] is True
+    rows = await repo._db.query("SELECT COUNT(*) FROM worlds WHERE server_id='ghost'")
+    assert rows[0][0] == 0   # ghost world 数据 + 行归零
+    orphans = await repo.list_orphan_server_ids({"keep"})
+    assert "ghost" not in orphans   # 不留孤儿
+
+
+async def test_multi_to_single_purge_partial_failure_success_1(repo):
+    # purge 部分失败 → 其余台仍清、审计 success=1 + failed_server_ids、回执 warnings。
+    from tests.unit.repository_mode_transfer_test import _seed_world_data
+    h = await _mk(_base_raw("multi", [_srv_row("keep"), _srv_row("bad")]), repo)
+    await _seed_world_data(repo, "keep", "keep:w")
+    await _seed_world_data(repo, "bad", "bad:w")
+    orig = repo.purge_server_data
+
+    async def selective(sid):
+        if sid == "bad":
+            raise RuntimeError("purge boom")
+        return await orig(sid)
+
+    repo.purge_server_data = selective
+    try:
+        code, p = await _call(h, {"target_mode": "single", "surviving_server_id": "keep",
+                                  "migrate_umos": [], "purge_others": True})
+    finally:
+        repo.purge_server_data = orig
+    assert p["ok"] is True
+    assert p["warnings"]["purge_failed"] == ["bad"]
+    audits = await repo.list_audit(10)
+    assert audits and audits[0]["success"] == 1   # purge 部分失败仍 success=1

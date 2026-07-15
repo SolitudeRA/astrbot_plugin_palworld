@@ -118,6 +118,8 @@ async def handle_mode_transfer(
         migrate_umos = [str(u) for u in migrate_raw] if isinstance(migrate_raw, list) else []
         surviving_server_id = (body.get("surviving_server_id")
                                if isinstance(body, Mapping) else None)
+        purge_others = bool(body.get("purge_others")) if isinstance(body, Mapping) else False
+        purge_set: set[str] = set()
 
         # ---- 审计累加状态（步7 最外层写一条）----
         state: dict = {
@@ -224,6 +226,17 @@ async def handle_mode_transfer(
                     success=0, error="too_many_groups", server_name=server_name_hint)
             state["migrated"] = len(migrate_umos)
             candidate["group_bindings"] = []   # 清 config 种子（M-d 彻底 move）
+            if purge_others:
+                # purge_set = 转移前 config 所有非 surviving 台（含非就绪有数据台，M-c）
+                purge_set = {s.server_id for s in container.config.servers} - {
+                    str(surviving_server_id)}
+                survivor_row = next(
+                    (s for s in candidate.get("servers", [])
+                     if isinstance(s, dict) and s.get("name") == surviving_server_id),
+                    None,
+                )
+                if survivor_row is not None:
+                    candidate["servers"] = [survivor_row]
         else:  # single → multi
             candidate["single_allowed_groups"] = []   # move 清源（目标已在步3预绑）
             state["migrated"] = len(migrate_umos)
@@ -256,7 +269,12 @@ async def handle_mode_transfer(
             except Exception:  # noqa: BLE001
                 clear_ok = False
                 state["cleared_group_servers"] = False
-            # （purge 循环在 Task 7 追加于此）
+            if purge_others and purge_set:   # 空集短路（Minor）
+                for sid in sorted(purge_set):
+                    try:
+                        state["purged"][sid] = await new_repo.purge_server_data(sid)
+                    except Exception:  # noqa: BLE001
+                        state["failed_server_ids"].append(sid)   # 记录续跑、不回滚
 
         # ---- 步7/8：审计 + 返回 ----
         warnings: dict = {}
