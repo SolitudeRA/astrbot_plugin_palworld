@@ -66,6 +66,7 @@ class RoutingConfig:
     default_server: str
     world_mode: str = "single"  # "single" | "multi"
     single_allowed_groups: list[AllowedGroupEntry] = field(default_factory=list)
+    setup_confirmed: bool = False  # 首次模式确认标志；随 routing 往返；靠 AstrBot 回填→新装恒 False
 
 
 @dataclass(slots=True)
@@ -448,6 +449,7 @@ def parse_config(raw: Mapping, env: Mapping[str, str]) -> AppConfig:
             default_server=str(r.get("default_server", "") or ""),
             world_mode=_one_of(r.get("world_mode", "single"), frozenset({"single", "multi"}), "single"),
             single_allowed_groups=_parse_single_allowed_groups(raw),
+            setup_confirmed=(r.get("setup_confirmed") is True),
         ),
         group_bindings=_parse_bindings(raw),
         polling=PollingConfig(

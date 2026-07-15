@@ -28,7 +28,8 @@
     "items": {
       "access_mode": { "type": "string", "description": "restricted=群需管理员授权; open=任意群任意服务器", "default": "restricted", "options": ["restricted", "open"] },
       "default_server": { "type": "string", "description": "全局默认服务器 name（群未指定且未绑定时的兜底）", "default": "" },
-      "world_mode": { "type": "string", "options": ["multi", "single"], "default": "single", "description": "运行模式（主开关）：single 单世界（唯一服务器，群授权走插件设置页「连接」章的授权群名单 + /pal whereami）；multi 多世界（多台服务器，用 /pal link 绑定切换）。切换模式后请到插件设置页配置对应模式。" }
+      "world_mode": { "type": "string", "options": ["multi", "single"], "default": "single", "description": "运行模式（主开关）：single 单世界（唯一服务器，群授权走插件设置页「连接」章的授权群名单 + /pal whereami）；multi 多世界（多台服务器，用 /pal link 绑定切换）。切换模式后请到插件设置页配置对应模式。" },
+      "setup_confirmed": { "type": "bool", "default": false, "description": "首次设置确认标志：一般由插件设置页在你完成模式选择后自动写入，通常无需手动改动。" }
     }
   },
   "group_bindings": {
