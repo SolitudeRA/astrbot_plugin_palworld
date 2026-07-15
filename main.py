@@ -115,7 +115,7 @@ def _migrate_permissions_config(config) -> None:
 
 
 @register("astrbot_plugin_palworld", "SolitudeRA",
-          "监测 Palworld 专用服务器,分级指令提供状态查询、日报、玩家档案与受控服务器管控", "v0.9.6",
+          "监测 Palworld 专用服务器,分级指令提供状态查询、日报、玩家档案与受控服务器管控", "v0.9.7",
           "https://github.com/SolitudeRA/astrbot_plugin_palworld")
 class PalWorldTerminal(Star):
     def __init__(self, context, config):

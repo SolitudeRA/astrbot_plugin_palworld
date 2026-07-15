@@ -4,7 +4,7 @@
 
 # PalWorldTerminal · 帕鲁世界终端
 
-[![version](https://img.shields.io/badge/version-v0.9.6-007ec6)](https://github.com/SolitudeRA/astrbot_plugin_palworld/releases)
+[![version](https://img.shields.io/badge/version-v0.9.7-007ec6)](https://github.com/SolitudeRA/astrbot_plugin_palworld/releases)
 [![python](https://img.shields.io/badge/python-3.11%2B-007ec6)](https://www.python.org/)
 [![AstrBot](https://img.shields.io/badge/AstrBot-%E2%89%A5%204.24.1-fe7d37)](https://github.com/AstrBotDevs/AstrBot)
 [![license](https://img.shields.io/badge/license-GPL--3.0-97ca00)](https://github.com/SolitudeRA/astrbot_plugin_palworld/blob/main/LICENSE)
@@ -22,12 +22,12 @@
 
 ## 功能特性
 
-- **分级指令** —— `/pal <组> <动作>`:5 组(`world`/`guild`/`player`/`server`/`link`)+ 6 扁平命令(`rank`/`online`/`me`/`help`/`whoami`/`confirm`);裸组即迷你帮助
+- **分级指令** —— `/pal <组> <动作>`:5 组(`world`/`guild`/`player`/`server`/`link`)+ 7 扁平命令(`rank`/`online`/`me`/`help`/`whoami`/`whereami`/`confirm`);裸组即迷你帮助
 - **世界状态** —— 在线人数、FPS 流畅度、世界天数(`/pal world status`)
 - **玩家档案与排行** —— 在线名单、时长/等级榜、逐人查询、自助绑定与隐藏(`/pal online`、`/pal rank`、`/pal me`)
 - **日报与事件** —— 今日在线统计、上下线与服务器重启大事记(`/pal world today`、`/pal world events`)
 - **服务器管控(受控写)** —— 广播、存档、踢人、封禁、倒计时关服共 7 条写命令:**默认全关、仅授权管理员、可二次确认、全程审计**(`/pal server announce`、`/pal server shutdown` 等)
-- **多服务器 · 群授权** —— 一个插件监测多台,按群授权、按群切换
+- **单 / 多世界两模式** —— **默认单世界**(一台服务器、免 `link` 授权,restricted 下按授权群名单放行);多世界一个插件监测多台、按群授权、`/pal link` 按群切换
 - **细粒度授权** —— 独立受托管理员名单,敏感命令可锁为仅管理员(`/pal whoami` 自查标识)
 - **零信任接入** —— 自定义请求头携带网关凭证(如 Cloudflare Access),REST API 无需暴露公网
 - **隐私优先** —— 观测只读、不存 IP、标识 HMAC 哈希落库、坐标量化为粗网格;写操作目标 userid 仅存哈希
@@ -54,7 +54,7 @@
 1. **服务器开启 REST API** —— `PalWorldSettings.ini` 设 `RESTAPIEnabled=True` 并设置管理员密码。**REST 端口勿暴露公网**,走 localhost / 内网 / VPN / 反向代理。
 2. **安装插件** —— AstrBot 插件市场安装,或放入 `plugins/` 目录;依赖:`pip install -r requirements.txt`(运行时仅需 aiohttp、aiosqlite、tzdata;开发者改装 `requirements-dev.txt`)。
 3. **填服务器** —— 打开插件设置页,「连接」章添加服务器:地址如 `http://127.0.0.1:8212`,密码推荐用环境变量(`password_env`)。
-4. **授权本群** —— 群里由管理员执行 `/pal link add <服务器名>`(多世界模式;单世界模式无需授权)。
+4. **授权本群** —— **单世界模式(默认)**:`restricted` 访问下,群里发 `/pal whereami` 取本群标识,交管理员在设置页「连接」章的**授权群名单**里添加(`open` 则免授权);**多世界模式**:管理员执行 `/pal link add <服务器名>` 授权本群。
 5. **开始查询** —— `/pal world status`,看到世界状态就通了。
 
 环境要求:AstrBot ≥ 4.24.1(插件设置页需此版本,建议最新 4.26.x)· Python ≥ 3.11 · SQLite 3。
@@ -88,15 +88,16 @@ v0.9.5 起指令为**分级结构**:`/pal <组> <动作>`(裸组即迷你帮助)
 | `/pal server stop` | `server_admin_danger` | 立即停服(**不存档、丢档**,高危,可选二次确认) |
 | `/pal confirm` | `core` | 确认执行上一条待确认的高危操作 |
 
-任意查询指令末尾加 `@<服务器名>` 可单次指定目标服务器,如 `/pal world status @alpha`(多世界场景)。**单世界模式**(`world_mode=single`)下所有操作对应唯一服务器,无需 `link` 授权。
+任意查询指令末尾加 `@<服务器名>` 可单次指定目标服务器,如 `/pal world status @alpha`(多世界场景)。**单世界模式**(`world_mode=single`,默认)下所有操作对应唯一服务器、`link` 组隐藏;`restricted` 访问按**授权群名单**(`single_allowed_groups`)放行(群里发 `/pal whereami` 取本群标识后在设置页添加),`open` 则全放;写命令仅受管理员硬门约束、**不受读名单限制**。
 完整分级指令表、功能开关矩阵、锁迁移映射表、服务器管控与群授权用法 → [docs/commands.md](https://github.com/SolitudeRA/astrbot_plugin_palworld/blob/main/docs/commands.md)
 
 ## 配置
 
 全部配置可在 WebUI 设置页可视化完成,要点:
 
-- **多服务器**:可添加多台;名称唯一,密码推荐 `password_env` 环境变量。
-- **访问控制**:默认 `restricted`(群需管理员授权);`open` 为全开放。
+- **运行模式**:`world_mode` **默认 `single` 单世界**(一台服务器);多台服务器请改 `multi`。切换入口是插件齿轮配置里的模式主开关(无存量用户,改默认直接生效、无迁移)。
+- **多服务器**:`multi` 模式下可添加多台;名称唯一,密码推荐 `password_env` 环境变量。
+- **访问控制**:默认 `restricted`(单世界按**授权群名单** `single_allowed_groups` 放行,多世界需管理员 `/pal link` 授权);`open` 为全开放。
 - **命令树控制面**:每条命令(或整组)有两个开关——**是否启用**(`enabled`)与**是否仅管理员**(`admin_only`),各取 `inherit`(继承默认)/ `on` / `off` 三态。未覆盖的命令按其**功能组默认**(下表);稀疏覆盖沿「命令 → 组 → 默认」三级继承。数据采集派生自启用状态:观测只读端点恒采集,`game-data` 仅当 `guild` 组有命令生效才采集。在设置页「权限」章可视化编辑,落盘为 `command_permissions` 三态行。
 
 | 功能组(决定命令默认) | 默认 | 命令 |
@@ -116,7 +117,7 @@ v0.9.5 起指令为**分级结构**:`/pal <组> <动作>`(裸组即迷你帮助)
 - **受控写(服务器管控)**:广播/存档/踢人/封禁/关服等写命令**默认全部关闭**,须在设置页显式开启功能组;开启后**仅授权管理员**(受托名单成员)可用,每次操作**无论成败全程落库审计**(仅哈希目标 userid,不存明文)。承诺从「绝不写」转为「受控写」。
 - **⚠️ OPEN 访问模式爆炸半径**:`access_mode=open` 下写命令**不再受群授权名单约束**,任一授权管理员可从任意群/私聊对任意就绪服务器执行 `server stop`/`server ban`。强烈劝阻「OPEN + danger 组同开」;多群共享同一 bot 时尤须谨慎。
 - **⚠️ `server stop` 不存档**:`/pal server stop` 强制停服**不保存存档**,可能丢失未存进度;需要保存请先 `/pal server save` 或改用 `/pal server shutdown`(倒计时期间游戏会正常保存)。
-- **⚠️ 单世界 × restricted**:`world_mode=single` 下 `access_mode=restricted` 被架空——所有会话(含私聊)可直接读取唯一服务器,读命令对所有上下文开放;需按会话授权请用 `world_mode=multi`。写命令仍受管理员硬门约束。
+- **单世界 × restricted 授权**:`world_mode=single`(默认)下 `access_mode=restricted` 时,读命令按**授权群名单**(`single_allowed_groups`)放行——仅名单内会话(群/私聊)可查询唯一服务器;**空名单 = 当前全群不可读**(fail-closed,启动日志会告警,提示用 `/pal whereami` 取标识后在设置页「连接」章添加)。写命令仍受管理员硬门约束、**不受读名单限制**。`open` 则对所有会话开放。
 - **不存储 IP**:入口即删除 IP、Basic Auth 凭证、原始平台账号与原始内部 ID;玩家标识仅以 `HMAC-SHA256(salt, world_id + ":" + raw_user_id)` 落库。
 - **不公开精确位置**:坐标默认量化为粗网格;`strict` 隐私模式下坐标完全不落库、据点模块停用。Ping 仅以「优秀/正常/偏高」分桶展示,不存原始数值。
 - **需在服务器端启用 REST**:Palworld 服务器须开启 REST API(`RESTAPIEnabled=True` 并设置管理员密码)。
