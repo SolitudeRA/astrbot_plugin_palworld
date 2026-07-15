@@ -129,4 +129,34 @@ describe('ModeTransfer 切换控件', () => {
     expect((w.vm as any).flow).toBe('idle')
     expect(apiPost).not.toHaveBeenCalled()
   })
+
+  it('multi→single 多台 → flow=wizard、向导确认 POST body 带 purge_others', async () => {
+    const apiGet = vi.fn().mockResolvedValue({ ok: true,
+      ready_servers: [{ server_id: 'keep', name: 'keep' }, { server_id: 'other', name: 'other' }],
+      bindings: [{ umo: 'u1', server_ids: ['keep'] }] })
+    const apiPost = vi.fn().mockResolvedValue({ ok: true, config: {}, warnings: {},
+      summary: { from: 'multi', to: 'single', surviving: 'keep', migrated: 1, purged: { other: {} }, failed_server_ids: [] } })
+    setBridge({ apiGet, apiPost })
+    const w = mk('multi', false, ['keep', 'other'])
+    await w.get('button[data-act="switch"]').trigger('click'); await flushPromises()
+    const wiz = w.findComponent({ name: 'TransferWizard' })
+    expect(wiz.exists()).toBe(true)
+    wiz.vm.$emit('confirm', { surviving_server_id: 'keep', migrate_umos: ['u1'], purge_others: true })
+    await flushPromises()
+    expect(apiPost).toHaveBeenCalledWith('mode/transfer',
+      { target_mode: 'single', surviving_server_id: 'keep', migrate_umos: ['u1'], purge_others: true })
+    expect(w.emitted('applied')).toBeTruthy()
+  })
+
+  it('向导 cancel → 关闭子流、无 POST', async () => {
+    const apiGet = vi.fn().mockResolvedValue({ ok: true,
+      ready_servers: [{ server_id: 'a', name: 'a' }, { server_id: 'b', name: 'b' }], bindings: [] })
+    const apiPost = vi.fn()
+    setBridge({ apiGet, apiPost })
+    const w = mk('multi')
+    await w.get('button[data-act="switch"]').trigger('click'); await flushPromises()
+    w.findComponent({ name: 'TransferWizard' }).vm.$emit('cancel'); await flushPromises()
+    expect((w.vm as any).flow).toBe('idle')
+    expect(apiPost).not.toHaveBeenCalled()
+  })
 })

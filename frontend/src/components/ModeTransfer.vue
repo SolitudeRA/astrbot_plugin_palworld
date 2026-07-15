@@ -2,6 +2,7 @@
 import { ref } from 'vue'
 import { previewTransfer, postTransfer, mapTransferError, type TransferPreview, type TransferBody } from '../lib/transfer'
 import ModeConfirmDialog from './ModeConfirmDialog.vue'
+import TransferWizard from './TransferWizard.vue'
 
 const props = defineProps<{ worldMode: string; dirty: boolean; serverNames: string[] }>()
 const emit = defineEmits<{
@@ -47,6 +48,11 @@ async function onConfirm(migrateUmos: string[]) {
   await runTransfer(body)
 }
 
+// 多台向导确认：payload 已含 surviving/migrate/purge，直接组装 single 目标 body。
+async function onWizardConfirm(payload: { surviving_server_id: string; migrate_umos: string[]; purge_others: boolean }) {
+  await runTransfer({ target_mode: 'single', ...payload })
+}
+
 // 统一 POST 编排：ok → applied(config) + 成功/告警 toast；ok:false 抛 BusinessError → 错误 toast（模式不变）。
 async function runTransfer(body: TransferBody) {
   working.value = true
@@ -82,7 +88,8 @@ async function runTransfer(body: TransferBody) {
     </div>
     <ModeConfirmDialog v-if="flow === 'confirm' && preview" :target="target" :preview="preview"
       :surviving-id="survivingId" @confirm="onConfirm" @cancel="closeFlow" />
-    <!-- T3 渲染 <TransferWizard v-if="flow === 'wizard' && preview"> -->
+    <TransferWizard v-if="flow === 'wizard' && preview" :preview="preview" :server-names="serverNames"
+      @confirm="onWizardConfirm" @cancel="closeFlow" />
   </section>
 </template>
 
