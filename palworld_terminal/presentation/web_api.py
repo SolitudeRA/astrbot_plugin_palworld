@@ -2,9 +2,12 @@
 返回 (status_code, payload)。业务成败一律 HTTP 200，用 payload['ok'] 区分。"""
 from __future__ import annotations
 
+import logging
 from collections.abc import Callable, Mapping
 
 from .config_view import audit_rows, redact_config, status_rows, validate_and_backfill
+
+_log = logging.getLogger("palworld_terminal.web_api")
 
 
 async def handle_config_get(get_raw: Callable[[], Mapping]) -> tuple[int, dict]:
@@ -54,3 +57,23 @@ async def handle_config_save(
         # 「新行空密码」提交,静默清掉已存密码(审查 F1)
         return 200, {"ok": True, "warnings": outcome.get("warnings", {}),
                      "config": redact_config(old_raw), "saved_ts": now}
+
+
+async def handle_mode_transfer_preview(container, restarting, target) -> tuple[int, dict]:
+    """转移前只读预览：回传服务端权威源（不信客户端凭空构造）。"""
+    if restarting or container is None:
+        return 200, {"ok": True, "restarting": True}
+    ready = [{"server_id": s.server_id, "name": s.name}
+             for s in container.config.servers if s.ready]
+    if target == "single":
+        pairs = await container.repo.list_allowed_bindings()
+        agg: dict[str, list[str]] = {}
+        for umo, sid in pairs:
+            agg.setdefault(umo, []).append(sid)
+        bindings = [{"umo": umo, "server_ids": sids} for umo, sids in agg.items()]
+        return 200, {"ok": True, "ready_servers": ready, "bindings": bindings}
+    if target == "multi":
+        allowed_groups = [{"umo": e.umo, "note": e.note}
+                          for e in container.config.routing.single_allowed_groups]
+        return 200, {"ok": True, "ready_servers": ready, "allowed_groups": allowed_groups}
+    return 200, {"ok": False, "error": "invalid_target", "detail": {}}
