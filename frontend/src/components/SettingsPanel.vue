@@ -12,6 +12,7 @@ import GroupCard from './GroupCard.vue'
 import CommandTree from './CommandTree.vue'
 import SectionForm from './SectionForm.vue'
 import ModeOnboarding from './ModeOnboarding.vue'
+import ModeTransfer from './ModeTransfer.vue'
 
 const props = defineProps<{ chapter: string }>()
 
@@ -28,6 +29,9 @@ const chapterTitle = computed(() => chapterMeta.value?.label ?? '')
 const currentSections = computed(() => OBJECT_SECTIONS.filter((s) => chapterMeta.value?.blocks?.includes(s.key)))
 const isAccess = computed(() => props.chapter === 'access')
 const isPermissions = computed(() => props.chapter === 'permissions')
+
+// 全部已配置服务器名（含非就绪）——转移向导删除侧摘要用（M = 所有非 surviving 台）
+const serverNames = computed(() => state.servers.map((s) => String((s as Record<string, unknown>).name ?? '')))
 
 // 运行模式（single/multi）。兜底 'multi' 为 fail-safe：呈现全部字段、不隐藏不截断；
 // applyConfig 已 seed，实践中 world_mode 恒有值，兜底几乎不触发。
@@ -172,10 +176,12 @@ async function save(): Promise<boolean> {
       <ModeOnboarding v-if="needsOnboarding" @confirm="onConfirmMode" />
       <template v-else>
       <div class="chapter-head"><h2>{{ chapterTitle }}</h2>
-        <span class="mode-badge">当前模式：{{ worldMode === 'single' ? '单服务器' : '多服务器' }} · 切换请到插件齿轮配置</span>
+        <span v-if="!isAccess" class="mode-badge">当前模式：{{ worldMode === 'single' ? '单服务器' : '多服务器' }}</span>
       </div>
 
       <template v-if="isAccess">
+        <ModeTransfer :world-mode="worldMode" :dirty="dirty" :server-names="serverNames"
+          @applied="applyConfig" @notify="(m, e) => toast(m, e)" />
         <section>
           <div class="group-head"><span class="t">服务器</span><span class="c">要监测的 Palworld 服务器</span></div>
           <template v-if="worldMode === 'multi'">
