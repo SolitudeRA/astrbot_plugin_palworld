@@ -282,4 +282,16 @@ describe('SettingsPanel', () => {
     expect(body.routing.world_mode).toBe('multi')
     expect(body.routing.setup_confirmed).toBe(true)
   })
+
+  it('确认保存失败 → 还原 setup_confirmed，引导屏仍挂载（防写侧半态死锁）', async () => {
+    const post = (window.AstrBotPluginPage!.apiPost as any)
+    post.mockRejectedValue(new Error('boom'))  // 保存失败（瞬时/未鉴权/回滚等）
+    const w = await mountAccess({ routing: { access_mode: 'restricted', default_server: '', setup_confirmed: false } })
+    await w.findComponent({ name: 'ModeOnboarding' }).vm.$emit('confirm', 'multi')
+    await flushPromises()
+    // 失败还原：引导屏仍挂载、不进正常章节，整页刷新才恢复的半态被杜绝
+    expect(w.findComponent({ name: 'ModeOnboarding' }).exists()).toBe(true)
+    expect((w.vm as any).state.sections.routing.setup_confirmed).toBe(false)
+    expect(w.text()).not.toContain('保存设置')
+  })
 })

@@ -243,9 +243,13 @@ async def test_unconfirmed_gates_non_exempt_under_namespaced_load(tmp_path, monk
             for msg in ("help", "whoami", "whereami"):
                 outs = [o async for o in getattr(plugin, msg)(_Ev(msg))]
                 assert outs and outs[0] != gate_msg, f"逗口 {msg} 不应被闸"
-            # 非逗口被闸
-            for handler, msg in ((plugin.world, "world status"), (plugin.rank, "rank"),
-                                 (plugin.server, "server"), (plugin.link, "link list")):
+            # 非逗口被闸：全 9 被闸 handler 都要各自证被闸（防某 handler 漏 command_str
+            # 或复制粘贴错而 fail-open 未被抓）
+            for handler, msg in ((plugin.world, "world status"), (plugin.guild, "guild list"),
+                                 (plugin.player, "player info"), (plugin.rank, "rank"),
+                                 (plugin.online, "online"), (plugin.me, "me"),
+                                 (plugin.server, "server"), (plugin.link, "link list"),
+                                 (plugin.confirm, "confirm")):
                 outs = [o async for o in handler(_Ev(msg))]
                 assert outs == [gate_msg], f"未确认时 {msg!r} 应被闸: {outs!r}"
         finally:

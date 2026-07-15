@@ -125,17 +125,20 @@ function toast(msg: string, error = false) {
   setTimeout(() => { if (notice.msg === msg) { notice.msg = ''; notice.error = false } }, error ? 6000 : 3000)
 }
 
-// 引导屏确认：写所选模式 + setup_confirmed=true，随即保存。落库后 GET 回传 setup_confirmed:true
+// 引导屏确认：写所选模式 + setup_confirmed=true，await 保存。落库后 GET 回传 setup_confirmed:true
 // → needsOnboarding 翻假 → 转正常章节；同时后端命令闸清（Task 2）。
-function onConfirmMode(mode: 'single' | 'multi') {
+// 保存失败（未鉴权/会话过期/瞬时 RequestFailed/restart_failed_rolled_back）时还原 setup_confirmed，
+// 令引导屏复现，防前端「已确认」而后端仍 setup_confirmed=false 的写侧半态死锁（spec §8）。
+async function onConfirmMode(mode: 'single' | 'multi') {
   if (!state.sections.routing) state.sections.routing = {}
   state.sections.routing.world_mode = mode
   state.sections.routing.setup_confirmed = true
-  save()
+  const ok = await save()
+  if (!ok) state.sections.routing.setup_confirmed = false  // 保存失败→还原，引导屏复现
 }
 
-async function save() {
-  if (saving.value) return
+async function save(): Promise<boolean> {
+  if (saving.value) return false
   saving.value = true; notice.msg = ''; notice.error = false
   try {
     const res = await apiPost<{ ok: boolean; warnings?: Record<string, unknown[]>; config?: Record<string, any> }>('config/save', collectBody(state))
@@ -148,11 +151,13 @@ async function save() {
     const skips = [...((w.skipped_servers as unknown[]) ?? []), ...((w.skipped_headers as unknown[]) ?? [])]
     if (skips.length) toast(`已保存，${skips.length} 条无效条目未生效`)
     else toast('已保存，已生效')
+    return true
   } catch (e) {
     if (e instanceof BusinessError) toast(mapError(e), true)
     else if (e instanceof Unauthorized) toast('未登录或登录已过期，请重新登录 Dashboard', true)
     else if (e instanceof Error) toast(e.message.includes('__unchanged__') ? e.message : '保存失败，请重试', true)
     else toast('保存失败，请重试', true)
+    return false
   } finally {
     saving.value = false
   }

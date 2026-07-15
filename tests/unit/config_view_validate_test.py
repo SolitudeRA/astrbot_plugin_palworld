@@ -259,3 +259,28 @@ def test_players_rank_top_n_rejects_negative():
     body["players"] = {"rank_top_n": -1, "exclude_names": ""}
     ok, err = validate_and_backfill(body, _old(), {})
     assert ok is False and err["error"] == "invalid_field"
+
+
+def test_routing_setup_confirmed_true_preserved_roundtrip():
+    # 已确认零回归：setup_confirmed=True 经校验原样保留
+    body = _body()
+    body["routing"]["setup_confirmed"] = True
+    ok, cand = validate_and_backfill(body, _old(), {})
+    assert ok is True and cand["routing"]["setup_confirmed"] is True
+
+
+def test_routing_setup_confirmed_default_false_preserved_roundtrip():
+    # 默认 False（未确认）同样原样保留
+    body = _body()
+    body["routing"]["setup_confirmed"] = False
+    ok, cand = validate_and_backfill(body, _old(), {})
+    assert ok is True and cand["routing"]["setup_confirmed"] is False
+
+
+def test_routing_setup_confirmed_non_bool_rejected():
+    # spec §4.3：非 bool 的 setup_confirmed → invalid_shape（路径响亮拒绝）
+    body = _body()
+    body["routing"]["setup_confirmed"] = "yes"
+    ok, err = validate_and_backfill(body, _old(), {})
+    assert ok is False and err["error"] == "invalid_shape"
+    assert err["detail"]["path"] == "routing.setup_confirmed"

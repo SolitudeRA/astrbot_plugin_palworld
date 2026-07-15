@@ -181,6 +181,14 @@ def validate_and_backfill(body, old_raw, env):
             if axis in row and row[axis] not in _CMD_PERM_TRISTATE:
                 return _err("invalid_field", f"command_permissions[{i}].{axis}")
 
+    # routing.setup_confirmed：首次引导确认闸（bool），存在且非 bool → invalid_shape
+    # （镜像 server_admin.require_confirmation 守卫；routing object-ness 已由上面 tuple 保证）。
+    rt = body.get("routing")
+    if isinstance(rt, Mapping):
+        sc = rt.get("setup_confirmed")
+        if sc is not None and not isinstance(sc, bool):
+            return _err("invalid_shape", "routing.setup_confirmed")
+
     # server_admin：object 三字段（require_confirmation:bool + 两个带界 int），
     # 类型错/越界 → invalid_shape（object-ness 已由上面的 tuple 保证）。
     sa = body.get("server_admin")
