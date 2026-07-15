@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { mount, flushPromises } from '@vue/test-utils'
 import SettingsPanel from './SettingsPanel.vue'
+import ServerCard from './ServerCard.vue'
 import { collectBody } from '../lib/collect'
 
 const cfg = () => ({ ok: true, config: {
@@ -189,5 +190,38 @@ describe('SettingsPanel', () => {
     expect(w.text()).toContain('多服务器')
     const body = collectBody((w.vm as any).state) as any
     expect(body.routing.world_mode).toBe('multi')
+  })
+
+  it('single 模式渲染单台服务器表单、不显示增删、不截断 state.servers（保存仍含 2 台）', async () => {
+    const w = await mountAccess({
+      routing: { access_mode: 'restricted', default_server: '', world_mode: 'single' },
+      servers: [{ __row_id: 'srv-0', name: 'A' }, { __row_id: 'srv-1', name: 'B' }],
+    })
+    // 单模式只编辑 servers[0] → 无「＋ 添加服务器」增按钮
+    // （注：自定义请求头段另有 button.add「添加请求头」，故按文案而非类名判定）
+    expect(w.text()).not.toContain('添加服务器')
+    expect(w.findAll('button.add').some((b) => b.text().includes('添加服务器'))).toBe(false)
+    // 唯一服务器不给删（hideDelete）→ 查看态无「移除」按钮
+    expect(w.text()).not.toContain('移除')
+    // 模板只渲染一张服务器卡（servers[0]）
+    expect(w.findAllComponents(ServerCard)).toHaveLength(1)
+    // 核心不变量：single 只编辑 servers[0]，多余的第二台原样保留 → collect 仍含 2 台
+    const body = collectBody((w.vm as any).state) as any
+    expect(body.servers).toHaveLength(2)
+    expect(body.servers.map((s: any) => s.name)).toEqual(['A', 'B'])
+  })
+
+  it('single 模式 + 空 servers 配置渲染不崩（applyConfig seed 补一台占位）', async () => {
+    const w = await mountAccess({
+      routing: { access_mode: 'restricted', default_server: '', world_mode: 'single' },
+      servers: [],
+    })
+    // 空配置 seed 补一台占位（绝不截断已有；此处本无已有）→ state 有 1 台
+    expect((w.vm as any).state.servers).toHaveLength(1)
+    // 渲染未抛错（mountAccess 已 flush），服务器区块标题在
+    expect(w.text()).toContain('要监测的 Palworld 服务器')
+    // 单台占位仍能 collect
+    const body = collectBody((w.vm as any).state) as any
+    expect(body.servers).toHaveLength(1)
   })
 })

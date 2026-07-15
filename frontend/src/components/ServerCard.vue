@@ -3,7 +3,8 @@ import { ref, reactive } from 'vue'
 import Field from './Field.vue'
 import { SERVER_FIELDS } from '../lib/schema'
 
-const props = defineProps<{ modelValue: Record<string, unknown>; indexLabel: string }>()
+// hideDelete：单模式下唯一服务器不给删（隐藏查看态「移除」按钮）
+const props = defineProps<{ modelValue: Record<string, unknown>; indexLabel: string; hideDelete?: boolean }>()
 const emit = defineEmits<{
   'update:modelValue': [v: Record<string, unknown>]
   delete: []
@@ -49,7 +50,7 @@ function saveCard() {
       <span class="hchip" :class="modelValue.enabled ? 'on' : 'off'">{{ modelValue.enabled ? '启用' : '停用' }}</span>
       <span class="grow"></span>
       <span v-if="flash" class="hchip on savedflash">已暂存</span>
-      <button class="headbtn del" @click="emit('delete')">移除</button>
+      <button v-if="!hideDelete" class="headbtn del" @click="emit('delete')">移除</button>
       <button class="headbtn edit" @click="enterEdit">修改</button>
     </div>
     <div class="cbody">

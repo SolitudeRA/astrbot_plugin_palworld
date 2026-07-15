@@ -72,6 +72,10 @@ function applyConfig(c: Record<string, any>) {
   // seed world_mode：防空值被 coerce 成 '' 撞枚举校验；'multi' 为 fail-safe（呈现全字段）
   if (!state.sections.routing) state.sections.routing = {}
   if (!state.sections.routing.world_mode) state.sections.routing.world_mode = 'multi'
+  // 单模式表单只渲染 servers[0]：空配置补一台占位（绝不截断已有——仅在 length===0 时补）
+  if (worldMode.value === 'single' && state.servers.length === 0) {
+    state.servers = [emptyRow(SERVER_FIELDS)]
+  }
   // ?? []：空 config / 旧配置缺键时不崩，退化为空名单 / 无命令覆盖
   state.permission_admins = (c.permission_admins ?? []).map((a: Record<string, unknown>) => ({ ...a, __local_key: `local-${++localSeq}` }))
   // 命令权限行 → 稀疏树 state（保 config 行序；缺轴退化 inherit；忽略非法/空 command）
@@ -147,9 +151,16 @@ async function save() {
       <template v-if="isAccess">
         <section>
           <div class="group-head"><span class="t">服务器</span><span class="c">要监测的 Palworld 服务器</span></div>
-          <ServerCard v-for="(s, i) in state.servers" :key="(s.__row_id as string) || (s.__local_key as string)" :model-value="s" :index-label="'服务器 ' + pad(i + 1)"
-            @update:model-value="(v) => { state.servers[i] = v; dirty = true }" @delete="state.servers.splice(i, 1); dirty = true" />
-          <button class="add" @click="state.servers.push(emptyRow(SERVER_FIELDS)); dirty = true">＋ 添加服务器</button>
+          <template v-if="worldMode === 'multi'">
+            <ServerCard v-for="(s, i) in state.servers" :key="(s.__row_id as string) || (s.__local_key as string)" :model-value="s" :index-label="'服务器 ' + pad(i + 1)"
+              @update:model-value="(v) => { state.servers[i] = v; dirty = true }" @delete="state.servers.splice(i, 1); dirty = true" />
+            <button class="add" @click="state.servers.push(emptyRow(SERVER_FIELDS)); dirty = true">＋ 添加服务器</button>
+          </template>
+          <!-- 单模式：只编辑 servers[0]（不显示增删），多余的服务器保留在 state 里原样回传（绝不截断）。
+               v-else-if 空守卫：seed + phase 门已保证渲染时 servers[0] 存在，此处再兜一层防空窗崩 -->
+          <ServerCard v-else-if="state.servers[0]" :key="(state.servers[0].__row_id as string) || (state.servers[0].__local_key as string)"
+            :model-value="state.servers[0]" :index-label="'服务器'" :hide-delete="true"
+            @update:model-value="(v) => { state.servers[0] = v; dirty = true }" @delete="() => {}" />
         </section>
         <section>
           <div class="group-head"><span class="t">自定义请求头</span><span class="c">每次请求都会带上</span></div>
