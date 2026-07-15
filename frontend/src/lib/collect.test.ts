@@ -34,7 +34,7 @@ function makeTreeState(overrides: Record<string, Partial<CmdPerm>>): SettingsSta
 // 后端 config_view._TOP_KEYS（Phase 2：无 features/admin_only_commands，含 command_permissions）
 const TOP_KEYS = ['servers', 'routing', 'group_bindings', 'custom_headers',
   'polling', 'world', 'bases', 'privacy', 'history', 'players',
-  'server_admin', 'permission_admins', 'command_permissions']
+  'server_admin', 'permission_admins', 'command_permissions', 'single_allowed_groups']
 
 describe('collectBody', () => {
   it('数值字段产出 number（非字符串）', () => {
@@ -79,6 +79,18 @@ describe('collectBody', () => {
     const st: any = makeTreeState({})
     st.permission_admins = [{ __row_id: 'adm-0', __local_key: 'local-1', id: 'aiocqhttp:1', note: 'x' }]
     expect(collectBody(st).permission_admins).toEqual([{ __row_id: 'adm-0', id: 'aiocqhttp:1', note: 'x' }])
+  })
+  it('collectBody 恒回传 single_allowed_groups（含 multi，防抹除）', () => {
+    const state = { servers: [], custom_headers: [], sections: {}, single_allowed_groups: [{ __row_id: 'sag-0', umo: 'g1', note: 'x' }] } as any
+    expect(collectBody(state).single_allowed_groups).toEqual([{ __row_id: 'sag-0', umo: 'g1', note: 'x' }])
+  })
+  it('collectBody 缺 single_allowed_groups 键退化空数组（不崩）', () => {
+    expect(collectBody(makeTreeState({})).single_allowed_groups).toEqual([])
+  })
+  it('collectGroup 剥 __local_key、新行 __row_id 归 null（往返闭合）', () => {
+    const st: any = makeTreeState({})
+    st.single_allowed_groups = [{ __row_id: '', __local_key: 'local-1', umo: 'aiocqhttp:GroupMessage:1', note: '' }]
+    expect(collectBody(st).single_allowed_groups).toEqual([{ __row_id: null, umo: 'aiocqhttp:GroupMessage:1', note: '' }])
   })
   it('command_permissions 稀疏三态行（两轴皆 inherit 的命令省略，保插入顺序）', () => {
     const state = makeTreeState({ guild: { enabled: 'on' }, 'world today': { enabled: 'off' } })

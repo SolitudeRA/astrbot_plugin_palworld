@@ -211,6 +211,40 @@ describe('SettingsPanel', () => {
     expect(body.servers.map((s: any) => s.name)).toEqual(['A', 'B'])
   })
 
+  it('single + restricted 显示授权群名单区', async () => {
+    const w = await mountAccess({ routing: { access_mode: 'restricted', default_server: '', world_mode: 'single' } })
+    expect(w.text()).toContain('授权群名单')
+    expect(w.text()).toContain('单世界受限模式下，仅这些会话可查询服务器')
+    expect(w.text()).toContain('/pal whereami')
+  })
+
+  it('single + open 不显示授权群名单区（受限才呈现）', async () => {
+    const w = await mountAccess({ routing: { access_mode: 'open', default_server: '', world_mode: 'single' } })
+    expect(w.text()).not.toContain('授权群名单')
+  })
+
+  it('multi 模式不显示授权群名单区（仅 single+restricted）', async () => {
+    const w = await mountAccess({ routing: { access_mode: 'restricted', default_server: '', world_mode: 'multi' } })
+    expect(w.text()).not.toContain('授权群名单')
+  })
+
+  it('applyConfig 无条件 hydrate single_allowed_groups，collect 往返闭合（含 multi 不抹除）', async () => {
+    const w = await mountAccess({
+      routing: { access_mode: 'restricted', default_server: '', world_mode: 'multi' },
+      single_allowed_groups: [{ __row_id: 'sag-0', umo: 'aiocqhttp:GroupMessage:1', note: '主群' }],
+    })
+    // multi 模式虽不显示名单区，state 仍 hydrate、collect 仍回传（防切模式抹除）
+    expect((w.vm as any).state.single_allowed_groups).toHaveLength(1)
+    const body = collectBody((w.vm as any).state) as any
+    expect(body.single_allowed_groups).toEqual([{ __row_id: 'sag-0', umo: 'aiocqhttp:GroupMessage:1', note: '主群' }])
+  })
+
+  it('config 缺 single_allowed_groups 键不崩、collect 产出空数组', async () => {
+    const w = await mountAccess()
+    const body = collectBody((w.vm as any).state) as any
+    expect(body.single_allowed_groups).toEqual([])
+  })
+
   it('single 模式 + 空 servers 配置渲染不崩（applyConfig seed 补一台占位）', async () => {
     const w = await mountAccess({
       routing: { access_mode: 'restricted', default_server: '', world_mode: 'single' },

@@ -8,6 +8,7 @@ import { CHAPTERS } from '../lib/chapters'
 import ServerCard from './ServerCard.vue'
 import HeaderCard from './HeaderCard.vue'
 import AdminCard from './AdminCard.vue'
+import GroupCard from './GroupCard.vue'
 import CommandTree from './CommandTree.vue'
 import SectionForm from './SectionForm.vue'
 
@@ -18,7 +19,7 @@ const fatalMsg = ref('')
 const saving = ref(false)
 const notice = reactive<{ msg: string; error: boolean }>({ msg: '', error: false })
 
-const state = reactive<SettingsState>({ servers: [], custom_headers: [], sections: {}, permission_admins: [], command_perms: {} })
+const state = reactive<SettingsState>({ servers: [], custom_headers: [], sections: {}, permission_admins: [], command_perms: {}, single_allowed_groups: [] })
 const dirty = ref(false)
 
 const chapterMeta = computed(() => CHAPTERS.find((c) => c.id === props.chapter))
@@ -78,6 +79,8 @@ function applyConfig(c: Record<string, any>) {
   }
   // ?? []：空 config / 旧配置缺键时不崩，退化为空名单 / 无命令覆盖
   state.permission_admins = (c.permission_admins ?? []).map((a: Record<string, unknown>) => ({ ...a, __local_key: `local-${++localSeq}` }))
+  // 无条件 hydrate（不管当前模式）：由 singleRestricted 只控制显示，collect 恒回传防抹除
+  state.single_allowed_groups = (c.single_allowed_groups ?? []).map((g: Record<string, unknown>) => ({ ...g, __local_key: `local-${++localSeq}` }))
   // 命令权限行 → 稀疏树 state（保 config 行序；缺轴退化 inherit；忽略非法/空 command）
   const perms: Record<string, CmdPerm> = {}
   for (const row of (c.command_permissions ?? []) as Record<string, unknown>[]) {
@@ -93,6 +96,10 @@ function applyConfig(c: Record<string, any>) {
 
 function emptyAdmin(): Record<string, unknown> {
   return { __row_id: '', __local_key: `local-${++localSeq}`, id: '', note: '' }
+}
+
+function emptyGroup(): Record<string, unknown> {
+  return { __row_id: '', __local_key: `local-${++localSeq}`, umo: '', note: '' }
 }
 
 async function load() {
@@ -168,6 +175,13 @@ async function save() {
           <HeaderCard v-for="(h, i) in state.custom_headers" :key="(h.__row_id as string) || (h.__local_key as string)" :model-value="h" :index-label="'请求头 ' + pad(i + 1)"
             @update:model-value="(v) => { state.custom_headers[i] = v; dirty = true }" @delete="state.custom_headers.splice(i, 1); dirty = true" />
           <button class="add" @click="state.custom_headers.push(emptyRow(HEADER_FIELDS)); dirty = true">＋ 添加请求头</button>
+        </section>
+        <section v-if="singleRestricted">
+          <div class="group-head"><span class="t">授权群名单</span><span class="c">单世界受限模式下，仅这些会话可查询服务器</span></div>
+          <p class="grouphint">群里发 /pal whereami 获取群标识后填入。名单为空 = 当前无人可查询。</p>
+          <GroupCard v-for="(g, i) in state.single_allowed_groups" :key="(g.__row_id as string) || (g.__local_key as string)" :model-value="g" :index-label="'授权群 ' + pad(i + 1)"
+            @update:model-value="(v) => { state.single_allowed_groups![i] = v; dirty = true }" @delete="state.single_allowed_groups!.splice(i, 1); dirty = true" />
+          <button class="add" @click="state.single_allowed_groups!.push(emptyGroup()); dirty = true">＋ 添加授权群</button>
         </section>
       </template>
 
