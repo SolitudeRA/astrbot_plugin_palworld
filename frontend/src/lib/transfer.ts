@@ -63,9 +63,10 @@ export function listOrphans(): Promise<OrphanList> {
   return apiGet<OrphanList>('mode/orphans')
 }
 
-// 不传 server_ids：后端持锁现场重算孤儿集、清全部当前孤儿（不信客户端，Blocker-O）。
+// 不传 server_ids（undefined）：后端持锁现场重算孤儿集、清全部当前孤儿（不信客户端，Blocker-O）。
+// 显式数组（含空 []）：原样透传，与后端 FIX1 对齐（空数组=清 nothing，undefined=清全部）。
 export function purgeOrphans(serverIds?: string[]): Promise<OrphanPurgeResult> {
-  const body = serverIds && serverIds.length ? { server_ids: serverIds } : {}
+  const body = serverIds === undefined ? {} : { server_ids: serverIds }
   return apiPost<OrphanPurgeResult>('mode/orphans/purge', body)
 }
 

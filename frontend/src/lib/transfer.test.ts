@@ -53,6 +53,20 @@ describe('transfer client', () => {
     expect(apiPost).toHaveBeenCalledWith('mode/orphans/purge', {})
   })
 
+  it('purgeOrphans 显式空数组 → 原样透传 server_ids:[]（后端 FIX1：清 nothing，不退化为清全部）', async () => {
+    const apiPost = vi.fn().mockResolvedValue({ ok: true, purged: {}, rejected: [], failed_server_ids: [] })
+    setBridge({ apiPost })
+    await purgeOrphans([])
+    expect(apiPost).toHaveBeenCalledWith('mode/orphans/purge', { server_ids: [] })
+  })
+
+  it('purgeOrphans 显式数组 → 透传 server_ids', async () => {
+    const apiPost = vi.fn().mockResolvedValue({ ok: true, purged: {}, rejected: [], failed_server_ids: [] })
+    setBridge({ apiPost })
+    await purgeOrphans(['a'])
+    expect(apiPost).toHaveBeenCalledWith('mode/orphans/purge', { server_ids: ['a'] })
+  })
+
   it('mapTransferError 映射业务码 / Unauthorized / 未知码兜底', () => {
     expect(mapTransferError(new BusinessError('migrate_bind_failed'))).toContain('预绑定失败')
     expect(mapTransferError(new BusinessError('too_many_groups'))).toContain('上限')

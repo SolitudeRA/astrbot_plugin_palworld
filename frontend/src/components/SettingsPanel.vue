@@ -13,6 +13,7 @@ import CommandTree from './CommandTree.vue'
 import SectionForm from './SectionForm.vue'
 import ModeOnboarding from './ModeOnboarding.vue'
 import ModeTransfer from './ModeTransfer.vue'
+import OrphanCleanup from './OrphanCleanup.vue'
 
 const props = defineProps<{ chapter: string }>()
 
@@ -209,6 +210,7 @@ async function save(): Promise<boolean> {
             @update:model-value="(v) => { state.single_allowed_groups![i] = v; dirty = true }" @delete="state.single_allowed_groups!.splice(i, 1); dirty = true" />
           <button class="add" @click="state.single_allowed_groups!.push(emptyGroup()); dirty = true">＋ 添加授权群</button>
         </section>
+        <OrphanCleanup @notify="(m, e) => toast(m, e)" />
       </template>
 
       <template v-if="isPermissions">
