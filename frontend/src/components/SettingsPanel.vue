@@ -27,6 +27,20 @@ const currentSections = computed(() => OBJECT_SECTIONS.filter((s) => chapterMeta
 const isAccess = computed(() => props.chapter === 'access')
 const isPermissions = computed(() => props.chapter === 'permissions')
 
+// 运行模式（single/multi）。兜底 'multi' 为 fail-safe：呈现全部字段、不隐藏不截断；
+// applyConfig 已 seed，实践中 world_mode 恒有值，兜底几乎不触发。
+const worldMode = computed(() => (state.sections.routing?.world_mode as string) ?? 'multi')
+const singleRestricted = computed(() =>
+  worldMode.value === 'single' && ((state.sections.routing?.access_mode as string) ?? 'restricted') === 'restricted')
+// 按模式过滤 routing 段字段：页面无模式开关 → 恒隐藏 world_mode；single 再隐藏 default_server。
+// 仅过滤展示，state.sections.routing 仍保全值，collectBody 照常回传（不丢 world_mode）。
+const visibleSections = computed(() => currentSections.value.map((s) => {
+  if (s.key !== 'routing') return s
+  const hide = new Set<string>(['world_mode'])
+  if (worldMode.value === 'single') hide.add('default_server')
+  return { ...s, fields: s.fields.filter((f) => !hide.has(f.key)) }
+}))
+
 const ERR: Record<string, string> = {
   save_in_progress: '保存进行中，请稍候', too_frequent: '保存过于频繁，请稍后再试',
   too_large: '配置内容过大，请精简后再保存', invalid_shape: '配置格式有误，请刷新页面后重试',
@@ -55,6 +69,9 @@ function applyConfig(c: Record<string, any>) {
   state.custom_headers = (c.custom_headers ?? []).map((h: Record<string, unknown>) => ({ ...h }))
   state.sections = {}
   for (const sec of OBJECT_SECTIONS) state.sections[sec.key] = { ...(c[sec.key] ?? {}) }
+  // seed world_mode：防空值被 coerce 成 '' 撞枚举校验；'multi' 为 fail-safe（呈现全字段）
+  if (!state.sections.routing) state.sections.routing = {}
+  if (!state.sections.routing.world_mode) state.sections.routing.world_mode = 'multi'
   // ?? []：空 config / 旧配置缺键时不崩，退化为空名单 / 无命令覆盖
   state.permission_admins = (c.permission_admins ?? []).map((a: Record<string, unknown>) => ({ ...a, __local_key: `local-${++localSeq}` }))
   // 命令权限行 → 稀疏树 state（保 config 行序；缺轴退化 inherit；忽略非法/空 command）
@@ -123,7 +140,9 @@ async function save() {
     <p v-if="phase === 'loading'" class="pw-muted">加载中…</p>
     <div v-else-if="phase === 'error'" class="pw-fatal">{{ fatalMsg }}<button class="pw-primary" @click="load">重试</button></div>
     <template v-else>
-      <div class="chapter-head"><h2>{{ chapterTitle }}</h2></div>
+      <div class="chapter-head"><h2>{{ chapterTitle }}</h2>
+        <span class="mode-badge">当前模式：{{ worldMode === 'single' ? '单服务器' : '多服务器' }} · 切换请到插件齿轮配置</span>
+      </div>
 
       <template v-if="isAccess">
         <section>
@@ -162,7 +181,7 @@ async function save() {
         </section>
       </template>
 
-      <SectionForm v-for="sec in currentSections" :key="sec.key" :section="sec"
+      <SectionForm v-for="sec in visibleSections" :key="sec.key" :section="sec"
         :model-value="state.sections[sec.key]" @update:model-value="(v) => { state.sections[sec.key] = v; dirty = true }" />
 
       <div class="savebar">
@@ -176,6 +195,9 @@ async function save() {
 </template>
 
 <style scoped>
+/* 只读模式标识：仿 muted chip，靠右贴于章标题；窄屏允许换行避免溢出 */
+.chapter-head { flex-wrap: wrap; row-gap: 6px; }
+.mode-badge { margin-left: auto; align-self: center; font-size: 11.5px; color: var(--ink-2); background: color-mix(in srgb, var(--focus) 6%, var(--card)); border: 1px solid var(--rule); border-radius: var(--r); padding: 4px 10px; white-space: nowrap; }
 .callout { background: color-mix(in srgb, var(--focus) 7%, var(--card)); border: 1px solid color-mix(in srgb, var(--focus) 30%, var(--rule)); border-left: 3px solid var(--focus); border-radius: var(--r); padding: 13px 16px; display: flex; flex-direction: column; gap: 6px; }
 .callout p { margin: 0; font-size: 12.5px; color: var(--ink-2); line-height: 1.55; }
 .callout p b { color: var(--ink); font-weight: 600; }

@@ -26,6 +26,14 @@ beforeEach(() => {
   window.AstrBotPluginPage = { ready: () => Promise.resolve(), apiGet: vi.fn(), apiPost: vi.fn() }
 })
 const mountAt = (chapter: string) => mount(SettingsPanel, { props: { chapter } })
+// 挂载「连接」章（渲染 routing 段）并以 overrides 覆盖 config 顶层键（如 routing）。
+// brief 示例用的 mountAccess 原不存在，就地补一个薄封装：合并 config、挂载、flush。
+const mountAccess = async (overrides: Record<string, any> = {}) => {
+  const c = cfg(); Object.assign(c.config, overrides);
+  (window.AstrBotPluginPage!.apiGet as any).mockResolvedValue(c)
+  const w = mountAt('access'); await flushPromises()
+  return w
+}
 
 describe('SettingsPanel', () => {
   it('权限章渲染玩家查询节（players 重新安家于权限章）', async () => {
@@ -152,5 +160,34 @@ describe('SettingsPanel', () => {
     const body = collectBody((w.vm as any).state)
     expect(body.permission_admins).toEqual([])
     expect(body.command_permissions).toEqual([])
+  })
+
+  it('single 模式隐藏 world_mode/default_server 字段但 collect 仍回传 world_mode', async () => {
+    const w = await mountAccess({ routing: { access_mode: 'restricted', default_server: '', world_mode: 'single' } })
+    // routing 表单不渲染 world_mode（恒隐藏）/ default_server（single 隐藏）标签
+    expect(w.text()).not.toContain('默认服务器')
+    expect(w.text()).not.toContain('运行模式')
+    // 顶部只读模式标识
+    expect(w.text()).toContain('单服务器')
+    // 字段隐藏但值仍回传（collectBody 从 state 读，不受模板过滤影响）
+    const body = collectBody((w.vm as any).state) as any
+    expect(body.routing.world_mode).toBe('single')
+  })
+
+  it('multi 模式呈现 default_server 字段与「多服务器」标识（world_mode 仍恒隐藏，fail-safe 全字段）', async () => {
+    const w = await mountAccess({ routing: { access_mode: 'restricted', default_server: '', world_mode: 'multi' } })
+    expect(w.text()).toContain('默认服务器') // 多模式保留默认服务器字段
+    expect(w.text()).not.toContain('运行模式') // world_mode 字段任何模式都隐藏
+    expect(w.text()).toContain('多服务器')
+    const body = collectBody((w.vm as any).state) as any
+    expect(body.routing.world_mode).toBe('multi')
+  })
+
+  it('applyConfig 对缺 world_mode 的 routing 兜底 seed 为 multi（collect 恒有值）', async () => {
+    // 默认 cfg().routing 不带 world_mode → seed 兜底 multi（fail-safe）
+    const w = await mountAccess()
+    expect(w.text()).toContain('多服务器')
+    const body = collectBody((w.vm as any).state) as any
+    expect(body.routing.world_mode).toBe('multi')
   })
 })
