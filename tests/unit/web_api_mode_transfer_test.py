@@ -326,6 +326,31 @@ async def test_audit_write_failure_still_returns_200(repo):
     assert p["config"]["routing"]["world_mode"] == "multi"
 
 
+async def test_single_to_multi_reload_failure_revokes_prebind(repo):
+    # M5（single→multi 方向）：预绑先于 reload，reload 失败即中止 → best-effort 撤销预绑、
+    # config 回滚（仍 single）、审计 success=0。补齐唯一未测的编排安全分支。
+    h = await _mk(_base_raw("single", [_srv_row("a")],
+                            single_allowed=[{"umo": "u1", "note": ""}]), repo)
+    h.fail_reload = True
+    code, p = await _call(h, {"target_mode": "multi", "migrate_umos": ["u1"]})
+    assert p["ok"] is False and p["error"] == "restart_failed_rolled_back"
+    # 预绑已撤销：DB 无残留绑定
+    assert await repo.get_allowed("u1") == set()
+    # 零 config 变更：world_mode 仍 single
+    assert parse_config(h.raw, {}).routing.world_mode == "single"
+    audits = await repo.list_audit(10)
+    assert audits and audits[0]["success"] == 0
+
+
+async def test_invalid_target_not_audited(repo):
+    # invalid_target 是非审计早退：不写审计、不触发 reload。
+    h = await _mk(_base_raw("single", [_srv_row("a")]), repo)
+    code, p = await _call(h, {"target_mode": "bogus", "migrate_umos": []})
+    assert p["ok"] is False and p["error"] == "invalid_target"
+    assert h.reload_calls == 0
+    assert await repo.list_audit(10) == []
+
+
 async def test_candidate_preserves_untouched_fields(repo):
     # M8：转移不静默重置 access_mode/default_server/setup_confirmed；保留台密码存活。
     raw = _base_raw("multi", [_srv_row("a"), _srv_row("b")])
