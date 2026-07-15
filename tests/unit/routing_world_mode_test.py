@@ -149,3 +149,17 @@ async def test_single_open_ignores_allowlist(repo):
                    single_allowed_groups=[]))
     res = await svc.resolve("g1", None, True)
     assert res.server is not None
+
+
+async def test_single_restricted_for_write_bypasses_allowlist(repo):
+    """single+restricted 安全核心:umo 不在读名单时,写命令 for_write=True 绕过读
+    名单、解析到首台就绪服务器(admin 硬门在 main 层独立把守,不在此层);同一 umo
+    读路径 for_write=False 仍被拒(single_not_authorized)。"""
+    svc = RoutingService(
+        repo, _cfg([_server("alpha")], access=AccessMode.RESTRICTED, world_mode="single",
+                   single_allowed_groups=[AllowedGroupEntry("other", "")]))
+    w = await svc.resolve("g1", None, True, for_write=True)
+    assert w.server is not None and w.error is None
+    assert w.server.server_id == "alpha"  # ready[0]
+    r = await svc.resolve("g1", None, True, for_write=False)
+    assert r.server is None and r.error  # single_not_authorized

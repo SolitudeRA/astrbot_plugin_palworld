@@ -2,13 +2,20 @@
 
 背景:astrbot_namespace_load_test 只覆盖模块导入;函数体内的惰性问题
 (如曾在实机炸掉 /pal me 的函数内绝对自导入)导入时不触发。本测试在
-同等命名空间条件下真正 initialize 插件、种入世界与玩家数据,把 11 分级 handler
-带子动作参数走一遍(world/guild/player/server/link 5 组各子动作 + 6 扁平,calls
-共 28 项;link 走 list/add/remove、server 走 7 写子动作;player bind 成功后再走
+同等命名空间条件下真正 initialize 插件、种入世界与玩家数据,把 12 分级 handler
+带子动作参数走一遍(world/guild/player/server/link 5 组各子动作 + 7 扁平,calls
+共 29 项;link 走 list/add/remove、server 走 7 写子动作;player bind 成功后再走
 me/player unbind,复现当年实机 bug 的等价深分支;7 条服务器管控写命令
 require_confirmation 默认关直执、kick/ban 经 _FakeRest 种在线玩家走到
 execute_target)——任何仅在真实 AstrBot 加载形态下才暴露的运行时环境差异在此
 转红。features 全开(含 server_admin_*)、access_mode=open,让各命令体尽量走深。
+
+world_mode 在主 pass 固定 multi(测试 fixture 专属,不改生产默认 single):single 下
+link 三命令在 main._link_dispatch 即短路回 link_single_mode 通知,走不到
+commands.link→link_list/format_servers/routing.use/unbind 深支,断言仅查非空串会
+静默丢失命名空间加载期的导入缺陷覆盖(正是 /pal me 那类实机崩溃)。末尾另跑一个
+single 模式 pass,断言 link 三命令返回单模式通知,覆盖单模式短路 + single resolve
+分支在命名空间加载形态下的路径。
 """
 import sys
 
@@ -77,7 +84,7 @@ class _Ev:
         return s
 
 
-def _raw_config() -> dict:
+def _raw_config(world_mode: str = "multi") -> dict:
     return {
         "servers": [
             {"name": "alpha", "enabled": True, "base_url": "http://127.0.0.1:8212",
@@ -85,7 +92,9 @@ def _raw_config() -> dict:
              "timezone": ""},
         ],
         "group_bindings": [],
-        "routing": {"access_mode": "open", "default_server": "alpha"},
+        # world_mode 固定 multi 是 fixture 专属(生产默认 single):让 link 三命令走到
+        # commands.link 深支,而非在 _link_dispatch 短路回单模式通知
+        "routing": {"access_mode": "open", "default_server": "alpha", "world_mode": world_mode},
         "polling": {"metrics_seconds": 30, "players_seconds": 30, "info_seconds": 600,
                     "settings_seconds": 1800, "game_data_seconds": 120, "jitter_ratio": 0.1,
                     "max_concurrency": 6},
@@ -168,6 +177,38 @@ async def test_all_commands_run_under_namespaced_load(tmp_path, monkeypatch):
                 assert outputs, f"{handler.__name__} 无输出"
                 assert all(isinstance(o, str) and o for o in outputs), (
                     f"{handler.__name__} 输出非文本: {outputs!r}"
+                )
+        finally:
+            await plugin.terminate()
+
+
+async def test_link_single_mode_short_circuits_under_namespaced_load(tmp_path, monkeypatch):
+    """单模式 pass:world_mode=single 下 link 三命令在 _link_dispatch 短路回
+    link_single_mode 通知(绝不触达 commands.link),覆盖单模式短路 + single resolve
+    分支在命名空间加载形态下的路径。与主 pass 同构建方式,仅 world_mode 不同。
+    """
+    with namespaced_main() as mod:
+        container_mod = sys.modules[f"{NS}.palworld_terminal.container"]
+        Container = container_mod.Container
+        orig_init = Container.__init__
+
+        def patched_init(self, config, data_dir, clock, **kw):
+            kw.setdefault("rest_factory", lambda s, c: _FakeRest())
+            kw.setdefault("scheduler_factory", lambda **k: _FakeSched())
+            orig_init(self, config, data_dir, clock, **kw)
+
+        monkeypatch.setattr(Container, "__init__", patched_init)
+        monkeypatch.setattr(mod, "_resolve_data_dir", lambda: tmp_path)
+
+        plugin = mod.PalWorldTerminal(_FakeContext(), _raw_config("single"))
+        await plugin.initialize()
+        try:
+            locale = sys.modules[f"{NS}.palworld_terminal.presentation.locale"]
+            expected = locale.L("link_single_mode")
+            for msg in ("link list", "link add alpha", "link remove alpha"):
+                outputs = [out async for out in plugin.link(_Ev(msg))]
+                assert outputs == [expected], (
+                    f"link {msg!r} 未短路到单模式通知(疑走进深支): {outputs!r}"
                 )
         finally:
             await plugin.terminate()
