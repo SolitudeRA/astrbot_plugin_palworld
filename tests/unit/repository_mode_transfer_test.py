@@ -47,3 +47,50 @@ async def test_list_orphan_server_ids_excludes_valid(repo):
 async def test_list_orphan_server_ids_empty_when_all_valid(repo):
     await repo.sync_servers([_srv("a"), _srv("b")])
     assert await repo.list_orphan_server_ids({"a", "b"}) == []
+
+
+async def test_bind_umos_sets_allowed_and_active_when_no_prior(repo):
+    await repo.sync_servers([_srv("a")])
+    await repo.bind_umos_to_server(["u1", "u2"], "a")
+    assert await repo.get_allowed("u1") == {"a"}
+    assert await repo.get_allowed("u2") == {"a"}
+    assert await repo.get_binding_active("u1") == "a"   # 无既有 active → 置 active=1
+    assert await repo.get_binding_active("u2") == "a"
+
+
+async def test_bind_umos_does_not_steal_existing_active(repo):
+    await repo.sync_servers([_srv("a"), _srv("b")])
+    await repo.set_active("u1", "b")               # u1 既有 active 在别台 b
+    await repo.bind_umos_to_server(["u1"], "a")     # 绑到 a
+    assert await repo.get_allowed("u1") == {"a", "b"}   # allowed 累积
+    assert await repo.get_binding_active("u1") == "b"   # 既有 active 不被夺
+    # 断言每 umo active=1 行 ≤1
+    rows = await repo._db.query(
+        "SELECT COUNT(*) FROM group_servers WHERE umo='u1' AND active=1")
+    assert rows[0][0] == 1
+
+
+async def test_bind_umos_promotes_preexisting_inactive_row(repo):
+    # active pin 边角：(umo,target) 行已存在且 active=0、该 umo 无其它 active →
+    # bind 后本行 active 被置 1（不能只靠 ON CONFLICT SET allowed=1 漏置 active）。
+    await repo.sync_servers([_srv("a")])
+    # 造一个 allowed=1, active=0 的既存行（模拟 seed 早于绑定的历史场景）
+    await repo._db.execute_write(
+        "INSERT INTO group_servers (umo, server_id, allowed, active, updated_at) "
+        "VALUES ('u1','a',1,0,1)")
+    await repo.bind_umos_to_server(["u1"], "a")
+    assert await repo.get_binding_active("u1") == "a"   # 升到 active=1
+
+
+async def test_bind_umos_keeps_inactive_when_other_active_exists(repo):
+    # (umo,target) 预存 active=0，但该 umo 别台已有 active → 保持 active=0、不夺。
+    await repo.sync_servers([_srv("a"), _srv("b")])
+    await repo.set_active("u1", "b")   # 别台 active
+    await repo._db.execute_write(
+        "INSERT INTO group_servers (umo, server_id, allowed, active, updated_at) "
+        "VALUES ('u1','a',1,0,1)")
+    await repo.bind_umos_to_server(["u1"], "a")
+    assert await repo.get_binding_active("u1") == "b"
+    rows = await repo._db.query(
+        "SELECT active FROM group_servers WHERE umo='u1' AND server_id='a'")
+    assert rows[0][0] == 0

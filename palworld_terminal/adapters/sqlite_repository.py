@@ -115,6 +115,31 @@ class Repository:
         seen = {r[0] for r in rows}
         return sorted(sid for sid in seen if sid not in valid_server_ids)
 
+    async def bind_umos_to_server(self, umos: list[str], server_id: str) -> None:
+        """批量把 umos 绑到 server_id：allowed=1 恒置；active pin——该 umo 尚无任何
+        active 行时把本行 active 升到 1，否则保持既有（不夺别台 active）。镜像
+        seed_bindings seed-only-active + set_active one-active-per-umo 不变量。"""
+        now = self._clock.now()
+        async with self._db.write_tx() as conn:
+            for umo in umos:
+                cursor = await conn.execute(
+                    "SELECT 1 FROM group_servers WHERE umo=? AND active=1 LIMIT 1",
+                    (umo,),
+                )
+                has_active = await cursor.fetchone()
+                await cursor.close()
+                want_active = 0 if has_active else 1
+                await conn.execute(
+                    "INSERT INTO group_servers "
+                    "(umo, server_id, allowed, active, updated_at) "
+                    "VALUES (?, ?, 1, ?, ?) "
+                    "ON CONFLICT(umo, server_id) DO UPDATE SET "
+                    "  allowed=1, "
+                    "  active=CASE WHEN ?=1 THEN 1 ELSE group_servers.active END, "
+                    "  updated_at=excluded.updated_at",
+                    (umo, server_id, want_active, now, want_active),
+                )
+
     async def get_binding_active(self, umo: str) -> str | None:
         rows = await self._db.query(
             "SELECT server_id FROM group_servers WHERE umo=? AND active=1 LIMIT 1",
