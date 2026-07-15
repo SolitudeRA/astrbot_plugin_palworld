@@ -11,6 +11,7 @@ from .config_view import _MAX_LIST, audit_rows, redact_config, status_rows, vali
 
 _log = logging.getLogger("palworld_terminal.web_api")
 _TRANSFER_ACTION = "mode_transfer"
+_ORPHAN_ACTION = "orphan_purge"
 
 
 async def handle_config_get(get_raw: Callable[[], Mapping]) -> tuple[int, dict]:
@@ -294,3 +295,61 @@ async def handle_mode_transfer(
                  else "源介质（DB 群绑定）清理未尽，切回多世界前请人工核查残留")
         return await _finalize(payload, success=success, error=error,
                                server_name=server_name_hint)
+
+
+async def handle_orphans_list(container, restarting) -> tuple[int, dict]:
+    """只读列 DB 残留但 config 已无的 server_id。"""
+    if restarting or container is None:
+        return 200, {"ok": True, "orphans": [], "restarting": True}
+    valid = {s.server_id for s in container.config.servers}
+    orphans = await container.repo.list_orphan_server_ids(valid)
+    return 200, {"ok": True, "orphans": orphans}
+
+
+async def handle_orphans_purge(
+    body, *, get_container, busy_msg, lock, now, current_username
+) -> tuple[int, dict]:
+    """清理孤儿 server 数据。持 lock、不自增 _inflight。服务端现场重算孤儿集
+    （不信客户端，Blocker-O）：客户端传入 server_ids 仅作交集过滤，非孤儿 → rejected。"""
+    if lock.locked():
+        return 200, {"ok": False, "error": "purge_in_progress", "detail": {}}
+    async with lock:
+        if busy_msg() is not None:
+            return 200, {"ok": False, "error": "busy", "detail": {}}
+        container = get_container()
+        if container is None:
+            return 200, {"ok": False, "error": "busy", "detail": {}}
+        valid = {s.server_id for s in container.config.servers}
+        orphans = set(await container.repo.list_orphan_server_ids(valid))
+        requested = body.get("server_ids") if isinstance(body, Mapping) else None
+        if isinstance(requested, list) and requested:
+            targets = [str(s) for s in requested]
+        else:
+            targets = sorted(orphans)
+        if not targets:   # 空孤儿集且无请求 → 短路无审计
+            return 200, {"ok": True, "purged": {}, "rejected": [], "failed_server_ids": []}
+        purged: dict[str, dict] = {}
+        rejected: list[str] = []
+        failed: list[str] = []
+        for sid in targets:
+            if sid not in orphans:   # TOCTOU 防线：活台/已非孤儿 → 拒
+                rejected.append(sid)
+                continue
+            try:
+                purged[sid] = await container.repo.purge_server_data(sid)
+            except Exception:  # noqa: BLE001
+                failed.append(sid)
+        try:   # 审计写异常隔离（M-e 同规格）
+            await container.repo.insert_audit(
+                ts=now, admin_id=str(current_username() or ""), action=_ORPHAN_ACTION,
+                server_name=(targets[0] if targets else _ORPHAN_ACTION),
+                target_name=None, target_hash=None,
+                detail=json.dumps({"purged": purged, "rejected": rejected,
+                                   "failed": failed}, ensure_ascii=False),
+                success=1 if not failed else 0,
+                error=("purge_failed:" + ",".join(failed)) if failed else None,
+            )
+        except Exception:  # noqa: BLE001
+            _log.warning("orphan_purge 审计写入失败（已忽略）")
+        return 200, {"ok": True, "purged": purged, "rejected": rejected,
+                     "failed_server_ids": failed}
