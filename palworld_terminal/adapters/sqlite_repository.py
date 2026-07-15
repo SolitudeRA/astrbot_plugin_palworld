@@ -146,6 +146,42 @@ class Repository:
             cursor = await conn.execute("DELETE FROM group_servers")
             return cursor.rowcount
 
+    _PURGE_WORLD_TABLES = (
+        "players", "player_sessions", "player_observations", "guilds",
+        "palboxes", "bases", "base_observations", "world_metrics",
+        "world_events", "daily_aggregates", "player_bindings", "hidden_players",
+    )
+
+    async def purge_server_data(self, server_id: str) -> dict[str, int]:
+        """server 级 purge：解析该 server 的 world_id 集 → 逐表删 12 张 world_id 键表 +
+        删 group_servers/worlds/servers 的 server_id 行。单台一个 write_tx（任一 DELETE
+        抛错整台回滚）。空 world_id 集短路（跳过 12 表、绝不发空 IN ()）。返回各表计数。"""
+        rows = await self._db.query(
+            "SELECT world_id FROM worlds WHERE server_id=?", (server_id,)
+        )
+        world_ids = [r[0] for r in rows]
+        counts: dict[str, int] = {}
+        async with self._db.write_tx() as conn:
+            if world_ids:
+                placeholders = ",".join("?" for _ in world_ids)
+                for table in self._PURGE_WORLD_TABLES:
+                    cursor = await conn.execute(
+                        f"DELETE FROM {table} WHERE world_id IN ({placeholders})",
+                        tuple(world_ids),
+                    )
+                    counts[table] = cursor.rowcount
+                    await cursor.close()
+            else:
+                for table in self._PURGE_WORLD_TABLES:
+                    counts[table] = 0
+            for table in ("group_servers", "worlds", "servers"):
+                cursor = await conn.execute(
+                    f"DELETE FROM {table} WHERE server_id=?", (server_id,)
+                )
+                counts[table] = cursor.rowcount
+                await cursor.close()
+        return counts
+
     async def get_binding_active(self, umo: str) -> str | None:
         rows = await self._db.query(
             "SELECT server_id FROM group_servers WHERE umo=? AND active=1 LIMIT 1",

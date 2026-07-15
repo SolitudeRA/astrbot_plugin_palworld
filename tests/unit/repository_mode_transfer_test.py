@@ -111,3 +111,88 @@ async def test_clear_all_group_servers_wipes_and_returns_count(repo):
     # worlds 未被误删
     rows = await repo._db.query("SELECT COUNT(*) FROM worlds")
     assert rows[0][0] == 1
+
+
+async def _seed_world_data(repo, server_id, world_id):
+    """给 (server_id, world_id) 造齐 12 张 world_id 键表各 1 行 + servers/group_servers。
+
+    servers/group_servers 用 INSERT OR IGNORE：转移 purge 测试里该 server 行可能已被
+    harness 的 sync_servers 建过（PK 冲突），OR IGNORE 保持幂等；world_id 键表用全新
+    world_id 无冲突、普通 INSERT。
+    """
+    await repo._db.execute_write(
+        "INSERT OR IGNORE INTO servers (server_id, name, enabled) VALUES (?, ?, 1)",
+        (server_id, server_id))
+    await repo._db.execute_write(
+        "INSERT INTO worlds (world_id, server_id, worldguid, epoch) VALUES (?, ?, 'g', 0)",
+        (world_id, server_id))
+    await repo._db.execute_write(
+        "INSERT OR IGNORE INTO group_servers (umo, server_id, allowed, active, updated_at) "
+        "VALUES (?, ?, 1, 1, 1)", (f"umo-{server_id}", server_id))
+    stmts = [
+        ("INSERT INTO players (player_key, world_id) VALUES ('p', ?)", (world_id,)),
+        ("INSERT INTO player_sessions (world_id, player_key, joined_at, last_confirmed_at, status) "
+         "VALUES (?, 'p', 1, 1, 'active')", (world_id,)),
+        ("INSERT INTO player_observations (world_id, player_key, observed_at) VALUES (?, 'p', 1)", (world_id,)),
+        ("INSERT INTO guilds (guild_key, world_id) VALUES ('g', ?)", (world_id,)),
+        ("INSERT INTO palboxes (palbox_key, world_id, position_cell) VALUES ('pb', ?, 'c')", (world_id,)),
+        ("INSERT INTO bases (base_key, world_id, palbox_key, confidence) VALUES ('b', ?, 'pb', 'high')", (world_id,)),
+        ("INSERT INTO base_observations (world_id, base_key, observed_at) VALUES (?, 'b', 1)", (world_id,)),
+        ("INSERT INTO world_metrics (world_id, observed_at) VALUES (?, 1)", (world_id,)),
+        ("INSERT INTO world_events (world_id, event_type, subject_type, occurred_at, confirmed_at, "
+         "visibility, confidence, dedup_key) VALUES (?, 'e', 's', 1, 1, 'public', 'high', ?)",
+         (world_id, f"dk-{world_id}")),
+        ("INSERT INTO daily_aggregates (world_id, day, key, value_json) VALUES (?, 'd', 'k', '1')", (world_id,)),
+        ("INSERT INTO player_bindings (platform_hash, world_id, player_key, created_at) "
+         "VALUES ('ph', ?, 'p', 1)", (world_id,)),
+        ("INSERT INTO hidden_players (world_id, player_key, hidden_by, created_at) "
+         "VALUES (?, 'p', 'admin', 1)", (world_id,)),
+    ]
+    for sql, params in stmts:
+        await repo._db.execute_write(sql, params)
+
+
+_WORLD_TABLES = ["players", "player_sessions", "player_observations", "guilds",
+                 "palboxes", "bases", "base_observations", "world_metrics",
+                 "world_events", "daily_aggregates", "player_bindings", "hidden_players"]
+
+
+async def test_purge_server_data_wipes_all_world_tables(repo):
+    await _seed_world_data(repo, "a", "a:w")
+    counts = await repo.purge_server_data("a")
+    for t in _WORLD_TABLES:
+        assert counts[t] == 1, t
+        rows = await repo._db.query(f"SELECT COUNT(*) FROM {t}")
+        assert rows[0][0] == 0, t
+    for t in ("group_servers", "worlds", "servers"):
+        assert counts[t] == 1, t
+        rows = await repo._db.query(f"SELECT COUNT(*) FROM {t}")
+        assert rows[0][0] == 0, t
+
+
+async def test_purge_server_data_empty_world_set_short_circuits(repo):
+    # 从未轮询台：servers 有行、worlds 无行 → world_id 集为空。
+    # 绝不发空 IN ()（SQLite 语法错），只删三张 server 行、12 表零计数、write_tx 不整台回滚。
+    await repo._db.execute_write(
+        "INSERT INTO servers (server_id, name, enabled) VALUES ('a','a',1)")
+    await repo._db.execute_write(
+        "INSERT INTO group_servers (umo, server_id, allowed, active, updated_at) "
+        "VALUES ('u','a',1,1,1)")
+    counts = await repo.purge_server_data("a")   # 不抛 sqlite3.OperationalError
+    for t in _WORLD_TABLES:
+        assert counts[t] == 0
+    assert counts["servers"] == 1 and counts["group_servers"] == 1
+    rows = await repo._db.query("SELECT COUNT(*) FROM servers")
+    assert rows[0][0] == 0   # 三张 server 行确被删
+
+
+async def test_purge_server_data_isolates_other_server(repo):
+    await _seed_world_data(repo, "a", "a:w")
+    await _seed_world_data(repo, "b", "b:w")
+    await repo.purge_server_data("a")
+    # b 的数据一行不少
+    for t in _WORLD_TABLES:
+        rows = await repo._db.query(f"SELECT COUNT(*) FROM {t}")
+        assert rows[0][0] == 1, t
+    rows = await repo._db.query("SELECT server_id FROM servers")
+    assert [r[0] for r in rows] == ["b"]
