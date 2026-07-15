@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref } from 'vue'
-import { previewTransfer, mapTransferError, type TransferPreview } from '../lib/transfer'
+import { previewTransfer, postTransfer, mapTransferError, type TransferPreview, type TransferBody } from '../lib/transfer'
+import ModeConfirmDialog from './ModeConfirmDialog.vue'
 
 const props = defineProps<{ worldMode: string; dirty: boolean; serverNames: string[] }>()
 const emit = defineEmits<{
@@ -38,6 +39,36 @@ async function onSwitch() {
 }
 
 function closeFlow() { flow.value = 'idle'; preview.value = null }
+
+// 对话框确认：组装 TransferBody（single↔multi 无 surviving；multi→single 单台带 surviving）。
+async function onConfirm(migrateUmos: string[]) {
+  const body: TransferBody = { target_mode: target.value, migrate_umos: migrateUmos, purge_others: false }
+  if (target.value === 'single') body.surviving_server_id = survivingId.value
+  await runTransfer(body)
+}
+
+// 统一 POST 编排：ok → applied(config) + 成功/告警 toast；ok:false 抛 BusinessError → 错误 toast（模式不变）。
+async function runTransfer(body: TransferBody) {
+  working.value = true
+  try {
+    const res = await postTransfer(body)
+    emit('applied', res.config)
+    const toMode = res.summary.to === 'single' ? '单服务器' : '多服务器'
+    let msg = `已切换到${toMode}模式；迁移 ${res.summary.migrated} 个群`
+    const purgedN = Object.keys(res.summary.purged ?? {}).length
+    if (purgedN) msg += `，清理 ${purgedN} 台数据`
+    let warn = false
+    if (res.warnings?.cleared_group_servers === false) { msg += '；源介质清理未尽，切回多世界前请人工核查'; warn = true }
+    const failed = res.warnings?.purge_failed ?? []
+    if (failed.length) { msg += `；${failed.length} 台数据清理失败，可到孤儿清理稍后重试`; warn = true }
+    emit('notify', msg, warn)
+  } catch (e) {
+    emit('notify', mapTransferError(e), true) // ok:false → 模式不变
+  } finally {
+    working.value = false
+    closeFlow()
+  }
+}
 </script>
 
 <template>
@@ -49,8 +80,9 @@ function closeFlow() { flow.value = 'idle'; preview.value = null }
       </button>
       <span v-if="dirty" class="mt-hint">有未保存更改，保存后可切换</span>
     </div>
-    <!-- T2 在此渲染 <ModeConfirmDialog v-if="flow === 'confirm' && preview">；
-         T3 渲染 <TransferWizard v-if="flow === 'wizard' && preview"> -->
+    <ModeConfirmDialog v-if="flow === 'confirm' && preview" :target="target" :preview="preview"
+      :surviving-id="survivingId" @confirm="onConfirm" @cancel="closeFlow" />
+    <!-- T3 渲染 <TransferWizard v-if="flow === 'wizard' && preview"> -->
   </section>
 </template>
 
