@@ -408,6 +408,28 @@ async def test_multi_to_single_purges_non_ready_server_with_data(repo):
     assert "ghost" not in orphans   # 不留孤儿
 
 
+async def test_multi_to_single_numeric_survivor_name_matches(repo):
+    # FIX2：raw JSON 数字 survivor id（2）过 str-coerce 校验，但旧代码候选匹配/裁剪
+    # 用 raw `== 2` 失配 → survivor 未归位/servers 未裁剪，purge_set(str) 却清了另一台。
+    # 规范化 survivor_name = survivor.name 后全用 canonical name 匹配。
+    from tests.unit.repository_mode_transfer_test import _seed_world_data
+    h = await _mk(_base_raw("multi", [_srv_row("1"), _srv_row("2")]), repo)
+    await _seed_world_data(repo, "1", "1:w")
+    await _seed_world_data(repo, "2", "2:w")
+    code, p = await _call(h, {"target_mode": "single", "surviving_server_id": 2,
+                              "migrate_umos": [], "purge_others": True})
+    assert p["ok"] is True
+    # survivor "2" 归位 servers[0] 且候选仅留 "2"
+    assert p["config"]["servers"][0]["name"] == "2"
+    assert [s["name"] for s in p["config"]["servers"]] == ["2"]
+    # 另一台 "1" 被清
+    rows = await repo._db.query("SELECT COUNT(*) FROM worlds WHERE server_id='1'")
+    assert rows[0][0] == 0
+    # survivor "2" 数据完整
+    rows = await repo._db.query("SELECT COUNT(*) FROM worlds WHERE server_id='2'")
+    assert rows[0][0] == 1
+
+
 async def test_multi_to_single_purge_partial_failure_success_1(repo):
     # purge 部分失败 → 其余台仍清、审计 success=1 + failed_server_ids、回执 warnings。
     from tests.unit.repository_mode_transfer_test import _seed_world_data
@@ -431,3 +453,5 @@ async def test_multi_to_single_purge_partial_failure_success_1(repo):
     assert p["warnings"]["purge_failed"] == ["bad"]
     audits = await repo.list_audit(10)
     assert audits and audits[0]["success"] == 1   # purge 部分失败仍 success=1
+    # FIX3：success=1 时仍在 audit.error 摘要失败台（spec §4.4），便于人工核查
+    assert audits[0]["error"] and "bad" in audits[0]["error"]

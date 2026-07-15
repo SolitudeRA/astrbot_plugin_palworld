@@ -161,6 +161,9 @@ async def handle_mode_transfer(
                 return await _finalize(
                     {"ok": False, "error": "invalid_surviving", "detail": {}},
                     success=0, error="invalid_surviving", server_name=server_name_hint)
+            # survivor 规范名：校验经 str-coerce 通过，但候选匹配/排除若用 raw
+            # surviving_server_id（如 raw JSON 数字 2）会 == 失配 → 半态（FIX2）。
+            survivor_name = survivor.name
             server_name_hint = survivor.name
             pairs = await container.repo.list_allowed_bindings()
             source_umos = {umo for umo, _ in pairs}
@@ -207,7 +210,7 @@ async def handle_mode_transfer(
             if isinstance(servers, list):
                 idx = next(
                     (i for i, s in enumerate(servers)
-                     if isinstance(s, dict) and s.get("name") == surviving_server_id),
+                     if isinstance(s, dict) and s.get("name") == survivor_name),
                     None,
                 )
                 if idx is not None and idx != 0:
@@ -230,10 +233,10 @@ async def handle_mode_transfer(
             if purge_others:
                 # purge_set = 转移前 config 所有非 surviving 台（含非就绪有数据台，M-c）
                 purge_set = {s.server_id for s in container.config.servers} - {
-                    str(surviving_server_id)}
+                    survivor_name}
                 survivor_row = next(
                     (s for s in candidate.get("servers", [])
-                     if isinstance(s, dict) and s.get("name") == surviving_server_id),
+                     if isinstance(s, dict) and s.get("name") == survivor_name),
                     None,
                 )
                 if survivor_row is not None:
@@ -291,8 +294,12 @@ async def handle_mode_transfer(
                         "failed_server_ids": state["failed_server_ids"]},
         }
         success = 1 if clear_ok else 0
-        error = (None if clear_ok
-                 else "源介质（DB 群绑定）清理未尽，切回多世界前请人工核查残留")
+        if not clear_ok:
+            error = "源介质（DB 群绑定）清理未尽，切回多世界前请人工核查残留"
+        elif state["failed_server_ids"]:
+            error = "purge_failed:" + ",".join(state["failed_server_ids"])
+        else:
+            error = None
         return await _finalize(payload, success=success, error=error,
                                server_name=server_name_hint)
 
@@ -322,8 +329,10 @@ async def handle_orphans_purge(
         valid = {s.server_id for s in container.config.servers}
         orphans = set(await container.repo.list_orphan_server_ids(valid))
         requested = body.get("server_ids") if isinstance(body, Mapping) else None
-        if isinstance(requested, list) and requested:
-            targets = [str(s) for s in requested]
+        if requested is None:
+            targets = sorted(orphans)          # 字段缺省 → 默认清全部孤儿
+        elif isinstance(requested, list):
+            targets = sorted({str(s) for s in requested})  # 显式列表：去重；空列表→空 targets→下方短路清零
         else:
             targets = sorted(orphans)
         if not targets:   # 空孤儿集且无请求 → 短路无审计

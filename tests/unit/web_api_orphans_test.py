@@ -86,6 +86,69 @@ async def test_orphans_purge_empty_short_circuits(repo):
     assert await repo.list_audit(10) == []   # 空孤儿集短路、不审计
 
 
+async def test_orphans_purge_explicit_empty_list_purges_nothing(repo):
+    # FIX1：显式空列表 {"server_ids": []} 是 falsy，旧逻辑误落到「清全部孤儿」；
+    # 现空列表 → 空 targets → 短路清零，不删、不审计。
+    await _seed_world_data(repo, "live", "live:w")
+    await _seed_world_data(repo, "ghost", "ghost:w")
+    c = _Container([_Srv("live")], repo)   # ghost 是孤儿
+    code, p = await handle_orphans_purge(
+        {"server_ids": []}, get_container=lambda: c, busy_msg=lambda: None,
+        lock=asyncio.Lock(), now=1, current_username=lambda: "admin")
+    assert p["ok"] is True
+    assert p["purged"] == {} and p["rejected"] == []
+    rows = await repo._db.query("SELECT COUNT(*) FROM worlds WHERE server_id='ghost'")
+    assert rows[0][0] == 1   # 孤儿数据未动
+    assert await repo.list_audit(10) == []   # 空 targets → 不审计
+
+
+async def test_orphans_purge_partial_failure_continues(repo):
+    # FIX4：一台清理抛错 → 其余台仍清、failed_server_ids 记录、审计 success=0。
+    await _seed_world_data(repo, "ghost1", "ghost1:w")
+    await _seed_world_data(repo, "ghost2", "ghost2:w")
+    c = _Container([_Srv("live")], repo)   # ghost1/ghost2 均孤儿
+    orig = repo.purge_server_data
+
+    async def selective(sid):
+        if sid == "ghost2":
+            raise RuntimeError("purge boom")
+        return await orig(sid)
+
+    repo.purge_server_data = selective
+    try:
+        code, p = await handle_orphans_purge(
+            {}, get_container=lambda: c, busy_msg=lambda: None,
+            lock=asyncio.Lock(), now=1, current_username=lambda: "admin")
+    finally:
+        repo.purge_server_data = orig
+    assert p["ok"] is True
+    assert "ghost1" in p["purged"]
+    assert p["failed_server_ids"] == ["ghost2"]
+    audits = await repo.list_audit(10)
+    assert audits and audits[0]["success"] == 0   # 有失败 → success=0
+
+
+async def test_orphans_purge_audit_exception_still_200(repo):
+    # FIX4：审计写异常隔离 → 端点仍 200 + 孤儿已清，不因审计崩溃回退清理。
+    await _seed_world_data(repo, "ghost", "ghost:w")
+    c = _Container([_Srv("live")], repo)
+    orig = repo.insert_audit
+
+    async def boom(**kw):
+        raise RuntimeError("audit locked")
+
+    repo.insert_audit = boom
+    try:
+        code, p = await handle_orphans_purge(
+            {}, get_container=lambda: c, busy_msg=lambda: None,
+            lock=asyncio.Lock(), now=1, current_username=lambda: "admin")
+    finally:
+        repo.insert_audit = orig
+    assert p["ok"] is True and "ghost" in p["purged"]
+    rows = await repo._db.query("SELECT COUNT(*) FROM worlds WHERE server_id='ghost'")
+    assert rows[0][0] == 0   # 审计崩溃不影响已完成的清理
+
+
 async def test_orphans_purge_busy_when_lock_held(repo):
     c = _Container([_Srv("live")], repo)
     lock = asyncio.Lock()
