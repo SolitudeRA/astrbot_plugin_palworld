@@ -64,6 +64,15 @@ def test_register_web_api_called_with_prefixed_routes():
     assert "/astrbot_plugin_palworld/config/save" in routes
     assert "/astrbot_plugin_palworld/status/overview" in routes
     assert "/astrbot_plugin_palworld/audit/list" in routes
+    assert "/astrbot_plugin_palworld/mode/transfer/preview" in routes
+    assert "/astrbot_plugin_palworld/mode/transfer" in routes
+    assert "/astrbot_plugin_palworld/mode/orphans" in routes
+    assert "/astrbot_plugin_palworld/mode/orphans/purge" in routes
+    methods = {r: m for r, m in ctx.registered}
+    assert methods["/astrbot_plugin_palworld/mode/transfer/preview"] == ("GET",)
+    assert methods["/astrbot_plugin_palworld/mode/transfer"] == ("POST",)
+    assert methods["/astrbot_plugin_palworld/mode/orphans"] == ("GET",)
+    assert methods["/astrbot_plugin_palworld/mode/orphans/purge"] == ("POST",)
 
 
 def test_no_register_when_context_lacks_method():

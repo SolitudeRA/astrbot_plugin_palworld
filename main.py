@@ -187,6 +187,16 @@ class PalWorldTerminal(Star):
             f"{p}/status/overview", self._web_status, ["GET"], "服务器状态概览")
         self._context.register_web_api(
             f"{p}/audit/list", self._web_audit, ["GET"], "管理审计日志(只读)")
+        self._context.register_web_api(
+            f"{p}/mode/transfer/preview", self._web_mode_transfer_preview, ["GET"],
+            "模式转移预览(只读)")
+        self._context.register_web_api(
+            f"{p}/mode/transfer", self._web_mode_transfer, ["POST"], "模式转移(原子编排)")
+        self._context.register_web_api(
+            f"{p}/mode/orphans", self._web_orphans_list, ["GET"], "孤儿服务器数据列表(只读)")
+        self._context.register_web_api(
+            f"{p}/mode/orphans/purge", self._web_orphans_purge, ["POST"],
+            "清理孤儿服务器数据")
 
     def _busy_msg(self) -> str | None:
         if self._restarting or self._container is None:
@@ -396,6 +406,67 @@ class PalWorldTerminal(Star):
             apply_and_restart=self._apply_and_restart)
         if payload.get("ok") and "saved_ts" in payload:
             self._last_save_ts = payload.pop("saved_ts")
+        return jsonify(payload)
+
+    async def _web_mode_transfer_preview(self):
+        from quart import jsonify, request
+        if not self._has_identity():
+            return self._deny_unauthorized()
+        target = request.args.get("target", "single")
+        self._inflight += 1   # 只读端点走在途门闩（镜像 _web_status/_web_audit）
+        self._idle.clear()
+        try:
+            container = None if self._restarting else self._container
+            _code, payload = await web_api.handle_mode_transfer_preview(
+                container, self._restarting, target)
+        finally:
+            self._inflight -= 1
+            if self._inflight == 0:
+                self._idle.set()
+        return jsonify(payload)
+
+    async def _web_orphans_list(self):
+        from quart import jsonify
+        if not self._has_identity():
+            return self._deny_unauthorized()
+        self._inflight += 1
+        self._idle.clear()
+        try:
+            container = None if self._restarting else self._container
+            _code, payload = await web_api.handle_orphans_list(container, self._restarting)
+        finally:
+            self._inflight -= 1
+            if self._inflight == 0:
+                self._idle.set()
+        return jsonify(payload)
+
+    async def _web_mode_transfer(self):
+        import time
+
+        from quart import jsonify, request
+        if not self._has_identity():
+            return self._deny_unauthorized()
+        body = await request.get_json(silent=True)
+        # 写端点：只持 _save_lock、绝不自增 _inflight（否则 _wait_quiescent 等自己白等）
+        _code, payload = await web_api.handle_mode_transfer(
+            body, get_raw=lambda: self._raw_config,
+            get_container=lambda: self._container, busy_msg=self._busy_msg,
+            lock=self._save_lock, now=int(time.time()),
+            apply_and_restart=self._apply_and_restart,
+            current_username=self._current_username)
+        return jsonify(payload)
+
+    async def _web_orphans_purge(self):
+        import time
+
+        from quart import jsonify, request
+        if not self._has_identity():
+            return self._deny_unauthorized()
+        body = await request.get_json(silent=True)
+        _code, payload = await web_api.handle_orphans_purge(
+            body, get_container=lambda: self._container, busy_msg=self._busy_msg,
+            lock=self._save_lock, now=int(time.time()),
+            current_username=self._current_username)
         return jsonify(payload)
 
     # ---- context helpers ----
