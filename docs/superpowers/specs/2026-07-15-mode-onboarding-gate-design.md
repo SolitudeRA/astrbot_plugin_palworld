@@ -77,6 +77,8 @@
 
 ## 5. 组件与接口
 
+> 🛡 **实现方案已定：`setup_confirmed` 嵌进 `routing` 节**（§4.3 降级预案落地，见 plan `docs/superpowers/plans/2026-07-15-mode-onboarding-gate.md`）。因真实 AstrBot 不在本仓无法验证顶层裸标量，且 `collectBody` 逐字段重建 routing——故 `setup_confirmed` 作为 routing 的 schema 字段（前端 `visibleSections` 恒隐藏，照 `world_mode` 范式）随 routing 往返，读侧靠 `applyConfig` 整体展开 routing 天然 hydrate。**下文 §5/§6 凡述"顶层 `state.setup_confirmed` / `collectBody` 顶层回传 / `_TOP_KEYS` 加键"处，一律以 routing 嵌套版为准**（config_view/`_TOP_KEYS`/collect TOP_KEYS 均不需改）。
+
 - **后端**
   - `config.py`：`AppConfig.setup_confirmed: bool`；`parse_config` 严格接线。
   - `main.py`：`_SETUP_EXEMPT = {"help","whoami","whereami"}`（常量，锚定）；setup 闸落在 `_guarded` + `_guarded_cmd`（§4.2）。
