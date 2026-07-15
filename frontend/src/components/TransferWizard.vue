@@ -26,6 +26,9 @@ watch(survivingId, () => {
   for (const r of rows.value) checked[r.umo] = !r.hasNew
 })
 
+// 变更「其余台」处置（删除↔保留）→ 复位删除确认勾，回到删除时须重新确认（销毁性操作不复用旧勾）
+watch(purgeOthers, () => { deleteAck.value = false })
+
 const migrateUmos = computed(() => rows.value.filter((r) => checked[r.umo]).map((r) => r.umo))
 const newCount = computed(() => rows.value.filter((r) => checked[r.umo] && r.hasNew).length)
 // 删除台 = 所有非 surviving 台（含非就绪但 DB 有历史的台，M-c）——从全部 serverNames 算

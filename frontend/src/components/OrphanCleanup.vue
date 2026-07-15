@@ -1,7 +1,10 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, watch } from 'vue'
 import { listOrphans, purgeOrphans, mapTransferError } from '../lib/transfer'
 
+// refreshKey：父组件在「转移完成 / 保存后」自增此值，令本节重拉孤儿集（兄弟组件改配置后
+// 本节不再滞留旧空列表）。初次拉取由 onMounted 负责，watch 只在后续变更触发，避免挂载双拉。
+const props = withDefaults(defineProps<{ refreshKey?: number }>(), { refreshKey: 0 })
 const emit = defineEmits<{ (e: 'notify', msg: string, error: boolean): void }>()
 const orphans = ref<string[]>([])
 const loaded = ref(false)
@@ -16,6 +19,7 @@ async function refresh() {
   loaded.value = true
 }
 onMounted(refresh)
+watch(() => props.refreshKey, () => { refresh() })
 
 // 清理：不传 server_ids，后端持锁现场重算孤儿集清全部（不信客户端）。清理后刷新列表。
 async function purge() {
@@ -25,9 +29,12 @@ async function purge() {
     const r = await purgeOrphans()
     const n = Object.keys(r.purged ?? {}).length
     const failed = r.failed_server_ids ?? []
+    const rejected = r.rejected ?? []
     let msg = `已清理 ${n} 台残留数据`
     let warn = false
     if (failed.length) { msg += `；${failed.length} 台清理失败，可稍后重试`; warn = true }
+    // rejected：清理前重算发现这些台服务端已不再是孤儿（TOCTOU），被跳过——提示用户其未被清理。
+    if (rejected.length) { msg += `；${rejected.length} 台已不再是孤儿（已跳过）`; warn = true }
     emit('notify', msg, warn)
     ack.value = false
     await refresh()

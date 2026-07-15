@@ -119,6 +119,23 @@ describe('ModeTransfer 切换控件', () => {
     expect((w.emitted('notify')?.at(-1)?.[1])).toBe(true)
   })
 
+  // FIX 5：multi→single ok:true 带 warnings.purge_failed + summary.purged → applied +
+  // toast 同含「清理 N 台」（purged 计数支）与「失败」（purge_failed 支），error=true。
+  it('ok:true 带 purge_failed + summary.purged → applied + 告警 notify(清理数 + 失败, error)', async () => {
+    const apiGet = vi.fn().mockResolvedValue({ ok: true, ready_servers: [{ server_id: 'keep', name: 'keep' }], bindings: [{ umo: 'u1', server_ids: ['keep'] }] })
+    const apiPost = vi.fn().mockResolvedValue({ ok: true, config: {}, warnings: { purge_failed: ['bad'] },
+      summary: { from: 'multi', to: 'single', surviving: 'keep', migrated: 1, purged: { x: { worlds: 1 } }, failed_server_ids: ['bad'] } })
+    setBridge({ apiGet, apiPost })
+    const w = mk('multi', false, ['keep', 'x'])
+    await w.get('button[data-act="switch"]').trigger('click'); await flushPromises()
+    w.findComponent({ name: 'ModeConfirmDialog' }).vm.$emit('confirm', ['u1']); await flushPromises()
+    expect(w.emitted('applied')).toBeTruthy()
+    const msg = w.emitted('notify')?.at(-1)?.[0] as string
+    expect(msg).toContain('清理') // summary.purged 计数支「清理 N 台数据」
+    expect(msg).toContain('失败') // warnings.purge_failed 支「N 台数据清理失败」
+    expect(w.emitted('notify')?.at(-1)?.[1]).toBe(true)
+  })
+
   it('对话框 cancel → 关闭子流、无 POST', async () => {
     const apiGet = vi.fn().mockResolvedValue({ ok: true, ready_servers: [{ server_id: 'a', name: 'a' }], allowed_groups: [] })
     const apiPost = vi.fn()

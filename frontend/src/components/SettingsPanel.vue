@@ -24,6 +24,9 @@ const notice = reactive<{ msg: string; error: boolean }>({ msg: '', error: false
 
 const state = reactive<SettingsState>({ servers: [], custom_headers: [], sections: {}, permission_admins: [], command_perms: {}, single_allowed_groups: [] })
 const dirty = ref(false)
+// 每次「转移完成 / 保存成功」自增，作为 refresh-key 传给 OrphanCleanup 令其重拉孤儿集
+// （兄弟组件改配置产生的新孤儿不会滞留在旧空列表里）。
+const orphanRefresh = ref(0)
 
 const chapterMeta = computed(() => CHAPTERS.find((c) => c.id === props.chapter))
 const chapterTitle = computed(() => chapterMeta.value?.label ?? '')
@@ -103,6 +106,13 @@ function applyConfig(c: Record<string, any>) {
   state.command_perms = perms
 }
 
+// 转移完成：先按后端回传 config 重水化，再自增 orphanRefresh——转移（尤其 multi→single 带
+// purge_others 部分失败）可能产出新孤儿，联动 OrphanCleanup 重拉，避免其滞留旧空列表。
+function onTransferApplied(c: Record<string, unknown>) {
+  applyConfig(c)
+  orphanRefresh.value++
+}
+
 function emptyAdmin(): Record<string, unknown> {
   return { __row_id: '', __local_key: `local-${++localSeq}`, id: '', note: '' }
 }
@@ -156,6 +166,7 @@ async function save(): Promise<boolean> {
     const skips = [...((w.skipped_servers as unknown[]) ?? []), ...((w.skipped_headers as unknown[]) ?? [])]
     if (skips.length) toast(`已保存，${skips.length} 条无效条目未生效`)
     else toast('已保存，已生效')
+    orphanRefresh.value++  // 保存可能移除了服务器（删卡片后保存）→ 令孤儿节重拉
     return true
   } catch (e) {
     if (e instanceof BusinessError) toast(mapError(e), true)
@@ -182,7 +193,7 @@ async function save(): Promise<boolean> {
 
       <template v-if="isAccess">
         <ModeTransfer :world-mode="worldMode" :dirty="dirty" :server-names="serverNames"
-          @applied="applyConfig" @notify="(m, e) => toast(m, e)" />
+          @applied="onTransferApplied" @notify="(m, e) => toast(m, e)" />
         <section>
           <div class="group-head"><span class="t">服务器</span><span class="c">要监测的 Palworld 服务器</span></div>
           <template v-if="worldMode === 'multi'">
@@ -210,7 +221,7 @@ async function save(): Promise<boolean> {
             @update:model-value="(v) => { state.single_allowed_groups![i] = v; dirty = true }" @delete="state.single_allowed_groups!.splice(i, 1); dirty = true" />
           <button class="add" @click="state.single_allowed_groups!.push(emptyGroup()); dirty = true">＋ 添加授权群</button>
         </section>
-        <OrphanCleanup @notify="(m, e) => toast(m, e)" />
+        <OrphanCleanup :refresh-key="orphanRefresh" @notify="(m, e) => toast(m, e)" />
       </template>
 
       <template v-if="isPermissions">

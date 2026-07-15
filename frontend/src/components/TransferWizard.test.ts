@@ -76,4 +76,44 @@ describe('TransferWizard', () => {
     await w.get('button[data-act="cancel"]').trigger('click')
     expect(w.emitted('cancel')).toBeTruthy()
   })
+
+  // FIX 2：步3「删除→保留→删除」切换须复位 deleteAck，回到删除时确认闸重新要求勾选（不复用旧勾）
+  it('步3 删除→保留→删除 → deleteAck 复位、确认按钮再次禁用', async () => {
+    const w = mk()
+    await w.findAll('input[type="radio"]')[0].setValue() // 选 keep
+    await w.get('button[data-act="next"]').trigger('click') // → 步2
+    await w.get('button[data-act="next"]').trigger('click') // → 步3
+    let radios = w.findAll('input[type="radio"]')
+    await radios[radios.length - 1].setValue() // 删除
+    await w.get('button[data-act="next"]').trigger('click') // → 步4
+    await w.get('input[data-act="ack"]').setValue(true) // 勾选确认
+    expect((w.get('button[data-act="confirm"]').element as HTMLButtonElement).disabled).toBe(false)
+    // 回步3 → 切保留 → 再切删除
+    await w.get('button[data-act="back"]').trigger('click') // → 步3
+    radios = w.findAll('input[type="radio"]')
+    await radios[radios.length - 2].setValue() // 保留（触发 watch 复位 ack）
+    await radios[radios.length - 1].setValue() // 再删除
+    await w.get('button[data-act="next"]').trigger('click') // → 步4
+    // ack 已复位 → 销毁性操作确认闸再次要求勾选
+    expect((w.vm as any).deleteAck).toBe(false)
+    expect((w.get('button[data-act="confirm"]').element as HTMLButtonElement).disabled).toBe(true)
+  })
+
+  // FIX 6：改选保留台后，步2 迁移默认勾按新台重算（已有权/将获新权在 A、B 间翻转）
+  it('改选保留台 → 步2 勾选默认按新台重算（已有/新权翻转）', async () => {
+    const w = mk()
+    // 选 keep：u_has(含 keep)默认勾、u_new(仅 other)默认不勾
+    await w.findAll('input[type="radio"]')[0].setValue() // keep
+    await w.get('button[data-act="next"]').trigger('click')
+    let boxes = w.findAll('input[type="checkbox"]')
+    expect((boxes[0].element as HTMLInputElement).checked).toBe(true)  // u_has 已有权@keep
+    expect((boxes[1].element as HTMLInputElement).checked).toBe(false) // u_new 将获新权@keep
+    // 回步1 → 改选 other：翻转
+    await w.get('button[data-act="back"]').trigger('click')
+    await w.findAll('input[type="radio"]')[1].setValue() // other
+    await w.get('button[data-act="next"]').trigger('click')
+    boxes = w.findAll('input[type="checkbox"]')
+    expect((boxes[0].element as HTMLInputElement).checked).toBe(false) // u_has 将获新权@other
+    expect((boxes[1].element as HTMLInputElement).checked).toBe(true)  // u_new 已有权@other
+  })
 })

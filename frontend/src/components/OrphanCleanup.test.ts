@@ -57,4 +57,33 @@ describe('OrphanCleanup', () => {
     expect((w.emitted('notify')?.at(-1)?.[0] as string)).toContain('失败')
     expect((w.emitted('notify')?.at(-1)?.[1])).toBe(true)
   })
+
+  // FIX 3：rejected（清理前重算已不再是孤儿，TOCTOU）→ 提示已跳过数 + 置 error
+  it('rejected（已非孤儿被跳过）→ notify 含跳过数、error=true', async () => {
+    const apiGet = vi.fn().mockResolvedValue({ ok: true, orphans: ['x'] })
+    const apiPost = vi.fn().mockResolvedValue({ ok: true, purged: {}, rejected: ['x'], failed_server_ids: [] })
+    setBridge({ apiGet, apiPost })
+    const w = mount(OrphanCleanup); await flushPromises()
+    await w.get('input[data-act="ack"]').setValue(true)
+    await w.get('button[data-act="purge"]').trigger('click'); await flushPromises()
+    const msg = w.emitted('notify')?.at(-1)?.[0] as string
+    expect(msg).toContain('1') // 被跳过 1 台
+    expect(msg).toContain('不再是孤儿')
+    expect(w.emitted('notify')?.at(-1)?.[1]).toBe(true)
+  })
+
+  // FIX 1：外部 refreshKey 自增 → 重拉孤儿集，令兄弟组件（转移/保存）新产生的孤儿浮现；
+  // 挂载时只经 onMounted 拉一次（watch 无 immediate，不双拉）。
+  it('refreshKey 变更 → 重拉列表、浮现新孤儿（挂载不双拉）', async () => {
+    const apiGet = vi.fn().mockResolvedValue({ ok: true, orphans: [] })
+    setBridge({ apiGet })
+    const w = mount(OrphanCleanup, { props: { refreshKey: 0 } }); await flushPromises()
+    expect(apiGet).toHaveBeenCalledTimes(1) // 仅 onMounted，watch 未触发
+    expect(w.text()).not.toContain('残留数据清理')
+    apiGet.mockResolvedValue({ ok: true, orphans: ['ghost'] })
+    await w.setProps({ refreshKey: 1 }); await flushPromises()
+    expect(apiGet).toHaveBeenCalledTimes(2) // refreshKey 变更再拉
+    expect(w.text()).toContain('ghost')
+    expect(w.text()).toContain('残留数据清理')
+  })
 })
