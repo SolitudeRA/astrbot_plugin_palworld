@@ -93,8 +93,11 @@ def _raw_config(world_mode: str = "multi") -> dict:
         ],
         "group_bindings": [],
         # world_mode 固定 multi 是 fixture 专属(生产默认 single):让 link 三命令走到
-        # commands.link 深支,而非在 _link_dispatch 短路回单模式通知
-        "routing": {"access_mode": "open", "default_server": "alpha", "world_mode": world_mode},
+        # commands.link 深支,而非在 _link_dispatch 短路回单模式通知。
+        # setup_confirmed=True(已确认安装):否则默认未确认会把全部被闸命令短路成
+        # setup_required、深支覆盖静默丢失(Task 2 头号铁律,同 world_mode 固定 multi 之理)。
+        "routing": {"access_mode": "open", "default_server": "alpha", "world_mode": world_mode,
+                    "setup_confirmed": True},
         "polling": {"metrics_seconds": 30, "players_seconds": 30, "info_seconds": 600,
                     "settings_seconds": 1800, "game_data_seconds": 120, "jitter_ratio": 0.1,
                     "max_concurrency": 6},
@@ -210,5 +213,40 @@ async def test_link_single_mode_short_circuits_under_namespaced_load(tmp_path, m
                 assert outputs == [expected], (
                     f"link {msg!r} 未短路到单模式通知(疑走进深支): {outputs!r}"
                 )
+        finally:
+            await plugin.terminate()
+
+
+async def test_unconfirmed_gates_non_exempt_under_namespaced_load(tmp_path, monkeypatch):
+    """未确认时：非逗口命令一律回 setup_required；逗口 help/whoami/whereami 放行。"""
+    with namespaced_main() as mod:
+        container_mod = sys.modules[f"{NS}.palworld_terminal.container"]
+        Container = container_mod.Container
+        orig_init = Container.__init__
+
+        def patched_init(self, config, data_dir, clock, **kw):
+            kw.setdefault("rest_factory", lambda s, c: _FakeRest())
+            kw.setdefault("scheduler_factory", lambda **k: _FakeSched())
+            orig_init(self, config, data_dir, clock, **kw)
+
+        monkeypatch.setattr(Container, "__init__", patched_init)
+        monkeypatch.setattr(mod, "_resolve_data_dir", lambda: tmp_path)
+
+        raw = _raw_config()
+        raw["routing"]["setup_confirmed"] = False  # 未确认
+        plugin = mod.PalWorldTerminal(_FakeContext(), raw)
+        await plugin.initialize()
+        try:
+            locale = sys.modules[f"{NS}.palworld_terminal.presentation.locale"]
+            gate_msg = locale.L("setup_required")
+            # 逗口放行（不等于闸文案）
+            for msg in ("help", "whoami", "whereami"):
+                outs = [o async for o in getattr(plugin, msg)(_Ev(msg))]
+                assert outs and outs[0] != gate_msg, f"逗口 {msg} 不应被闸"
+            # 非逗口被闸
+            for handler, msg in ((plugin.world, "world status"), (plugin.rank, "rank"),
+                                 (plugin.server, "server"), (plugin.link, "link list")):
+                outs = [o async for o in handler(_Ev(msg))]
+                assert outs == [gate_msg], f"未确认时 {msg!r} 应被闸: {outs!r}"
         finally:
             await plugin.terminate()

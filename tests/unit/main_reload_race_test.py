@@ -5,9 +5,14 @@ stop() 会关掉它正在用的 DB 连接,命令崩溃。修复后重载在 stop
 在途操作退出;新操作被 _restarting 挡在门外。
 """
 import asyncio
+from types import SimpleNamespace
 
 from main import PalWorldTerminal
 from tests.unit.main_test import _FakeContext, _raw_config
+
+# 已确认安装：_guarded 现读 self._container.config.routing.setup_confirmed，
+# 给替身容器装上（True = 首次设置闸放行，测试聚焦在途/busy 竞态而非设置闸）。
+_CONFIRMED = SimpleNamespace(routing=SimpleNamespace(setup_confirmed=True))
 
 
 def _plugin(tmp_path):
@@ -23,9 +28,10 @@ async def test_guarded_call_returns_result(tmp_path):
 
     class _C:
         commands = _Cmds()
+        config = _CONFIRMED
 
     plugin._container = _C()
-    out = await plugin._guarded(lambda c: c.commands.status("u", "m", True))
+    out = await plugin._guarded(lambda c: c.commands.status("u", "m", True), "world")
     assert out == "ok"
     assert plugin._inflight == 0 and plugin._idle.is_set()
 
@@ -34,7 +40,8 @@ async def test_guarded_rejects_while_restarting(tmp_path):
     plugin = _plugin(tmp_path)
     plugin._container = object()
     plugin._restarting = True
-    out = await plugin._guarded(lambda c: c.commands.status())
+    # 重载中 busy 守卫先于设置闸命中，故 command_str 不影响（container 亦无 config）
+    out = await plugin._guarded(lambda c: c.commands.status(), "world")
     assert "重载" in out
 
 
@@ -53,6 +60,7 @@ async def test_reload_waits_for_inflight_command(tmp_path):
 
     class _OldContainer:
         commands = _Cmds()
+        config = _CONFIRMED
 
         async def stop(self):
             order.append("stop")
@@ -60,7 +68,7 @@ async def test_reload_waits_for_inflight_command(tmp_path):
     plugin._container = _OldContainer()
 
     cmd = asyncio.create_task(
-        plugin._guarded(lambda c: c.commands.status("u", "m", True)))
+        plugin._guarded(lambda c: c.commands.status("u", "m", True), "world"))
     await asyncio.sleep(0)  # 命令进入在途(停在 release.wait)
     assert order == ["cmd-start"]
 

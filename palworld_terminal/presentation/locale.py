@@ -12,6 +12,10 @@ MESSAGES: dict[str, str] = {
         "本群未被授权查询本服务器。请在群里发 /pal whereami 获取本群标识，"
         "交管理员在插件设置页「连接」章的授权群名单中添加。"
     ),
+    "setup_required": (
+        "🔧 帕鲁世界终端尚未完成首次设置。请打开插件设置页，"
+        "选择运行模式（单服务器 / 多服务器）并确认后即可使用。"
+    ),
     "active_server_stale": "当前绑定的服务器已不可用，请管理员重新执行 /pal link add <名称>。",
     "degraded": "当前无法获取 Palworld 世界数据。最后成功更新：{minutes} 分钟前。",
     "degraded_never": "当前无法获取 Palworld 世界数据（尚无成功记录）。",

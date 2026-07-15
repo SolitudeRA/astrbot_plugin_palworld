@@ -21,7 +21,8 @@ def _raw(*, world_mode="multi", access="restricted", admin_only=None) -> dict:
              "timezone": ""},
         ],
         "group_bindings": [],
-        "routing": {"access_mode": access, "default_server": "", "world_mode": world_mode},
+        "routing": {"access_mode": access, "default_server": "", "world_mode": world_mode,
+                    "setup_confirmed": True},  # 已确认安装：否则默认未确认会被首次设置闸短路
         "polling": {"metrics_seconds": 30, "players_seconds": 30, "info_seconds": 600,
                     "settings_seconds": 1800, "game_data_seconds": 120, "jitter_ratio": 0.1,
                     "max_concurrency": 6},

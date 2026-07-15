@@ -75,6 +75,10 @@ except ImportError:  # 测试/独立环境从仓库根以顶级模块导入
 
 _log = logging.getLogger("palworld_terminal.main")
 
+# 首次设置逗口集（放行首词）：未确认前仍可用的元命令。须 ⊆ FLAT_ACTIONS
+# （setup_gate_test.test_setup_exempt_subset_of_flat_actions 锚定）。
+_SETUP_EXEMPT = frozenset({"help", "whoami", "whereami"})
+
 
 def _resolve_data_dir() -> Path:
     try:
@@ -192,7 +196,16 @@ class PalWorldTerminal(Star):
     def _build_container(self, cfg):
         return Container(cfg, _resolve_data_dir(), SystemClock())
 
-    async def _guarded(self, call):
+    def _setup_gate(self, command_str: str) -> str | None:
+        """首次设置闸：未确认前，非逗口命令一律回引导语。读 live 配置。
+        调用点已在 _busy_msg() 之后 → self._container 必非 None。"""
+        if command_str in _SETUP_EXEMPT:
+            return None
+        if self._container.config.routing.setup_confirmed:
+            return None
+        return L("setup_required")
+
+    async def _guarded(self, call, command_str):
         """在途门闩内执行一次只读操作;重载中一律回 busy 文案。
 
         计数先于 busy 判定(flag+counter 握手):若重载已置 _restarting,
@@ -203,6 +216,8 @@ class PalWorldTerminal(Star):
         try:
             if (m := self._busy_msg()):
                 return m
+            if (g := self._setup_gate(command_str)):
+                return g
             res = call(self._container)
             if inspect.isawaitable(res):
                 res = await res
@@ -219,6 +234,8 @@ class PalWorldTerminal(Star):
         try:
             if (m := self._busy_msg()):
                 return m
+            if (g := self._setup_gate(command_str)):
+                return g
             denied = self._container.commands.admin_denied(command_str, self._sender_id(event))
             if denied is not None:
                 return denied
@@ -425,19 +442,19 @@ class PalWorldTerminal(Star):
     async def world(self, event):
         yield event.plain_result(await self._guarded(lambda c: c.commands.world_grp(
             self._umo(event), self._msg(event), self._is_group(event),
-            self._sender_id(event), c.commands.is_plugin_admin(self._sender_id(event)))))
+            self._sender_id(event), c.commands.is_plugin_admin(self._sender_id(event))), "world"))
 
     @pal.command("guild")
     async def guild(self, event):
         yield event.plain_result(await self._guarded(lambda c: c.commands.guild_grp(
             self._umo(event), self._msg(event), self._is_group(event),
-            self._sender_id(event), c.commands.is_plugin_admin(self._sender_id(event)))))
+            self._sender_id(event), c.commands.is_plugin_admin(self._sender_id(event))), "guild"))
 
     @pal.command("player")
     async def player(self, event):
         yield event.plain_result(await self._guarded(lambda c: c.commands.player_grp(
             self._umo(event), self._msg(event), self._is_group(event),
-            self._sender_id(event), c.commands.is_plugin_admin(self._sender_id(event)))))
+            self._sender_id(event), c.commands.is_plugin_admin(self._sender_id(event))), "player"))
 
     @pal.command("server")
     async def server(self, event):
@@ -445,12 +462,12 @@ class PalWorldTerminal(Star):
         # Commands.server_grp→admin_write 内（门序 admin 先于 feature 不变）。
         yield event.plain_result(await self._guarded(lambda c: c.commands.server_grp(
             self._umo(event), self._msg(event), self._is_group(event),
-            self._sender_id(event), c.commands.is_plugin_admin(self._sender_id(event)))))
+            self._sender_id(event), c.commands.is_plugin_admin(self._sender_id(event))), "server"))
 
     @pal.command("link")
     async def link(self, event):
         # link add/remove 需 is_admin（门在 Commands.link 内）；单模式守卫见 _link_dispatch。
-        yield event.plain_result(await self._guarded(lambda c: self._link_dispatch(c, event)))
+        yield event.plain_result(await self._guarded(lambda c: self._link_dispatch(c, event), "link"))
 
     def _link_dispatch(self, c, event):
         # 单世界模式守卫（唯一防线，先于任何 routing.use/unbind = DB 写）：单模式无需选择
@@ -485,19 +502,19 @@ class PalWorldTerminal(Star):
     @pal.command("whoami")
     async def whoami(self, event):
         yield event.plain_result(
-            await self._guarded(lambda c: c.commands.whoami(self._sender_id(event)))
+            await self._guarded(lambda c: c.commands.whoami(self._sender_id(event)), "whoami")
         )
 
     @pal.command("whereami")
     async def whereami(self, event):
         yield event.plain_result(
-            await self._guarded(lambda c: c.commands.whereami(self._umo(event)))
+            await self._guarded(lambda c: c.commands.whereami(self._umo(event)), "whereami")
         )
 
     @pal.command("help")
     async def help(self, event):
         yield event.plain_result(
-            await self._guarded(lambda c: c.commands.help(self._msg(event), self._is_admin(event)))
+            await self._guarded(lambda c: c.commands.help(self._msg(event), self._is_admin(event)), "help")
         )
 
     @pal.command("confirm")
@@ -505,4 +522,4 @@ class PalWorldTerminal(Star):
         # confirm 走 _guarded（core）；admin 硬门在 Commands.confirm 内自判。
         yield event.plain_result(await self._guarded(lambda c: c.commands.confirm(
             self._sender_id(event), self._umo(event), self._is_group(event),
-            c.commands.is_plugin_admin(self._sender_id(event)))))
+            c.commands.is_plugin_admin(self._sender_id(event))), "confirm"))
