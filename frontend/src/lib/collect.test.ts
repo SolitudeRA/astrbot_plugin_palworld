@@ -112,6 +112,13 @@ describe('collectBody', () => {
     // 整组启用只写组名行；ban/shutdown/stop 等 danger 叶子不随组写（复核 F2，由后端不继承组）
     expect(rows.some((r) => ['server ban', 'server shutdown', 'server stop'].includes(r.command))).toBe(false)
   })
+  it('全量往返：被禁用功能命令的 admin 锁原样保留（防禁用期丢锁→再启用 fail-open）', () => {
+    // server kick 属 server_admin_basic 功能（默认关）。哪怕功能关着、命令树渲染层不显此行，
+    // collectBody 从全量稀疏 state.command_perms 序列化，admin 锁必须原样往返（安全不变量 spec §2）。
+    const state = makeTreeState({ 'server kick': { enabled: 'inherit', admin_only: 'on' } })
+    const rows = collectBody(state).command_permissions as { command: string; enabled: string; admin_only: string }[]
+    expect(rows).toContainEqual({ command: 'server kick', enabled: 'inherit', admin_only: 'on' })
+  })
   it('server 行保留 __row_id；新建行(无 id)不注入哨兵到空密码', () => {
     const st = baseState(); st.servers.push({ __row_id: '', name: 'b', enabled: true, base_url: '',
       username: 'admin', password: '', password_env: '', timeout: 10, verify_tls: true, timezone: '' })

@@ -12,8 +12,8 @@ import {
 } from '../lib/permissions'
 
 // 单轴命令树（功能页与权限章复用同一组件，各挂一轴的实例）：
-//   axis="enabled"    —— 功能启停：列 enableConfigurable 的 17 条；danger 不随组（F2）
-//   axis="admin_only" —— 管理员限制：列可锁非 forced 的 15 条
+//   axis="enabled"    —— 功能启停：列 enableConfigurable 的 18 条；danger 不随组（F2）
+//   axis="admin_only" —— 命令权限：列可锁非 forced 的 15 条
 // 交互同套：组头开关整组批量 + 叶子开关逐条精细 + 受管视觉（整组标/amber 竖条/圆点/↺）。
 // 覆盖判定与 ↺ 只认本轴——两章各管一轴，绝不误伤对方轴的覆盖。
 const props = defineProps<{ modelValue: Record<string, CmdPerm>; axis: Axis; hideGroups?: string[]; hidePaths?: string[] }>()

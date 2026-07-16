@@ -11,7 +11,7 @@ export interface SettingsState {
   custom_headers: Record<string, unknown>[]
   // 可选：部分 SettingsState 构造点（含旧测试）不带这些键，collectBody 以兜底避免崩
   permission_admins?: Record<string, unknown>[]
-  // 单世界受限模式的授权群名单（顶层键 single_allowed_groups，行结构 {umo, note}）。
+  // 受限授权（单服务器）的授权群名单（顶层键 single_allowed_groups，行结构 {umo, note}）。
   // collectBody 无条件回传（含 multi 模式）——防切模式保存时把名单抹除
   single_allowed_groups?: Record<string, unknown>[]
   // 命令权限树 state：command(路径/组名) -> 两轴三态。稀疏，仅含被覆盖的命令
