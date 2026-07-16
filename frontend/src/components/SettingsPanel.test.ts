@@ -20,7 +20,8 @@ const cfg = () => ({ ok: true, config: {
   players: { rank_top_n: 5, exclude_names: '' },
   server_admin: { require_confirmation: false, confirmation_timeout: 30, audit_retention_days: 180 },
   permission_admins: [],
-  command_permissions: [],
+  // as 断言：空数组字面量推断 never[]，后续用例往里赋覆盖行会 TS2322
+  command_permissions: [] as Record<string, string>[],
 }, page_version: 1 })
 
 beforeEach(() => {
