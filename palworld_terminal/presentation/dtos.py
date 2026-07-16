@@ -6,6 +6,21 @@ from ..domain.enums import Confidence, PingBucket
 
 
 @dataclass(slots=True)
+class StatusDetailDTO:
+    """状态卡「详细区」的白名单子集（仅世界级信息，不含玩家个体数据）。
+
+    version/address 恒有值；description/uptime 依赖 info/metrics 采集，缺失给空串/0；
+    rules 仅含快照里存在的规则键（缺项省略，不塞空串）。
+    """
+    version: str
+    description: str
+    uptime_seconds: int
+    frametime_ms: float
+    address: str
+    rules: dict[str, str]
+
+
+@dataclass(slots=True)
 class StatusDTO:
     server_name: str
     world_name: str
@@ -21,6 +36,8 @@ class StatusDTO:
     updated_at: int
     degraded: bool
     last_ok: int | None
+    # 详细区：仅 ready 且非 degraded 时装配（degraded/骨架行为 None，status_rows 不下发）
+    detail: StatusDetailDTO | None = None
 
 
 @dataclass(slots=True)

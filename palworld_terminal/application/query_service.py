@@ -17,6 +17,7 @@ from ..presentation.dtos import (
     OnlinePlayerRow,
     RuleRow,
     RulesDTO,
+    StatusDetailDTO,
     StatusDTO,
     WildTopRow,
     WorldSummaryDTO,
@@ -25,6 +26,15 @@ from .report_service import day_bounds
 
 _STATUS_TTL = 15
 _ONLINE_TTL = 15
+
+# 状态卡 detail.rules 子集：输出键 → 设置快照字段。措辞经 meta.setting_display
+# 统一渲染（与 /pal world rules 同源）；快照缺该字段则整键省略。
+_STATUS_RULE_FIELDS = (
+    ("difficulty", "Difficulty"),
+    ("pvp", "bEnablePlayerToPlayerDamage"),
+    ("death_penalty", "DeathPenalty"),
+    ("exp_rate", "ExpRate"),
+)
 
 
 @dataclass(slots=True)
@@ -49,7 +59,7 @@ class QueryService:
 
     def __init__(
         self, repo: Repository, cache: TTLCache, cfg: AppConfig, meta, clock: Clock,
-        settings_cache, world_cache=None, report=None,
+        settings_cache, world_cache=None, report=None, info_cache=None,
     ) -> None:
         self._repo = repo
         self._cache = cache
@@ -59,6 +69,7 @@ class QueryService:
         self._settings_cache = settings_cache
         self._world_cache = world_cache if world_cache is not None else {}
         self._report = report
+        self._info_cache = info_cache if info_cache is not None else {}
 
     def _smoothness_label(self, fps: float) -> str:
         w = self._cfg.world
@@ -119,9 +130,42 @@ class QueryService:
             updated_at=metric.observed_at if metric else world.last_seen_at,
             degraded=degraded,
             last_ok=metric.observed_at if metric else None,
+            # detail 仅在有 metric（非 degraded）时装配；degraded 行不下发详细区
+            detail=None if metric is None else self._build_status_detail(world, metric),
         )
         self._cache.set(key, dto, _STATUS_TTL)
         return dto
+
+    def _server_address(self, server_id: str) -> str:
+        for s in self._cfg.servers:
+            if s.server_id == server_id:
+                return s.base_url
+        return ""
+
+    def _status_rules(self, server_id: str) -> dict[str, str]:
+        """detail.rules 白名单子集：从 settings 快照取 4 项，经 setting_display
+        统一措辞（与 /pal world rules 一致）；缺该字段或 meta 不可用则整键省略。"""
+        rules: dict[str, str] = {}
+        if self._meta is None:
+            return rules
+        raw = self._settings_cache.get(server_id, {})
+        for out_key, field_name in _STATUS_RULE_FIELDS:
+            if field_name in raw:
+                rules[out_key] = self._meta.setting_display(field_name, raw[field_name])
+        return rules
+
+    def _build_status_detail(self, world: World, metric) -> StatusDetailDTO:
+        # 缺采集项降级为空串/0（不冒 500、不拖垮整行）：description/uptime 依赖
+        # info/metrics 共享缓存，version 走 World（持久化），address 走 config。
+        info = self._info_cache.get(world.server_id, {})
+        return StatusDetailDTO(
+            version=world.version,
+            description=str(info.get("description", "") or ""),
+            uptime_seconds=int(info.get("uptime", 0) or 0),
+            frametime_ms=round(metric.frame_time, 1),
+            address=self._server_address(world.server_id),
+            rules=self._status_rules(world.server_id),
+        )
 
     async def online(self, world: World) -> OnlineDTO:
         key = f"online:{world.world_id}"
@@ -282,8 +326,10 @@ class QueryService:
         raw = self._settings_cache.get(world.server_id, {})
         rows: list[RuleRow] = []
         for field_name, value in raw.items():
-            label, unit = self._meta.setting_label(field_name)
-            rows.append(RuleRow(label=label, value=f"{value}{unit}"))
+            label, _unit = self._meta.setting_label(field_name)
+            # 措辞与状态卡 detail 同源（setting_display：enum_map 优先，否则 value+unit）
+            rows.append(RuleRow(label=label,
+                                value=self._meta.setting_display(field_name, value)))
         advanced_note = None
         if self._cfg.privacy.mode == "advanced":
             advanced_note = "advanced 隐私模式暂按 balanced 生效。"

@@ -38,6 +38,7 @@ def _make_svc(repo, events, clock):
     svc._clock = clock
     svc._online_streak = {}
     svc._normalizer = normalizer_mod
+    svc._shared_info = None
     return svc
 
 

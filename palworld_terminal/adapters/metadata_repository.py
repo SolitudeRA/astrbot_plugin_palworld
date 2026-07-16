@@ -45,6 +45,30 @@ class MetadataRepository:
             return (field, "")
         return (entry.get("label_zh", field), entry.get("unit", ""))
 
+    def setting_display(self, field: str, value) -> str:
+        """把原始设置值渲染为展示串：enum_map 措辞优先，否则 value+unit。
+
+        `/pal world rules` 与状态卡 detail 共用此函数，保证两处措辞一致（不再直出
+        原始 token 如 "Normal"/"true"/"ItemAndEquipment"）。未知字段/未知枚举值
+        一律原样回退，绝不冒 500。
+        """
+        entry = self._settings.get(field)
+        if entry is None:
+            return f"{value}"
+        enum_map = entry.get("enum_map")
+        if enum_map:
+            # bool → "true"/"false" 小写键（JSON 布尔与 enum_map 键对齐）
+            if isinstance(value, bool):
+                key = "true" if value else "false"
+            else:
+                key = str(value)
+            if key in enum_map:
+                return enum_map[key]
+            if key.lower() in enum_map:  # "True"/"False" 之类大小写兜底
+                return enum_map[key.lower()]
+            return key                    # 未知枚举值：原样 token，不误映射
+        return f"{value}{entry.get('unit', '')}"
+
     def take_unknown_classes(self) -> list[str]:
         out = self._unknown
         self._unknown = []
