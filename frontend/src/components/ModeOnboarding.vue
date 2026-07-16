@@ -3,16 +3,21 @@ import { ref } from 'vue'
 const emit = defineEmits<{ (e: 'confirm', mode: 'single' | 'multi'): void }>()
 const selected = ref<'single' | 'multi' | null>(null)
 
-// radiogroup 键盘可达：方向键在 single/multi 间移动 selected（两项，任意方向即翻转），
-// 切换后 focus 对应卡；preventDefault 抑制页面滚动。
+// radiogroup 键盘可达：方向键在 single/multi 间移动 selected；切换后 focus 对应卡；
+// preventDefault 抑制页面滚动。空选态（selected=null）无「当前项」可环绕，按方向落端点：
+// 正向(Right/Down)→第一项、反向(Left/Up)→最后一项；已选态两项环绕翻转。
 const MODES = ['single', 'multi'] as const
 const KEY_DIR: Record<string, number> = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 }
 function onKeydown(e: KeyboardEvent) {
   const dir = KEY_DIR[e.key]
   if (dir === undefined) return
   e.preventDefault()
-  const idx = selected.value === null ? 0 : MODES.indexOf(selected.value)
-  selected.value = MODES[(idx + dir + MODES.length) % MODES.length]
+  if (selected.value === null) {
+    selected.value = dir > 0 ? MODES[0] : MODES[MODES.length - 1]
+  } else {
+    const idx = MODES.indexOf(selected.value)
+    selected.value = MODES[(idx + dir + MODES.length) % MODES.length]
+  }
   const el = (e.currentTarget as HTMLElement).querySelector<HTMLElement>(`[data-mode="${selected.value}"]`)
   el?.focus()
 }

@@ -7,11 +7,12 @@ const css = readFileSync(styles, 'utf8')
 
 describe('tokens.css 无半 px 字号漂移', () => {
   it('不含小数 px 字号', () => {
-    const halfPx = css.match(/font-size:\s*\d+\.\d+px/g) ?? []
+    // /i 大小写不敏感（Font-Size/PX 亦查）；\d* 前导数字可选，覆盖前导点小数（如 .5px）与常规小数（1.5px）
+    const halfPx = css.match(/font-size:\s*\d*\.\d+px/gi) ?? []
     expect(halfPx).toEqual([])
   })
   it('font-size 一律走 var(--fs-*)（除特征常量 line-height:1 外无裸 px 字号）', () => {
-    const rawPx = css.match(/font-size:\s*\d+px/g) ?? []
+    const rawPx = css.match(/font-size:\s*\d+px/gi) ?? []
     expect(rawPx).toEqual([])
   })
 })
@@ -35,7 +36,8 @@ describe('组件 scoped 无裸 px 字号', () => {
     const src = readFileSync(resolve(__dirname, `../components/${name}.vue`), 'utf8')
     const scoped = src.split('<style').slice(1).join('<style')
     expect(scoped.length).toBeGreaterThan(0)
-    const rawPx = scoped.match(/font-size:\s*\d+px/g) ?? []
+    // /i 大小写不敏感；\d*\.?\d+ 统一整数/小数/前导点小数（15px、1.5px、.5px 皆命中）
+    const rawPx = scoped.match(/font-size:\s*\d*\.?\d+px/gi) ?? []
     expect(rawPx).toEqual([])
   })
 })

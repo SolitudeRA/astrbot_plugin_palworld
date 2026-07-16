@@ -59,7 +59,7 @@ body { margin: 0; background: var(--paper); color: var(--ink); font-family: var(
 .dateline { height: 0; border-top: 1.5px solid var(--ink); border-bottom: 1px solid var(--rule-2); margin: var(--space-3) 0 2px; padding-top: var(--space-1); }
 .subline { display: flex; justify-content: space-between; align-items: center; gap: var(--space-3); color: var(--ink-3); font-size: var(--fs-caption); letter-spacing: var(--track-wide); text-transform: uppercase; }
 .layout { display: flex; gap: var(--space-6); margin-top: var(--space-6); align-items: flex-start; }
-.rail { flex: 0 0 156px; position: sticky; top: 16px; z-index: var(--z-sticky); display: flex; flex-direction: column; gap: 1px; }
+.rail { flex: 0 0 156px; position: sticky; top: var(--space-4); z-index: var(--z-sticky); display: flex; flex-direction: column; gap: 1px; }
 .rail-sep { height: 1px; background: var(--rule); margin: var(--space-3) var(--space-3) var(--space-3) 0; }
 .rail button { text-align: left; font-size: var(--fs-sm); color: var(--ink-2); background: none; border: none; border-left: 2px solid transparent; cursor: pointer; padding: var(--space-2) var(--space-3); border-radius: 0 var(--r) var(--r) 0; display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); width: 100%; transition: background var(--motion-fast), color var(--motion-fast); }
 .rail button:hover { color: var(--ink); background: color-mix(in srgb, var(--focus) 8%, transparent); }
@@ -85,6 +85,7 @@ body { margin: 0; background: var(--paper); color: var(--ink); font-family: var(
 .pw-input { font-family: var(--sans); font-size: var(--fs-sm); color: var(--ink); background: var(--sink); border: 1px solid var(--rule-2); border-radius: var(--r); padding: var(--space-2) var(--space-3); width: 100%; max-width: 320px; transition: border-color var(--motion-fast), box-shadow var(--motion-fast); }
 .pw-input::placeholder { color: var(--ink-3); }
 .pw-input:hover { border-color: var(--ink-3); }
+/* 有意保留：焦点环不在四级阴影 scale（--shadow-sm/md/lg/btn），字面量仅此处与 .pw-select-trigger 两处复用，不足以提取专用 token */
 .pw-input:focus, .pw-input:focus-visible { outline: none; border-color: var(--focus); box-shadow: 0 0 0 3px color-mix(in srgb, var(--focus) 20%, transparent); }
 /* secret 遮罩：type=text + text-security 绕受限 iframe(opaque origin) 对 password 的粘贴门控 */
 .pw-secret { -webkit-text-security: disc; }

@@ -41,6 +41,37 @@ describe('ModeOnboarding', () => {
     expect(w.get('[data-mode="single"]').attributes('aria-checked')).toBe('false')
   })
 
+  it('空选态 ArrowRight → 选第一项（单服务器）', async () => {
+    const w = mount(ModeOnboarding)
+    // 未点选任何卡（selected=null）
+    expect(w.get('[data-mode="single"]').attributes('aria-checked')).toBe('false')
+    expect(w.get('[data-mode="multi"]').attributes('aria-checked')).toBe('false')
+    await w.get('[role="radiogroup"]').trigger('keydown', { key: 'ArrowRight' })
+    expect(w.get('[data-mode="single"]').attributes('aria-checked')).toBe('true')
+    expect(w.get('[data-mode="multi"]').attributes('aria-checked')).toBe('false')
+  })
+
+  it('空选态 ArrowDown → 选第一项（单服务器）', async () => {
+    const w = mount(ModeOnboarding)
+    await w.get('[role="radiogroup"]').trigger('keydown', { key: 'ArrowDown' })
+    expect(w.get('[data-mode="single"]').attributes('aria-checked')).toBe('true')
+  })
+
+  it('空选态 ArrowLeft → 选最后一项（多服务器）', async () => {
+    const w = mount(ModeOnboarding)
+    expect(w.get('[data-mode="single"]').attributes('aria-checked')).toBe('false')
+    expect(w.get('[data-mode="multi"]').attributes('aria-checked')).toBe('false')
+    await w.get('[role="radiogroup"]').trigger('keydown', { key: 'ArrowLeft' })
+    expect(w.get('[data-mode="multi"]').attributes('aria-checked')).toBe('true')
+    expect(w.get('[data-mode="single"]').attributes('aria-checked')).toBe('false')
+  })
+
+  it('空选态 ArrowUp → 选最后一项（多服务器）', async () => {
+    const w = mount(ModeOnboarding)
+    await w.get('[role="radiogroup"]').trigger('keydown', { key: 'ArrowUp' })
+    expect(w.get('[data-mode="multi"]').attributes('aria-checked')).toBe('true')
+  })
+
   it('已选时显示 hint（含「连接」页转换指引）', async () => {
     const w = mount(ModeOnboarding)
     expect(w.find('.hint').exists()).toBe(false)

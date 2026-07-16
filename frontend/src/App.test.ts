@@ -92,4 +92,18 @@ describe('首次进入按系统深浅色', () => {
     mount(App)
     expect(document.documentElement.getAttribute('data-theme')).toBe('light')
   })
+
+  it('无存储值 + 预设 data-theme=dark + 系统偏好浅色 → 仍 dark（中间档胜过系统偏好）', () => {
+    // 存储缺失时，预设 data-theme（第二档）优先于 matchMedia（第三档）
+    document.documentElement.setAttribute('data-theme', 'dark')
+    stubMatchMedia(false)
+    mount(App)
+    expect(document.documentElement.getAttribute('data-theme')).toBe('dark')
+  })
+
+  it('matchMedia 抛错 + 无存储无预设 → 回退 light（末档兜底）', () => {
+    vi.stubGlobal('matchMedia', () => { throw new Error('no matchMedia') })
+    mount(App)
+    expect(document.documentElement.getAttribute('data-theme')).toBe('light')
+  })
 })
