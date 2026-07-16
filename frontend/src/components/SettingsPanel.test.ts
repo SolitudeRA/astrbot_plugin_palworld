@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { mount, flushPromises } from '@vue/test-utils'
 import SettingsPanel from './SettingsPanel.vue'
 import ServerCard from './ServerCard.vue'
@@ -321,5 +321,53 @@ describe('SettingsPanel', () => {
     expect(w.findComponent({ name: 'ModeOnboarding' }).exists()).toBe(true)
     expect((w.vm as any).state.sections.routing.setup_confirmed).toBe(false)
     expect(w.text()).not.toContain('保存设置')
+  })
+
+  describe('game-data 不可用说明横幅（原因说明唯一载体，可永久关闭）', () => {
+    const GD_KEY = 'palworld-terminal-gd-banner-dismissed'
+    // vitest.setup 的 in-memory Storage 是模块级共享 Map，不自动重置：
+    // 逐用例清 dismissed 键，杜绝跨用例顺序依赖 flake。
+    beforeEach(() => { localStorage.removeItem(GD_KEY) })
+    afterEach(() => { localStorage.removeItem(GD_KEY) })
+
+    it('默认（未 dismiss）显示横幅：含「暂不可用」与「PalGameDataBridge」原因说明', async () => {
+      const w = await mountAccess()
+      expect(w.find('.gd-banner').exists()).toBe(true)
+      expect(w.text()).toContain('暂不可用')
+      expect(w.text()).toContain('PalGameDataBridge')
+    })
+
+    it('点「不再提醒」→ 横幅消失且 localStorage 置 1（永久关闭）', async () => {
+      const w = await mountAccess()
+      expect(w.find('.gd-banner').exists()).toBe(true)
+      await w.get('.gd-banner button').trigger('click')
+      expect(w.find('.gd-banner').exists()).toBe(false)
+      expect(localStorage.getItem(GD_KEY)).toBe('1')
+    })
+
+    it('预置 dismissed=1 → 挂载即不渲染横幅', async () => {
+      localStorage.setItem(GD_KEY, '1')
+      const w = await mountAccess()
+      expect(w.find('.gd-banner').exists()).toBe(false)
+      expect(w.text()).not.toContain('PalGameDataBridge')
+    })
+
+    it('localStorage.getItem 抛错（受限 iframe）→ 不白屏、横幅仍显示（会话内兜底）', async () => {
+      const spy = vi.spyOn(localStorage, 'getItem').mockImplementation(() => { throw new Error('blocked') })
+      try {
+        const w = await mountAccess()
+        expect(w.text()).toContain('保存设置') // 正常章节照常渲染，未白屏
+        expect(w.find('.gd-banner').exists()).toBe(true) // 读失败兜底为显示
+      } finally {
+        spy.mockRestore() // 用后恢复，防泄漏污染后续用例
+      }
+    })
+
+    it('首次引导（needsOnboarding）态不渲染横幅（避免与引导屏叠加）', async () => {
+      const w = await mountAccess({ routing: { access_mode: 'restricted', default_server: '', setup_confirmed: false } })
+      expect(w.findComponent({ name: 'ModeOnboarding' }).exists()).toBe(true)
+      expect(w.find('.gd-banner').exists()).toBe(false)
+      expect(w.text()).not.toContain('PalGameDataBridge')
+    })
   })
 })
