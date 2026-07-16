@@ -18,6 +18,7 @@ describe('tokens.css 无半 px 字号漂移', () => {
 
 const COMPONENTS = [
   'CommandTree', 'SettingsPanel', 'ModeConfirmDialog', 'OrphanCleanup', 'TransferWizard',
+  'ModeOnboarding',
 ]
 describe('组件 scoped 无裸 hex 颜色', () => {
   it.each(COMPONENTS)('%s.vue scoped 内不含 #hex', (name) => {

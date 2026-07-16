@@ -5,7 +5,9 @@ import App from './App.vue'
 beforeEach(() => {
   window.AstrBotPluginPage = {
     ready: () => Promise.resolve(),
-    apiGet: vi.fn().mockResolvedValue({ ok: true, config: {}, servers: [] }),
+    // 默认已完成首次选模（setup_confirmed:true）→ 不进引导态 → 左轨照常显示。
+    // 未确认（引导态隐藏左轨）由下方两条专测覆盖。
+    apiGet: vi.fn().mockResolvedValue({ ok: true, config: { routing: { setup_confirmed: true } }, servers: [] }),
     apiPost: vi.fn().mockResolvedValue({ ok: true }),
   }
 })
@@ -40,6 +42,20 @@ describe('App', () => {
     await flushPromises()
     expect(w.text()).toContain('页面发生错误，请刷新重试')
     expect(w.text()).not.toContain('boom-child') // 不透传原始错误
+  })
+
+  it('首次未选模 → 隐藏整条左轨，只显引导屏', async () => {
+    (window.AstrBotPluginPage!.apiGet as any).mockResolvedValue({ ok: true, config: {}, servers: [] })
+    const w = mount(App); await flushPromises()
+    expect(w.find('nav.rail').exists()).toBe(false)
+    expect(w.text()).toContain('选择运行模式')
+    expect(w.text()).toContain('帕鲁世界终端') // 品牌头保留
+  })
+
+  it('已完成首次选模 → 左轨显示', async () => {
+    (window.AstrBotPluginPage!.apiGet as any).mockResolvedValue({ ok: true, config: { routing: { setup_confirmed: true } }, servers: [] })
+    const w = mount(App); await flushPromises()
+    expect(w.find('nav.rail').exists()).toBe(true)
   })
 })
 

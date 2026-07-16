@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { reactive, ref, onMounted, computed } from 'vue'
+import { reactive, ref, onMounted, computed, watchEffect } from 'vue'
 import { apiGet, apiPost } from '../lib/bridge'
 import { Unauthorized, BusinessError } from '../lib/errors'
 import { collectBody, type SettingsState, type CmdPerm } from '../lib/collect'
@@ -16,6 +16,8 @@ import ModeTransfer from './ModeTransfer.vue'
 import OrphanCleanup from './OrphanCleanup.vue'
 
 const props = defineProps<{ chapter: string }>()
+// 上抛首次引导态：App.vue 据此隐藏整条左轨（首次未选模时不渲染任何章节索引）。
+const emit = defineEmits<{ (e: 'onboarding', value: boolean): void }>()
 
 const phase = ref<'loading' | 'error' | 'ready'>('loading')
 const fatalMsg = ref('')
@@ -45,6 +47,8 @@ const singleRestricted = computed(() =>
 // 首次引导：未确认（setup_confirmed !== true）时 ready 相态渲染引导屏取代正常章节。
 // 严格 === true 与后端 is True 对齐；缺键 / 非布尔一律视为未确认。
 const needsOnboarding = computed(() => state.sections.routing?.setup_confirmed !== true)
+// 仅在 ready 相态且未确认时上抛 true → App.vue 隐藏左轨；load 中 / 失败一律 false（左轨照常显示）。
+watchEffect(() => emit('onboarding', phase.value === 'ready' && needsOnboarding.value))
 // 按模式过滤 routing 段字段：页面无模式开关 → 恒隐藏 world_mode；single 再隐藏 default_server。
 // 仅过滤展示，state.sections.routing 仍保全值，collectBody 照常回传（不丢 world_mode）。
 const visibleSections = computed(() => currentSections.value.map((s) => {

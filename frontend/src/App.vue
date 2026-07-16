@@ -35,6 +35,9 @@ function toggleTheme() { theme.value = theme.value === 'dark' ? 'light' : 'dark'
 
 const observeChapters = CHAPTERS.filter((c) => c.group === '观测')
 const configChapters = CHAPTERS.filter((c) => c.group === '配置')
+
+// 首次未选模：SettingsPanel 上抛 true → 隐藏整条左轨（含观测组），只留品牌头 + 引导屏。
+const onboarding = ref(false)
 </script>
 
 <template>
@@ -50,7 +53,7 @@ const configChapters = CHAPTERS.filter((c) => c.group === '配置')
         <div class="subline"><span>Palworld 服务器监测与管控</span></div>
       </header>
       <div class="layout">
-        <nav class="rail" aria-label="章节索引">
+        <nav v-if="!onboarding" class="rail" aria-label="章节索引">
           <button v-for="c in observeChapters" :key="c.id" :aria-current="chapter === c.id ? 'true' : 'false'" @click="chapter = c.id">
             {{ c.label }}<span v-if="c.kind === 'status'" class="dot" aria-hidden="true"></span>
           </button>
@@ -58,7 +61,7 @@ const configChapters = CHAPTERS.filter((c) => c.group === '配置')
           <button v-for="c in configChapters" :key="c.id" :aria-current="chapter === c.id ? 'true' : 'false'" @click="chapter = c.id">{{ c.label }}</button>
         </nav>
         <div class="pane">
-          <SettingsPanel v-show="currentKind === 'settings'" :chapter="chapter" />
+          <SettingsPanel v-show="currentKind === 'settings'" :chapter="chapter" @onboarding="onboarding = $event" />
           <StatusPanel v-if="currentKind === 'status'" />
           <AuditPanel v-if="currentKind === 'audit'" />
         </div>
