@@ -19,7 +19,7 @@
 
 一个组件、两轴两实例（`axis: 'enabled' | 'admin_only'`），交互同套：
 
-- **完整树呈现**：两页同一棵 29 条命令树（认知一致）；本轴不可配的行显示锁定文本（enabled：「恒开·内置」；admin：「仅管理员·内置」「所有人·内置」），不消失。
+- **完整树呈现**：两页共用同一棵 29 条命令树组件（认知一致）；本轴不可配的行显示锁定文本（enabled：「恒开·内置」；admin：「仅管理员·内置」「所有人·内置」），不消失。实际渲染行数按页过滤：功能页 `hidePaths` 拆走 5 条危险命令（危险区承载），权限页只列当前启用命令（§1）——两种过滤都只在渲染层。
 - **开关 = 生效值**：小号开关（`.pw-switch.sm` 全局变体）直接显示三级继承生效值（叶子→组→内置默认，danger 不随组 F2）——前端 `lib/permissions.ts` 复刻后端 `effective_enabled/effective_admin_only` 算法；内置默认经 L2 跨端锚定。
 - **自动回归**：切开关回到继承值即自动清覆盖（不留冗余键，两轴全 inherit 删键）；**无恢复按钮**（曾有 ↺，定稿删除——切回即清，按钮冗余）。
 - **组头开关 = 整组统一**：操作时收编组内叶子本轴覆盖（enabled 轴保留 danger 自设——F2 不归组管）。
@@ -27,6 +27,7 @@
 - **单独设置行**：override 底色（12%，深于随组行 8%）+ 名旁圆点 + 开关外环；**锁定行永不亮覆盖标**（不可设置谈不上单独设置——曾有误亮 bug，已修并防回归）。
 - **危险标**：仅 enabled 轴显示（红「危险」小标+行首红竖条，解释「不随整组」）；admin 轴该三条恒锁定，不显标。
 - **过滤 props**：`hideGroups`（单模式隐 link）、`hidePaths`（功能页危险区承载的 5 条）。
+- **过滤不丢数据（安全不变量）**：树 state 为全量稀疏 map，hydrate/collect 全量往返；隐藏/禁用命令的既有覆盖（含 admin 锁）保存时原样保留，绝不按渲染行重建——防「禁用期丢锁→再启用 fail-open」（collect 往返测试锁定）。
 
 **双主题 override 语义色**：`--override/--on-override` token（浅色主题**靛蓝** #3D63B8、深色主题**青** #4FC4CE）——「你设置过的」语义与键盘焦点环（--focus）解耦，明暗各自配色。
 
@@ -42,7 +43,7 @@
 - **完成步（新）**：切换成功进全覆盖结果页——成功绿 ✓ / 告警琥珀 ! 的 hero（图标圆+标题+摘要）+ **内嵌残留数据清理**（OrphanCleanup 复用，danger-zone 形态）+「完成」收尾；成功不再 toast。
 - **OrphanCleanup 不再常驻连接章**——孤儿由切换产生、由切换收尾步清理。**已知边界（文档化）**：删服务器+保存产生的孤儿暂无常驻 UI 入口，下次进入切换 helper 完成步可清。
 - 失败仍 toast + 关流程（模式不变，不留半态）。
-- dev demo 场景条含「切换 helper」直达场景（main-dev DOM 驱动自动打开，零生产耦合）。
+- dev demo 提供「切换 helper」直达场景（场景条 5 按钮之外的第 6 场景，经 sessionStorage 预设 + main-dev DOM 驱动自动打开，零生产耦合）。
 
 ## 5. 首次选模屏 ModeOnboarding（阶段二早期已落地，commit 5405d7e + 修复）
 
@@ -51,8 +52,8 @@
 ## 6. 状态页 StatusPanel
 
 - **观测卡 + 读数网格**（`auto-fit` 响应式）：在线玩家大数字 + `/max` 副字 + **占比进度条**（flux 色、宽度动画）+ 今日峰值副读数；FPS 大数字 + 流畅度着色副字（流畅=flux/一般=warn/卡顿·严重卡顿=danger）；世界时间；据点数（有值才显）。
-- **可展开详细区**：「运行信息」（版本/运行时长/帧时间/地址/描述）+「世界规则」（难度/PVP/死亡惩罚/经验倍率）kv 网格；多台默认收起点卡头展开（chevron），**仅一台恒展开**（单模式必然命中）；`detail` 缺失静默不渲染。
-- 数据契约：`status/overview` 白名单扩 `detail` 子对象（L1 后端任务；字段名对齐 Palworld API info/metrics/settings 语义；rules 值为与 `/pal world rules` 同措辞的中文串；未 ready/degraded 行不带 detail）。
+- **可展开详细区**：「运行信息」（版本/运行时长/帧时间/地址/描述）+「世界规则」（难度/PVP/死亡惩罚/经验倍率）kv 网格；多台默认收起点卡头展开（chevron），**仅一台恒展开**（单模式必然命中）；`detail` 缺失静默不渲染；fallback「尚未建立连接」只锚定行状态（未 ready）——收起或缺 detail 的健康行绝不落 fallback（曾有 v-else 链 bug，已修 + 防回归测试）。
+- 数据契约（L1 已落地，commit a72cab9）：`status/overview` 白名单扩 `detail` 子对象——version←World.version；description/uptime_seconds←info/metrics 采集（此前采集即丢，新增共享 info_cache 分层，无 DB 迁移）；frametime_ms←metric.frame_time；address←该服务器插件配置 base_url（管理页本就展示，非新隐私面）；rules 经上抽的共享 `setting_display`（enum_map），**连带行为升级**：`/pal world rules` 同步接入 enum_map 保两屏措辞一致；pvp 键 = `bEnablePlayerToPlayerDamage`（真实 settings 快照只含它，无 bIsPvP）。未 ready/degraded 行不带 detail；子项缺数据省略/空串，不 500。
 
 ## 7. 审计页 AuditPanel
 
@@ -65,7 +66,7 @@
 - **savebar 实底**（弃羽化渐变——sticky 悬浮时透出下层内容）。
 - **ModeTransfer**：模式条形态弃用，定稿为危险区行（标题「切换运行模式」+ 当前模式加粗嵌说明 + dirty 黄字 + 红轮廓切换按钮）。
 - **用词表**：受托名单→**管理员名单**（L3 全库同步）；管理员限制→**命令权限**；首次初始化→首次设置；单世界受限模式→受限授权；名册全局→名单全局（随 L3 三端统一）。
-- 全局原语新增清单：`--override/--on-override`、`--on-focus`、`chip.bad`、`.pw-switch.sm`、`.helper-*`、`.pick-*`、`.danger-zone/.dz-*`、`.grp-tag/.grp-count`。
+- 全局原语新增清单：`--override/--on-override`、`--on-focus`、`chip.bad`、`.pw-switch.sm`、`.helper-*`、`.pick-*`、`.danger-zone/.dz-*`（`.grp-tag/.grp-count` 为 CommandTree scoped 私有类，不属全局清单）。
 
 ## 9. dev demo 基础设施（长期资产，零生产影响）
 
@@ -76,7 +77,8 @@
 - 前端基线 247 passed（demo 迭代终点）；drift 守卫 COMPONENTS 含 7 组件（L4 增补 StatusPanel/AuditPanel）。
 - `lib/permissions.ts` 纯函数单测（三级继承/F2/writeAxis 稀疏写）。
 - 测试铁律沿用：改文案/结构与测试锚点同一提交同步；子串陷阱用更长锚（「运行模式」案例）。
-- 后端基线 912 passed + 1 skipped；L1/L2 新增测试；readme_test 中文锚点随 L3 同步。
+- 后端基线 912 passed + 1 skipped（L1 落地后 925）；L1/L2 新增测试；readme_test 中文锚点随 L3 同步。
+- 对抗复核补护栏（fix wave）：StatusPanel fallback 防回归、collect 往返保留隐藏命令锁、StatusDetail 键集跨端静态锚点。
 
 ## 11. 已知遗留（不阻塞本 PR）
 
@@ -89,16 +91,16 @@
 
 | 任务 | 内容 | 验收 |
 |---|---|---|
-| L1 后端 | `status_rows` 扩 `detail`（§6 形状逐字；rules 措辞复用 world rules；缺数据降级不 500） | 后端测试 + 全套绿 |
+| L1 后端 | `status_rows` 扩 `detail`（§6 形状逐字；rules 经共享 `setting_display`，`/pal world rules` 连带接入 enum_map；缺数据降级不 500）——**已完成 a72cab9，评审干净** | 后端 +13 测试 + 全套绿 ✅ |
 | L2 跨端 | `PAL_TREE` 加 `defaultEnabled` + `frontend_pal_commands_test` 锚定 + `lib/permissions` 改派生（导出名不变） | 两端测试绿、消费方零改动 |
-| L3 全库 | 「受托」用词同步（docs×2/locale/README/_conf_schema/readme_test 锚点/前端「名册→名单」） | grep 零残留 + readme_test 绿 |
+| L3 全库 | 「受托」用词同步（docs×2/locale/README/_conf_schema/readme_test 锚点/前端「名册→名单」**必做，三端统一**） | §13.4 定义域 grep 零残留 + readme_test 绿 |
 | L4 前端收尾 | drift COMPONENTS 增补、typecheck 清点、`npm run build` 产物重建 | vitest + no-drift 绿 |
 | L5 验证终审 | 全套（vitest/pytest/ruff/mypy）+ 全分支终审（opus）+ fix wave | Ready to merge |
-| L6 收尾 | 最终产物 + PR（阶段一+二+三一并，遵用户「全部完成再 PR」） | PR 创建 |
+| L6 收尾 | 最终产物 + PR（阶段一+二+三一并，遵用户「全部完成再 PR」）；版本号四源定版（项目惯例随功能 PR bump，PR 前与用户确认） | PR 创建 |
 
 ## 13. 验收标准（整分支）
 
 1. demo（dev.html）与真实产物行为一致；六配置章 + 两观测章全部按 §1–§8 呈现。
 2. 前后端测试全绿；产物 LF 干净 no-drift；跨端锚定（PAL_TREE 双字段集 + defaultEnabled）全等。
 3. 明暗两主题逐章目测：override 双主题色、danger 语义、helper 全流程、状态卡展开、审计分页。
-4. 全库用词一致（管理员名单/命令权限/受限授权/名单全局）。
+4. 全库用词一致（管理员名单/命令权限/受限授权/名单全局）——机械验收：旧词（受托/名册全局/管理员限制/单世界受限）在 README.md、docs/*.md（不含 docs/superpowers/ 过程档）、palworld_terminal/、tests/、frontend/src/、_conf_schema.json 内 grep 零命中（含代码注释；pages/settings 产物经 L4 重建后自然归零）。
