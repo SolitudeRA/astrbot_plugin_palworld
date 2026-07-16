@@ -54,6 +54,21 @@ describe('StatusPanel', () => {
     expect(w.findAll('.oc-detail')).toHaveLength(1) // 只展开点击的那台
     expect(w.text()).toContain('运行信息')
   })
+  it('多台 ready 健康行默认收起 → 绝不落 fallback「尚未建立连接」，仍显读数；展开后显运行信息', async () => {
+    // fallback 链回归守卫：ready 且非 degraded 的健康行收起（多台默认收起）时，
+    // 绝不能落到「尚未建立连接」这条只锚定「未 ready」的 fallback（曾有 v-else 链 bug）。
+    const mk = (name: string) => ({ name, ready: true, degraded: false, online: 2, max_players: 16,
+      fps: 60, smoothness_label: '流畅', world_day: 5, peak_online_today: 4,
+      detail: { version: 'v0.6.5.1', uptime_seconds: 3600 } })
+    ;(window.AstrBotPluginPage!.apiGet as any).mockResolvedValue({ ok: true, servers: [mk('a'), mk('b')] })
+    const w = mount(StatusPanel); await flushPromises()
+    expect(w.text()).not.toContain('尚未建立连接') // 健康行不落未连接 fallback
+    expect(w.findAll('.oc-degraded')).toHaveLength(0) // 无任何降级/未连接文案元素
+    expect(w.text()).not.toContain('运行信息') // 收起态详细区不渲染（既有不变量保持绿）
+    expect(w.text()).toContain('在线玩家') // 读数网格仍在
+    await w.findAll('.oc-head')[0].trigger('click')
+    expect(w.text()).toContain('运行信息') // 展开该台后详细区出现
+  })
   it('restarting 显示正在应用新配置', async () => {
     // restarting 态会 setTimeout(load, 3000)（StatusPanel.vue:19）；用假计时器
     // 避免真 3s 定时器泄漏到后续用例（afterEach 里 useRealTimers 复位）。

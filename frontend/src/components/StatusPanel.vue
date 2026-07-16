@@ -98,7 +98,8 @@ function fmtUptime(s?: number): string {
             :aria-expanded="isOpen(row)" :aria-label="row.name + ' 详细信息'" @click.stop="toggleOpen(row)">▸</button>
         </div>
 
-        <div v-if="row.ready && !row.degraded" class="oc-grid">
+        <template v-if="row.ready && !row.degraded">
+        <div class="oc-grid">
           <div class="oc-stat">
             <span class="oc-label">在线玩家</span>
             <span class="oc-value">{{ row.online }}<small>/{{ row.max_players }}</small></span>
@@ -120,8 +121,9 @@ function fmtUptime(s?: number): string {
           </div>
         </div>
 
-        <!-- 详细区：展开时显示（仅一台时恒展开）；detail 缺失时静默不渲染 -->
-        <div v-if="row.ready && !row.degraded && isOpen(row) && row.detail" class="oc-detail">
+        <!-- 详细区：展开时显示（仅一台时恒展开）；detail 缺失时静默不渲染。
+             ready 且非 degraded 由外层 template 守卫，此处只判展开/有 detail——绝不参与 fallback 链 -->
+        <div v-if="isOpen(row) && row.detail" class="oc-detail">
           <div class="oc-section">
             <span class="oc-label">运行信息</span>
             <div class="oc-kvgrid">
@@ -142,6 +144,7 @@ function fmtUptime(s?: number): string {
             </div>
           </div>
         </div>
+        </template>
 
         <p v-else-if="row.ready && row.degraded" class="oc-degraded">
           <template v-if="row.last_ok">最后成功更新 {{ ago(row.last_ok) }}</template>
