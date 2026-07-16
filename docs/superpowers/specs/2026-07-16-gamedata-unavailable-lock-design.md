@@ -115,6 +115,7 @@ def upstream_unavailable(path: str) -> bool:
 11. `commands_gating_test.py:58`：guilds_bases=True 放行 → 改收 `feature_disabled` 文案。
 12. `commands_gating_test.py:82`（门序：admin 锁 denies guest）：功能门先短路致 admin_required 不可达 → **载体换 player 组**保门序覆盖不丢。
 13. `namespace_runtime_smoke_test.py:112-114`（**绿但语义变——不红也要改**）：fixture `guilds_bases: True` 与注释「关掉的组命令直接回未开放…冒烟就白跑」对 5 条 game-data 命令失真（force-off 后它们恒短路 feature_disabled，深路径冒烟静默消失）——更新注释记录该设计变化（或从 fixture 删 guilds_bases 键），显式承认覆盖面变化。
+14. **补遗（T1 实现中发现，评审裁决采纳）**：`pipeline_series_test`（3 用例）与 `cache_wiring_test::test_world_summary` 依赖容器装配 game-data 服务，force-off 使装配恒断线——处理取向：`conftest.py` 加**测试专用** `_wire_game_data`（绕生产门装配 guilds/bases），保住据点推导/管线的休眠期覆盖（呼应 §2「保留待恢复」）；生产门回归验证独立于该 helper（gate-closed 用例走自有装配路径），不构成假绿通道。privacy/smoke 的 strict 据点用例同经 helper 恢复实义。
 
 前端（9 处）：
 1. `CommandTree.test.ts:41-51`：enabled 轴组头开关点击示范 guild → player。
