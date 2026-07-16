@@ -76,3 +76,6 @@ desktop.ini
 # ---- 前端构建 ----
 /node_modules/
 frontend/node_modules/
+
+# ---- 头脑风暴可视化伴侣（本地 mockup，勿入库）----
+.superpowers/
