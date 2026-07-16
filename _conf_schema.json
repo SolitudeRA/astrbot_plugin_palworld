@@ -1,7 +1,7 @@
 {
   "servers": {
     "type": "template_list",
-    "description": "Palworld 服务器列表（网页可添加多个；name 需唯一）",
+    "description": "Palworld 服务器列表（网页可添加多个；name 需唯一）｜此页为应急直编，日常配置用插件设置页",
     "hint": "密码建议填环境变量名(password_env)而非明文；明文会落盘到 data/config/",
     "default": [],
     "templates": {
@@ -13,7 +13,7 @@
           "enabled": { "type": "bool", "description": "是否启用", "default": true },
           "base_url": { "type": "string", "description": "REST API 地址", "default": "http://127.0.0.1:8212" },
           "username": { "type": "string", "description": "Basic Auth 用户名", "default": "admin" },
-          "password": { "type": "string", "description": "密码（明文，与 password_env 二选一）", "default": "" },
+          "password": { "type": "string", "description": "密码（明文）：与 password_env 二选一。⚠️ 明文会原样落盘到 data/config/ 配置文件，凡能读该文件/备份/本配置页者皆可见——推荐改填 password_env（环境变量名，值不落盘）；须用明文时建议在插件设置页填写（页面对密码脱敏，显示「已设置，留空则不修改」，不回显明文）。", "default": "" },
           "password_env": { "type": "string", "description": "密码环境变量名（推荐，与 password 二选一）", "default": "" },
           "timeout": { "type": "int", "description": "请求超时(秒)", "default": 10 },
           "verify_tls": { "type": "bool", "description": "校验 TLS 证书（http 忽略）", "default": true },
@@ -24,17 +24,63 @@
   },
   "routing": {
     "type": "object",
-    "description": "群↔服务器 路由与访问控制",
+    "description": "群↔服务器 路由与访问控制｜此页为应急直编，日常配置用插件设置页",
     "items": {
       "access_mode": { "type": "string", "description": "restricted=群需管理员授权; open=任意群任意服务器", "default": "restricted", "options": ["restricted", "open"] },
       "default_server": { "type": "string", "description": "全局默认服务器 name（群未指定且未绑定时的兜底）", "default": "" },
-      "world_mode": { "type": "string", "options": ["multi", "single"], "default": "single", "description": "运行模式（主开关）：single 单世界（唯一服务器，群授权走插件设置页「连接」章的授权群名单 + /pal whereami）；multi 多世界（多台服务器，用 /pal link 绑定切换）。切换模式后请到插件设置页配置对应模式。" },
-      "setup_confirmed": { "type": "bool", "default": false, "description": "首次设置确认标志：一般由插件设置页在你完成模式选择后自动写入，通常无需手动改动。" }
+      "world_mode": { "type": "string", "options": ["multi", "single"], "default": "single", "description": "运行模式（主开关）：single 单世界（所有操作对应唯一服务器=第一台就绪服务器，群授权走顶层「授权群名单」single_allowed_groups + /pal whereami；link 组隐藏且运行时拒绝）；multi 多世界（多台服务器，群授权走 /pal link 绑定，可 @server 切换）。⚠️ 在此裸切模式会跳过转移向导：single 与 multi 的授权介质不同（single 读 single_allowed_groups 名单 / multi 读 /pal link 群绑定），裸切既不迁移授权也无二次确认——切到 multi 后原授权群需重新 /pal link，切到 single 后群绑定失效、名单为空则全群不可读（fail-closed），多台就绪时只用第一台且不清理其余台数据。日常改模式请用插件设置页「连接」章的切换控件（带预览/授权迁移/残留清理/强确认）。" },
+      "setup_confirmed": { "type": "bool", "default": false, "description": "首次设置确认标志（bool，默认 false）：首次设置闸——为 true 前，除 /pal help、/pal whoami、/pal whereami 外的所有 /pal 命令一律回引导语。一般由插件设置页首次引导屏在你选定运行模式并确认后，连同 world_mode 一起自动写入 true，通常无需手动改。⚠️ 手动置 true 会跳过引导屏：world_mode 仍是默认值、授权名单可能为空，命令虽开放却可能无人可查（single+restricted 空名单是 fail-closed）；手动置 false 会立即把上述之外的全部 /pal 命令锁回引导语，仅用于重新触发首次引导。首次设置建议走插件设置页引导屏。" }
+    }
+  },
+  "permission_admins": {
+    "type": "template_list",
+    "description": "管理员名单：这些账号可在群里执行管理员命令（注意：名单全局，加入者在其所在每个群都有管理员权）｜此页为应急直编，日常配置用插件设置页",
+    "default": [],
+    "templates": {
+      "admin": {
+        "name": "管理员",
+        "display_item": "id",
+        "items": {
+          "id": { "type": "string", "description": "账号标识 平台:账号（如 aiocqhttp:12345，群里发 /pal whoami 可查）", "default": "" },
+          "note": { "type": "string", "description": "备注（可选，明文存储于配置文件，勿填真实姓名/联系方式等敏感信息）", "default": "" }
+        }
+      }
+    }
+  },
+  "command_permissions": {
+    "type": "template_list",
+    "description": "命令权限覆盖（三态行）。每行为一个命令指定 是否启用 / 是否仅管理员 的覆盖；未列出的命令按默认。command 写完整命令路径（如 world status、player info）或组名（如 guild、player，对该组所有子命令生效）；enabled/admin_only 取 inherit（继承默认）/ on / off。⚠️ 路径写错=覆盖不生效（静默按默认）：想锁成仅管理员却把 command 写错、或写成分级前的旧扁平名，命令会保持默认放开（fail-open），启动日志会告警无效锁但不阻止启动，务必核对完整路径；server/link 组写命令与 help/whoami/confirm 属不可锁集，写 admin_only 无效；危险写命令（server ban/shutdown/stop）不从组键继承 enabled，须逐条显式 on。建议在插件设置页「权限」章的命令树可视化编辑（自动校验路径），本表为落盘真相源｜此页为应急直编，日常配置用插件设置页",
+    "default": [],
+    "templates": {
+      "command_permission": {
+        "name": "命令权限",
+        "display_item": "command",
+        "items": {
+          "command": { "type": "string", "description": "命令完整路径或组名（如 world status / guild / player info）", "default": "" },
+          "enabled": { "type": "string", "description": "是否启用：inherit=继承默认 / on=强制开启 / off=强制关闭", "default": "inherit" },
+          "admin_only": { "type": "string", "description": "是否仅管理员：inherit=继承默认 / on=锁为仅管理员 / off=放开", "default": "inherit" }
+        }
+      }
+    }
+  },
+  "single_allowed_groups": {
+    "type": "template_list",
+    "description": "单世界模式授权群名单：仅 world_mode=single 且 access_mode=restricted 时生效，列出的会话（群/私聊）才能查询唯一服务器。UMO 可在群里发 /pal whereami 获取。（多世界模式忽略本表）｜此页为应急直编，日常配置用插件设置页",
+    "default": [],
+    "templates": {
+      "group": {
+        "name": "授权群",
+        "display_item": "umo",
+        "items": {
+          "umo": { "type": "string", "description": "会话标识 unified_msg_origin，如 aiocqhttp:GroupMessage:123456（群里发 /pal whereami 可查）", "default": "" },
+          "note": { "type": "string", "description": "备注（可选，明文存储于配置文件，勿填真实姓名/联系方式等敏感信息）", "default": "" }
+        }
+      }
     }
   },
   "group_bindings": {
     "type": "template_list",
-    "description": "预设 群→服务器 授权（可选，等价于管理员 /pal server add）",
+    "description": "预设 群→服务器 授权（可选，等价于管理员 /pal server add）｜此页为应急直编，日常配置用插件设置页",
     "default": [],
     "templates": {
       "binding": {
@@ -48,9 +94,18 @@
       }
     }
   },
+  "server_admin": {
+    "type": "object",
+    "description": "服务器管控参数（对应 server 写命令；须在 command_permissions 中启用相应命令/组，默认全关）。安全告知：本组命令为写操作，采用 OPEN 访问模式——任一 permission_admins 管理员可从任意群/私聊管控任意「就绪」服务器（爆炸半径覆盖全部已配置服务器），务必收紧管理员名单；stop 直接终止服务器进程，不触发存档，可能丢失未保存进度；审计日志与二次确认记录含玩家名/账号等明文 PII，按 audit_retention_days 留存后清理",
+    "items": {
+      "require_confirmation": { "type": "bool", "description": "危险组命令是否需二次确认（/pal confirm）；开启后关服/封禁等须在 confirmation_timeout 秒内确认", "default": false },
+      "confirmation_timeout": { "type": "int", "description": "二次确认有效期(秒)，超时作废（范围 5-600）", "default": 30 },
+      "audit_retention_days": { "type": "int", "description": "管控审计日志留存天数，到期清理（范围 1-3650；日志含明文 PII）", "default": 180 }
+    }
+  },
   "custom_headers": {
     "type": "template_list",
-    "description": "自定义 HTTP 请求头（随 REST 轮询请求发送）",
+    "description": "自定义 HTTP 请求头（随 REST 轮询请求发送）｜此页为应急直编，日常配置用插件设置页",
     "hint": "敏感值（如网关 Token）建议填环境变量名(value_env)而非明文；明文会落盘到 data/config/。含凭证的头务必用 servers 限定作用域：留空会发给所有已配置服务器（包括之后新增的）",
     "default": [],
     "templates": {
@@ -79,6 +134,26 @@
       "max_concurrency": { "type": "int", "description": "全局在途 HTTP 请求上限", "default": 6 }
     }
   },
+  "privacy": {
+    "type": "object",
+    "description": "隐私与脱敏",
+    "items": {
+      "mode": { "type": "string", "description": "隐私模式：strict（最严，强制停用据点/PalBox 推导，不公开精确 Ping/坐标）/ balanced（默认）/ advanced（当前版本按 balanced 生效）。注：切到 strict 会停止据点推导（bases 组整体停用），已有据点数据不删除但不再更新，公会/据点类展示会随之变空", "default": "balanced", "options": ["strict", "balanced", "advanced"] },
+      "public_exact_ping": { "type": "bool", "description": "公开精确 Ping", "default": false },
+      "public_positions": { "type": "bool", "description": "公开坐标", "default": false },
+      "ping_good_ms": { "type": "int", "description": "Ping ≤ 此值=优秀", "default": 60 },
+      "ping_ok_ms": { "type": "int", "description": "Ping ≤ 此值=正常，超过=偏高", "default": 120 },
+      "uncertain_timeout": { "type": "int", "description": "uncertain 会话超时收敛(秒)", "default": 900 }
+    }
+  },
+  "players": {
+    "type": "object",
+    "description": "玩家个体查询参数（对应 player 组 / rank / me 命令；须在 command_permissions 中启用，默认关）",
+    "items": {
+      "rank_top_n": { "type": "int", "description": "排行榜显示人数", "default": 5 },
+      "exclude_names": { "type": "string", "description": "排除出榜/查询的玩家名（逗号分隔）", "default": "" }
+    }
+  },
   "world": {
     "type": "object",
     "description": "世界与展示",
@@ -102,89 +177,14 @@
       "z_weight": { "type": "float", "description": "Z 轴距离权重", "default": 0.5 }
     }
   },
-  "privacy": {
-    "type": "object",
-    "description": "隐私与脱敏",
-    "items": {
-      "mode": { "type": "string", "description": "strict/balanced/advanced", "default": "balanced", "options": ["strict", "balanced", "advanced"] },
-      "public_exact_ping": { "type": "bool", "description": "公开精确 Ping", "default": false },
-      "public_positions": { "type": "bool", "description": "公开坐标", "default": false },
-      "ping_good_ms": { "type": "int", "description": "Ping ≤ 此值=优秀", "default": 60 },
-      "ping_ok_ms": { "type": "int", "description": "Ping ≤ 此值=正常，超过=偏高", "default": 120 },
-      "uncertain_timeout": { "type": "int", "description": "uncertain 会话超时收敛(秒)", "default": 900 }
-    }
-  },
   "history": {
     "type": "object",
-    "description": "保留清理天数",
+    "description": "保留清理天数（到期自动清理，各项独立）。⚠️ 调小任一保留天数会在下次清理时按新阈值删除更早的数据，且不可恢复；仅调大是安全的（不会追回已删数据）。原始指标（raw_metrics）粒度最细、占用最大，缩短它影响最直接",
     "items": {
       "raw_metrics_days": { "type": "int", "description": "原始指标保留天数", "default": 7 },
       "aggregate_days": { "type": "int", "description": "预聚合保留天数", "default": 90 },
       "session_days": { "type": "int", "description": "会话保留天数", "default": 365 },
       "observation_days": { "type": "int", "description": "观察保留天数", "default": 180 }
-    }
-  },
-  "server_admin": {
-    "type": "object",
-    "description": "服务器管控参数（对应 server 写命令；须在 command_permissions 中启用相应命令/组，默认全关）。安全告知：本组命令为写操作，采用 OPEN 访问模式——任一 permission_admins 管理员可从任意群/私聊管控任意「就绪」服务器（爆炸半径覆盖全部已配置服务器），务必收紧管理员名单；stop 直接终止服务器进程，不触发存档，可能丢失未保存进度；审计日志与二次确认记录含玩家名/账号等明文 PII，按 audit_retention_days 留存后清理",
-    "items": {
-      "require_confirmation": { "type": "bool", "description": "危险组命令是否需二次确认（/pal confirm）；开启后关服/封禁等须在 confirmation_timeout 秒内确认", "default": false },
-      "confirmation_timeout": { "type": "int", "description": "二次确认有效期(秒)，超时作废（范围 5-600）", "default": 30 },
-      "audit_retention_days": { "type": "int", "description": "管控审计日志留存天数，到期清理（范围 1-3650；日志含明文 PII）", "default": 180 }
-    }
-  },
-  "players": {
-    "type": "object",
-    "description": "玩家个体查询参数（对应 player 组 / rank / me 命令；须在 command_permissions 中启用，默认关）",
-    "items": {
-      "rank_top_n": { "type": "int", "description": "排行榜显示人数", "default": 5 },
-      "exclude_names": { "type": "string", "description": "排除出榜/查询的玩家名（逗号分隔）", "default": "" }
-    }
-  },
-  "permission_admins": {
-    "type": "template_list",
-    "description": "管理员名单：这些账号可在群里执行管理员命令（注意：名单全局，加入者在其所在每个群都有管理员权）",
-    "default": [],
-    "templates": {
-      "admin": {
-        "name": "管理员",
-        "display_item": "id",
-        "items": {
-          "id": { "type": "string", "description": "账号标识 平台:账号（如 aiocqhttp:12345，群里发 /pal whoami 可查）", "default": "" },
-          "note": { "type": "string", "description": "备注（可选，明文存储于配置文件，勿填真实姓名/联系方式等敏感信息）", "default": "" }
-        }
-      }
-    }
-  },
-  "single_allowed_groups": {
-    "type": "template_list",
-    "description": "单世界模式授权群名单：仅 world_mode=single 且 access_mode=restricted 时生效，列出的会话（群/私聊）才能查询唯一服务器。UMO 可在群里发 /pal whereami 获取。（多世界模式忽略本表）",
-    "default": [],
-    "templates": {
-      "group": {
-        "name": "授权群",
-        "display_item": "umo",
-        "items": {
-          "umo": { "type": "string", "description": "会话标识 unified_msg_origin，如 aiocqhttp:GroupMessage:123456（群里发 /pal whereami 可查）", "default": "" },
-          "note": { "type": "string", "description": "备注（可选，明文存储于配置文件，勿填真实姓名/联系方式等敏感信息）", "default": "" }
-        }
-      }
-    }
-  },
-  "command_permissions": {
-    "type": "template_list",
-    "description": "命令权限覆盖（三态行）。每行为一个命令指定 是否启用 / 是否仅管理员 的覆盖；未列出的命令按默认。command 写完整路径（如 world status、player info）或组名（如 guild、player，对该组所有子命令生效）；enabled/admin_only 取 inherit（继承默认）/ on / off。建议在插件设置页「权限」章可视化编辑，本表为落盘真相源",
-    "default": [],
-    "templates": {
-      "command_permission": {
-        "name": "命令权限",
-        "display_item": "command",
-        "items": {
-          "command": { "type": "string", "description": "命令完整路径或组名（如 world status / guild / player info）", "default": "" },
-          "enabled": { "type": "string", "description": "是否启用：inherit=继承默认 / on=强制开启 / off=强制关闭", "default": "inherit" },
-          "admin_only": { "type": "string", "description": "是否仅管理员：inherit=继承默认 / on=锁为仅管理员 / off=放开", "default": "inherit" }
-        }
-      }
     }
   }
 }
