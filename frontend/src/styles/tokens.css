@@ -89,6 +89,10 @@ body { margin: 0; background: var(--paper); color: var(--ink); font-family: var(
 .pw-switch-thumb { display: block; position: absolute; top: 2px; left: 2px; width: 20px; height: 20px; border-radius: 50%; background: var(--ink-3); box-shadow: var(--shadow-sm); transition: transform var(--motion-base) var(--ease-spring), background var(--motion-base); }
 .pw-switch[data-state="checked"] .pw-switch-thumb { transform: translateX(20px); background: var(--flux); }
 .pw-switch:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+/* 小号开关：表格/密集行内使用（命令权限等） */
+.pw-switch.sm { width: 36px; height: 20px; }
+.pw-switch.sm .pw-switch-thumb { width: 14px; height: 14px; }
+.pw-switch.sm[data-state="checked"] .pw-switch-thumb { transform: translateX(16px); }
 .pw-number { display: inline-flex; align-items: center; border: 1px solid var(--rule-2); border-radius: var(--r); overflow: hidden; background: var(--sink); }
 .pw-number-btn { font-size: var(--fs-heading); line-height: 1; color: var(--ink-2); background: none; border: none; cursor: pointer; width: 32px; height: 36px; flex: 0 0 auto; transition: color var(--motion-fast), background var(--motion-fast); }
 .pw-number-btn:hover { color: var(--amber); background: color-mix(in srgb, var(--amber) 13%, transparent); }
@@ -136,8 +140,21 @@ body { margin: 0; background: var(--paper); color: var(--ink); font-family: var(
 .add { font-size: var(--fs-sm); color: var(--amber); background: none; border: 1px dashed var(--rule-2); border-radius: var(--r); padding: var(--space-2) var(--space-4); cursor: pointer; margin-top: var(--space-3); width: 100%; transition: border-color var(--motion-fast), background var(--motion-fast); }
 .add:hover { border-color: var(--amber); background: color-mix(in srgb, var(--amber) 7%, transparent); }
 
+/* ---- danger zone：危险操作集中区（红框容器 + 左信息右操作的行） ---- */
+.group-head .t-danger { color: var(--danger); }
+.danger-zone { border: 1px solid color-mix(in srgb, var(--danger) 45%, transparent); border-radius: var(--r); background: color-mix(in srgb, var(--danger) 3%, var(--card)); display: flex; flex-direction: column; }
+.dz-item { display: flex; align-items: center; gap: var(--space-4); padding: var(--space-3) var(--space-4); }
+.dz-item + .dz-item { border-top: 1px dashed color-mix(in srgb, var(--danger) 30%, var(--rule)); }
+.dz-info { display: flex; flex-direction: column; gap: var(--space-1); min-width: 0; flex: 1 1 auto; }
+.dz-title { font-size: var(--fs-body); font-weight: var(--fw-semibold); }
+.dz-desc { font-size: var(--fs-caption); color: var(--ink-2); line-height: var(--lh-snug); }
+.dz-btn { flex: 0 0 auto; font-size: var(--fs-sm); padding: var(--space-2) var(--space-4); border-radius: var(--r); border: 1px solid var(--danger); background: none; color: var(--danger); cursor: pointer; transition: background var(--motion-fast); white-space: nowrap; }
+.dz-btn:hover { background: color-mix(in srgb, var(--danger) 10%, transparent); }
+.dz-btn:disabled { opacity: .5; cursor: not-allowed; }
+
 /* ---- save bar ---- */
-.savebar { display: flex; align-items: center; gap: var(--space-4); margin-top: var(--space-2); padding: var(--space-5) 2px var(--space-2); border-top: 1.5px solid var(--ink); position: sticky; bottom: 0; z-index: var(--z-sticky); background: linear-gradient(transparent, var(--paper) 26%); }
+/* sticky 实底：黑线即分界；羽化渐变会在悬浮于危险区等内容上时透出下层，观感差 */
+.savebar { display: flex; align-items: center; gap: var(--space-4); margin-top: var(--space-2); padding: var(--space-5) 2px var(--space-2); border-top: 1.5px solid var(--ink); position: sticky; bottom: 0; z-index: var(--z-sticky); background: var(--paper); }
 .commit { font-size: var(--fs-body); font-weight: var(--fw-semibold); color: var(--on-amber); background: var(--amber); border: none; border-radius: var(--r); padding: var(--space-3) var(--space-6); cursor: pointer; box-shadow: var(--shadow-btn); }
 .commit:hover { background: var(--amber-h); }
 .commit:focus-visible { outline: 2px solid var(--focus); outline-offset: 3px; }

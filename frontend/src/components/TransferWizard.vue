@@ -128,11 +128,12 @@ function confirm() {
 .rows { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-2); }
 .rows label, .opt { display: flex; align-items: center; gap: var(--space-2); font-size: var(--fs-caption); }
 .opt { padding: var(--space-2) 0; }
+.opt.danger { color: var(--danger); } /* 永久删除选项本身带破坏性语义（此前是无样式死钩子） */
 .tag-new { font-size: var(--fs-caption); color: var(--warn); border: 1px solid var(--warn); border-radius: var(--r-sm); padding: 0 var(--space-1); }
 .tag-has { font-size: var(--fs-caption); color: var(--ink-2); border: 1px solid var(--rule); border-radius: var(--r-sm); padding: 0 var(--space-1); }
 .summary { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-1); font-size: var(--fs-caption); }
-.danger-text { color: var(--warn); font-weight: var(--fw-semibold); }
-.delete-box { border: 1px solid var(--warn); border-radius: var(--r); padding: var(--space-3) var(--space-3); display: flex; flex-direction: column; gap: var(--space-2); }
+.danger-text { color: var(--danger); font-weight: var(--fw-semibold); }
+.delete-box { border: 1px solid var(--danger); border-radius: var(--r); padding: var(--space-3) var(--space-3); display: flex; flex-direction: column; gap: var(--space-2); }
 .delete-box .ack { display: flex; align-items: center; gap: var(--space-2); font-size: var(--fs-caption); }
 .actions { display: flex; justify-content: flex-end; gap: var(--space-3); margin-top: var(--space-1); }
 .actions button { padding: var(--space-2) var(--space-4); border-radius: var(--r); cursor: pointer; }

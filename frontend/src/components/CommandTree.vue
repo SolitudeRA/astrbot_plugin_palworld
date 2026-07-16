@@ -1,26 +1,22 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
+import { SwitchRoot, SwitchThumb } from 'reka-ui'
 import { PAL_TREE, GROUP_LABELS, type PalTreeNode, type Tri } from '../lib/schema'
 import type { CmdPerm } from '../lib/collect'
+import { cellOf as libCellOf, inheritAdmin as libInheritAdmin, effAdmin as libEffAdmin, writeAxis } from '../lib/permissions'
 
+// 管理员限制表（单轴）：功能启停已拆去「功能」页，本组件只管 admin_only 轴。
+// 只列可锁命令（adminConfigurable 且非 forced，15 条）；恒仅管理员/恒所有人的收进表尾说明。
 const props = defineProps<{ modelValue: Record<string, CmdPerm>; hideGroups?: string[] }>()
 const emit = defineEmits<{ 'update:modelValue': [v: Record<string, CmdPerm>]; change: [] }>()
 
-type Axis = 'enabled' | 'admin_only'
-const ENABLE_OPTS: { v: Tri; t: string }[] = [
-  { v: 'inherit', t: '默认' }, { v: 'on', t: '开' }, { v: 'off', t: '关' },
-]
-const ADMIN_OPTS: { v: Tri; t: string }[] = [
-  { v: 'inherit', t: '默认' }, { v: 'on', t: '仅管理' }, { v: 'off', t: '所有人' },
-]
-
-// 分组：按 PAL_TREE 中出现顺序收集组（world/guild/player/server/link），扁平命令归「其他」
 interface Grp { key: string; label: string; nodes: PalTreeNode[]; isFlat: boolean }
 const groups = computed<Grp[]>(() => {
   const order: string[] = []
   const byKey: Record<string, PalTreeNode[]> = {}
   for (const n of PAL_TREE) {
     if ((props.hideGroups ?? []).includes(n.group ?? '')) continue
+    if (!(n.adminConfigurable && !n.adminForced)) continue // 单轴：只列可锁叶子
     const k = n.group ?? '__flat__'
     if (!(k in byKey)) { byKey[k] = []; order.push(k) }
     byKey[k].push(n)
@@ -33,134 +29,151 @@ const groups = computed<Grp[]>(() => {
   }))
 })
 
-// 组头批量：整组某轴是否可配（组内任一子命令该轴可配才有意义，否则组头格显「—」）
-const groupEnableConfigurable = (g: Grp) => g.nodes.some((n) => n.enableConfigurable)
-const groupAdminConfigurable = (g: Grp) => g.nodes.some((n) => n.adminConfigurable && !n.adminForced)
-
 const expanded = ref<Record<string, boolean>>(
   Object.fromEntries(PAL_TREE.map((n) => [n.group ?? '__flat__', true])),
 )
 const toggleGroup = (k: string) => { expanded.value[k] = !expanded.value[k] }
 
-const cellOf = (command: string, axis: Axis): Tri => props.modelValue[command]?.[axis] ?? 'inherit'
+// 单轴覆盖判定：只认 admin_only（enabled 覆盖归「功能」页管辖，这里不亮标、不清除）
+const adminCell = (command: string): Tri => libCellOf(props.modelValue, command, 'admin_only')
+const hasAdminOverride = (command: string): boolean => adminCell(command) !== 'inherit'
+const effAdmin = (n: PalTreeNode) => libEffAdmin(props.modelValue, n)
+const inheritAdmin = (n: PalTreeNode) => libInheritAdmin(props.modelValue, n)
+// 组头开关生效值：组 admin 覆盖 ?? 内置（所有人=false）
+const groupEff = (g: Grp): boolean => {
+  const v = adminCell(g.key)
+  return v === 'inherit' ? false : v === 'on'
+}
+const groupManaged = (g: Grp) => !g.isFlat && hasAdminOverride(g.key)
 
-function setCell(command: string, axis: Axis, v: Tri) {
-  const cur: CmdPerm = props.modelValue[command] ?? { enabled: 'inherit', admin_only: 'inherit' }
-  const next = { ...props.modelValue, [command]: { ...cur, [axis]: v } }
-  emit('update:modelValue', next)
+// 写操作：目标 == 继承生效值 → 自动回归 inherit（不留冗余覆盖）
+function write(command: string, v: Tri) {
+  emit('update:modelValue', writeAxis(props.modelValue, command, 'admin_only', v))
   emit('change')
 }
-
-// 叶子 enable 格：enableConfigurable=false → 恒开（核心命令，内置锁定）
-// 叶子 admin 格：adminForced=true → 恒「仅管理员」；adminConfigurable=false 且非 forced → 恒「所有人」
-function lockedLabel(n: PalTreeNode, axis: Axis): string | null {
-  if (axis === 'enabled') return n.enableConfigurable ? null : '开'
-  if (n.adminForced) return '仅管理员'
-  if (!n.adminConfigurable) return '所有人'
-  return null
+function onLeafToggle(n: PalTreeNode, target: boolean) {
+  write(n.path, target === inheritAdmin(n) ? 'inherit' : (target ? 'on' : 'off'))
 }
-const optsOf = (axis: Axis) => (axis === 'enabled' ? ENABLE_OPTS : ADMIN_OPTS)
+function onGroupToggle(g: Grp, target: boolean) {
+  write(g.key, target === false ? 'inherit' : 'on') // 组内置=所有人（false）
+}
+// ↺ 恢复：只清 admin 轴（不碰功能页的 enabled 覆盖）
+const resetAdmin = (command: string) => write(command, 'inherit')
+
+// 表尾说明：forced（恒仅管理员）与恒所有人的收拢；单模式隐藏 link 时不提授权命令
+const lockedNote = computed(() => {
+  const hideLink = (props.hideGroups ?? []).includes('link')
+  const forced = hideLink
+    ? '服务器管控 7 条与「确认执行」恒需管理员'
+    : '服务器管控 7 条、服务器授权 2 条与「确认执行」恒需管理员'
+  const open = hideLink
+    ? '帮助 / 我的账号标识 / 本群标识恒对所有人开放'
+    : '服务器列表 / 帮助 / 我的账号标识 / 本群标识恒对所有人开放'
+  return `${forced}；${open}。均为内置规则，不可更改。`
+})
 </script>
 
 <template>
   <div class="cmdtree">
-    <div class="ct-legend">
-      <span class="t">命令权限</span>
-      <span class="c">按组批量或逐条设置「是否启用 / 是否仅管理员」；<b>默认</b>=继承内置，<b>开/关</b>为显式覆盖。内置锁定的格不可改。</span>
-    </div>
-
-    <div v-for="g in groups" :key="g.key" class="ct-group">
-      <!-- 组头行 -->
-      <div class="ct-row ct-grouphead">
-        <button type="button" class="ct-gname" :aria-expanded="expanded[g.key]" @click="toggleGroup(g.key)">
-          <span class="chev" :class="{ open: expanded[g.key] }">▸</span>{{ g.label }}
-        </button>
-        <div class="ct-cells">
-          <!-- 扁平段无组名可写，不渲染批量格；有组的写组名行 -->
-          <template v-if="!g.isFlat">
-            <div class="ct-cell">
-              <template v-if="groupEnableConfigurable(g)">
-                <button v-for="o in ENABLE_OPTS" :key="o.v" type="button" class="seg"
-                  :class="{ sel: cellOf(g.key, 'enabled') === o.v, act: o.v !== 'inherit' && cellOf(g.key, 'enabled') === o.v }"
-                  @click="setCell(g.key, 'enabled', o.v)">{{ o.t }}</button>
-              </template>
-              <span v-else class="ct-na">—</span>
-            </div>
-            <div class="ct-cell">
-              <template v-if="groupAdminConfigurable(g)">
-                <button v-for="o in ADMIN_OPTS" :key="o.v" type="button" class="seg"
-                  :class="{ sel: cellOf(g.key, 'admin_only') === o.v, act: o.v !== 'inherit' && cellOf(g.key, 'admin_only') === o.v }"
-                  @click="setCell(g.key, 'admin_only', o.v)">{{ o.t }}</button>
-              </template>
-              <span v-else class="ct-na">—</span>
-            </div>
-          </template>
-          <template v-else>
-            <div class="ct-cell"><span class="ct-colh">启用</span></div>
-            <div class="ct-cell"><span class="ct-colh">仅管理员</span></div>
-          </template>
-        </div>
+    <div class="ct-board">
+      <!-- 列头（恒显）。开关：开=仅管理员，关=所有人 -->
+      <div class="ct-row ct-colhead">
+        <span class="ct-namecol">命令</span>
+        <div class="ct-cell"><span class="ct-colh">仅管理员</span></div>
+        <span class="ct-resetcol"></span>
       </div>
 
-      <!-- 叶子行 -->
-      <template v-if="expanded[g.key]">
-        <div v-for="n in g.nodes" :key="n.path" class="ct-row ct-leaf" :class="{ danger: n.danger }">
-          <div class="ct-lname">
-            <span class="lbl">{{ n.label }}<span v-if="n.danger" class="dtag">危险</span></span>
-            <span class="path mono">/pal {{ n.path }}</span>
+      <div v-for="g in groups" :key="g.key" class="ct-group">
+        <!-- 组头行：整组批量。受管态 = amber 淡底 + 左竖条 + 「整组」标 -->
+        <div class="ct-row ct-grouphead" :class="{ managed: groupManaged(g) }">
+          <button type="button" class="ct-gname" :aria-expanded="expanded[g.key]" @click="toggleGroup(g.key)">
+            <span class="chev" :class="{ open: expanded[g.key] }">▸</span>{{ g.label }}
+            <span v-if="groupManaged(g)" class="grp-tag">整组</span>
+          </button>
+          <div class="ct-cell">
+            <SwitchRoot v-if="!g.isFlat" class="pw-switch sm" :class="{ ovr: hasAdminOverride(g.key) }"
+              :model-value="groupEff(g)" :aria-label="g.label + ' 整组仅管理员'"
+              @update:model-value="(v: boolean) => onGroupToggle(g, v)">
+              <SwitchThumb class="pw-switch-thumb" />
+            </SwitchRoot>
           </div>
-          <div class="ct-cells">
-            <div v-for="axis in (['enabled', 'admin_only'] as const)" :key="axis" class="ct-cell">
-              <span v-if="lockedLabel(n, axis)" class="ct-lock">{{ lockedLabel(n, axis) }}<small>内置</small></span>
-              <template v-else>
-                <button v-for="o in optsOf(axis)" :key="o.v" type="button" class="seg"
-                  :class="{ sel: cellOf(n.path, axis) === o.v, act: o.v !== 'inherit' && cellOf(n.path, axis) === o.v }"
-                  @click="setCell(n.path, axis, o.v)">{{ o.t }}</button>
-              </template>
-            </div>
-          </div>
+          <span class="ct-resetcol">
+            <button v-if="groupManaged(g)" type="button" class="ct-reset" aria-label="恢复整组默认"
+              title="恢复整组默认" @click.stop="resetAdmin(g.key)">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+            </button>
+          </span>
         </div>
-      </template>
+
+        <!-- 叶子行：开关显示生效值；单独设置 = 名旁圆点 + amber 环 + ↺ -->
+        <template v-if="expanded[g.key]">
+          <div v-for="n in g.nodes" :key="n.path" class="ct-row ct-leaf"
+            :class="{ grouped: groupManaged(g) && !hasAdminOverride(n.path) }">
+            <div class="ct-lname">
+              <span class="lbl">{{ n.label }}
+                <span v-if="hasAdminOverride(n.path)" class="ov-dot" title="此命令已单独设置" aria-label="已单独设置"></span>
+              </span>
+              <span class="path mono">/pal {{ n.path }}</span>
+            </div>
+            <div class="ct-cell">
+              <SwitchRoot class="pw-switch sm" :class="{ ovr: hasAdminOverride(n.path) }"
+                :model-value="effAdmin(n)" :aria-label="n.label + ' 仅管理员'"
+                @update:model-value="(v: boolean) => onLeafToggle(n, v)">
+                <SwitchThumb class="pw-switch-thumb" />
+              </SwitchRoot>
+            </div>
+            <span class="ct-resetcol">
+              <button v-if="hasAdminOverride(n.path)" type="button" class="ct-reset" aria-label="恢复跟随"
+                title="恢复跟随（清除单独设置）" @click.stop="resetAdmin(n.path)">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+              </button>
+            </span>
+          </div>
+        </template>
+      </div>
+
+      <!-- 内置规则收拢说明（原 10+4 条锁定行不再占行） -->
+      <div class="ct-row ct-note">{{ lockedNote }}</div>
     </div>
   </div>
 </template>
 
 <style scoped>
-.cmdtree { display: flex; flex-direction: column; gap: var(--space-3); }
-.ct-legend { display: flex; flex-direction: column; gap: var(--space-1); padding: 0 2px 2px; }
-.ct-legend .t { font-size: var(--fs-sm); font-weight: var(--fw-semibold); color: var(--ink); }
-.ct-legend .c { font-size: var(--fs-caption); color: var(--ink-2); line-height: var(--lh-base); }
-.ct-legend b { color: var(--ink); font-weight: var(--fw-semibold); }
-
-.ct-group { border: 1px solid var(--rule); border-radius: var(--r); overflow: hidden; background: var(--card); }
+/* 连续观测面：单一外框，组头分隔行，叶子 dashed 分隔 */
+.cmdtree { display: flex; flex-direction: column; }
+.ct-board { border: 1px solid var(--rule); border-radius: var(--r); overflow: hidden; background: var(--card); }
 .ct-row { display: flex; align-items: center; gap: var(--space-3); padding: var(--space-2) var(--space-3); }
-.ct-grouphead { background: var(--sink); border-bottom: 1px solid var(--rule); }
+
+.ct-colhead { background: linear-gradient(var(--raise), var(--card)); border-bottom: 1px solid var(--rule-2); }
+.ct-namecol { flex: 1; font-size: var(--fs-caption); color: var(--ink-2); font-weight: var(--fw-semibold); letter-spacing: var(--track-eyebrow); }
+.ct-colh { font-size: var(--fs-caption); color: var(--ink-2); font-weight: var(--fw-semibold); letter-spacing: var(--track-eyebrow); width: 100%; text-align: right; }
+
+.ct-grouphead { background: var(--sink); border-top: 1px solid var(--rule); }
+.ct-group:first-of-type .ct-grouphead { border-top: none; }
+/* 受管态（整组批量生效中）：amber 淡底 + 左竖条（Unity override bar / GitHub managed 语义） */
+.ct-grouphead.managed { background: color-mix(in srgb, var(--amber) 9%, var(--sink)); box-shadow: inset 3px 0 0 var(--amber); }
 .ct-gname { flex: 1; display: flex; align-items: center; gap: var(--space-2); font-family: var(--sans); font-size: var(--fs-sm); font-weight: var(--fw-semibold); color: var(--ink); background: none; border: none; cursor: pointer; text-align: left; padding: 0; }
 .ct-gname .chev { display: inline-block; font-size: var(--fs-caption); color: var(--ink-3); transition: transform var(--motion-fast); }
 .ct-gname .chev.open { transform: rotate(90deg); }
 .ct-gname:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; border-radius: var(--r-sm); }
+.grp-tag { font-size: var(--fs-caption); font-weight: var(--fw-medium); color: var(--amber); border: 1px solid color-mix(in srgb, var(--amber) 45%, transparent); background: color-mix(in srgb, var(--amber) 8%, transparent); border-radius: var(--r-pill); padding: 0 var(--space-2); }
 
-.ct-leaf { border-top: 1px solid var(--rule-2); }
-.ct-leaf.danger { background: color-mix(in srgb, var(--warn) 6%, var(--card)); }
+.ct-leaf { border-top: 1px dashed var(--rule); }
+/* 随组叶子：淡一档 amber 左竖条贯穿受管区块（单独设置的行不加——例外由圆点/环表达） */
+.ct-leaf.grouped { box-shadow: inset 3px 0 0 color-mix(in srgb, var(--amber) 40%, transparent); }
 .ct-lname { flex: 1; display: flex; flex-direction: column; gap: 1px; min-width: 0; }
 .ct-lname .lbl { font-size: var(--fs-caption); color: var(--ink); display: flex; align-items: center; gap: var(--space-2); }
 .ct-lname .path { font-size: var(--fs-caption); color: var(--ink-3); }
-.dtag { font-size: var(--fs-caption); font-weight: var(--fw-semibold); color: var(--on-warn); background: var(--warn); border-radius: var(--r-sm); padding: 1px var(--space-1); }
+/* 单独设置标识：amber 圆点（行名旁）+ 开关 amber 外环 */
+.ov-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--amber); flex: 0 0 auto; }
+.pw-switch.ovr { box-shadow: 0 0 0 2px color-mix(in srgb, var(--amber) 55%, transparent); }
 
-.ct-cells { display: flex; gap: var(--space-2); flex: none; }
-.ct-cell { width: 168px; display: flex; align-items: center; justify-content: flex-end; gap: 0; }
-.ct-colh { font-size: var(--fs-caption); color: var(--ink-3); font-weight: var(--fw-semibold); width: 100%; text-align: center; }
-.ct-na { color: var(--ink-3); font-size: var(--fs-caption); }
+.ct-cell { width: 120px; display: flex; align-items: center; justify-content: flex-end; flex: none; }
+.ct-resetcol { width: 36px; display: flex; justify-content: flex-end; flex: none; }
+.ct-reset { display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; color: var(--ink-3); background: none; border: 1px solid transparent; border-radius: var(--r-sm); padding: 0; cursor: pointer; transition: color var(--motion-fast), border-color var(--motion-fast), background var(--motion-fast); }
+.ct-reset svg { width: 14px; height: 14px; display: block; }
+.ct-reset:hover { color: var(--amber); border-color: color-mix(in srgb, var(--amber) 45%, transparent); background: color-mix(in srgb, var(--amber) 8%, transparent); }
+.ct-reset:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
 
-.seg { font-family: var(--sans); font-size: var(--fs-caption); color: var(--ink-2); background: var(--card); border: 1px solid var(--rule-2); padding: var(--space-1) var(--space-2); cursor: pointer; transition: background var(--motion-fast), color var(--motion-fast), border-color var(--motion-fast); }
-.seg:first-child { border-radius: var(--r-sm) 0 0 var(--r-sm); }
-.seg:last-child { border-radius: 0 var(--r-sm) var(--r-sm) 0; }
-.seg + .seg { border-left: none; }
-.seg:hover { color: var(--ink); }
-.seg:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; position: relative; z-index: 1; }
-.seg.sel { color: var(--ink); background: var(--sink); font-weight: var(--fw-semibold); }
-.seg.act { color: var(--on-amber); background: var(--amber); border-color: var(--amber); }
-
-.ct-lock { display: inline-flex; align-items: baseline; gap: var(--space-1); font-size: var(--fs-caption); color: var(--ink-3); font-style: normal; }
-.ct-lock small { font-size: var(--fs-caption); color: var(--ink-3); opacity: .75; border: 1px solid var(--rule-2); border-radius: var(--r-sm); padding: 0 var(--space-1); }
+.ct-note { border-top: 1px solid var(--rule); background: var(--sink); font-size: var(--fs-caption); color: var(--ink-3); line-height: var(--lh-snug); }
 </style>

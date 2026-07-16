@@ -78,14 +78,15 @@ async function runTransfer(body: TransferBody) {
 </script>
 
 <template>
-  <section class="mode-transfer">
-    <div class="mt-head">
-      <span class="mode-badge">当前模式：{{ worldMode === 'single' ? '单服务器' : '多服务器' }}</span>
-      <button class="mt-switch" data-act="switch" :disabled="dirty || working" @click="onSwitch">
-        切换到{{ worldMode === 'single' ? '多' : '单' }}服务器
-      </button>
+  <section class="mode-transfer dz-item">
+    <div class="dz-info">
+      <span class="dz-title">切换运行模式</span>
+      <span class="dz-desc">当前为<b class="mt-name">{{ worldMode === 'single' ? '单服务器' : '多服务器' }}</b>，{{ worldMode === 'single' ? '所有操作对应唯一服务器' : '按群绑定与切换服务器' }}。切换前会先预览影响范围，可能涉及数据迁移与清理。</span>
       <span v-if="dirty" class="mt-hint">有未保存更改，保存后可切换</span>
     </div>
+    <button class="dz-btn" data-act="switch" :disabled="dirty || working" @click="onSwitch">
+      切换到{{ worldMode === 'single' ? '多' : '单' }}服务器
+    </button>
     <ModeConfirmDialog v-if="flow === 'confirm' && preview" :target="target" :preview="preview"
       :surviving-id="survivingId" @confirm="onConfirm" @cancel="closeFlow" />
     <TransferWizard v-if="flow === 'wizard' && preview" :preview="preview" :server-names="serverNames"
@@ -94,10 +95,7 @@ async function runTransfer(body: TransferBody) {
 </template>
 
 <style scoped>
-.mode-transfer { margin-bottom: 4px; }
-.mt-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-.mode-badge { font-size: 11.5px; color: var(--ink-2); background: color-mix(in srgb, var(--focus) 6%, var(--card)); border: 1px solid var(--rule); border-radius: var(--r); padding: 4px 10px; white-space: nowrap; }
-.mt-switch { font-size: 12px; padding: 5px 12px; border-radius: var(--r); border: 1px solid var(--focus); background: color-mix(in srgb, var(--focus) 10%, var(--card)); color: var(--ink); cursor: pointer; }
-.mt-switch:disabled { opacity: .5; cursor: not-allowed; }
-.mt-hint { font-size: 11.5px; color: var(--warn); }
+/* 危险区行形态：容器/行/按钮样式由全局 .danger-zone/.dz-* 承载，这里只补组件私有细节 */
+.mt-name { font-weight: var(--fw-semibold); color: var(--ink); }
+.mt-hint { font-size: var(--fs-caption); color: var(--warn); }
 </style>

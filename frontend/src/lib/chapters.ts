@@ -10,6 +10,7 @@ export const CHAPTERS: Chapter[] = [
   { id: 'status', label: '状态', group: '观测', kind: 'status' },
   { id: 'audit', label: '审计', group: '观测', kind: 'audit', blocks: [] },
   { id: 'access', label: '连接', group: '配置', kind: 'settings', blocks: ['routing'] },
+  { id: 'features', label: '功能', group: '配置', kind: 'settings', blocks: [] },
   { id: 'cadence', label: '采集', group: '配置', kind: 'settings', blocks: ['polling'] },
   { id: 'world', label: '世界与据点', group: '配置', kind: 'settings', blocks: ['world', 'bases'] },
   { id: 'privacy', label: '隐私与留存', group: '配置', kind: 'settings', blocks: ['privacy', 'history'] },

@@ -6,6 +6,7 @@ export interface FieldSpec {
   label: string
   default: unknown
   options?: string[]
+  optionLabels?: Record<string, string> // 仅展示：英文存储值→中文显示名（:value 恒绑原值，collect 往返不受影响）
   secret?: boolean // password / value：不预填、走哨兵
   hint?: string // 仅展示：字段说明（不参与 collect / schema 对齐）
 }
@@ -32,8 +33,8 @@ export const HEADER_FIELDS: FieldSpec[] = [
 
 export const OBJECT_SECTIONS: ObjectSection[] = [
   { key: 'routing', title: '访问控制', subtitle: '哪些群可以查询，以及默认查询哪台服务器', fields: [
-    { key: 'access_mode', type: 'enum', label: '访问模式', default: 'restricted', options: ['restricted', 'open'], hint: 'restricted 需管理员授权；open 全开放' },
-    { key: 'world_mode', type: 'enum', label: '运行模式', default: 'single', options: ['multi', 'single'], hint: 'single 单世界（所有操作对应唯一服务器）；multi 多世界（按群绑定/切换服务器）' },
+    { key: 'access_mode', type: 'enum', label: '访问模式', default: 'restricted', options: ['restricted', 'open'], optionLabels: { restricted: '受限授权', open: '完全开放' }, hint: '「受限授权」需管理员授权后群才可查询；「完全开放」所有群可查询' },
+    { key: 'world_mode', type: 'enum', label: '运行模式', default: 'single', options: ['multi', 'single'], optionLabels: { multi: '多服务器', single: '单服务器' }, hint: '「单服务器」所有操作对应唯一服务器；「多服务器」按群绑定/切换服务器' },
     { key: 'default_server', type: 'string', label: '默认服务器', default: '', hint: '群里没指定、也没绑定时查询它' },
     // 首次引导确认标记：恒隐藏（不渲染成表单字段），仅为让 collectBody 逐字段重建时回传（coerce bool 严格 === true）。
     { key: 'setup_confirmed', type: 'bool', label: '首次设置已确认', default: false },
@@ -49,7 +50,7 @@ export const OBJECT_SECTIONS: ObjectSection[] = [
   ]},
   { key: 'world', title: '世界与展示', subtitle: '时区与 FPS 流畅度分档', fields: [
     { key: 'timezone', type: 'string', label: '默认时区', default: 'Asia/Tokyo', hint: 'IANA 名称，如 Asia/Tokyo' },
-    { key: 'locale', type: 'enum', label: '消息语言', default: 'zh-CN', options: ['zh-CN'] },
+    { key: 'locale', type: 'enum', label: '消息语言', default: 'zh-CN', options: ['zh-CN'], optionLabels: { 'zh-CN': '简体中文' } },
     { key: 'fps_smooth', type: 'int', label: 'FPS 流畅阈值', default: 50, hint: '≥ 此值为流畅' },
     { key: 'fps_moderate', type: 'int', label: 'FPS 一般阈值', default: 35, hint: '≥ 此值为一般' },
     { key: 'fps_laggy', type: 'int', label: 'FPS 卡顿阈值', default: 20, hint: '≥ 此值为卡顿，低于则为严重卡顿' },
@@ -63,7 +64,7 @@ export const OBJECT_SECTIONS: ObjectSection[] = [
     { key: 'z_weight', type: 'float', label: '高度权重', default: 0.5, hint: '计算距离时高度（Z 轴）的权重' },
   ]},
   { key: 'privacy', title: '隐私与脱敏', subtitle: '决定玩家个人信息公开到什么程度', fields: [
-    { key: 'mode', type: 'enum', label: '隐私模式', default: 'balanced', options: ['strict', 'balanced', 'advanced'], hint: 'strict 最保守；balanced 为默认' },
+    { key: 'mode', type: 'enum', label: '隐私模式', default: 'balanced', options: ['strict', 'balanced', 'advanced'], optionLabels: { strict: '最严', balanced: '均衡', advanced: '进阶' }, hint: '「最严」最保守；「均衡」为默认' },
     { key: 'public_exact_ping', type: 'bool', label: '公开精确 Ping', default: false, hint: '关闭时只显示优秀 / 正常 / 偏高' },
     { key: 'public_positions', type: 'bool', label: '公开坐标', default: false },
     { key: 'ping_good_ms', type: 'int', label: 'Ping 优秀阈值', default: 60, hint: '≤ 此值为优秀（毫秒）' },

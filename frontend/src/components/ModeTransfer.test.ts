@@ -14,7 +14,8 @@ describe('ModeTransfer 切换控件', () => {
   it('渲染当前模式 + 切换按钮（multi 显示切换到单服务器）', () => {
     setBridge({})
     const w = mk('multi')
-    expect(w.text()).toContain('当前模式：多服务器')
+    expect(w.text()).toContain('切换运行模式')
+    expect(w.get('.mt-name').text()).toBe('多服务器')
     expect(w.get('button[data-act="switch"]').text()).toContain('切换到单服务器')
   })
 
