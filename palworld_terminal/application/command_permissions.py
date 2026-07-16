@@ -59,6 +59,16 @@ def upstream_unavailable(path: str) -> bool:
     return m is not None and m.feat_group in UPSTREAM_UNAVAILABLE_FEATURES
 
 
+def upstream_unavailable_group(group: str) -> bool:
+    """组名行的上游不可用判定：组内全部叶子的 feat_group ∈ 上游不可用集才成立。
+
+    由常量 + COMMAND_META 派生（禁止硬编码 'guild'）——将来新增 unavailable
+    feature 时组级分流自动覆盖，不漏。空成员组返回 False。
+    """
+    metas = [m for m in COMMAND_META.values() if m.group == group]
+    return bool(metas) and all(m.feat_group in UPSTREAM_UNAVAILABLE_FEATURES for m in metas)
+
+
 def enable_configurable(path: str) -> bool:
     m = COMMAND_META.get(path)
     return (
