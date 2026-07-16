@@ -106,6 +106,7 @@ export interface PalTreeNode {
   adminConfigurable: boolean // 可配置仅管理员（path ∈ LOCKABLE_COMMANDS）
   adminForced: boolean // 强制仅管理员（gate ∈ admin/admin_write）
   danger: boolean // 危险写命令（path ∈ DANGER_COMMANDS）
+  defaultEnabled: boolean // 内置启用默认（= 后端 default_enabled(path)：core/events/report→true，其余→false）
 }
 
 // 完整命令树描述：覆盖全部命令（COMMAND_META 全集，非仅可锁 15），供权限章树 UI 渲染。
@@ -115,33 +116,33 @@ export interface PalTreeNode {
 // 【JSON 可解析】数组字面量用双引号键/值 + true/false/null，无嵌套 []，
 // 便于 Python 端抽出数组文本直接 json.loads；改动请保持此形态。
 export const PAL_TREE: PalTreeNode[] = [
-  {"group": "world", "path": "world status", "label": "世界状态", "enableConfigurable": false, "adminConfigurable": true, "adminForced": false, "danger": false},
-  {"group": "world", "path": "world overview", "label": "世界概览", "enableConfigurable": false, "adminConfigurable": true, "adminForced": false, "danger": false},
-  {"group": "world", "path": "world rules", "label": "世界规则", "enableConfigurable": false, "adminConfigurable": true, "adminForced": false, "danger": false},
-  {"group": "world", "path": "world events", "label": "世界事件", "enableConfigurable": true, "adminConfigurable": true, "adminForced": false, "danger": false},
-  {"group": "world", "path": "world today", "label": "今日日报", "enableConfigurable": true, "adminConfigurable": true, "adminForced": false, "danger": false},
-  {"group": "guild", "path": "guild list", "label": "公会列表", "enableConfigurable": true, "adminConfigurable": true, "adminForced": false, "danger": false},
-  {"group": "guild", "path": "guild info", "label": "公会详情", "enableConfigurable": true, "adminConfigurable": true, "adminForced": false, "danger": false},
-  {"group": "guild", "path": "guild bases", "label": "据点列表", "enableConfigurable": true, "adminConfigurable": true, "adminForced": false, "danger": false},
-  {"group": "guild", "path": "guild base", "label": "据点详情", "enableConfigurable": true, "adminConfigurable": true, "adminForced": false, "danger": false},
-  {"group": "player", "path": "player info", "label": "玩家查询", "enableConfigurable": true, "adminConfigurable": true, "adminForced": false, "danger": false},
-  {"group": "player", "path": "player bind", "label": "绑定玩家", "enableConfigurable": true, "adminConfigurable": true, "adminForced": false, "danger": false},
-  {"group": "player", "path": "player unbind", "label": "解绑玩家", "enableConfigurable": true, "adminConfigurable": true, "adminForced": false, "danger": false},
-  {"group": "server", "path": "server announce", "label": "全服广播", "enableConfigurable": true, "adminConfigurable": false, "adminForced": true, "danger": false},
-  {"group": "server", "path": "server save", "label": "保存存档", "enableConfigurable": true, "adminConfigurable": false, "adminForced": true, "danger": false},
-  {"group": "server", "path": "server kick", "label": "踢出玩家", "enableConfigurable": true, "adminConfigurable": false, "adminForced": true, "danger": false},
-  {"group": "server", "path": "server unban", "label": "解封玩家", "enableConfigurable": true, "adminConfigurable": false, "adminForced": true, "danger": false},
-  {"group": "server", "path": "server ban", "label": "封禁玩家", "enableConfigurable": true, "adminConfigurable": false, "adminForced": true, "danger": true},
-  {"group": "server", "path": "server shutdown", "label": "倒计时关服", "enableConfigurable": true, "adminConfigurable": false, "adminForced": true, "danger": true},
-  {"group": "server", "path": "server stop", "label": "立即停止", "enableConfigurable": true, "adminConfigurable": false, "adminForced": true, "danger": true},
-  {"group": "link", "path": "link list", "label": "服务器列表", "enableConfigurable": false, "adminConfigurable": false, "adminForced": false, "danger": false},
-  {"group": "link", "path": "link add", "label": "授权服务器", "enableConfigurable": false, "adminConfigurable": false, "adminForced": true, "danger": false},
-  {"group": "link", "path": "link remove", "label": "撤销授权", "enableConfigurable": false, "adminConfigurable": false, "adminForced": true, "danger": false},
-  {"group": null, "path": "rank", "label": "排行榜", "enableConfigurable": true, "adminConfigurable": true, "adminForced": false, "danger": false},
-  {"group": null, "path": "online", "label": "当前在线", "enableConfigurable": false, "adminConfigurable": true, "adminForced": false, "danger": false},
-  {"group": null, "path": "me", "label": "我的信息", "enableConfigurable": true, "adminConfigurable": true, "adminForced": false, "danger": false},
-  {"group": null, "path": "help", "label": "帮助", "enableConfigurable": false, "adminConfigurable": false, "adminForced": false, "danger": false},
-  {"group": null, "path": "whoami", "label": "我的账号标识", "enableConfigurable": false, "adminConfigurable": false, "adminForced": false, "danger": false},
-  {"group": null, "path": "whereami", "label": "本群标识", "enableConfigurable": false, "adminConfigurable": false, "adminForced": false, "danger": false},
-  {"group": null, "path": "confirm", "label": "确认执行", "enableConfigurable": false, "adminConfigurable": false, "adminForced": true, "danger": false}
+  {"group": "world", "path": "world status", "label": "世界状态", "enableConfigurable": false, "adminConfigurable": true, "adminForced": false, "danger": false, "defaultEnabled": true},
+  {"group": "world", "path": "world overview", "label": "世界概览", "enableConfigurable": false, "adminConfigurable": true, "adminForced": false, "danger": false, "defaultEnabled": true},
+  {"group": "world", "path": "world rules", "label": "世界规则", "enableConfigurable": false, "adminConfigurable": true, "adminForced": false, "danger": false, "defaultEnabled": true},
+  {"group": "world", "path": "world events", "label": "世界事件", "enableConfigurable": true, "adminConfigurable": true, "adminForced": false, "danger": false, "defaultEnabled": true},
+  {"group": "world", "path": "world today", "label": "今日日报", "enableConfigurable": true, "adminConfigurable": true, "adminForced": false, "danger": false, "defaultEnabled": true},
+  {"group": "guild", "path": "guild list", "label": "公会列表", "enableConfigurable": true, "adminConfigurable": true, "adminForced": false, "danger": false, "defaultEnabled": false},
+  {"group": "guild", "path": "guild info", "label": "公会详情", "enableConfigurable": true, "adminConfigurable": true, "adminForced": false, "danger": false, "defaultEnabled": false},
+  {"group": "guild", "path": "guild bases", "label": "据点列表", "enableConfigurable": true, "adminConfigurable": true, "adminForced": false, "danger": false, "defaultEnabled": false},
+  {"group": "guild", "path": "guild base", "label": "据点详情", "enableConfigurable": true, "adminConfigurable": true, "adminForced": false, "danger": false, "defaultEnabled": false},
+  {"group": "player", "path": "player info", "label": "玩家查询", "enableConfigurable": true, "adminConfigurable": true, "adminForced": false, "danger": false, "defaultEnabled": false},
+  {"group": "player", "path": "player bind", "label": "绑定玩家", "enableConfigurable": true, "adminConfigurable": true, "adminForced": false, "danger": false, "defaultEnabled": false},
+  {"group": "player", "path": "player unbind", "label": "解绑玩家", "enableConfigurable": true, "adminConfigurable": true, "adminForced": false, "danger": false, "defaultEnabled": false},
+  {"group": "server", "path": "server announce", "label": "全服广播", "enableConfigurable": true, "adminConfigurable": false, "adminForced": true, "danger": false, "defaultEnabled": false},
+  {"group": "server", "path": "server save", "label": "保存存档", "enableConfigurable": true, "adminConfigurable": false, "adminForced": true, "danger": false, "defaultEnabled": false},
+  {"group": "server", "path": "server kick", "label": "踢出玩家", "enableConfigurable": true, "adminConfigurable": false, "adminForced": true, "danger": false, "defaultEnabled": false},
+  {"group": "server", "path": "server unban", "label": "解封玩家", "enableConfigurable": true, "adminConfigurable": false, "adminForced": true, "danger": false, "defaultEnabled": false},
+  {"group": "server", "path": "server ban", "label": "封禁玩家", "enableConfigurable": true, "adminConfigurable": false, "adminForced": true, "danger": true, "defaultEnabled": false},
+  {"group": "server", "path": "server shutdown", "label": "倒计时关服", "enableConfigurable": true, "adminConfigurable": false, "adminForced": true, "danger": true, "defaultEnabled": false},
+  {"group": "server", "path": "server stop", "label": "立即停止", "enableConfigurable": true, "adminConfigurable": false, "adminForced": true, "danger": true, "defaultEnabled": false},
+  {"group": "link", "path": "link list", "label": "服务器列表", "enableConfigurable": false, "adminConfigurable": false, "adminForced": false, "danger": false, "defaultEnabled": true},
+  {"group": "link", "path": "link add", "label": "授权服务器", "enableConfigurable": false, "adminConfigurable": false, "adminForced": true, "danger": false, "defaultEnabled": true},
+  {"group": "link", "path": "link remove", "label": "撤销授权", "enableConfigurable": false, "adminConfigurable": false, "adminForced": true, "danger": false, "defaultEnabled": true},
+  {"group": null, "path": "rank", "label": "排行榜", "enableConfigurable": true, "adminConfigurable": true, "adminForced": false, "danger": false, "defaultEnabled": false},
+  {"group": null, "path": "online", "label": "当前在线", "enableConfigurable": false, "adminConfigurable": true, "adminForced": false, "danger": false, "defaultEnabled": true},
+  {"group": null, "path": "me", "label": "我的信息", "enableConfigurable": true, "adminConfigurable": true, "adminForced": false, "danger": false, "defaultEnabled": false},
+  {"group": null, "path": "help", "label": "帮助", "enableConfigurable": false, "adminConfigurable": false, "adminForced": false, "danger": false, "defaultEnabled": true},
+  {"group": null, "path": "whoami", "label": "我的账号标识", "enableConfigurable": false, "adminConfigurable": false, "adminForced": false, "danger": false, "defaultEnabled": true},
+  {"group": null, "path": "whereami", "label": "本群标识", "enableConfigurable": false, "adminConfigurable": false, "adminForced": false, "danger": false, "defaultEnabled": true},
+  {"group": null, "path": "confirm", "label": "确认执行", "enableConfigurable": false, "adminConfigurable": false, "adminForced": true, "danger": false, "defaultEnabled": true}
 ]

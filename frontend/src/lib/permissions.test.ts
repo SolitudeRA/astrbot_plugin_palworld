@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { PAL_TREE } from './schema'
-import { effEnabled, inheritEnabled, effAdmin, writeAxis, DEFAULT_ENABLED, type PermMap } from './permissions'
+import { effEnabled, inheritEnabled, effAdmin, writeAxis, DEFAULT_ENABLED, GROUP_DEFAULT_ENABLED, type PermMap } from './permissions'
 
 const node = (path: string) => PAL_TREE.find((n) => n.path === path)!
 
@@ -50,8 +50,19 @@ describe('writeAxis 稀疏写', () => {
   })
 })
 
-describe('DEFAULT_ENABLED 覆盖全部 PAL_TREE 路径', () => {
-  it.each(PAL_TREE.map((n) => n.path))('%s 有内置默认', (path) => {
+// DEFAULT_ENABLED / GROUP_DEFAULT_ENABLED 均由 PAL_TREE.defaultEnabled 派生
+// （单一真相源锚定见 frontend_pal_commands_test.py::test_frontend_tree_matches_backend_meta）。
+describe('内置默认由 PAL_TREE 派生', () => {
+  it.each(PAL_TREE.map((n) => n.path))('DEFAULT_ENABLED 覆盖全部路径：%s', (path) => {
     expect(path in DEFAULT_ENABLED).toBe(true)
+  })
+  it('叶子默认抽查（events 开 / guild list 关）', () => {
+    expect(DEFAULT_ENABLED['world events']).toBe(true)
+    expect(DEFAULT_ENABLED['guild list']).toBe(false)
+  })
+  it('组默认抽查（world 开 / guild 关；无可配叶子的 link 不产键）', () => {
+    expect(GROUP_DEFAULT_ENABLED['world']).toBe(true)
+    expect(GROUP_DEFAULT_ENABLED['guild']).toBe(false)
+    expect('link' in GROUP_DEFAULT_ENABLED).toBe(false)
   })
 })

@@ -1,29 +1,33 @@
 // 命令权限生效值 + 功能组定义——复刻后端 application/command_permissions.py 的
 // FEATURE_DEFAULTS / effective_enabled / effective_admin_only / _FEATURE_MIGRATION。
-// 【demo 临时对齐】统一落地时 defaultEnabled 并入 PAL_TREE + 跨端锚定测试防漂移。
-import type { PalTreeNode, Tri } from './schema'
+// 内置启用默认单一真相源在 PAL_TREE.defaultEnabled（= 后端 default_enabled(path)），
+// 由 tests/unit/frontend_pal_commands_test.py 跨端锚定；此处仅按 path/group 派生表。
+import { PAL_TREE, type PalTreeNode, type Tri } from './schema'
 import type { CmdPerm } from './collect'
 
 export type Axis = 'enabled' | 'admin_only'
 export type PermMap = Record<string, CmdPerm>
 
 // 内置默认（enabled 轴）：core 恒开；events/report 默认开；
-// guilds_bases/players/server_admin_* 默认关。
-export const DEFAULT_ENABLED: Record<string, boolean> = {
-  'world status': true, 'world overview': true, 'world rules': true,
-  'world events': true, 'world today': true,
-  'guild list': false, 'guild info': false, 'guild bases': false, 'guild base': false,
-  'player info': false, 'player bind': false, 'player unbind': false,
-  'server announce': false, 'server save': false, 'server kick': false, 'server unban': false,
-  'server ban': false, 'server shutdown': false, 'server stop': false,
-  'link list': true, 'link add': true, 'link remove': true,
-  'rank': false, 'online': true, 'me': false,
-  'help': true, 'whoami': true, 'whereami': true, 'confirm': true,
+// guilds_bases/players/server_admin_* 默认关。由 PAL_TREE.defaultEnabled 派生。
+export const DEFAULT_ENABLED: Record<string, boolean> = Object.fromEntries(
+  PAL_TREE.map((n) => [n.path, n.defaultEnabled]),
+)
+
+// 组的内置默认：组内**可配（enableConfigurable）**叶子的 defaultEnabled。组内值须一致
+// （不一致直接抛错，绝不静默取首个）；无可配叶子的组（如 link）不产键——消费方按 `?? false`。
+function deriveGroupDefaults(): Record<string, boolean> {
+  const out: Record<string, boolean> = {}
+  for (const n of PAL_TREE) {
+    if (n.group === null || !n.enableConfigurable) continue
+    const prev = out[n.group]
+    if (prev === undefined) out[n.group] = n.defaultEnabled
+    else if (prev !== n.defaultEnabled)
+      throw new Error(`组 ${n.group} 可配叶子 defaultEnabled 不一致：${prev} vs ${n.defaultEnabled}`)
+  }
+  return out
 }
-// 组的内置默认（组内可配叶子的 FEATURE_DEFAULTS，组内恰好一致）
-export const GROUP_DEFAULT_ENABLED: Record<string, boolean> = {
-  world: true, guild: false, player: false, server: false,
-}
+export const GROUP_DEFAULT_ENABLED: Record<string, boolean> = deriveGroupDefaults()
 
 export const cellOf = (map: PermMap, command: string, axis: Axis): Tri =>
   map[command]?.[axis] ?? 'inherit'
