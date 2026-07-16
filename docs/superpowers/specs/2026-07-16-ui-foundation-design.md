@@ -40,8 +40,8 @@
 | `--fs-display` | 24px | 600 | `--lh-tight` | 品牌 CN（`.brand .cn`） |
 | `--fs-title` | 21px | 600 | `--lh-tight` | 章标题（`.chapter-head h2`） |
 | `--fs-heading` | 17px | 600 | `--lh-tight` | 组标题 `.t`、卡名 `.nm`、观测名 `.obs .nm` |
-| `--fs-body` | 15px | 400 | `--lh-base` | 正文、字段值 `.cv`、控件文字、保存按钮 |
-| `--fs-sm` | 14px | 400 | `--lh-base` | 次要文字、rail 项、读数 `.read` |
+| `--fs-body` | 15px | 400 | `--lh-base` | 正文、控件文字、保存按钮 |
+| `--fs-sm` | 14px | 400 | `--lh-base` | 次要文字、字段值 `.cv`、rail 项、读数 `.read` |
 | `--fs-caption` | 13px | 400 | `--lh-snug` | 说明 hint、chip、`idx`、note、subline、eyebrow —— **下限 13** |
 
 辅助 token：
@@ -51,6 +51,8 @@
 - 数字读数统一 `font-variant-numeric: tabular-nums`（读数、`idx`、数字输入、审计——由 `.mono`/`.read`/`.cv` 等承载）。
 
 **收敛映射原则**（整体放大一档，旧值普遍上移一档——旧基准正文 14→新 body 15、旧次要 13.5→新 sm 14）：23→display24；21→title21；16/17→heading17；14/15→body15；13/13.5/14.5→sm14；9.5/10/10.5/11/11.5/12/12.5→caption13（就近上归到 13 下限）。半 px 全部消灭。
+
+**归类说明**（消除上表与收敛映射的表面矛盾）：字号档位按**语义**归，不按旧像素值机械套映射。标题/名称类元素（组标题 `.t`/卡名 `.nm`/观测名 `.obs .nm`）归 `--fs-heading`；字段值/控件次要文字（如 `.cv`）归 `--fs-sm`；正文段落归 `--fs-body`。收敛映射里笼统的「15→body」只覆盖正文段落，**不覆盖标题/名称类**——标题类按语义归 heading，而非因某处旧值恰为 15 就落到 body。
 
 **已知取舍**：把 <13 的小标签（chip 原 10–10.5、`idx` 原 10、note 原 11–12）统一抬到 13，会使这些标签视觉变大、整体信息密度略降。**层级改由字重/颜色/透明度维持，而非字号**（如 chip 用 `--fw-medium` + 语义色，note 用 `--ink-3`）。这是清晰度优先的必然结果，符合用户「最小 13」决策。
 

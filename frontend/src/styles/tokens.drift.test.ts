@@ -23,7 +23,18 @@ describe('组件 scoped 无裸 hex 颜色', () => {
   it.each(COMPONENTS)('%s.vue scoped 内不含 #hex', (name) => {
     const src = readFileSync(resolve(__dirname, `../components/${name}.vue`), 'utf8')
     const scoped = src.split('<style').slice(1).join('<style')
+    expect(scoped.length).toBeGreaterThan(0)
     const hex = scoped.match(/#[0-9a-fA-F]{3,8}\b/g) ?? []
     expect(hex).toEqual([])
+  })
+})
+
+describe('组件 scoped 无裸 px 字号', () => {
+  it.each(COMPONENTS)('%s.vue scoped 内 font-size 一律走 var(--fs-*)', (name) => {
+    const src = readFileSync(resolve(__dirname, `../components/${name}.vue`), 'utf8')
+    const scoped = src.split('<style').slice(1).join('<style')
+    expect(scoped.length).toBeGreaterThan(0)
+    const rawPx = scoped.match(/font-size:\s*\d+px/g) ?? []
+    expect(rawPx).toEqual([])
   })
 })

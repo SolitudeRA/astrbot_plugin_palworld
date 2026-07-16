@@ -138,5 +138,4 @@ function confirm() {
 .actions button { padding: var(--space-2) var(--space-4); border-radius: var(--r); cursor: pointer; }
 .actions button:disabled { opacity: .5; cursor: not-allowed; }
 .ghost { background: transparent; border: 1px solid var(--rule); color: var(--ink); }
-.ghost:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
 </style>

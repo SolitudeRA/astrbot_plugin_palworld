@@ -64,6 +64,5 @@ async function purge() {
 .mono { font-size: var(--fs-caption); }
 .ack { display: flex; align-items: center; gap: var(--space-2); font-size: var(--fs-caption); }
 .danger-btn { align-self: flex-start; padding: var(--space-2) var(--space-4); border-radius: var(--r); border: 1px solid var(--warn); background: color-mix(in srgb, var(--warn) 10%, var(--card)); color: var(--warn); cursor: pointer; }
-.danger-btn:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
 .danger-btn:disabled { opacity: .5; cursor: not-allowed; }
 </style>

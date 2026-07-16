@@ -78,5 +78,4 @@ function confirm() {
 .actions { display: flex; justify-content: flex-end; gap: var(--space-3); margin-top: var(--space-1); }
 .actions button { padding: var(--space-2) var(--space-4); border-radius: var(--r); cursor: pointer; }
 .ghost { background: transparent; border: 1px solid var(--rule); color: var(--ink); }
-.ghost:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
 </style>
