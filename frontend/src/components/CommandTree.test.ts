@@ -66,6 +66,30 @@ describe('enabled 轴（功能页实例）', () => {
     expect(leaf(w, 'rank').find('.ov-dot').exists()).toBe(false)
     expect(leaf(w, 'rank').find('.ct-reset').exists()).toBe(false)
   })
+  it('上游不可用叶行显「暂不可用」锁定 + 徽标「上游」非「内置」（无开关）', () => {
+    const w = mountTree('enabled')
+    const row = leaf(w, 'guild list')
+    expect(row.find('.ct-lock').exists()).toBe(true)
+    expect(row.text()).toContain('暂不可用')
+    expect(row.text()).not.toContain('恒开')
+    expect(row.find('.ct-lock small').text()).toBe('上游')
+    expect(row.text()).not.toContain('内置')
+    expect(row.findAll('.pw-switch')).toHaveLength(0) // 不可配无开关
+  })
+  it('存量 guild 组行不亮受管：不可配组头无 managed 类、无「整组」标', () => {
+    // §3.5 容忍的存量 {"command":"guild","enabled":"on"} 组行不该让不可配组头误亮整组标
+    const w = mountTree('enabled', { guild: { enabled: 'on', admin_only: 'inherit' } })
+    const head = groupHead(w, '公会')
+    expect(head.classes()).not.toContain('managed')
+    expect(head.text()).not.toContain('整组')
+    expect(head.find('.grp-tag').exists()).toBe(false)
+  })
+  it('可配组（player）组覆盖仍亮受管高亮 + 整组标（受管抑制不误伤可配组）', () => {
+    const w = mountTree('enabled', { player: { enabled: 'on', admin_only: 'inherit' } })
+    const head = groupHead(w, '玩家')
+    expect(head.classes()).toContain('managed')
+    expect(head.text()).toContain('整组')
+  })
 })
 
 describe('admin_only 轴（权限章实例）', () => {
