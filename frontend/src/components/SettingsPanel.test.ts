@@ -155,15 +155,19 @@ describe('SettingsPanel', () => {
   it('权限章：applyConfig 从 command_permissions 行还原树 state（hydrate 往返）', async () => {
     const c = cfg()
     c.config.command_permissions = [
-      { command: 'guild', enabled: 'on', admin_only: 'inherit' }, // 开公会功能，行才在权限页列出
+      // 存量 guild 覆盖行：上游不可用 force-off 后渲染不列，但 state 须原样往返不丢。
+      { command: 'guild', enabled: 'on', admin_only: 'inherit' },
       { command: 'guild list', enabled: 'inherit', admin_only: 'on' },
+      // 渲染断言载体迁 player（可配组，行才在权限页列出）。
+      { command: 'player', enabled: 'on', admin_only: 'inherit' },
+      { command: 'player info', enabled: 'inherit', admin_only: 'on' },
     ];
     (window.AstrBotPluginPage!.apiGet as any).mockResolvedValue(c)
     const w = mountAt('permissions'); await flushPromises()
-    // 树 state 读回该覆盖行
+    // 树 state 读回存量 guild 覆盖行（force-off 渲染不列，但往返不丢 → 锁「过滤不丢数据」不变量）
     expect((w.vm as any).state.command_perms['guild list']).toEqual({ enabled: 'inherit', admin_only: 'on' })
-    // CommandTree 该叶子 admin 开关显示覆盖生效值（checked）+ amber 覆盖环（ovr）
-    const row = w.findAll('.ct-leaf').find((r) => r.text().includes('guild list'))!
+    // CommandTree 的 player 叶子 admin 开关显示覆盖生效值（checked）+ amber 覆盖环（ovr）
+    const row = w.findAll('.ct-leaf').find((r) => r.text().includes('player info'))!
     const adminSwitch = row.find('.pw-switch')
     expect(adminSwitch.attributes('data-state')).toBe('checked')
     expect(adminSwitch.classes()).toContain('ovr')

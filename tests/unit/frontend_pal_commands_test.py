@@ -9,6 +9,7 @@ from palworld_terminal.application.command_permissions import (
     admin_forced_true,
     default_enabled,
     enable_configurable,
+    upstream_unavailable,
 )
 
 _SCHEMA = (Path(__file__).resolve().parents[2] / "frontend" / "src" / "lib" / "schema.ts").read_text(encoding="utf-8")
@@ -34,3 +35,6 @@ def test_frontend_tree_matches_backend_meta():
         assert n["adminForced"] == admin_forced_true(p), p
         assert n["danger"] == (p in DANGER_COMMANDS), p
         assert n["defaultEnabled"] == default_enabled(p), p
+        # 上游不可用硬锁跨端锚定：PAL_TREE.unavailable（缺省 false）须与后端
+        # upstream_unavailable(path) 全等——任一端漏翻转即红（三向同 commit）。
+        assert n.get("unavailable", False) == upstream_unavailable(p), p

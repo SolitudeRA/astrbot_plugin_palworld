@@ -24,6 +24,13 @@ DANGER_COMMANDS: frozenset[str] = frozenset({
     "server ban", "server shutdown", "server stop",
 })
 
+# 上游不可用 feature 集：/game-data（PalGameDataBridge）对专用服务器未开放
+# （2026-07-12 实测定论：404 "GameData API is not enabled"，无任何参数可开启）。
+# 集内 feature 的命令恒禁用且不可配置；上游开放后的恢复操作：从本集合删除该
+# feature + 同步前端 PAL_TREE（schema.ts 的 unavailable/enableConfigurable/
+# defaultEnabled）——跨端锚定测试红→绿即恢复护栏。详见 spec §7。
+UPSTREAM_UNAVAILABLE_FEATURES: frozenset[str] = frozenset({"guilds_bases"})
+
 
 @dataclass(frozen=True, slots=True)
 class CommandMeta:
@@ -47,9 +54,18 @@ def _build_meta() -> dict[str, CommandMeta]:
 COMMAND_META: dict[str, CommandMeta] = _build_meta()
 
 
+def upstream_unavailable(path: str) -> bool:
+    m = COMMAND_META.get(path)
+    return m is not None and m.feat_group in UPSTREAM_UNAVAILABLE_FEATURES
+
+
 def enable_configurable(path: str) -> bool:
     m = COMMAND_META.get(path)
-    return m is not None and m.feat_group != "core"
+    return (
+        m is not None
+        and m.feat_group != "core"
+        and m.feat_group not in UPSTREAM_UNAVAILABLE_FEATURES
+    )
 
 
 def admin_forced_true(path: str) -> bool:
@@ -80,6 +96,8 @@ class CommandOverride:
 
 
 def effective_enabled(overrides: Mapping[str, CommandOverride], path: str) -> bool:
+    if upstream_unavailable(path):
+        return False  # 上游不可用硬锁：先于一切覆盖（与 enable_configurable 排除构成双保险）
     if not enable_configurable(path):
         return default_enabled(path)
     leaf = overrides.get(path)

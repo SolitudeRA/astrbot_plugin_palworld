@@ -16,13 +16,15 @@ def _row(cmd, enabled="inherit", admin_only="inherit"):
 
 
 def test_rows_parsed_to_overrides():
+    # enable 传导示范载体迁 player（可配组）；guild list admin_only 轴不受 force-off 影响，
+    # 仍属 LOCKABLE，保留其锁传导断言。
     cfg = _cfg({"command_permissions": [
-        _row("guild", enabled="on"),
+        _row("player", enabled="on"),
         _row("world today", enabled="off"),
         _row("guild list", admin_only="on"),
     ]})
     ov = cfg.permissions.command_overrides
-    assert ee(ov, "guild info") is True
+    assert ee(ov, "player info") is True
     assert ee(ov, "world today") is False
     assert eao(ov, "guild list") is True
 

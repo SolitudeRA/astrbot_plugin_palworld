@@ -10,12 +10,23 @@ from palworld_terminal.application.command_permissions import (
 
 
 def test_enable_default_and_inheritance():
+    # 三级继承示范载体 = player（可配 / 默认关 / 非 unavailable；改动前 guild 的角色）。
     assert ee({}, "world today") is True
-    assert ee({}, "guild list") is False
-    assert ee({"guild": CO(enabled=True)}, "guild list") is True
-    ov = {"guild": CO(enabled=True), "guild list": CO(enabled=False)}
-    assert ee(ov, "guild list") is False
-    assert ee(ov, "guild info") is True
+    assert ee({}, "player info") is False
+    assert ee({"player": CO(enabled=True)}, "player info") is True
+    ov = {"player": CO(enabled=True), "player info": CO(enabled=False)}
+    assert ee(ov, "player info") is False
+    assert ee(ov, "player bind") is True
+
+
+def test_upstream_unavailable_force_off_all_five_paths():
+    # game-data 上游不可用硬锁（§5B①）：5 条命令在 leaf on / 组 on 覆盖下 effective_enabled
+    # 恒 False（force-off 首行先于叶子/组覆盖/默认）。
+    for path in ("world overview", "guild list", "guild info", "guild bases", "guild base"):
+        assert ee({}, path) is False, path
+        assert ee({path: CO(enabled=True)}, path) is False, path          # 叶子 on
+    for path in ("guild list", "guild info", "guild bases", "guild base"):
+        assert ee({"guild": CO(enabled=True)}, path) is False, path        # 组 on
 
 def test_enable_core_ignores_override():
     assert ee({"world status": CO(enabled=False)}, "world status") is True

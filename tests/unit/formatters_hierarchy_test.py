@@ -40,9 +40,16 @@ def test_visible_actions_link_add_remove_admin_only():
 
 
 def test_visible_actions_feature_gate():
-    assert visible_actions("guild", True, overrides(guilds_bases=False), "multi") == []
-    on = {sub for sub, _spec in visible_actions("guild", True, overrides(guilds_bases=True), "multi")}
-    assert on == {"list", "info", "bases", "base"}
+    # 功能门示范载体迁 player（可启用组）：关→空、开→全子动作。
+    assert visible_actions("player", True, overrides(players=False), "multi") == []
+    on = {sub for sub, _spec in visible_actions("player", True, overrides(players=True), "multi")}
+    assert on == {"info", "bind", "unbind"}
+
+
+def test_visible_actions_guild_force_off():
+    # guilds_bases 上游不可用：guild 组恒不可见（即便 overrides on）。
+    assert visible_actions("guild", True, overrides(guilds_bases=True), "multi") == []
+    assert visible_actions("guild", True, _all_on(), "multi") == []
 
 
 # ============================================================================
@@ -51,10 +58,22 @@ def test_visible_actions_feature_gate():
 
 def test_format_help_admin_hierarchical_full_paths():
     out = format_help(None, is_admin=True, overrides=_all_on(), world_mode="multi")
-    for frag in ("/pal world status", "/pal guild info", "/pal player bind",
+    for frag in ("/pal world status", "/pal world today", "/pal player bind",
                  "/pal server kick", "/pal server stop", "/pal link add",
                  "/pal rank", "/pal confirm"):
         assert frag in out, frag
+    # guilds_bases 上游不可用：guild 组与 world overview 恒不列（即便 _all_on）。
+    assert "/pal guild info" not in out
+    assert "/pal world overview" not in out
+
+
+def test_format_help_omits_unavailable_guild_and_overview():
+    # §5B⑤：help/裸组恒不含 guild 组与 world overview（force-off，两角色皆然）。
+    for admin in (True, False):
+        out = format_help(None, is_admin=admin, overrides=_all_on(), world_mode="multi")
+        for frag in ("/pal guild list", "/pal guild info", "/pal guild bases",
+                     "/pal guild base", "/pal world overview"):
+            assert frag not in out, (admin, frag)
 
 
 def test_format_help_guest_hides_writes_and_confirm():

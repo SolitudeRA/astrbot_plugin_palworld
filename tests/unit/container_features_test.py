@@ -57,12 +57,14 @@ async def test_defaults_exclude_game_data_null_guilds_bases_keep_events(tmp_path
         await c.stop()
 
 
-async def test_guild_enabled_wires_game_data(tmp_path: Path):
+async def test_guild_enable_does_not_wire_game_data_when_unavailable(tmp_path: Path):
+    # guilds_bases 上游不可用 force-off（§5A④）：即便显式 guild on，容器装配门读生效值
+    # （effective_enabled 恒 False）→ GAME_DATA 不接线、GuildService/BaseService 不装配。
     captured = {}
     c = await _build(_cfg({"guild": CO(enabled=True)}), tmp_path, captured)
     try:
-        assert EndpointName.GAME_DATA in captured["endpoints"]
-        assert c._snapshot._guilds is not None and c._snapshot._bases is not None
+        assert EndpointName.GAME_DATA not in captured["endpoints"]
+        assert c._snapshot._guilds is None and c._snapshot._bases is None
     finally:
         await c.stop()
 
