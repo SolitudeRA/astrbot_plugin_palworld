@@ -80,7 +80,7 @@
   },
   "group_bindings": {
     "type": "template_list",
-    "description": "预设 群→服务器 授权（可选，等价于管理员 /pal server add）｜此页为应急直编，日常配置用插件设置页",
+    "description": "预设 群→服务器 授权（可选，等价于管理员 /pal server add）｜此页为应急直编，日常授权用 /pal server add 命令（插件设置页仅展示不编辑本表）",
     "default": [],
     "templates": {
       "binding": {
