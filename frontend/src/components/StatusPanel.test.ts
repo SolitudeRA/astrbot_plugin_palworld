@@ -18,12 +18,41 @@ describe('StatusPanel', () => {
         basecamp_count: 2, updated_at: Math.floor(Date.now() / 1000) - 12, degraded: false }] })
     const w = mount(StatusPanel); await flushPromises()
     expect(w.text()).toContain('alpha')
-    expect(w.text()).toContain('在线 3/32')
-    expect(w.text()).toContain('FPS 59（流畅）')
-    expect(w.text()).toContain('第 60 天')
+    // 读数网格：在线 stat 大数字 + /max 副字 + 峰值副读数；FPS 数字与流畅度分离着色
+    expect(w.find('.oc-value').text()).toBe('3/32')
+    expect(w.text()).toContain('在线玩家')
     expect(w.text()).toContain('今日峰值 5')
-    expect(w.text()).toContain('据点 2')
+    expect(w.text()).toContain('59')
+    expect(w.find('.fps-good').text()).toBe('流畅')
+    expect(w.text()).toContain('第 60 天')
+    expect(w.text()).toContain('据点数')
     expect(w.text()).toContain('秒前')
+    // 在线占比进度条按 3/32 计算宽度
+    expect(w.find('.oc-bar i').attributes('style')).toContain('width: 9%')
+  })
+  it('仅一台 → 详细区恒展开且无 chevron；detail 缺失静默不渲染', async () => {
+    (window.AstrBotPluginPage!.apiGet as any).mockResolvedValue({
+      ok: true, servers: [{ name: 'solo', ready: true, degraded: false, online: 1, max_players: 8,
+        fps: 60, smoothness_label: '流畅', world_day: 3, peak_online_today: 2,
+        detail: { version: 'v0.6.5.1', uptime_seconds: 90061, rules: { difficulty: '普通' } } }] })
+    const w = mount(StatusPanel); await flushPromises()
+    expect(w.find('.oc-chev').exists()).toBe(false) // 单台不显收起控件
+    expect(w.text()).toContain('运行信息')
+    expect(w.text()).toContain('v0.6.5.1')
+    expect(w.text()).toContain('1 天 1 小时')
+    expect(w.text()).toContain('世界规则')
+    expect(w.text()).toContain('普通')
+  })
+  it('多台 → 默认收起，点卡头展开该台详细区', async () => {
+    const mk = (name: string) => ({ name, ready: true, degraded: false, online: 1, max_players: 8,
+      fps: 60, smoothness_label: '流畅', world_day: 3, peak_online_today: 2,
+      detail: { version: 'v0.6.5.1' } })
+    ;(window.AstrBotPluginPage!.apiGet as any).mockResolvedValue({ ok: true, servers: [mk('a'), mk('b')] })
+    const w = mount(StatusPanel); await flushPromises()
+    expect(w.text()).not.toContain('运行信息') // 默认收起
+    await w.findAll('.oc-head')[0].trigger('click')
+    expect(w.findAll('.oc-detail')).toHaveLength(1) // 只展开点击的那台
+    expect(w.text()).toContain('运行信息')
   })
   it('restarting 显示正在应用新配置', async () => {
     // restarting 态会 setTimeout(load, 3000)（StatusPanel.vue:19）；用假计时器

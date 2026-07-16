@@ -65,12 +65,13 @@ describe('SettingsPanel', () => {
     const w = mountAt('permissions'); await flushPromises()
     expect(w.text()).toContain('服务器管控') // 段仍按 schema 渲染，不因缺键崩
   })
-  it('access 章渲染默认查询节 + 危险区访问模式行 + 保存条', async () => {
+  it('access 章渲染默认查询节 + 危险区（访问模式 + 切换运行模式）+ 保存条', async () => {
     (window.AstrBotPluginPage!.apiGet as any).mockResolvedValue(cfg())
     const w = mountAt('access'); await flushPromises()
     expect(w.text()).toContain('默认查询') // routing 段拆出 access_mode 后改名
-    expect(w.text()).toContain('访问模式') // access_mode 落危险区行
     expect(w.text()).toContain('危险区')
+    expect(w.text()).toContain('访问模式') // 危险区首行
+    expect(w.text()).toContain('切换运行模式')
     expect(w.text()).toContain('保存设置')
     expect(w.get('button.pw-save')).toBeTruthy()
   })

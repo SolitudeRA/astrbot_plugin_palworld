@@ -8,6 +8,7 @@ const emit = defineEmits<{
   (e: 'cancel'): void
 }>()
 
+const STEPS = ['保留台', '迁移群', '处置', '确认'] as const
 const step = ref(1)
 const survivingId = ref('')
 const purgeOthers = ref<boolean | null>(null) // 步3：true=删除、false=保留、null=未选
@@ -48,19 +49,27 @@ function confirm() {
 </script>
 
 <template>
-  <div class="modal-backdrop">
-    <div class="modal wizard">
-      <h3>切换到单服务器模式（多台）</h3>
+  <div class="helper-overlay">
+    <div class="helper-panel">
+      <div class="helper-head">
+        <h3>切换到单服务器模式</h3>
+        <div class="helper-steps" aria-label="步骤进度">
+          <template v-for="(s, i) in STEPS" :key="s">
+            <span class="st" :class="{ cur: step === i + 1, done: step > i + 1 }"><i>{{ step > i + 1 ? '✓' : i + 1 }}</i>{{ s }}</span>
+            <span v-if="i < STEPS.length - 1" class="sep">—</span>
+          </template>
+        </div>
+      </div>
 
       <section v-if="step === 1">
         <p class="lead">选择切换后要保留的服务器（仅就绪服务器可选）：</p>
-        <ul class="rows">
+        <ul class="pick-list">
           <li v-for="s in readyServers" :key="s.server_id">
-            <label><input type="radio" name="surv" :value="s.server_id"
+            <label class="pick-row" :class="{ sel: survivingId === s.server_id }"><input type="radio" name="surv" :value="s.server_id"
               :checked="survivingId === s.server_id" @change="survivingId = s.server_id" /> {{ s.name }}</label>
           </li>
         </ul>
-        <div class="actions">
+        <div class="helper-actions">
           <button class="ghost" data-act="cancel" @click="emit('cancel')">取消</button>
           <button class="pw-primary" data-act="next" :disabled="!survivingId" @click="next">下一步</button>
         </div>
@@ -68,9 +77,9 @@ function confirm() {
 
       <section v-else-if="step === 2">
         <p class="lead">勾选要迁移到保留服务器的授权群（已有权默认勾选，将获新权默认不勾）：</p>
-        <ul v-if="rows.length" class="rows">
+        <ul v-if="rows.length" class="pick-list">
           <li v-for="r in rows" :key="r.umo">
-            <label><input type="checkbox" :checked="checked[r.umo]"
+            <label class="pick-row" :class="{ sel: checked[r.umo] }"><input type="checkbox" :checked="checked[r.umo]"
               @change="checked[r.umo] = ($event.target as HTMLInputElement).checked" />
               <span class="mono">{{ r.umo }}</span>
               <span v-if="r.hasNew" class="tag-new">将获新权</span>
@@ -78,7 +87,7 @@ function confirm() {
           </li>
         </ul>
         <p v-else class="muted">没有可迁移的授权群。</p>
-        <div class="actions">
+        <div class="helper-actions">
           <button class="ghost" data-act="back" @click="back">上一步</button>
           <button class="pw-primary" data-act="next" @click="next">下一步</button>
         </div>
@@ -86,11 +95,13 @@ function confirm() {
 
       <section v-else-if="step === 3">
         <p class="lead">如何处理其余服务器（{{ deleteNames.length }} 台）？</p>
-        <label class="opt"><input type="radio" name="others" :checked="purgeOthers === false"
-          @change="purgeOthers = false" /> 保留（仅退出多服务器模式，数据留存）</label>
-        <label class="opt danger"><input type="radio" name="others" :checked="purgeOthers === true"
-          @change="purgeOthers = true" /> 永久删除其余服务器及其全部历史数据（不可恢复）</label>
-        <div class="actions">
+        <div class="pick-list">
+          <label class="pick-row" :class="{ sel: purgeOthers === false }"><input type="radio" name="others" :checked="purgeOthers === false"
+            @change="purgeOthers = false" /> 保留（仅退出多服务器模式，数据留存）</label>
+          <label class="pick-row" :class="{ 'sel-danger': purgeOthers === true }"><input type="radio" name="others" :checked="purgeOthers === true"
+            @change="purgeOthers = true" /> 永久删除其余服务器及其全部历史数据（不可恢复）</label>
+        </div>
+        <div class="helper-actions">
           <button class="ghost" data-act="back" @click="back">上一步</button>
           <button class="pw-primary" data-act="next" :disabled="purgeOthers === null" @click="next">下一步</button>
         </div>
@@ -110,7 +121,7 @@ function confirm() {
           <label class="ack"><input type="checkbox" data-act="ack" :checked="deleteAck"
             @change="deleteAck = ($event.target as HTMLInputElement).checked" /> 我了解此操作不可恢复</label>
         </div>
-        <div class="actions">
+        <div class="helper-actions">
           <button class="ghost" data-act="back" @click="back">上一步</button>
           <button class="pw-primary" data-act="confirm" :disabled="!canConfirm" @click="confirm">确认切换</button>
         </div>
@@ -120,23 +131,13 @@ function confirm() {
 </template>
 
 <style scoped>
-.modal-backdrop { position: fixed; inset: 0; background: var(--scrim); display: flex; align-items: center; justify-content: center; z-index: var(--z-modal); }
-.modal { background: var(--card); border: 1px solid var(--rule); border-radius: var(--r); padding: var(--space-5) var(--space-6); width: min(600px, 92vw); max-height: 86vh; overflow: auto; display: flex; flex-direction: column; gap: var(--space-3); }
-.modal h3 { margin: 0; font-size: var(--fs-heading); }
-.lead { margin: 0; font-size: var(--fs-caption); color: var(--ink-2); line-height: var(--lh-base); }
-.muted { margin: 0; font-size: var(--fs-caption); color: var(--ink-2); }
-.rows { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-2); }
-.rows label, .opt { display: flex; align-items: center; gap: var(--space-2); font-size: var(--fs-caption); }
-.opt { padding: var(--space-2) 0; }
-.opt.danger { color: var(--danger); } /* 永久删除选项本身带破坏性语义（此前是无样式死钩子） */
+/* 全覆盖 helper 壳由全局 .helper-overlay/.helper-panel/.helper-head/.helper-steps 承载 */
+.lead { margin: 0; font-size: var(--fs-sm); color: var(--ink-2); line-height: var(--lh-base); }
+.muted { margin: 0; font-size: var(--fs-sm); color: var(--ink-2); }
 .tag-new { font-size: var(--fs-caption); color: var(--warn); border: 1px solid var(--warn); border-radius: var(--r-sm); padding: 0 var(--space-1); }
 .tag-has { font-size: var(--fs-caption); color: var(--ink-2); border: 1px solid var(--rule); border-radius: var(--r-sm); padding: 0 var(--space-1); }
 .summary { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-1); font-size: var(--fs-caption); }
 .danger-text { color: var(--danger); font-weight: var(--fw-semibold); }
 .delete-box { border: 1px solid var(--danger); border-radius: var(--r); padding: var(--space-3) var(--space-3); display: flex; flex-direction: column; gap: var(--space-2); }
 .delete-box .ack { display: flex; align-items: center; gap: var(--space-2); font-size: var(--fs-caption); }
-.actions { display: flex; justify-content: flex-end; gap: var(--space-3); margin-top: var(--space-1); }
-.actions button { padding: var(--space-2) var(--space-4); border-radius: var(--r); cursor: pointer; }
-.actions button:disabled { opacity: .5; cursor: not-allowed; }
-.ghost { background: transparent; border: 1px solid var(--rule); color: var(--ink); }
 </style>

@@ -156,6 +156,35 @@ body { margin: 0; background: var(--paper); color: var(--ink); font-family: var(
 .dz-btn:hover { background: color-mix(in srgb, var(--danger) 10%, transparent); }
 .dz-btn:disabled { opacity: .5; cursor: not-allowed; }
 
+/* ---- 切换 helper：全覆盖流程壳（重流程用，取代小弹窗；paper 实底 + 点阵延续 stage 语言） ---- */
+.helper-overlay { position: fixed; inset: 0; z-index: var(--z-modal); background-color: var(--paper);
+  background-image: radial-gradient(circle at 1px 1px, var(--rule) 1px, transparent 0); background-size: 22px 22px; background-position: -1px -1px;
+  overflow-y: auto; padding: var(--space-10) var(--space-4) var(--space-8); }
+.helper-panel { max-width: 720px; margin: 0 auto; display: flex; flex-direction: column; gap: var(--space-4);
+  background: var(--card); border: 1px solid var(--rule); border-radius: var(--r-lg); padding: var(--space-5) var(--space-6) var(--space-6); box-shadow: var(--shadow-lg); }
+.helper-head { display: flex; align-items: center; gap: var(--space-3); border-bottom: 1px solid var(--rule); padding-bottom: var(--space-3); flex-wrap: wrap; }
+.helper-head h3 { margin: 0; font-size: var(--fs-title); font-weight: var(--fw-semibold); }
+.helper-steps { margin-left: auto; display: flex; align-items: center; gap: var(--space-2); font-size: var(--fs-caption); color: var(--ink-3); font-variant-numeric: tabular-nums; }
+.helper-steps .st { display: inline-flex; align-items: center; gap: var(--space-1); }
+.helper-steps .st i { font-style: normal; width: 20px; height: 20px; border-radius: 50%; border: 1px solid var(--rule-2); display: inline-flex; align-items: center; justify-content: center; font-size: var(--fs-caption); }
+.helper-steps .st.cur { color: var(--ink); font-weight: var(--fw-medium); }
+.helper-steps .st.cur i { background: var(--focus); border-color: var(--focus); color: var(--on-focus); font-weight: var(--fw-semibold); }
+.helper-steps .st.done i { border-color: var(--focus); color: var(--focus); }
+.helper-steps .sep { color: var(--rule-2); }
+/* 选择卡：helper 内 radio/checkbox 行的统一语言——行整体可点，选中 focus 边+淡底，危险选中变红 */
+.pick-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-2); }
+.pick-row { display: flex; align-items: center; gap: var(--space-3); padding: var(--space-3) var(--space-4); background: var(--sink); border: 1px solid var(--rule-2); border-radius: var(--r); cursor: pointer; font-size: var(--fs-sm); transition: border-color var(--motion-fast), background var(--motion-fast), box-shadow var(--motion-fast); }
+.pick-row:hover { border-color: var(--ink-3); }
+.pick-row.sel { border-color: var(--focus); background: color-mix(in srgb, var(--focus) 10%, var(--card)); box-shadow: inset 0 0 0 1px var(--focus); }
+.pick-row.sel-danger { border-color: var(--danger); background: color-mix(in srgb, var(--danger) 8%, var(--card)); box-shadow: inset 0 0 0 1px var(--danger); color: var(--danger); }
+.pick-row input { accent-color: var(--focus); flex: 0 0 auto; }
+.pick-row.sel-danger input { accent-color: var(--danger); }
+/* helper 页脚动作区：分隔线 + 右对齐 */
+.helper-actions { display: flex; justify-content: flex-end; gap: var(--space-3); padding-top: var(--space-4); border-top: 1px solid var(--rule); margin-top: var(--space-2); }
+.helper-actions button { padding: var(--space-2) var(--space-5); border-radius: var(--r); cursor: pointer; font-size: var(--fs-sm); }
+.helper-actions button:disabled { opacity: .5; cursor: not-allowed; }
+.helper-actions .ghost { font-size: var(--fs-sm); text-transform: none; letter-spacing: 0; padding: var(--space-2) var(--space-5); }
+
 /* ---- save bar ---- */
 /* sticky 实底：黑线即分界；羽化渐变会在悬浮于危险区等内容上时透出下层，观感差 */
 .savebar { display: flex; align-items: center; gap: var(--space-4); margin-top: var(--space-2); padding: var(--space-5) 2px var(--space-2); border-top: 1.5px solid var(--ink); position: sticky; bottom: 0; z-index: var(--z-sticky); background: var(--paper); }
@@ -176,6 +205,7 @@ body { margin: 0; background: var(--paper); color: var(--ink); font-family: var(
 .chip { font-size: var(--fs-caption); font-weight: var(--fw-medium); letter-spacing: var(--track-eyebrow); text-transform: uppercase; padding: var(--space-1) var(--space-2); border-radius: var(--r-pill); border: 1px solid; white-space: nowrap; }
 .chip.good { color: var(--flux); border-color: var(--flux); background: color-mix(in srgb, var(--flux) 10%, transparent); }
 .chip.warn { color: var(--warn); border-color: var(--warn); background: color-mix(in srgb, var(--warn) 10%, transparent); }
+.chip.bad { color: var(--danger); border-color: var(--danger); background: color-mix(in srgb, var(--danger) 10%, transparent); }
 .chip.idle { color: var(--ink-3); border-color: var(--rule-2); }
 .stint { font-size: var(--fs-caption); color: var(--ink-3); margin: 0; display: flex; align-items: center; gap: var(--space-3); }
 

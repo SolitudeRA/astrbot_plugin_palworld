@@ -12,3 +12,14 @@ try {
 window.AstrBotPluginPage = createMockBridge(scenario)
 
 await import('../main')
+
+// 「切换 helper」预览场景：挂载完成后自动点击危险区的切换按钮，直达 helper 设计页。
+// 纯 dev 侧 DOM 驱动，零生产代码耦合。
+if (scenario === 'transferHelper') {
+  const tryOpen = (attempt = 0) => {
+    const btn = document.querySelector<HTMLButtonElement>('[data-act="switch"]')
+    if (btn) { btn.click(); return }
+    if (attempt < 50) setTimeout(() => tryOpen(attempt + 1), 100)
+  }
+  tryOpen()
+}

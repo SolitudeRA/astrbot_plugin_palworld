@@ -14,7 +14,6 @@ import SectionForm from './SectionForm.vue'
 import Field from './Field.vue'
 import ModeOnboarding from './ModeOnboarding.vue'
 import ModeTransfer from './ModeTransfer.vue'
-import OrphanCleanup from './OrphanCleanup.vue'
 
 const props = defineProps<{ chapter: string }>()
 // 上抛首次引导态：App.vue 据此隐藏整条左轨（首次未选模时不渲染任何章节索引）。
@@ -27,9 +26,6 @@ const notice = reactive<{ msg: string; error: boolean }>({ msg: '', error: false
 
 const state = reactive<SettingsState>({ servers: [], custom_headers: [], sections: {}, permission_admins: [], command_perms: {}, single_allowed_groups: [] })
 const dirty = ref(false)
-// 每次「转移完成 / 保存成功」自增，作为 refresh-key 传给 OrphanCleanup 令其重拉孤儿集
-// （兄弟组件改配置产生的新孤儿不会滞留在旧空列表里）。
-const orphanRefresh = ref(0)
 
 const chapterMeta = computed(() => CHAPTERS.find((c) => c.id === props.chapter))
 const chapterTitle = computed(() => chapterMeta.value?.label ?? '')
@@ -127,11 +123,9 @@ function applyConfig(c: Record<string, any>) {
   state.command_perms = perms
 }
 
-// 转移完成：先按后端回传 config 重水化，再自增 orphanRefresh——转移（尤其 multi→single 带
-// purge_others 部分失败）可能产出新孤儿，联动 OrphanCleanup 重拉，避免其滞留旧空列表。
+// 转移完成：按后端回传 config 重水化（孤儿清理已随切换 helper 完成步处理）
 function onTransferApplied(c: Record<string, unknown>) {
   applyConfig(c)
-  orphanRefresh.value++
 }
 
 function emptyAdmin(): Record<string, unknown> {
@@ -187,7 +181,6 @@ async function save(): Promise<boolean> {
     const skips = [...((w.skipped_servers as unknown[]) ?? []), ...((w.skipped_headers as unknown[]) ?? [])]
     if (skips.length) toast(`已保存，${skips.length} 条无效条目未生效`)
     else toast('已保存，已生效')
-    orphanRefresh.value++  // 保存可能移除了服务器（删卡片后保存）→ 令孤儿节重拉
     return true
   } catch (e) {
     if (e instanceof BusinessError) toast(mapError(e), true)
@@ -258,9 +251,9 @@ async function save(): Promise<boolean> {
               <Field :spec="ACCESS_MODE_SPEC" :model-value="state.sections.routing?.access_mode ?? 'restricted'"
                 @update:model-value="(v) => { state.sections.routing.access_mode = v; dirty = true }" />
             </div>
+            <!-- 残留数据清理不再常驻：孤儿由切换 helper 的完成步负责（切换才产生孤儿） -->
             <ModeTransfer :world-mode="worldMode" :dirty="dirty" :server-names="serverNames"
               @applied="onTransferApplied" @notify="(m, e) => toast(m, e)" />
-            <OrphanCleanup :refresh-key="orphanRefresh" @notify="(m, e) => toast(m, e)" />
           </div>
         </section>
       </template>

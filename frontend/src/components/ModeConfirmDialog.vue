@@ -37,15 +37,15 @@ function confirm() {
 </script>
 
 <template>
-  <div class="modal-backdrop">
-    <div class="modal">
-      <h3>切换到{{ target === 'single' ? '单服务器' : '多服务器' }}模式</h3>
+  <div class="helper-overlay">
+    <div class="helper-panel">
+      <div class="helper-head"><h3>切换到{{ target === 'single' ? '单服务器' : '多服务器' }}模式</h3></div>
       <p v-if="target === 'single'" class="lead">迁移下列群的查询授权到保留服务器；未勾选的群切换后需重新授权。</p>
       <p v-else class="lead">迁移下列授权群到多服务器绑定；未勾选的群切换后需用 /pal link 重新绑定。</p>
       <p v-if="noReadyTarget" class="warn">当前无就绪服务器可绑定，迁移的群暂时无法生效。</p>
-      <ul v-if="rows.length" class="rows">
+      <ul v-if="rows.length" class="pick-list">
         <li v-for="r in rows" :key="r.umo">
-          <label>
+          <label class="pick-row" :class="{ sel: checked[r.umo] }">
             <input type="checkbox" :checked="checked[r.umo]"
               @change="checked[r.umo] = ($event.target as HTMLInputElement).checked" />
             <span class="mono">{{ r.label }}</span>
@@ -56,7 +56,7 @@ function confirm() {
       </ul>
       <p v-else class="muted">没有可迁移的授权群。</p>
       <p v-if="rows.length && checkedCount === 0" class="warn">未勾选任何群：切换后相关群需重新授权，否则无法查询。</p>
-      <div class="actions">
+      <div class="helper-actions">
         <button class="ghost" data-act="cancel" @click="emit('cancel')">取消</button>
         <button class="pw-primary" data-act="confirm" @click="confirm">确认切换</button>
       </div>
@@ -65,17 +65,10 @@ function confirm() {
 </template>
 
 <style scoped>
-.modal-backdrop { position: fixed; inset: 0; background: var(--scrim); display: flex; align-items: center; justify-content: center; z-index: var(--z-modal); }
-.modal { background: var(--card); border: 1px solid var(--rule); border-radius: var(--r); padding: var(--space-5) var(--space-6); width: min(560px, 92vw); max-height: 86vh; overflow: auto; display: flex; flex-direction: column; gap: var(--space-3); }
-.modal h3 { margin: 0; font-size: var(--fs-heading); }
-.lead { margin: 0; font-size: var(--fs-caption); color: var(--ink-2); line-height: var(--lh-base); }
+/* 全覆盖 helper 壳由全局 .helper-overlay/.helper-panel/.helper-head 承载 */
+.lead { margin: 0; font-size: var(--fs-sm); color: var(--ink-2); line-height: var(--lh-base); }
 .warn { margin: 0; font-size: var(--fs-caption); color: var(--warn); }
-.muted { margin: 0; font-size: var(--fs-caption); color: var(--ink-2); }
-.rows { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-2); }
-.rows label { display: flex; align-items: center; gap: var(--space-2); font-size: var(--fs-caption); }
+.muted { margin: 0; font-size: var(--fs-sm); color: var(--ink-2); }
 .tag-new { font-size: var(--fs-caption); color: var(--warn); border: 1px solid var(--warn); border-radius: var(--r-sm); padding: 0 var(--space-1); }
 .tag-has { font-size: var(--fs-caption); color: var(--ink-2); border: 1px solid var(--rule); border-radius: var(--r-sm); padding: 0 var(--space-1); }
-.actions { display: flex; justify-content: flex-end; gap: var(--space-3); margin-top: var(--space-1); }
-.actions button { padding: var(--space-2) var(--space-4); border-radius: var(--r); cursor: pointer; }
-.ghost { background: transparent; border: 1px solid var(--rule); color: var(--ink); }
 </style>

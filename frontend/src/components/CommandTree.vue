@@ -150,7 +150,7 @@ const colHead = computed(() => (isEnabledAxis.value ? '启用' : '仅管理员')
         <!-- 叶子行：开关显示生效值；单独设置 = 名旁圆点 + amber 环 + ↺ -->
         <template v-if="expanded[g.key]">
           <div v-for="n in g.nodes" :key="n.path" class="ct-row ct-leaf"
-            :class="{ danger: n.danger, grouped: configurable(n) && groupManaged(g) && !hasAxisOverride(n.path) && !(isEnabledAxis && n.danger) }">
+            :class="{ danger: n.danger, overridden: hasAxisOverride(n.path), grouped: configurable(n) && groupManaged(g) && !hasAxisOverride(n.path) && !(isEnabledAxis && n.danger) }">
             <div class="ct-lname">
               <span class="lbl">{{ n.label }}
                 <span v-if="n.danger" class="dtag" title="危险命令：不随整组开关，需逐条开启">危险</span>
@@ -210,6 +210,8 @@ const colHead = computed(() => (isEnabledAxis.value ? '启用' : '仅管理员')
 .ct-leaf { border-top: 1px dashed var(--rule); }
 /* 随组叶子：淡一档 focus 左竖条贯穿受管区块 */
 .ct-leaf.grouped { box-shadow: inset 3px 0 0 var(--override); background: color-mix(in srgb, var(--override) 8%, transparent); }
+/* 单独设置的行（组开没开都算）：同系底色稍深一档 + 竖条；危险行红竖条优先（下方规则覆盖） */
+.ct-leaf.overridden { box-shadow: inset 3px 0 0 var(--override); background: color-mix(in srgb, var(--override) 12%, transparent); }
 /* 危险行（enabled 轴）：行首细红边；不随组开关（后端 F2）→ 永不加 amber 竖条 */
 .ct-leaf.danger { box-shadow: inset 2px 0 0 var(--danger); }
 .ct-lname { flex: 1; display: flex; flex-direction: column; gap: 1px; min-width: 0; }

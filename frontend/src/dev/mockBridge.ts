@@ -122,12 +122,23 @@ function statusRows(db: Db): Dict[] {
     if (seed.degraded) {
       return { name: s.name, ready: true, degraded: true, last_ok: t - randInt(120, 600) }
     }
+    const fps = seed.fps + randInt(-2, 2)
     return {
       name: s.name, ready: true, degraded: false,
-      online, max_players: seed.max_players, fps: seed.fps + randInt(-2, 2),
+      online, max_players: seed.max_players, fps,
       smoothness_label: seed.smoothness_label, world_day: seed.world_day,
       peak_online_today: peak, basecamp_count: seed.basecamp_count,
       updated_at: t - randInt(2, 40),
+      // 详细区（demo 假数据）：字段名对齐 Palworld API（info/metrics/settings），
+      // 统一落地时后端 status_rows 白名单按此形状扩展
+      detail: {
+        version: 'v0.6.5.1',
+        description: `${s.name} 的 Palworld 专用服务器`,
+        uptime_seconds: 6 * 86400 + 4 * 3600 + randInt(0, 3000),
+        frametime_ms: Math.round(10000 / Math.max(fps, 1)) / 10,
+        address: String(s.base_url ?? ''),
+        rules: { difficulty: '普通', pvp: '关', death_penalty: '掉落装备与物品', exp_rate: 'x1.0' },
+      },
     }
   })
 }
@@ -377,6 +388,20 @@ function seedAudits(): AuditRow[] {
     { ts: t - 3600, time: fmtTs(t - 3600), action: 'server ban', server: '首尔三号', admin: 'demo-admin', target: '#f0e1d2', success: false, error: 'target_not_found' },
     { ts: t - 7200, time: fmtTs(t - 7200), action: 'server save', server: '东京一号', admin: 'demo-admin', target: '', success: true, error: null },
   ]
+    .concat(
+      // 批量历史记录：演示前端分页（每页 50；后端封顶 200 的中间量级）
+      Array.from({ length: 116 }, (_, i) => {
+        const actions = ['server save', 'server announce', 'server kick', 'server unban']
+        const servers = ['东京一号', '大阪二号', '首尔三号']
+        const ts = t - 10800 - i * 5400
+        return {
+          ts, time: fmtTs(ts), action: actions[i % actions.length], server: servers[i % servers.length],
+          admin: i % 5 === 0 ? 'night-op' : 'demo-admin',
+          target: i % 4 === 2 ? `玩家${String(i).padStart(2, '0')}#${((i * 2654435761) % 0xffffff).toString(16).padStart(6, '0')}` : '',
+          success: i % 9 !== 7, error: i % 9 === 7 ? 'timeout' : null,
+        }
+      }),
+    )
 }
 
 export interface ScenarioDef { label: string; build: () => Db }
@@ -385,6 +410,7 @@ export const SCENARIOS: Record<string, ScenarioDef> = {
   multi: { label: '多服务器', build: scenarioMulti },
   single: { label: '单服务器', build: scenarioSingle },
   auditEmpty: { label: '审计空态', build: scenarioAuditEmpty },
+  transferHelper: { label: '切换 helper', build: scenarioMulti }, // 数据同多服务器；main-dev 进场后自动打开切换 helper 供设计预览
   emptyConfig: { label: '无服务器空配置', build: scenarioEmptyConfig },
 }
 // dev.html 切换小条渲染顺序
