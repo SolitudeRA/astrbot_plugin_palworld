@@ -34,8 +34,9 @@
   --amber:#EAAE55; --amber-h:#F3BE6E; --amber-soft:#2C2410; --on-amber:#1E1608;
   --flux:#57C070; --flux-soft:#16301F;
   --danger:#E7745C; --warn:#D9A94E; --on-warn:#1E1608; --focus:#5BABE6; --on-focus:#0E2233;
-  /* 深色主题受管/覆盖换青色系：暗底上比高饱和蓝柔和醒目，与 flux 绿保持区分 */
-  --override:#4FC4CE; --on-override:#082426;
+  /* 深色主题受管/覆盖 = 与浅色同族的靛蓝、暗底提亮（曾用青色 #4FC4CE，实测难辨识）；
+     偏紫倾向与 --focus 天蓝拉开色相距离，亦与 flux 绿/warn 琥珀/danger 红全区分 */
+  --override:#7C9EFF; --on-override:#0E1A3E;
   --scrim:rgba(0,0,0,.6);
   --shadow-sm:0 1px 3px rgba(0,0,0,.5);
   --shadow-md:0 2px 14px rgba(0,0,0,.45);
@@ -90,9 +91,10 @@ body { margin: 0; background: var(--paper); color: var(--ink); font-family: var(
 /* secret 遮罩：type=text + text-security 绕受限 iframe(opaque origin) 对 password 的粘贴门控 */
 .pw-secret { -webkit-text-security: disc; }
 .pw-switch { position: relative; width: 46px; height: 26px; border-radius: var(--r-pill); border: 1px solid var(--rule-2); background: var(--sink); cursor: pointer; padding: 0; flex: 0 0 auto; transition: background var(--motion-base), border-color var(--motion-base); }
-.pw-switch[data-state="checked"] { background: color-mix(in srgb, var(--flux) 28%, var(--sink)); border-color: var(--flux); }
+/* 开态 = 经典实色填充 + 白拇指（曾为 28% 混色轨道 + 绿拇指，深色主题下与关态难辨） */
+.pw-switch[data-state="checked"] { background: var(--flux); border-color: var(--flux); }
 .pw-switch-thumb { display: block; position: absolute; top: 2px; left: 2px; width: 20px; height: 20px; border-radius: 50%; background: var(--ink-3); box-shadow: var(--shadow-sm); transition: transform var(--motion-base) var(--ease-spring), background var(--motion-base); }
-.pw-switch[data-state="checked"] .pw-switch-thumb { transform: translateX(20px); background: var(--flux); }
+.pw-switch[data-state="checked"] .pw-switch-thumb { transform: translateX(20px); background: #FFF; }
 .pw-switch:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
 /* 小号开关：表格/密集行内使用（命令权限等） */
 .pw-switch.sm { width: 36px; height: 20px; }
