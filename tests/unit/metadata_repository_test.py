@@ -54,3 +54,29 @@ def test_setting_label_known_and_missing():
     repo = _repo()
     assert repo.setting_label("ExpRate") == ("经验倍率", "×")
     assert repo.setting_label("NonexistentField") == ("NonexistentField", "")
+
+
+def test_setting_display_numeric_appends_unit():
+    repo = _repo()
+    assert repo.setting_display("ExpRate", 1.0) == "1.0×"
+    assert repo.setting_display("ServerPlayerMaxNum", 32) == "32人"
+
+
+def test_setting_display_enum_maps_value():
+    repo = _repo()
+    assert repo.setting_display("Difficulty", "Normal") == "普通"
+    assert repo.setting_display("DeathPenalty", "Item") == "掉落物品"
+
+
+def test_setting_display_bool_enum_uses_lowercase_key():
+    repo = _repo()
+    assert repo.setting_display("bEnablePlayerToPlayerDamage", False) == "关闭"
+    assert repo.setting_display("bEnablePlayerToPlayerDamage", True) == "开启"
+
+
+def test_setting_display_unknown_field_and_enum_value_falls_back():
+    repo = _repo()
+    # 未知字段：原样字符串，不附单位
+    assert repo.setting_display("NonexistentField", "x") == "x"
+    # 枚举字段但值不在 enum_map：原样 token（不误映射、不冒 500）
+    assert repo.setting_display("Difficulty", "Weird") == "Weird"

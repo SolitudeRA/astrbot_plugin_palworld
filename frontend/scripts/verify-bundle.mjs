@@ -1,7 +1,11 @@
 import { readdirSync, readFileSync } from 'node:fs'
-import { join } from 'node:path'
+import { join, dirname } from 'node:path'
+import { fileURLToPath } from 'node:url'
 
-const dir = 'pages/settings/assets' // 相对仓库根运行
+// 基于脚本自身位置解析，cwd 无关：脚本在 <root>/frontend/scripts/，产物在 <root>/pages/settings/assets/。
+// 使从仓库根（CI）与 frontend/ 下（本地）跑均可，不依赖当前工作目录。
+const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..', '..')
+const dir = join(repoRoot, 'pages/settings/assets')
 const files = readdirSync(dir)
 const js = files.filter((f) => f.endsWith('.js'))
 const css = files.filter((f) => f.endsWith('.css'))

@@ -26,8 +26,17 @@ WID = "alpha:guid-1:0"
 
 
 class _FakeMeta:
+    _ENUMS = {"DeathPenalty": {"Item": "掉落物品", "ItemAndEquipment": "掉落物品与装备"}}
+
     def setting_label(self, field):
         return {"ExpRate": ("经验倍率", "x")}.get(field, (field, ""))
+
+    def setting_display(self, field, value):
+        enum = self._ENUMS.get(field)
+        if enum is not None:
+            return enum.get(str(value), str(value))
+        _label, unit = self.setting_label(field)
+        return f"{value}{unit}"
 
     def pal_name(self, cls):
         return cls
@@ -94,6 +103,17 @@ async def test_rules_maps_settings_labels(tmp_path):
     labels = {r.label: r.value for r in dto.rows}
     assert labels["经验倍率"] == "1.5x"
     assert dto.advanced_note is None
+    await db.close()
+
+
+async def test_rules_maps_enum_values_via_setting_display(tmp_path):
+    # /pal world rules 与状态 detail 共用 setting_display：枚举值走 enum_map 措辞，
+    # 两处一致（不再直出原始 token 如 "ItemAndEquipment"）。
+    db, repo, q = await _make(tmp_path)
+    q._settings_cache["alpha"] = {"DeathPenalty": "ItemAndEquipment"}
+    dto = await q.rules(_world())
+    labels = {r.label: r.value for r in dto.rows}
+    assert labels["DeathPenalty"] == "掉落物品与装备"
     await db.close()
 
 

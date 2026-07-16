@@ -14,7 +14,8 @@ describe('ModeTransfer 切换控件', () => {
   it('渲染当前模式 + 切换按钮（multi 显示切换到单服务器）', () => {
     setBridge({})
     const w = mk('multi')
-    expect(w.text()).toContain('当前模式：多服务器')
+    expect(w.text()).toContain('切换运行模式')
+    expect(w.get('.mt-name').text()).toBe('多服务器')
     expect(w.get('button[data-act="switch"]').text()).toContain('切换到单服务器')
   })
 
@@ -64,7 +65,7 @@ describe('ModeTransfer 切换控件', () => {
     expect((w.emitted('notify')?.[0]?.[0] as string)).toContain('重载中')
   })
 
-  it('single→multi 确认 → POST 正确 body、ok:true 后 emit applied + 成功 notify', async () => {
+  it('single→multi 确认 → POST 正确 body、ok:true 后 emit applied + 进完成步', async () => {
     const savedCfg = { routing: { world_mode: 'multi' } }
     const apiGet = vi.fn().mockResolvedValue({ ok: true, ready_servers: [{ server_id: 'a', name: 'a' }], allowed_groups: [{ umo: 'u1', note: '' }] })
     const apiPost = vi.fn().mockResolvedValue({ ok: true, config: savedCfg, warnings: {},
@@ -78,8 +79,12 @@ describe('ModeTransfer 切换控件', () => {
     expect(apiPost).toHaveBeenCalledWith('mode/transfer',
       { target_mode: 'multi', migrate_umos: ['u1'], purge_others: false })
     expect(w.emitted('applied')?.[0]?.[0]).toEqual(savedCfg)
-    expect((w.emitted('notify')?.at(-1)?.[1])).toBe(false) // 成功非 error
-    expect((w.vm as any).flow).toBe('idle') // 子流关闭
+    expect(w.emitted('notify')).toBeFalsy() // 成功不 toast：完成步全覆盖展示结果
+    expect((w.vm as any).flow).toBe('done') // 进完成步
+    expect(w.text()).toContain('切换完成')
+    expect(w.text()).toContain('已切换到多服务器模式')
+    await w.get('button[data-act="done"]').trigger('click')
+    expect((w.vm as any).flow).toBe('idle') // 完成步关闭
   })
 
   it('multi→single 单台确认 → body 带 surviving_server_id、purge_others=false', async () => {
@@ -106,7 +111,7 @@ describe('ModeTransfer 切换控件', () => {
     expect((w.emitted('notify')?.at(-1)?.[1])).toBe(true)
   })
 
-  it('ok:true 带 warnings.cleared_group_servers=false → applied + 告警 notify(error)', async () => {
+  it('ok:true 带 warnings.cleared_group_servers=false → applied + 完成步告警文案', async () => {
     const apiGet = vi.fn().mockResolvedValue({ ok: true, ready_servers: [{ server_id: 'keep', name: 'keep' }], bindings: [{ umo: 'u1', server_ids: ['keep'] }] })
     const apiPost = vi.fn().mockResolvedValue({ ok: true, config: {}, warnings: { cleared_group_servers: false },
       summary: { from: 'multi', to: 'single', surviving: 'keep', migrated: 1, purged: {}, failed_server_ids: [] } })
@@ -115,13 +120,14 @@ describe('ModeTransfer 切换控件', () => {
     await w.get('button[data-act="switch"]').trigger('click'); await flushPromises()
     w.findComponent({ name: 'ModeConfirmDialog' }).vm.$emit('confirm', ['u1']); await flushPromises()
     expect(w.emitted('applied')).toBeTruthy() // 模式确已切、须对齐后端
-    expect((w.emitted('notify')?.at(-1)?.[0] as string)).toContain('清理未尽')
-    expect((w.emitted('notify')?.at(-1)?.[1])).toBe(true)
+    expect((w.vm as any).flow).toBe('done')
+    expect(w.text()).toContain('清理未尽')
+    expect(w.find('.done-msg').classes()).toContain('warn') // 告警态着色
   })
 
   // FIX 5：multi→single ok:true 带 warnings.purge_failed + summary.purged → applied +
   // toast 同含「清理 N 台」（purged 计数支）与「失败」（purge_failed 支），error=true。
-  it('ok:true 带 purge_failed + summary.purged → applied + 告警 notify(清理数 + 失败, error)', async () => {
+  it('ok:true 带 purge_failed + summary.purged → applied + 完成步含清理数与失败提示', async () => {
     const apiGet = vi.fn().mockResolvedValue({ ok: true, ready_servers: [{ server_id: 'keep', name: 'keep' }], bindings: [{ umo: 'u1', server_ids: ['keep'] }] })
     const apiPost = vi.fn().mockResolvedValue({ ok: true, config: {}, warnings: { purge_failed: ['bad'] },
       summary: { from: 'multi', to: 'single', surviving: 'keep', migrated: 1, purged: { x: { worlds: 1 } }, failed_server_ids: ['bad'] } })
@@ -130,10 +136,11 @@ describe('ModeTransfer 切换控件', () => {
     await w.get('button[data-act="switch"]').trigger('click'); await flushPromises()
     w.findComponent({ name: 'ModeConfirmDialog' }).vm.$emit('confirm', ['u1']); await flushPromises()
     expect(w.emitted('applied')).toBeTruthy()
-    const msg = w.emitted('notify')?.at(-1)?.[0] as string
-    expect(msg).toContain('清理') // summary.purged 计数支「清理 N 台数据」
-    expect(msg).toContain('失败') // warnings.purge_failed 支「N 台数据清理失败」
-    expect(w.emitted('notify')?.at(-1)?.[1]).toBe(true)
+    expect((w.vm as any).flow).toBe('done')
+    const msg = w.find('.done-msg').text()
+    expect(msg).toContain('清理 1 台数据') // summary.purged 计数支
+    expect(msg).toContain('清理失败')       // warnings.purge_failed 支
+    expect(w.find('.done-msg').classes()).toContain('warn')
   })
 
   it('对话框 cancel → 关闭子流、无 POST', async () => {

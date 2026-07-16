@@ -47,22 +47,21 @@ async function purge() {
 </script>
 
 <template>
-  <section v-if="loaded && orphans.length" class="orphan-cleanup">
-    <div class="group-head"><span class="t">残留数据清理</span><span class="c">配置已移除但数据库仍残留的服务器</span></div>
-    <p class="grouphint danger-text">以下服务器在配置中已不存在，但数据库仍有其历史数据。清理不可恢复。</p>
-    <ul class="rows"><li v-for="o in orphans" :key="o" class="mono">{{ o }}</li></ul>
-    <label class="ack"><input type="checkbox" data-act="ack" :checked="ack"
-      @change="ack = ($event.target as HTMLInputElement).checked" /> 我了解此操作不可恢复</label>
-    <button class="danger-btn" data-act="purge" :disabled="!ack || working" @click="purge">清理残留数据</button>
+  <section v-if="loaded && orphans.length" class="orphan-cleanup dz-item">
+    <div class="dz-info">
+      <span class="dz-title">残留数据清理</span>
+      <span class="dz-desc">以下服务器在配置中已不存在，但数据库仍有其历史数据。清理不可恢复。</span>
+      <ul class="rows"><li v-for="o in orphans" :key="o" class="mono">{{ o }}</li></ul>
+      <label class="ack"><input type="checkbox" data-act="ack" :checked="ack"
+        @change="ack = ($event.target as HTMLInputElement).checked" /> 我了解此操作不可恢复</label>
+    </div>
+    <button class="dz-btn" data-act="purge" :disabled="!ack || working" @click="purge">清理残留数据</button>
   </section>
 </template>
 
 <style scoped>
-.orphan-cleanup { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; }
-.danger-text { color: var(--warn); }
-.rows { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
-.mono { font-family: ui-monospace, monospace; font-size: 12px; }
-.ack { display: flex; align-items: center; gap: 8px; font-size: 12.5px; }
-.danger-btn { align-self: flex-start; padding: 6px 14px; border-radius: var(--r); border: 1px solid var(--warn); background: color-mix(in srgb, var(--warn) 10%, var(--card)); color: var(--warn); cursor: pointer; }
-.danger-btn:disabled { opacity: .5; cursor: not-allowed; }
+/* 危险区行形态：容器/行/按钮样式由全局 .danger-zone/.dz-* 承载，这里只补组件私有细节 */
+.rows { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-1); }
+.mono { font-size: var(--fs-caption); }
+.ack { display: flex; align-items: center; gap: var(--space-2); font-size: var(--fs-caption); }
 </style>

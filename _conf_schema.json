@@ -143,7 +143,7 @@
   },
   "permission_admins": {
     "type": "template_list",
-    "description": "受托群管理员：这些账号可在群里执行管理员命令（注意：名册全局，加入者在其所在每个群都有管理员权）",
+    "description": "管理员名单：这些账号可在群里执行管理员命令（注意：名单全局，加入者在其所在每个群都有管理员权）",
     "default": [],
     "templates": {
       "admin": {

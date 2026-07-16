@@ -20,7 +20,8 @@ const cfg = () => ({ ok: true, config: {
   players: { rank_top_n: 5, exclude_names: '' },
   server_admin: { require_confirmation: false, confirmation_timeout: 30, audit_retention_days: 180 },
   permission_admins: [],
-  command_permissions: [],
+  // as 断言：空数组字面量推断 never[]，后续用例往里赋覆盖行会 TS2322
+  command_permissions: [] as Record<string, string>[],
 }, page_version: 1 })
 
 beforeEach(() => {
@@ -37,11 +38,12 @@ const mountAccess = async (overrides: Record<string, any> = {}) => {
 }
 
 describe('SettingsPanel', () => {
-  it('权限章渲染玩家查询节（players 重新安家于权限章）', async () => {
+  it('功能章渲染玩家查询节（players 迁至功能章：功能参数与启停同住）', async () => {
     (window.AstrBotPluginPage!.apiGet as any).mockResolvedValue(cfg())
-    const w = mountAt('permissions'); await flushPromises()
-    expect(w.text()).toContain('玩家查询') // players 配置节标题
-    expect(w.text()).toContain('排行榜人数')
+    const w = mountAt('features'); await flushPromises()
+    expect(w.text()).toContain('排行榜人数') // players 配置节字段
+    const wp = mountAt('permissions'); await flushPromises()
+    expect(wp.text()).not.toContain('排行榜人数') // 权限章不再渲染 players 段
   })
   it('权限章渲染 server_admin 配置节（server_admin 重新安家于权限章）', async () => {
     (window.AstrBotPluginPage!.apiGet as any).mockResolvedValue(cfg())
@@ -64,10 +66,13 @@ describe('SettingsPanel', () => {
     const w = mountAt('permissions'); await flushPromises()
     expect(w.text()).toContain('服务器管控') // 段仍按 schema 渲染，不因缺键崩
   })
-  it('access 章渲染访问控制节 + 保存条', async () => {
+  it('access 章渲染默认查询节 + 危险区（访问模式 + 切换运行模式）+ 保存条', async () => {
     (window.AstrBotPluginPage!.apiGet as any).mockResolvedValue(cfg())
     const w = mountAt('access'); await flushPromises()
-    expect(w.text()).toContain('访问控制')
+    expect(w.text()).toContain('默认查询') // routing 段拆出 access_mode 后改名
+    expect(w.text()).toContain('危险区')
+    expect(w.text()).toContain('访问模式') // 危险区首行
+    expect(w.text()).toContain('切换运行模式')
     expect(w.text()).toContain('保存设置')
     expect(w.get('button.pw-save')).toBeTruthy()
   })
@@ -119,41 +124,49 @@ describe('SettingsPanel', () => {
     expect(w.text()).not.toContain('有未保存的更改') // applyConfig 复位
   })
 
-  it('权限章渲染 callout + 受托名单 + 命令树', async () => {
+  it('权限章渲染 callout + 管理员名单 + 命令树', async () => {
     (window.AstrBotPluginPage!.apiGet as any).mockResolvedValue(cfg())
     const w = mountAt('permissions'); await flushPromises()
-    expect(w.text()).toContain('受托') // 受托名单区块
+    expect(w.text()).toContain('管理员名单') // 管理员名单区块
     expect(w.text()).toContain('命令权限') // 命令树区块标题
-    expect(w.text()).toContain('/pal player info') // 命令树含具体命令完整路径
+    expect(w.text()).toContain('/pal world status') // 命令树含具体命令完整路径（恒开核心必列）
     expect(w.text()).toContain('名单为空') // 空名单提示
-    expect(w.text()).toContain('名册全局') // 爆炸半径安全警句(勿静默删除)
+    expect(w.text()).toContain('名单全局') // 爆炸半径安全警句(勿静默删除)
   })
 
   it('权限章：点击命令树三态段 → 覆盖命令权限并置 dirty，collectBody 产出该行', async () => {
-    (window.AstrBotPluginPage!.apiGet as any).mockResolvedValue(cfg())
+    const c = cfg()
+    c.config.command_permissions = [{ command: 'player', enabled: 'on', admin_only: 'inherit' }] // 开玩家功能，行才在权限页列出
+    ;(window.AstrBotPluginPage!.apiGet as any).mockResolvedValue(c)
     const w = mountAt('permissions'); await flushPromises()
-    expect((w.vm as any).state.command_perms).toEqual({})
+    expect((w.vm as any).state.command_perms).toEqual({ player: { enabled: 'on', admin_only: 'inherit' } })
     const row = w.findAll('.ct-leaf').find((r) => r.text().includes('player info'))!
-    const adminCell = row.findAll('.ct-cell')[1]
-    await adminCell.findAll('.seg').find((b) => b.text() === '仅管理')!.trigger('click')
+    // 单轴表：admin 开关 off(继承所有人) → 点击置 on（仅管理员）= 显式覆盖
+    await row.find('.pw-switch').trigger('click')
     expect((w.vm as any).state.command_perms['player info']).toEqual({ enabled: 'inherit', admin_only: 'on' })
     expect(w.text()).toContain('有未保存的更改')
     const body = collectBody((w.vm as any).state)
-    expect(body.command_permissions).toEqual([{ command: 'player info', enabled: 'inherit', admin_only: 'on' }])
+    expect(body.command_permissions).toEqual([
+      { command: 'player', enabled: 'on', admin_only: 'inherit' },
+      { command: 'player info', enabled: 'inherit', admin_only: 'on' },
+    ])
   })
 
   it('权限章：applyConfig 从 command_permissions 行还原树 state（hydrate 往返）', async () => {
     const c = cfg()
-    c.config.command_permissions = [{ command: 'guild list', enabled: 'inherit', admin_only: 'on' }];
+    c.config.command_permissions = [
+      { command: 'guild', enabled: 'on', admin_only: 'inherit' }, // 开公会功能，行才在权限页列出
+      { command: 'guild list', enabled: 'inherit', admin_only: 'on' },
+    ];
     (window.AstrBotPluginPage!.apiGet as any).mockResolvedValue(c)
     const w = mountAt('permissions'); await flushPromises()
     // 树 state 读回该覆盖行
     expect((w.vm as any).state.command_perms['guild list']).toEqual({ enabled: 'inherit', admin_only: 'on' })
-    // CommandTree 该叶子 admin 格「仅管理」段显覆盖态（act）
+    // CommandTree 该叶子 admin 开关显示覆盖生效值（checked）+ amber 覆盖环（ovr）
     const row = w.findAll('.ct-leaf').find((r) => r.text().includes('guild list'))!
-    const adminCell = row.findAll('.ct-cell')[1]
-    const seg = adminCell.findAll('.seg').find((b) => b.text() === '仅管理')!
-    expect(seg.classes()).toContain('act')
+    const adminSwitch = row.find('.pw-switch')
+    expect(adminSwitch.attributes('data-state')).toBe('checked')
+    expect(adminSwitch.classes()).toContain('ovr')
   })
 
   it('config 缺 permission 两键不崩、collectBody 产出空数组', async () => {
@@ -168,7 +181,8 @@ describe('SettingsPanel', () => {
     const w = await mountAccess({ routing: { access_mode: 'restricted', default_server: '', world_mode: 'single', setup_confirmed: true } })
     // routing 表单不渲染 world_mode（恒隐藏）/ default_server（single 隐藏）标签
     expect(w.text()).not.toContain('默认服务器')
-    expect(w.text()).not.toContain('运行模式')
+    // 锚字段 hint 而非「运行模式」子串——危险区标题「切换运行模式」合法含该词（子串陷阱）
+    expect(w.text()).not.toContain('「多服务器」按群绑定/切换服务器')
     // 顶部只读模式标识
     expect(w.text()).toContain('单服务器')
     // 字段隐藏但值仍回传（collectBody 从 state 读，不受模板过滤影响）
@@ -179,7 +193,8 @@ describe('SettingsPanel', () => {
   it('multi 模式呈现 default_server 字段与「多服务器」标识（world_mode 仍恒隐藏，fail-safe 全字段）', async () => {
     const w = await mountAccess({ routing: { access_mode: 'restricted', default_server: '', world_mode: 'multi', setup_confirmed: true } })
     expect(w.text()).toContain('默认服务器') // 多模式保留默认服务器字段
-    expect(w.text()).not.toContain('运行模式') // world_mode 字段任何模式都隐藏
+    // world_mode 字段任何模式都隐藏——锚其 hint 串防子串陷阱（危险区标题含「运行模式」）
+    expect(w.text()).not.toContain('「多服务器」按群绑定/切换服务器')
     expect(w.text()).toContain('多服务器')
     const body = collectBody((w.vm as any).state) as any
     expect(body.routing.world_mode).toBe('multi')
@@ -215,8 +230,17 @@ describe('SettingsPanel', () => {
   it('single + restricted 显示授权群名单区', async () => {
     const w = await mountAccess({ routing: { access_mode: 'restricted', default_server: '', world_mode: 'single', setup_confirmed: true } })
     expect(w.text()).toContain('授权群名单')
-    expect(w.text()).toContain('单世界受限模式下，仅这些会话可查询服务器')
+    expect(w.text()).toContain('「受限授权」模式下，仅名单内的群可查询服务器')
     expect(w.text()).toContain('/pal whereami')
+  })
+
+  it('改访问模式未保存 → 授权群名单不实时收折（跟已保存快照走）+ 显示保存后生效', async () => {
+    const w = await mountAccess({ routing: { access_mode: 'restricted', default_server: '', world_mode: 'single', setup_confirmed: true } })
+    expect(w.text()).toContain('授权群名单')
+    ;(w.vm as any).state.sections.routing.access_mode = 'open' // 模拟下拉改动（未保存）
+    await w.vm.$nextTick()
+    expect(w.text()).toContain('授权群名单') // 名单仍在：显隐依据落库快照
+    expect(w.text()).toContain('（保存后生效）')
   })
 
   it('single + open 不显示授权群名单区（受限才呈现）', async () => {
@@ -253,8 +277,8 @@ describe('SettingsPanel', () => {
     })
     // 空配置 seed 补一台占位（绝不截断已有；此处本无已有）→ state 有 1 台
     expect((w.vm as any).state.servers).toHaveLength(1)
-    // 渲染未抛错（mountAccess 已 flush），服务器区块标题在
-    expect(w.text()).toContain('要监测的 Palworld 服务器')
+    // 渲染未抛错（mountAccess 已 flush），服务器区块标题在（single 用单数措辞）
+    expect(w.text()).toContain('当前监测的唯一服务器')
     // 单台占位仍能 collect
     const body = collectBody((w.vm as any).state) as any
     expect(body.servers).toHaveLength(1)

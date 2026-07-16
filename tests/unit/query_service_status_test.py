@@ -2,6 +2,7 @@ from pathlib import Path
 
 import pytest
 
+from palworld_terminal.adapters.metadata_repository import MetadataRepository
 from palworld_terminal.adapters.sqlite_repository import Repository
 from palworld_terminal.application.query_service import QueryService
 from palworld_terminal.config import (
@@ -11,6 +12,7 @@ from palworld_terminal.config import (
     PollingConfig,
     PrivacyConfig,
     RoutingConfig,
+    ServerConfig,
     WorldConfig,
 )
 from palworld_terminal.domain.enums import AccessMode, IdConfidence, PingBucket, SessionStatus
@@ -115,6 +117,89 @@ async def test_online_dto(qs):
     assert dto.rows[0].name == "Neo"
     assert dto.rows[0].ping_bucket is PingBucket.HIGH
     assert dto.rows[0].online_seconds == 200
+
+
+_METADATA_DIR = Path(__file__).resolve().parents[2] / "metadata"
+
+
+def _server() -> ServerConfig:
+    return ServerConfig(
+        server_id="alpha", name="alpha", enabled=True, base_url="http://host:8212",
+        username="admin", password="pw", timeout=10, verify_tls=True,
+        timezone="Asia/Tokyo",
+    )
+
+
+@pytest.fixture
+async def qs_detail(tmp_path: Path):
+    db = Database(tmp_path / "d.sqlite3")
+    await db.open()
+    await apply_migrations(db)
+    clock = FakeClock(1200)
+    repo = Repository(db, clock)
+    await repo.upsert_world(_world())
+    cfg = _cfg()
+    cfg.servers = [_server()]
+    meta = MetadataRepository(_METADATA_DIR)
+    meta.load()
+    settings_cache = {"alpha": {
+        "Difficulty": "Normal", "bEnablePlayerToPlayerDamage": False,
+        "DeathPenalty": "Item", "ExpRate": 1.0,
+    }}
+    info_cache = {"alpha": {"description": "Palpagos", "uptime": 553234}}
+    q = QueryService(
+        repo, TTLCache(clock), cfg, meta=meta, clock=clock,
+        settings_cache=settings_cache, info_cache=info_cache,
+    )
+    yield repo, q
+    await db.close()
+
+
+async def test_status_detail_assembled_from_all_sources(qs_detail):
+    repo, q = qs_detail
+    await repo.insert_metric(WorldMetric(WID, 1200, 58.0, 17.2, 2, 42, 5))
+    dto = await q.status(_world())
+    d = dto.detail
+    assert d is not None
+    assert d.version == "0.3"            # 来自 World.version（持久化，info 采集回写）
+    assert d.description == "Palpagos"   # info 采集 → info_cache
+    assert d.uptime_seconds == 553234    # metrics 采集 → info_cache
+    assert d.frametime_ms == 17.2        # StatusDTO.frame_time 同源
+    assert d.address == "http://host:8212"  # config base_url
+    assert d.rules == {
+        "difficulty": "普通", "pvp": "关闭",
+        "death_penalty": "掉落物品", "exp_rate": "1.0×",
+    }
+
+
+async def test_status_detail_none_when_degraded(qs_detail):
+    repo, q = qs_detail
+    # 无 metric → degraded → 不产 detail（白名单只给可信实时数据）
+    dto = await q.status(_world())
+    assert dto.degraded is True
+    assert dto.detail is None
+
+
+async def test_status_detail_tolerates_missing_settings(qs_detail):
+    repo, q = qs_detail
+    # 清空 settings 缓存：rules 子键整体省略，其余字段照常，绝不 500
+    q._settings_cache.clear()
+    await repo.insert_metric(WorldMetric(WID, 1200, 58.0, 17.2, 2, 42, 5))
+    dto = await q.status(_world())
+    assert dto.detail is not None
+    assert dto.detail.rules == {}
+    assert dto.detail.version == "0.3"
+    assert dto.detail.address == "http://host:8212"
+
+
+async def test_status_detail_rules_omits_absent_keys(qs_detail):
+    repo, q = qs_detail
+    # 仅 DeathPenalty 在快照里：其余规则键省略，不塞空串
+    q._settings_cache["alpha"] = {"DeathPenalty": "ItemAndEquipment"}
+    await repo.insert_metric(WorldMetric(WID, 1200, 58.0, 17.2, 2, 42, 5))
+    dto = await q.status(_world())
+    assert dto.detail is not None
+    assert dto.detail.rules == {"death_penalty": "掉落物品与装备"}
 
 
 async def test_status_peak_today_uses_local_day_not_rolling_24h(qs):

@@ -22,7 +22,7 @@ const numVal = computed<number>({ get: () => Number(props.modelValue ?? 0), set 
     <SelectContent class="pw-select-content">
       <SelectViewport>
         <SelectItem v-for="opt in spec.options" :key="opt" :value="opt" class="pw-select-item">
-          <SelectItemText>{{ opt }}</SelectItemText>
+          <SelectItemText>{{ spec.optionLabels?.[opt] ?? opt }}</SelectItemText>
         </SelectItem>
       </SelectViewport>
     </SelectContent>

@@ -7,6 +7,7 @@ from palworld_terminal.application.command_permissions import (
     DANGER_COMMANDS,
     admin_configurable,
     admin_forced_true,
+    default_enabled,
     enable_configurable,
 )
 
@@ -32,3 +33,4 @@ def test_frontend_tree_matches_backend_meta():
         assert n["adminConfigurable"] == admin_configurable(p), p
         assert n["adminForced"] == admin_forced_true(p), p
         assert n["danger"] == (p in DANGER_COMMANDS), p
+        assert n["defaultEnabled"] == default_enabled(p), p

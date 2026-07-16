@@ -42,7 +42,7 @@ MESSAGES: dict[str, str] = {
     "bind_not_found": "未找到玩家「{name}」，无法绑定。",
     "player_usage": "用法：/pal player info <玩家名>",
     "bind_usage": "用法：/pal player bind <玩家名>",
-    "whoami": "你的账号标识：{id}（建议私聊 bot 执行本命令，再把标识报给管理员加入受托名单）",
+    "whoami": "你的账号标识：{id}（建议私聊 bot 执行本命令，再把标识报给管理员加入管理员名单）",
     "whoami_no_sender": "当前场景无法识别你的账号，请在群聊里再试。",
     "whereami": "本群标识（UMO）：{umo}（把它交给管理员，在设置页「连接」章的授权群名单中添加即可授权本群查询）",
     "whereami_no_umo": "当前场景无法识别群标识，请在目标群聊里再试。",

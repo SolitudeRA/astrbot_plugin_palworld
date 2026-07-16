@@ -78,6 +78,7 @@ class Container:
         self.commands: Commands | None = None
         self._settings_cache: dict[str, dict] = {}
         self._world_cache: dict[str, object] = {}
+        self._info_cache: dict[str, dict] = {}
 
     async def start(self) -> None:
         if self._cfg.skipped_headers:
@@ -128,12 +129,14 @@ class Container:
             repo, _normalizer_mod, _privacy_mod, meta, salt, self._cfg, self._clock,
             players, guilds, bases, events,
             shared_settings=self._settings_cache, shared_world=self._world_cache,
+            shared_info=self._info_cache,
         )
         self.report = ReportService(repo, self._cfg, self._clock)
         self.routing = RoutingService(repo, self._cfg)
         self.query = QueryService(
             repo, cache, self._cfg, meta, self._clock, self._settings_cache,
             world_cache=self._world_cache, report=self.report,
+            info_cache=self._info_cache,
         )
         admin = AdminService(
             self.routing, self._fetch, self._post, repo, salt, self._clock

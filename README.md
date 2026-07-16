@@ -4,7 +4,7 @@
 
 # PalWorldTerminal · 帕鲁世界终端
 
-[![version](https://img.shields.io/badge/version-v0.9.7-007ec6)](https://github.com/SolitudeRA/astrbot_plugin_palworld/releases)
+[![version](https://img.shields.io/badge/version-v0.9.8-007ec6)](https://github.com/SolitudeRA/astrbot_plugin_palworld/releases)
 [![python](https://img.shields.io/badge/python-3.11%2B-007ec6)](https://www.python.org/)
 [![AstrBot](https://img.shields.io/badge/AstrBot-%E2%89%A5%204.24.1-fe7d37)](https://github.com/AstrBotDevs/AstrBot)
 [![license](https://img.shields.io/badge/license-GPL--3.0-97ca00)](https://github.com/SolitudeRA/astrbot_plugin_palworld/blob/main/LICENSE)
@@ -28,7 +28,7 @@
 - **日报与事件** —— 今日在线统计、上下线与服务器重启大事记(`/pal world today`、`/pal world events`)
 - **服务器管控(受控写)** —— 广播、存档、踢人、封禁、倒计时关服共 7 条写命令:**默认全关、仅授权管理员、可二次确认、全程审计**(`/pal server announce`、`/pal server shutdown` 等)
 - **单 / 多世界两模式** —— **默认单世界**(一台服务器、免 `link` 授权,restricted 下按授权群名单放行);多世界一个插件监测多台、按群授权、`/pal link` 按群切换
-- **细粒度授权** —— 独立受托管理员名单,敏感命令可锁为仅管理员(`/pal whoami` 自查标识)
+- **细粒度授权** —— 独立管理员名单,敏感命令可锁为仅管理员(`/pal whoami` 自查标识)
 - **零信任接入** —— 自定义请求头携带网关凭证(如 Cloudflare Access),REST API 无需暴露公网
 - **隐私优先** —— 观测只读、不存 IP、标识 HMAC 哈希落库、坐标量化为粗网格;写操作目标 userid 仅存哈希
 - **WebUI 设置页** —— 可视化配置全部选项,亮暗双主题
@@ -114,7 +114,7 @@ v0.9.5 起指令为**分级结构**:`/pal <组> <动作>`(裸组即迷你帮助)
 ## 安全与隐私
 
 - **观测只读**:周期采集仅调用官方只读端点 `/info`、`/metrics`、`/players`、`/settings`、`/game-data`,不参与任何写操作。
-- **受控写(服务器管控)**:广播/存档/踢人/封禁/关服等写命令**默认全部关闭**,须在设置页显式开启功能组;开启后**仅授权管理员**(受托名单成员)可用,每次操作**无论成败全程落库审计**(仅哈希目标 userid,不存明文)。承诺从「绝不写」转为「受控写」。
+- **受控写(服务器管控)**:广播/存档/踢人/封禁/关服等写命令**默认全部关闭**,须在设置页显式开启功能组;开启后**仅授权管理员**(管理员名单成员)可用,每次操作**无论成败全程落库审计**(仅哈希目标 userid,不存明文)。承诺从「绝不写」转为「受控写」。
 - **⚠️ OPEN 访问模式爆炸半径**:`access_mode=open` 下写命令**不再受群授权名单约束**,任一授权管理员可从任意群/私聊对任意就绪服务器执行 `server stop`/`server ban`。强烈劝阻「OPEN + danger 组同开」;多群共享同一 bot 时尤须谨慎。
 - **⚠️ `server stop` 不存档**:`/pal server stop` 强制停服**不保存存档**,可能丢失未存进度;需要保存请先 `/pal server save` 或改用 `/pal server shutdown`(倒计时期间游戏会正常保存)。
 - **单世界 × restricted 授权**:`world_mode=single`(默认)下 `access_mode=restricted` 时,读命令按**授权群名单**(`single_allowed_groups`)放行——仅名单内会话(群/私聊)可查询唯一服务器;**空名单 = 当前全群不可读**(fail-closed,启动日志会告警,提示用 `/pal whereami` 取标识后在设置页「连接」章添加)。写命令仍受管理员硬门约束、**不受读名单限制**。`open` 则对所有会话开放。
@@ -123,7 +123,7 @@ v0.9.5 起指令为**分级结构**:`/pal <组> <动作>`(裸组即迷你帮助)
 - **需在服务器端启用 REST**:Palworld 服务器须开启 REST API(`RESTAPIEnabled=True` 并设置管理员密码)。
 - **勿暴露公网**:REST API 请勿直接暴露到公网,走 localhost / 内网 / VPN / 反向代理;密码建议用环境变量(`password_env`)而非明文。
 - **支持网关鉴权接入**:自定义请求头可为所有轮询请求携带零信任网关凭证(如 Cloudflare Access 的 `CF-Access-Client-Id` / `CF-Access-Client-Secret`),让 REST API 藏在反向代理 / 网关之后而非直连;凭证推荐存环境变量(`value_env`),设置页不回显明文,并可用「限定服务器」把凭证头只发给指定服务器。
-- **受托管理员名单全局生效**:插件管理员由独立的受托名单判定(不复用 AstrBot `admins_id`)。名单**全局**——加入者在其所在的每个群都有管理员权,多群共用一个 bot 时请谨慎授权;`note` 明文落盘,勿填 PII。详见 [docs/configuration.md](https://github.com/SolitudeRA/astrbot_plugin_palworld/blob/main/docs/configuration.md#permissions权限管理)。
+- **管理员名单全局生效**:插件管理员由独立的管理员名单判定(不复用 AstrBot `admins_id`)。名单**全局**——加入者在其所在的每个群都有管理员权,多群共用一个 bot 时请谨慎授权;`note` 明文落盘,勿填 PII。详见 [docs/configuration.md](https://github.com/SolitudeRA/astrbot_plugin_palworld/blob/main/docs/configuration.md#permissions权限管理)。
 
 ## 详细文档
 

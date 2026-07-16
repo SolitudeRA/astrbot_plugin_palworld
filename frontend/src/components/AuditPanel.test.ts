@@ -37,6 +37,28 @@ describe('AuditPanel', () => {
     expect(w.text()).toContain('失败')
   })
 
+  it('分页：每页 10 条，页码切换换页，刷新回第一页', async () => {
+    const mkRow = (i: number) => ({
+      ts: 1_700_000_000 - i, time: `T${i}`, action: 'server save', server: 'alpha',
+      admin: 'demo', target: '', success: true, error: null,
+    })
+    ;(window.AstrBotPluginPage!.apiGet as any).mockResolvedValue({
+      ok: true, audits: Array.from({ length: 23 }, (_, i) => mkRow(i)),
+    })
+    const w = mount(AuditPanel); await flushPromises()
+    expect(w.findAll('tbody tr')).toHaveLength(10)   // 首页 10 条
+    expect(w.text()).toContain('T0')
+    expect(w.text()).toContain('共 23 条')
+    const page3 = w.findAll('.pg-num').find((b) => b.text() === '3')!
+    await page3.trigger('click')
+    expect(w.findAll('tbody tr')).toHaveLength(3)    // 末页 3 条
+    expect(w.text()).toContain('T20')
+    expect(w.text()).not.toContain('T0 ') // 首页内容已翻走（T0 精确行不再渲染）
+    await w.findAll('button.ghost').find((b) => b.text() === '刷新')!.trigger('click')
+    await flushPromises()
+    expect(w.findAll('.pg-num').find((b) => b.text() === '1')!.classes()).toContain('cur') // 刷新回第一页
+  })
+
   it('空数组显示空态', async () => {
     (window.AstrBotPluginPage!.apiGet as any).mockResolvedValue({ ok: true, audits: [] })
     const w = mount(AuditPanel); await flushPromises()

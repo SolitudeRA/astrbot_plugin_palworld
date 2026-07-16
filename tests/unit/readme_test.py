@@ -121,8 +121,8 @@ def test_readme_documents_lock_migration():
 
 
 def test_readme_documents_permission_management():
-    # 权限管理:whoami 自查 + 受托名单 + 命令门 + 三条安全告知
-    for phrase in ("/pal whoami", "受托", "permission_admins", "admin_only_commands"):
+    # 权限管理:whoami 自查 + 管理员名单 + 命令门 + 三条安全告知
+    for phrase in ("/pal whoami", "管理员名单", "permission_admins", "admin_only_commands"):
         assert phrase in DOCS, f"文档缺少权限管理说明: {phrase}"
     # 三条安全告知必须落在文档里
     for phrase in ("全局", "命名空间", "明文", "PII"):

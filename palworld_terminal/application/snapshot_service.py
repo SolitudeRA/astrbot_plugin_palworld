@@ -29,6 +29,7 @@ class SnapshotService:
         *,
         shared_settings: dict | None = None,
         shared_world: dict | None = None,
+        shared_info: dict | None = None,
     ) -> None:
         self._repo = repo
         self._normalizer = normalizer_mod
@@ -44,6 +45,9 @@ class SnapshotService:
         self._settings_cache: dict[str, dict] = {}
         self._shared_settings = shared_settings
         self._shared_world = shared_world
+        # 与 QueryService.status 共享的「运行信息」映射（按 server_id 键入）：
+        # description 来自 info 采集、uptime 来自 metrics 采集，供状态卡 detail 消费。
+        self._shared_info = shared_info
         # key=world_id, value=(candidate, streak, baseline_peak)
         self._online_streak: dict[str, tuple[int, int, int]] = {}
         self._last_metrics_online: int | None = None
@@ -75,6 +79,12 @@ class SnapshotService:
             return None
         now = self._clock.now()
         info = self._normalizer.normalize_info(resp.data, now)
+        # 运行信息共享缓存：description 只在 info 采集处更新（version 走 World，
+        # uptime 走 metrics），update 语义不覆盖 ingest_metrics 写入的 uptime。
+        if self._shared_info is not None:
+            self._shared_info.setdefault(server.server_id, {})["description"] = (
+                info.description
+            )
         first_info = server.server_id not in self._current_worlds
         current = await self._repo.get_current_world(server.server_id)
         if current is not None and current.worldguid == info.worldguid:
@@ -120,6 +130,9 @@ class SnapshotService:
             return
         snap = self._normalizer.normalize_metrics(resp.data, self._clock.now())
         self._last_metrics_online = snap.online
+        # 运行时长共享缓存：只在 metrics 采集处更新 uptime（不碰 info 写入的 description）。
+        if self._shared_info is not None:
+            self._shared_info.setdefault(world.server_id, {})["uptime"] = snap.uptime
         metric = WorldMetric(
             world_id=world.world_id,
             observed_at=snap.observed_at,

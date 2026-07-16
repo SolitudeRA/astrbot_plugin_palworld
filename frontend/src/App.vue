@@ -23,7 +23,11 @@ function readStored(): 'light' | 'dark' | null {
 function writeStored(v: 'light' | 'dark') { try { localStorage.setItem(THEME_KEY, v) } catch { /* 受限 iframe 忽略 */ } }
 function initialTheme(): 'light' | 'dark' {
   const stored = readStored(); if (stored) return stored
-  return document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light'
+  if (document.documentElement.getAttribute('data-theme') === 'dark') return 'dark'
+  try {
+    if (typeof matchMedia === 'function' && matchMedia('(prefers-color-scheme: dark)').matches) return 'dark'
+  } catch { /* 受限 iframe / 老浏览器无 matchMedia：忽略，回退 light */ }
+  return 'light'
 }
 const theme = ref<'light' | 'dark'>(initialTheme())
 watchEffect(() => { document.documentElement.setAttribute('data-theme', theme.value) })
@@ -31,6 +35,9 @@ function toggleTheme() { theme.value = theme.value === 'dark' ? 'light' : 'dark'
 
 const observeChapters = CHAPTERS.filter((c) => c.group === '观测')
 const configChapters = CHAPTERS.filter((c) => c.group === '配置')
+
+// 首次未选模：SettingsPanel 上抛 true → 隐藏整条左轨（含观测组），只留品牌头 + 引导屏。
+const onboarding = ref(false)
 </script>
 
 <template>
@@ -46,7 +53,7 @@ const configChapters = CHAPTERS.filter((c) => c.group === '配置')
         <div class="subline"><span>Palworld 服务器监测与管控</span></div>
       </header>
       <div class="layout">
-        <nav class="rail" aria-label="章节索引">
+        <nav v-if="!onboarding" class="rail" aria-label="章节索引">
           <button v-for="c in observeChapters" :key="c.id" :aria-current="chapter === c.id ? 'true' : 'false'" @click="chapter = c.id">
             {{ c.label }}<span v-if="c.kind === 'status'" class="dot" aria-hidden="true"></span>
           </button>
@@ -54,7 +61,7 @@ const configChapters = CHAPTERS.filter((c) => c.group === '配置')
           <button v-for="c in configChapters" :key="c.id" :aria-current="chapter === c.id ? 'true' : 'false'" @click="chapter = c.id">{{ c.label }}</button>
         </nav>
         <div class="pane">
-          <SettingsPanel v-show="currentKind === 'settings'" :chapter="chapter" />
+          <SettingsPanel v-show="currentKind === 'settings'" :chapter="chapter" @onboarding="onboarding = $event" />
           <StatusPanel v-if="currentKind === 'status'" />
           <AuditPanel v-if="currentKind === 'audit'" />
         </div>
