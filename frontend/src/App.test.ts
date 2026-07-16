@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { mount, flushPromises } from '@vue/test-utils'
 import App from './App.vue'
 
@@ -40,5 +40,40 @@ describe('App', () => {
     await flushPromises()
     expect(w.text()).toContain('页面发生错误，请刷新重试')
     expect(w.text()).not.toContain('boom-child') // 不透传原始错误
+  })
+})
+
+function stubMatchMedia(prefersDark: boolean) {
+  vi.stubGlobal('matchMedia', (q: string) => ({
+    matches: prefersDark && q.includes('dark'),
+    media: q, addEventListener() {}, removeEventListener() {},
+    addListener() {}, removeListener() {}, onchange: null, dispatchEvent: () => false,
+  }))
+}
+
+describe('首次进入按系统深浅色', () => {
+  beforeEach(() => {
+    localStorage.clear()
+    document.documentElement.removeAttribute('data-theme')
+  })
+  afterEach(() => vi.unstubAllGlobals())
+
+  it('无存储值 + 系统偏好深色 → data-theme=dark', () => {
+    stubMatchMedia(true)
+    mount(App)
+    expect(document.documentElement.getAttribute('data-theme')).toBe('dark')
+  })
+
+  it('无存储值 + 系统偏好浅色 → data-theme=light', () => {
+    stubMatchMedia(false)
+    mount(App)
+    expect(document.documentElement.getAttribute('data-theme')).toBe('light')
+  })
+
+  it('已有存储值时忽略系统偏好（存储优先）', () => {
+    localStorage.setItem('palworld-terminal-theme', 'light')
+    stubMatchMedia(true)
+    mount(App)
+    expect(document.documentElement.getAttribute('data-theme')).toBe('light')
   })
 })

@@ -23,7 +23,11 @@ function readStored(): 'light' | 'dark' | null {
 function writeStored(v: 'light' | 'dark') { try { localStorage.setItem(THEME_KEY, v) } catch { /* 受限 iframe 忽略 */ } }
 function initialTheme(): 'light' | 'dark' {
   const stored = readStored(); if (stored) return stored
-  return document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light'
+  if (document.documentElement.getAttribute('data-theme') === 'dark') return 'dark'
+  try {
+    if (typeof matchMedia === 'function' && matchMedia('(prefers-color-scheme: dark)').matches) return 'dark'
+  } catch { /* 受限 iframe / 老浏览器无 matchMedia：忽略，回退 light */ }
+  return 'light'
 }
 const theme = ref<'light' | 'dark'>(initialTheme())
 watchEffect(() => { document.documentElement.setAttribute('data-theme', theme.value) })
