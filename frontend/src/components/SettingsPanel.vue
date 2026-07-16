@@ -10,7 +10,6 @@ import HeaderCard from './HeaderCard.vue'
 import AdminCard from './AdminCard.vue'
 import GroupCard from './GroupCard.vue'
 import CommandTree from './CommandTree.vue'
-import FeaturePanel from './FeaturePanel.vue'
 import SectionForm from './SectionForm.vue'
 import Field from './Field.vue'
 import ModeOnboarding from './ModeOnboarding.vue'
@@ -63,10 +62,10 @@ const visibleSections = computed(() => currentSections.value.map((s) => {
   if (worldMode.value === 'single') hide.add('default_server')
   return { ...s, title: '默认查询', subtitle: '群里没指定、也没绑定时查询哪台服务器', fields: s.fields.filter((f) => !hide.has(f.key)) }
 }).filter((s) => s.fields.length > 0))
-// 信息架构（两模式统一，组件零分叉复用）：access 章表单段上移到请求头之后、授权群名单之前，
-// 就近服务器列表；页尾通用 SectionForm 不再重复渲染。
-const inlineAccessSections = computed(() => (isAccess.value ? visibleSections.value : []))
-const tailSections = computed(() => (isAccess.value ? [] : visibleSections.value))
+// 排序原则：小参数控件在前，大面积浏览/批量控件在后（危险区恒垫底）。
+// 定制章（连接/功能/权限）的表单段 inline 到各自语义位置；tailSections 只服务纯表单章。
+const hasCustomLayout = computed(() => isAccess.value || isFeatures.value || isPermissions.value)
+const tailSections = computed(() => (hasCustomLayout.value ? [] : visibleSections.value))
 // 危险区「访问模式」行：字段规格取自 schema 单一真相源；说明按当前值动态给后果
 const ACCESS_MODE_SPEC = OBJECT_SECTIONS.find((s) => s.key === 'routing')!.fields.find((f) => f.key === 'access_mode')!
 const accessMode = computed(() => (state.sections.routing?.access_mode as string) ?? 'restricted')
@@ -227,14 +226,7 @@ async function save(): Promise<boolean> {
             :model-value="state.servers[0]" :index-label="'服务器'" :hide-delete="true"
             @update:model-value="(v) => { state.servers[0] = v; dirty = true }" @delete="() => {}" />
         </section>
-        <section>
-          <div class="group-head"><span class="t">自定义请求头</span><span class="c">每次请求都会带上</span></div>
-          <p class="grouphint">含凭证的请求头建议填写「限定服务器」。留空会发给所有服务器，包括以后新增的。</p>
-          <HeaderCard v-for="(h, i) in state.custom_headers" :key="(h.__row_id as string) || (h.__local_key as string)" :model-value="h" :index-label="'请求头 ' + pad(i + 1)"
-            @update:model-value="(v) => { state.custom_headers[i] = v; dirty = true }" @delete="state.custom_headers.splice(i, 1); dirty = true" />
-          <button class="add" @click="state.custom_headers.push(emptyRow(HEADER_FIELDS)); dirty = true">＋ 添加请求头</button>
-        </section>
-        <SectionForm v-for="sec in inlineAccessSections" :key="'inline-' + sec.key" :section="sec"
+        <SectionForm v-for="sec in visibleSections" :key="'inline-' + sec.key" :section="sec"
           :model-value="state.sections[sec.key]" @update:model-value="(v) => { state.sections[sec.key] = v; dirty = true }" />
         <Transition name="collapse">
           <section v-if="singleRestricted">
@@ -247,6 +239,13 @@ async function save(): Promise<boolean> {
             </div>
           </section>
         </Transition>
+        <section>
+          <div class="group-head"><span class="t">自定义请求头</span><span class="c">每次请求都会带上</span></div>
+          <p class="grouphint">含凭证的请求头建议填写「限定服务器」。留空会发给所有服务器，包括以后新增的。</p>
+          <HeaderCard v-for="(h, i) in state.custom_headers" :key="(h.__row_id as string) || (h.__local_key as string)" :model-value="h" :index-label="'请求头 ' + pad(i + 1)"
+            @update:model-value="(v) => { state.custom_headers[i] = v; dirty = true }" @delete="state.custom_headers.splice(i, 1); dirty = true" />
+          <button class="add" @click="state.custom_headers.push(emptyRow(HEADER_FIELDS)); dirty = true">＋ 添加请求头</button>
+        </section>
         <!-- 危险区垫底：影响重大的操作集中于红框容器（模式切换恒在；残留清理有孤儿才现行） -->
         <section>
           <div class="group-head"><span class="t t-danger">危险区</span><span class="c">影响重大的操作集中在这里，请谨慎</span></div>
@@ -266,8 +265,17 @@ async function save(): Promise<boolean> {
         </section>
       </template>
 
-      <FeaturePanel v-if="isFeatures" :model-value="state.command_perms ?? {}"
-        @update:model-value="(v) => { state.command_perms = v }" @change="dirty = true" />
+      <template v-if="isFeatures">
+        <!-- 小参数段前置（玩家查询参数），大面积功能树垫底 -->
+        <SectionForm v-for="sec in visibleSections" :key="'inline-' + sec.key" :section="sec"
+          :model-value="state.sections[sec.key]" @update:model-value="(v) => { state.sections[sec.key] = v; dirty = true }" />
+        <section>
+          <div class="group-head"><span class="t">功能开关</span><span class="c">按组批量或逐条设置命令的启停</span></div>
+          <p class="grouphint">开 = 可用，关 = 停用。谁能使用哪些命令，在「权限」页设置；危险命令不随整组开关，需逐条开启。</p>
+          <CommandTree axis="enabled" :model-value="state.command_perms ?? {}"
+            @update:model-value="(v) => { state.command_perms = v }" @change="dirty = true" />
+        </section>
+      </template>
 
       <template v-if="isPermissions">
         <div class="callout">
@@ -282,10 +290,13 @@ async function save(): Promise<boolean> {
             @update:model-value="(v) => { state.permission_admins![i] = v; dirty = true }" @delete="state.permission_admins!.splice(i, 1); dirty = true" />
           <button class="add" @click="state.permission_admins!.push(emptyAdmin()); dirty = true">＋ 添加受托成员</button>
         </section>
+        <!-- 小参数段前置（服务器管控：二次确认/审计留存），大面积限制树垫底 -->
+        <SectionForm v-for="sec in visibleSections" :key="'inline-' + sec.key" :section="sec"
+          :model-value="state.sections[sec.key]" @update:model-value="(v) => { state.sections[sec.key] = v; dirty = true }" />
         <section>
           <div class="group-head"><span class="t">管理员限制</span><span class="c">按组或逐条设置哪些命令仅管理员可用</span></div>
           <p class="grouphint">开 = 仅管理员可用，关 = 所有人可用。功能的启停在「功能」页设置。</p>
-          <CommandTree :model-value="state.command_perms ?? {}" :hide-groups="worldMode === 'single' ? ['link'] : []"
+          <CommandTree axis="admin_only" :model-value="state.command_perms ?? {}" :hide-groups="worldMode === 'single' ? ['link'] : []"
             @update:model-value="(v) => { state.command_perms = v }" @change="dirty = true" />
         </section>
       </template>

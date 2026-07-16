@@ -2,83 +2,128 @@ import { describe, it, expect } from 'vitest'
 import { mount } from '@vue/test-utils'
 import CommandTree from './CommandTree.vue'
 import type { CmdPerm } from '../lib/collect'
+import type { Axis } from '../lib/permissions'
 
-const mountTree = (mv: Record<string, CmdPerm> = {}, hideGroups?: string[]) =>
-  mount(CommandTree, { props: { modelValue: mv, ...(hideGroups ? { hideGroups } : {}) } })
-const leaf = (w: ReturnType<typeof mountTree>, path: string) =>
-  w.findAll('.ct-leaf').find((r) => r.text().includes(path))!
-const groupHead = (w: ReturnType<typeof mountTree>, label: string) =>
-  w.findAll('.ct-grouphead').find((r) => r.text().includes(label))!
+const mountTree = (axis: Axis, mv: Record<string, CmdPerm> = {}, hideGroups?: string[]) =>
+  mount(CommandTree, { props: { modelValue: mv, axis, ...(hideGroups ? { hideGroups } : {}) } })
+type W = ReturnType<typeof mountTree>
+const leaf = (w: W, path: string) => w.findAll('.ct-leaf').find((r) => r.text().includes(path))!
+const groupHead = (w: W, label: string) => w.findAll('.ct-grouphead').find((r) => r.text().includes(label))!
 
-describe('管理员限制表（单轴）行集', () => {
-  it('只列可锁命令：world status 在、forced 的 server kick 不在、不可锁的 help 不在', () => {
-    const w = mountTree()
-    expect(leaf(w, 'world status')).toBeTruthy()
-    expect(w.findAll('.ct-leaf').some((r) => r.text().includes('server kick'))).toBe(false)
-    expect(w.findAll('.ct-leaf').some((r) => r.text().includes('/pal help'))).toBe(false)
+describe('enabled 轴（功能页实例）', () => {
+  it('行集：完整命令树 29 条（与权限页同一棵树）；核心命令显示锁定「恒开·内置」', () => {
+    const w = mountTree('enabled')
+    expect(w.findAll('.ct-leaf')).toHaveLength(29)
+    const status = leaf(w, 'world status')
+    expect(status.find('.ct-lock').exists()).toBe(true)
+    expect(status.text()).toContain('恒开')
+    expect(status.findAll('.pw-switch')).toHaveLength(0)
+    expect(leaf(w, 'world events').find('.pw-switch').exists()).toBe(true)
   })
-  it('表尾说明收拢内置规则（恒仅管理员 / 恒所有人）', () => {
-    const w = mountTree()
-    expect(w.find('.ct-note').text()).toContain('恒需管理员')
-    expect(w.find('.ct-note').text()).toContain('不可更改')
+  it('生效值：events 内置开、player info 内置关；组覆盖 on → 随组、danger 不随组（F2）', () => {
+    expect(leaf(mountTree('enabled'), 'world events').find('.pw-switch').attributes('data-state')).toBe('checked')
+    expect(leaf(mountTree('enabled'), 'player info').find('.pw-switch').attributes('data-state')).toBe('unchecked')
+    const w = mountTree('enabled', { server: { enabled: 'on', admin_only: 'inherit' } })
+    expect(leaf(w, 'server kick').find('.pw-switch').attributes('data-state')).toBe('checked')
+    expect(leaf(w, 'server ban').find('.pw-switch').attributes('data-state')).toBe('unchecked')
+    expect(leaf(w, 'server kick').classes()).toContain('grouped')
+    expect(leaf(w, 'server ban').classes()).not.toContain('grouped') // danger 永不随组
   })
-  it('扁平可锁命令归「其他」段（rank/online/me）', () => {
-    const w = mountTree()
-    const flat = w.findAll('.ct-group').find((g) => g.text().includes('其他'))!
-    expect(flat.text()).toContain('rank')
-    expect(flat.text()).toContain('排行榜')
+  it('danger 行带红「危险」标 + danger 类（enabled 轴专属）', () => {
+    const row = leaf(mountTree('enabled'), 'server stop')
+    expect(row.classes()).toContain('danger')
+    expect(row.text()).toContain('危险')
+  })
+  it('组头开关写组键 enabled、不逐叶展开；切回默认清键', async () => {
+    const w = mountTree('enabled')
+    await groupHead(w, '公会').find('.pw-switch').trigger('click') // 组默认关 → 开
+    let emitted = w.emitted('update:modelValue')!.at(-1)![0] as Record<string, CmdPerm>
+    expect(emitted['guild']).toEqual({ enabled: 'on', admin_only: 'inherit' })
+    expect('guild list' in emitted).toBe(false)
+    const w2 = mountTree('enabled', { guild: { enabled: 'on', admin_only: 'inherit' } })
+    await groupHead(w2, '公会').find('.pw-switch').trigger('click') // 开 → 关 == 默认 → 清
+    emitted = w2.emitted('update:modelValue')!.at(-1)![0] as Record<string, CmdPerm>
+    expect('guild' in emitted).toBe(false)
+  })
+  it('↺ 只清 enabled 轴，admin 覆盖保留', async () => {
+    const w = mountTree('enabled', { rank: { enabled: 'on', admin_only: 'on' } })
+    await leaf(w, 'rank').find('.ct-reset').trigger('click')
+    const emitted = w.emitted('update:modelValue')!.at(-1)![0] as Record<string, CmdPerm>
+    expect(emitted['rank']).toEqual({ enabled: 'inherit', admin_only: 'on' })
+  })
+  it('enabled 轴组头开关收编例外但保留 danger 自设（F2 不归组管）', async () => {
+    const w = mountTree('enabled', {
+      'server kick': { enabled: 'off', admin_only: 'inherit' },  // 普通例外 → 收编
+      'server ban': { enabled: 'on', admin_only: 'inherit' },    // danger 自设 → 保留
+    })
+    await groupHead(w, '服务器管控').find('.pw-switch').trigger('click') // 整组置 on
+    const emitted = w.emitted('update:modelValue')!.at(-1)![0] as Record<string, CmdPerm>
+    expect(emitted['server']).toEqual({ enabled: 'on', admin_only: 'inherit' })
+    expect('server kick' in emitted).toBe(false)                        // 例外被收编
+    expect(emitted['server ban']).toEqual({ enabled: 'on', admin_only: 'inherit' }) // danger 保留
+  })
+  it('enabled 轴组头 ↺ 彻底恢复（含 danger 自设也清）', async () => {
+    const w = mountTree('enabled', {
+      server: { enabled: 'on', admin_only: 'inherit' },
+      'server ban': { enabled: 'on', admin_only: 'inherit' },
+    })
+    await groupHead(w, '服务器管控').find('.ct-reset').trigger('click')
+    const emitted = w.emitted('update:modelValue')!.at(-1)![0] as Record<string, CmdPerm>
+    expect('server' in emitted).toBe(false)
+    expect('server ban' in emitted).toBe(false)
+  })
+  it('admin 覆盖不在 enabled 轴亮标', () => {
+    const w = mountTree('enabled', { rank: { enabled: 'inherit', admin_only: 'on' } })
+    expect(leaf(w, 'rank').find('.ov-dot').exists()).toBe(false)
+    expect(leaf(w, 'rank').find('.ct-reset').exists()).toBe(false)
   })
 })
 
-describe('生效值与开关写值', () => {
-  it('无覆盖 → 开关显所有人（unchecked）；组覆盖 on → 叶子随组 checked + grouped 竖条', () => {
-    expect(leaf(mountTree(), 'guild list').find('.pw-switch').attributes('data-state')).toBe('unchecked')
-    const w = mountTree({ guild: { enabled: 'inherit', admin_only: 'on' } })
+describe('admin_only 轴（权限章实例）', () => {
+  it('行集：完整命令树 29 条；forced 显示锁定「仅管理员·内置」、不可锁显示「所有人·内置」', () => {
+    const w = mountTree('admin_only')
+    expect(w.findAll('.ct-leaf')).toHaveLength(29)
+    const kick = leaf(w, 'server kick')
+    expect(kick.find('.ct-lock').exists()).toBe(true)
+    expect(kick.text()).toContain('仅管理员')
+    expect(kick.findAll('.pw-switch')).toHaveLength(0)
+    const help = leaf(w, '/pal help')
+    expect(help.find('.ct-lock').exists()).toBe(true)
+    expect(help.text()).toContain('所有人')
+    expect(leaf(w, 'world status').find('.pw-switch').exists()).toBe(true) // 可锁行是开关
+  })
+  it('server 组 admin 全 forced → 组头无批量开关（显 —）', () => {
+    const head = groupHead(mountTree('admin_only'), '服务器管控')
+    expect(head.findAll('.pw-switch')).toHaveLength(0)
+    expect(head.find('.ct-na').exists()).toBe(true)
+  })
+  it('生效值：无覆盖 → 所有人（unchecked）；组覆盖 on → 随组 checked + grouped', () => {
+    expect(leaf(mountTree('admin_only'), 'guild list').find('.pw-switch').attributes('data-state')).toBe('unchecked')
+    const w = mountTree('admin_only', { guild: { enabled: 'inherit', admin_only: 'on' } })
     expect(leaf(w, 'guild list').find('.pw-switch').attributes('data-state')).toBe('checked')
     expect(leaf(w, 'guild list').classes()).toContain('grouped')
   })
-  it('切开关偏离继承 → 写显式；切回继承值 → 自动清 admin 轴', async () => {
-    const w = mountTree()
+  it('切开关偏离继承 → 写显式；切回继承 → 自动清 admin 轴', async () => {
+    const w = mountTree('admin_only')
     await leaf(w, 'player info').find('.pw-switch').trigger('click')
     let emitted = w.emitted('update:modelValue')!.at(-1)![0] as Record<string, CmdPerm>
     expect(emitted['player info']).toEqual({ enabled: 'inherit', admin_only: 'on' })
-    const w2 = mountTree({ 'player info': { enabled: 'inherit', admin_only: 'on' } })
+    expect(w.emitted('change')).toBeTruthy()
+    const w2 = mountTree('admin_only', { 'player info': { enabled: 'inherit', admin_only: 'on' } })
     await leaf(w2, 'player info').find('.pw-switch').trigger('click')
     emitted = w2.emitted('update:modelValue')!.at(-1)![0] as Record<string, CmdPerm>
     expect('player info' in emitted).toBe(false)
-    expect(w2.emitted('change')).toBeTruthy()
   })
-  it('组头开关写组名行、不逐叶展开', async () => {
-    const w = mountTree()
-    await groupHead(w, '世界').find('.pw-switch').trigger('click')
-    const emitted = w.emitted('update:modelValue')!.at(-1)![0] as Record<string, CmdPerm>
-    expect(emitted['world']).toEqual({ enabled: 'inherit', admin_only: 'on' })
-    expect('world status' in emitted).toBe(false)
-  })
-  it('扁平组头无批量开关（无组键可写）', () => {
-    const head = groupHead(mountTree(), '其他')
-    expect(head.findAll('.pw-switch')).toHaveLength(0)
-  })
-})
-
-describe('覆盖来源可视化与恢复（只认 admin 轴）', () => {
-  it('admin 单独设置 → 圆点 + ovr 环 + ↺；enabled 覆盖不亮标（归功能页管辖）', () => {
-    const w = mountTree({ 'rank': { enabled: 'inherit', admin_only: 'on' } })
-    expect(leaf(w, 'rank').find('.ov-dot').exists()).toBe(true)
-    expect(leaf(w, 'rank').find('.pw-switch').classes()).toContain('ovr')
-    expect(leaf(w, 'rank').find('.ct-reset').exists()).toBe(true)
-    const w2 = mountTree({ 'rank': { enabled: 'on', admin_only: 'inherit' } })
-    expect(leaf(w2, 'rank').find('.ov-dot').exists()).toBe(false)
-    expect(leaf(w2, 'rank').find('.ct-reset').exists()).toBe(false)
-  })
-  it('↺ 只清 admin 轴，enabled 覆盖原样保留', async () => {
-    const w = mountTree({ 'rank': { enabled: 'on', admin_only: 'on' } })
+  it('↺ 只清 admin 轴，enabled 覆盖保留；enabled 覆盖不亮标', async () => {
+    const w = mountTree('admin_only', { rank: { enabled: 'on', admin_only: 'on' } })
     await leaf(w, 'rank').find('.ct-reset').trigger('click')
     const emitted = w.emitted('update:modelValue')!.at(-1)![0] as Record<string, CmdPerm>
     expect(emitted['rank']).toEqual({ enabled: 'on', admin_only: 'inherit' })
+    const w2 = mountTree('admin_only', { rank: { enabled: 'on', admin_only: 'inherit' } })
+    expect(leaf(w2, 'rank').find('.ov-dot').exists()).toBe(false)
   })
-  it('组 admin 覆盖 → 组头「整组」标 + 受管态类；组头 ↺ 清组 admin', async () => {
-    const w = mountTree({ guild: { enabled: 'inherit', admin_only: 'on' } })
+  it('组 admin 覆盖 → 组头「整组」标 + 受管态；组头 ↺ 清组 admin', async () => {
+    const w = mountTree('admin_only', { guild: { enabled: 'inherit', admin_only: 'on' } })
     const head = groupHead(w, '公会')
     expect(head.text()).toContain('整组')
     expect(head.classes()).toContain('managed')
@@ -86,16 +131,51 @@ describe('覆盖来源可视化与恢复（只认 admin 轴）', () => {
     const emitted = w.emitted('update:modelValue')!.at(-1)![0] as Record<string, CmdPerm>
     expect('guild' in emitted).toBe(false)
   })
-})
-
-describe('hideGroups（单模式）', () => {
-  it('单模式说明行不提「服务器授权」；多模式提', () => {
-    expect(mountTree({}, ['link']).find('.ct-note').text()).not.toContain('服务器授权')
-    expect(mountTree().find('.ct-note').text()).toContain('服务器授权')
+  it('整组 + 叶子单独 → 标显「整组 · 1 单独」；组未管但有单独 → 弱化「1 单独」计数', () => {
+    const w = mountTree('admin_only', {
+      guild: { enabled: 'inherit', admin_only: 'on' },
+      'guild list': { enabled: 'inherit', admin_only: 'off' },
+    })
+    const tag = groupHead(w, '公会').find('.grp-tag')
+    expect(tag.text()).toContain('整组 · 1 单独')
+    expect(tag.classes()).toContain('mixed') // 非纯整组换 warn 色标
+    const pure = mountTree('admin_only', { guild: { enabled: 'inherit', admin_only: 'on' } })
+    expect(groupHead(pure, '公会').find('.grp-tag').classes()).not.toContain('mixed')
+    const w2 = mountTree('admin_only', { 'guild list': { enabled: 'inherit', admin_only: 'on' } })
+    const head2 = groupHead(w2, '公会')
+    expect(head2.text()).toContain('1 单独')
+    expect(head2.text()).not.toContain('整组')
+    expect(head2.classes()).not.toContain('managed')
+  })
+  it('组头开关操作收编叶子例外（另一轴保留）', async () => {
+    const w = mountTree('admin_only', { 'guild list': { enabled: 'on', admin_only: 'off' } })
+    await groupHead(w, '公会').find('.pw-switch').trigger('click') // 整组置 on
+    const emitted = w.emitted('update:modelValue')!.at(-1)![0] as Record<string, CmdPerm>
+    expect(emitted['guild']).toEqual({ enabled: 'inherit', admin_only: 'on' })
+    expect(emitted['guild list']).toEqual({ enabled: 'on', admin_only: 'inherit' }) // admin 例外收编、enabled 保留
+  })
+  it('组头 ↺ 彻底恢复整组默认：清组键 + 全部叶子本轴覆盖（另一轴保留）', async () => {
+    const w = mountTree('admin_only', {
+      guild: { enabled: 'inherit', admin_only: 'on' },
+      'guild list': { enabled: 'on', admin_only: 'off' },
+      'guild info': { enabled: 'inherit', admin_only: 'on' },
+    })
+    await groupHead(w, '公会').find('.ct-reset').trigger('click')
+    const emitted = w.emitted('update:modelValue')!.at(-1)![0] as Record<string, CmdPerm>
+    expect('guild' in emitted).toBe(false)
+    expect('guild info' in emitted).toBe(false)
+    expect(emitted['guild list']).toEqual({ enabled: 'on', admin_only: 'inherit' })
+  })
+  it('扁平组头无批量开关（无组键可写）', () => {
+    expect(groupHead(mountTree('admin_only'), '其他').findAll('.pw-switch')).toHaveLength(0)
+  })
+  it('hideGroups=[link] 隐藏服务器授权组；缺省渲染', () => {
+    expect(mountTree('admin_only', {}, ['link']).text()).not.toContain('服务器授权')
+    expect(mountTree('admin_only').text()).toContain('服务器授权')
   })
   it('hideGroups 不触碰 modelValue（不删隐藏组权限、不发 emit）', () => {
     const mv: Record<string, CmdPerm> = { 'link list': { enabled: 'off', admin_only: 'inherit' } }
-    const w = mountTree(mv, ['link'])
+    const w = mountTree('admin_only', mv, ['link'])
     expect(w.text()).toContain('世界')
     expect(w.emitted('update:modelValue')).toBeFalsy()
     expect(mv['link list']).toEqual({ enabled: 'off', admin_only: 'inherit' })

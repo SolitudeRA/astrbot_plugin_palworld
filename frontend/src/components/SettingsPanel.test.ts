@@ -37,11 +37,12 @@ const mountAccess = async (overrides: Record<string, any> = {}) => {
 }
 
 describe('SettingsPanel', () => {
-  it('权限章渲染玩家查询节（players 重新安家于权限章）', async () => {
+  it('功能章渲染玩家查询节（players 迁至功能章：功能参数与启停同住）', async () => {
     (window.AstrBotPluginPage!.apiGet as any).mockResolvedValue(cfg())
-    const w = mountAt('permissions'); await flushPromises()
-    expect(w.text()).toContain('玩家查询') // players 配置节标题
-    expect(w.text()).toContain('排行榜人数')
+    const w = mountAt('features'); await flushPromises()
+    expect(w.text()).toContain('排行榜人数') // players 配置节字段
+    const wp = mountAt('permissions'); await flushPromises()
+    expect(wp.text()).not.toContain('排行榜人数') // 权限章不再渲染 players 段
   })
   it('权限章渲染 server_admin 配置节（server_admin 重新安家于权限章）', async () => {
     (window.AstrBotPluginPage!.apiGet as any).mockResolvedValue(cfg())

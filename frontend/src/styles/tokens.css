@@ -5,7 +5,9 @@
   --rule:#CFD9C4; --rule-2:#BDC9B0;
   --amber:#D2891C; --amber-h:#B4720E; --amber-soft:#F0DBA8; --on-amber:#231704;
   --flux:#2C9C4E; --flux-soft:#C6E6C8;
-  --danger:#CE4630; --warn:#B67F1C; --on-warn:#2A1E06; --focus:#2E82BE;
+  --danger:#CE4630; --warn:#B67F1C; --on-warn:#2A1E06; --focus:#2E82BE; --on-focus:#FFFFFF;
+  /* 覆盖/受管语义（命令树等「你设置过的」标识）——与焦点环解耦，明暗各自配色 */
+  --override:#3D63B8; --on-override:#FFFFFF;
   --scrim:rgba(0,0,0,.45);
   /* 排版 scale */
   --sans:system-ui,-apple-system,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;
@@ -31,7 +33,9 @@
   --rule:#2C2E31; --rule-2:#3B3E42;
   --amber:#EAAE55; --amber-h:#F3BE6E; --amber-soft:#2C2410; --on-amber:#1E1608;
   --flux:#57C070; --flux-soft:#16301F;
-  --danger:#E7745C; --warn:#D9A94E; --on-warn:#1E1608; --focus:#5BABE6;
+  --danger:#E7745C; --warn:#D9A94E; --on-warn:#1E1608; --focus:#5BABE6; --on-focus:#0E2233;
+  /* 深色主题受管/覆盖换青色系：暗底上比高饱和蓝柔和醒目，与 flux 绿保持区分 */
+  --override:#4FC4CE; --on-override:#082426;
   --scrim:rgba(0,0,0,.6);
   --shadow-sm:0 1px 3px rgba(0,0,0,.5);
   --shadow-md:0 2px 14px rgba(0,0,0,.45);
