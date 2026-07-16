@@ -3,7 +3,9 @@ import { reactive, ref, onMounted, computed, watchEffect } from 'vue'
 import { apiGet, apiPost } from '../lib/bridge'
 import { Unauthorized, BusinessError } from '../lib/errors'
 import { collectBody, type SettingsState, type CmdPerm } from '../lib/collect'
-import { OBJECT_SECTIONS, SERVER_FIELDS, HEADER_FIELDS, type Tri } from '../lib/schema'
+import { OBJECT_SECTIONS, SERVER_FIELDS, HEADER_FIELDS, PAL_TREE, type Tri } from '../lib/schema'
+import { effEnabled, inheritEnabled, writeAxis } from '../lib/permissions'
+import { SwitchRoot, SwitchThumb } from 'reka-ui'
 import { CHAPTERS } from '../lib/chapters'
 import ServerCard from './ServerCard.vue'
 import HeaderCard from './HeaderCard.vue'
@@ -68,6 +70,23 @@ const accessMode = computed(() => (state.sections.routing?.access_mode as string
 const accessModeDesc = computed(() => accessMode.value === 'open'
   ? '完全开放：所有群（含以后新增的）都可查询服务器'
   : '受限授权：仅授权名单内的群可查询')
+
+// 功能页危险区：危险命令启停逐条开关（不随整组，F2）；文案给后果说明
+const DANGER_CMDS = [
+  { path: 'server kick', label: '踢出玩家', desc: '将在线玩家踢出服务器（写操作，仅管理员可用）' },
+  { path: 'server unban', label: '解封玩家', desc: '将玩家移出封禁名单（写操作，仅管理员可用）' },
+  { path: 'server ban', label: '封禁玩家', desc: '将玩家加入服务器封禁名单（写操作，仅管理员可用）' },
+  { path: 'server shutdown', label: '倒计时关服', desc: '按秒数倒计时关闭服务器（写操作，仅管理员可用）' },
+  { path: 'server stop', label: '立即停止', desc: '立刻停止服务器进程（写操作，仅管理员可用）' },
+].map((d) => ({ ...d, node: PAL_TREE.find((n) => n.path === d.path)! }))
+const DANGER_PATHS = DANGER_CMDS.map((d) => d.path)
+const dangerOn = (node: (typeof DANGER_CMDS)[number]['node']) => effEnabled(state.command_perms ?? {}, node)
+const dangerOverridden = (path: string) => (state.command_perms ?? {})[path]?.enabled !== undefined && (state.command_perms ?? {})[path]?.enabled !== 'inherit'
+function onDangerToggle(d: (typeof DANGER_CMDS)[number], target: boolean) {
+  const inh = inheritEnabled(state.command_perms ?? {}, d.node) // danger 恒=内置默认（关）
+  state.command_perms = writeAxis(state.command_perms ?? {}, d.path, 'enabled', target === inh ? 'inherit' : (target ? 'on' : 'off'))
+  dirty.value = true
+}
 
 const ERR: Record<string, string> = {
   save_in_progress: '保存进行中，请稍候', too_frequent: '保存过于频繁，请稍后再试',
@@ -221,6 +240,13 @@ async function save(): Promise<boolean> {
         </section>
         <SectionForm v-for="sec in visibleSections" :key="'inline-' + sec.key" :section="sec"
           :model-value="state.sections[sec.key]" @update:model-value="(v) => { state.sections[sec.key] = v; dirty = true }" />
+        <section>
+          <div class="group-head"><span class="t">自定义请求头</span><span class="c">每次请求都会带上</span></div>
+          <p class="grouphint">含凭证的请求头建议填写「限定服务器」。留空会发给所有服务器，包括以后新增的。</p>
+          <HeaderCard v-for="(h, i) in state.custom_headers" :key="(h.__row_id as string) || (h.__local_key as string)" :model-value="h" :index-label="'请求头 ' + pad(i + 1)"
+            @update:model-value="(v) => { state.custom_headers[i] = v; dirty = true }" @delete="state.custom_headers.splice(i, 1); dirty = true" />
+          <button class="add" @click="state.custom_headers.push(emptyRow(HEADER_FIELDS)); dirty = true">＋ 添加请求头</button>
+        </section>
         <Transition name="collapse">
           <section v-if="singleRestricted">
             <div class="collapse-inner">
@@ -232,13 +258,6 @@ async function save(): Promise<boolean> {
             </div>
           </section>
         </Transition>
-        <section>
-          <div class="group-head"><span class="t">自定义请求头</span><span class="c">每次请求都会带上</span></div>
-          <p class="grouphint">含凭证的请求头建议填写「限定服务器」。留空会发给所有服务器，包括以后新增的。</p>
-          <HeaderCard v-for="(h, i) in state.custom_headers" :key="(h.__row_id as string) || (h.__local_key as string)" :model-value="h" :index-label="'请求头 ' + pad(i + 1)"
-            @update:model-value="(v) => { state.custom_headers[i] = v; dirty = true }" @delete="state.custom_headers.splice(i, 1); dirty = true" />
-          <button class="add" @click="state.custom_headers.push(emptyRow(HEADER_FIELDS)); dirty = true">＋ 添加请求头</button>
-        </section>
         <!-- 危险区垫底：影响重大的操作集中于红框容器（模式切换恒在；残留清理有孤儿才现行） -->
         <section>
           <div class="group-head"><span class="t t-danger">危险区</span><span class="c">影响重大的操作集中在这里，请谨慎</span></div>
@@ -265,30 +284,47 @@ async function save(): Promise<boolean> {
         <section>
           <div class="group-head"><span class="t">功能开关</span><span class="c">按组批量或逐条设置命令的启停</span></div>
           <p class="grouphint">开 = 可用，关 = 停用。谁能使用哪些命令，在「权限」页设置；危险命令不随整组开关，需逐条开启。</p>
-          <CommandTree axis="enabled" :model-value="state.command_perms ?? {}"
+          <CommandTree axis="enabled" :hide-paths="DANGER_PATHS" :model-value="state.command_perms ?? {}"
             @update:model-value="(v) => { state.command_perms = v }" @change="dirty = true" />
+        </section>
+        <!-- 危险区垫底：危险命令不随整组开关，须在此逐条开启 -->
+        <section>
+          <div class="group-head"><span class="t t-danger">危险区</span><span class="c">写操作命令集中管理；封禁 / 关服 / 停止不随整组开关</span></div>
+          <div class="danger-zone">
+            <div v-for="d in DANGER_CMDS" :key="d.path" class="dz-item">
+              <div class="dz-info">
+                <span class="dz-title">{{ d.label }}<span class="dz-path mono">/pal {{ d.path }}</span></span>
+                <span class="dz-desc">{{ d.desc }}</span>
+              </div>
+              <SwitchRoot class="pw-switch sm" :class="{ ovr: dangerOverridden(d.path) }"
+                :model-value="dangerOn(d.node)" :aria-label="d.label + ' 启用'"
+                @update:model-value="(v: boolean) => onDangerToggle(d, v)">
+                <SwitchThumb class="pw-switch-thumb" />
+              </SwitchRoot>
+            </div>
+          </div>
         </section>
       </template>
 
       <template v-if="isPermissions">
         <div class="callout">
           <p class="callout-t">两层权限模型</p>
-          <p>管理员命令的准入由两层共同决定：<b>受托名单</b>决定「谁是管理员」，<b>锁定命令</b>决定「哪些命令只有管理员能用」。未锁定的命令所有群成员都能用。</p>
+          <p>管理员命令的准入由两层共同决定：<b>管理员名单</b>决定谁有管理员身份，<b>锁定命令</b>决定哪些命令只有管理员能用。未锁定的命令所有群成员都能用。</p>
           <p class="callout-warn">名册全局：加入者在其所在每个群都有管理员权，含对任意群 server add/remove；多群共用同一 bot 请谨慎。</p>
         </div>
         <section>
-          <div class="group-head"><span class="t">受托名单</span><span class="c">名单内成员可执行下方锁定的命令</span></div>
+          <div class="group-head"><span class="t">管理员名单</span><span class="c">名单内成员可执行下方锁定的命令</span></div>
           <p v-if="!(state.permission_admins ?? []).length" class="grouphint">名单为空 → 群里暂无人可执行管理员命令</p>
-          <AdminCard v-for="(a, i) in state.permission_admins" :key="(a.__row_id as string) || (a.__local_key as string)" :model-value="a" :index-label="'受托 ' + pad(i + 1)"
+          <AdminCard v-for="(a, i) in state.permission_admins" :key="(a.__row_id as string) || (a.__local_key as string)" :model-value="a" :index-label="'管理员 ' + pad(i + 1)"
             @update:model-value="(v) => { state.permission_admins![i] = v; dirty = true }" @delete="state.permission_admins!.splice(i, 1); dirty = true" />
-          <button class="add" @click="state.permission_admins!.push(emptyAdmin()); dirty = true">＋ 添加受托成员</button>
+          <button class="add" @click="state.permission_admins!.push(emptyAdmin()); dirty = true">＋ 添加管理员</button>
         </section>
         <!-- 小参数段前置（服务器管控：二次确认/审计留存），大面积限制树垫底 -->
         <SectionForm v-for="sec in visibleSections" :key="'inline-' + sec.key" :section="sec"
           :model-value="state.sections[sec.key]" @update:model-value="(v) => { state.sections[sec.key] = v; dirty = true }" />
         <section>
-          <div class="group-head"><span class="t">管理员限制</span><span class="c">按组或逐条设置哪些命令仅管理员可用</span></div>
-          <p class="grouphint">开 = 仅管理员可用，关 = 所有人可用。功能的启停在「功能」页设置。</p>
+          <div class="group-head"><span class="t">命令权限</span><span class="c">按组或逐条设置哪些命令仅管理员可用</span></div>
+          <p class="grouphint">开 = 仅管理员可用，关 = 所有人可用。只列出当前启用的命令；功能的启停在「功能」页设置。</p>
           <CommandTree axis="admin_only" :model-value="state.command_perms ?? {}" :hide-groups="worldMode === 'single' ? ['link'] : []"
             @update:model-value="(v) => { state.command_perms = v }" @change="dirty = true" />
         </section>
@@ -317,6 +353,8 @@ async function save(): Promise<boolean> {
 .callout p b { color: var(--ink); font-weight: var(--fw-semibold); }
 .callout .callout-t { font-size: var(--fs-sm); font-weight: var(--fw-semibold); color: var(--ink); }
 .callout .callout-warn { color: var(--warn); }
+.dz-path { margin-left: var(--space-2); font-size: var(--fs-caption); color: var(--ink-3); font-weight: var(--fw-regular); }
+.pw-switch.ovr { box-shadow: 0 0 0 2px var(--override); }
 /* 访问模式改动未保存时的生效提示 */
 .dz-pending { color: var(--warn); font-weight: var(--fw-medium); }
 /* 授权群名单收折动画：grid-rows 0fr↔1fr + 淡出；reduced-motion 由全局豁免 */

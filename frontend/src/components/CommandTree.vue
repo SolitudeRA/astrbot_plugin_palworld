@@ -16,7 +16,7 @@ import {
 //   axis="admin_only" —— 管理员限制：列可锁非 forced 的 15 条
 // 交互同套：组头开关整组批量 + 叶子开关逐条精细 + 受管视觉（整组标/amber 竖条/圆点/↺）。
 // 覆盖判定与 ↺ 只认本轴——两章各管一轴，绝不误伤对方轴的覆盖。
-const props = defineProps<{ modelValue: Record<string, CmdPerm>; axis: Axis; hideGroups?: string[] }>()
+const props = defineProps<{ modelValue: Record<string, CmdPerm>; axis: Axis; hideGroups?: string[]; hidePaths?: string[] }>()
 const emit = defineEmits<{ 'update:modelValue': [v: Record<string, CmdPerm>]; change: [] }>()
 
 const isEnabledAxis = computed(() => props.axis === 'enabled')
@@ -36,6 +36,9 @@ const groups = computed<Grp[]>(() => {
   const byKey: Record<string, PalTreeNode[]> = {}
   for (const n of PAL_TREE) {
     if ((props.hideGroups ?? []).includes(n.group ?? '')) continue
+    if ((props.hidePaths ?? []).includes(n.path)) continue // 功能页危险区承载的命令，树中不渲染
+    // 权限页只列当前启用的命令：功能关着谈不上「谁可用」（功能页开启后即时出现）
+    if (props.axis === 'admin_only' && !libEffEnabled(props.modelValue, n)) continue
     const k = n.group ?? '__flat__'
     if (!(k in byKey)) { byKey[k] = []; order.push(k) }
     byKey[k].push(n)
@@ -50,8 +53,12 @@ const groups = computed<Grp[]>(() => {
 // 组头批量开关：组内存在本轴可配叶子才有意义
 const groupConfigurable = (g: Grp) => g.nodes.some((n) => configurable(n))
 
+// 权限页 server 组默认收折（7 条全锁定，平时无需铺开）；功能页全展开（危险命令已拆去危险区）
 const expanded = ref<Record<string, boolean>>(
-  Object.fromEntries(PAL_TREE.map((n) => [n.group ?? '__flat__', true])),
+  Object.fromEntries(PAL_TREE.map((n) => {
+    const k = n.group ?? '__flat__'
+    return [k, props.axis === 'enabled' || k !== 'server']
+  })),
 )
 const toggleGroup = (k: string) => { expanded.value[k] = !expanded.value[k] }
 
@@ -95,18 +102,6 @@ function onGroupToggle(g: Grp, target: boolean) {
   emit('update:modelValue', writeAxis(next, g.key, props.axis, v))
   emit('change')
 }
-// 叶子 ↺：只清本轴本条
-const resetAxis = (command: string) => write(command, 'inherit')
-// 组头 ↺「恢复整组默认」：清组键 + 组内全部叶子本轴覆盖（含 danger——恢复默认语义是彻底的）
-function resetGroup(g: Grp) {
-  let next = { ...props.modelValue }
-  for (const n of g.nodes) {
-    if (!configurable(n)) continue
-    next = writeAxis(next, n.path, props.axis, 'inherit')
-  }
-  emit('update:modelValue', writeAxis(next, g.key, props.axis, 'inherit'))
-  emit('change')
-}
 
 const colHead = computed(() => (isEnabledAxis.value ? '启用' : '仅管理员'))
 </script>
@@ -118,7 +113,6 @@ const colHead = computed(() => (isEnabledAxis.value ? '启用' : '仅管理员')
       <div class="ct-row ct-colhead">
         <span class="ct-namecol">命令</span>
         <div class="ct-cell"><span class="ct-colh">{{ colHead }}</span></div>
-        <span class="ct-resetcol"></span>
       </div>
 
       <div v-for="g in groups" :key="g.key" class="ct-group"
@@ -139,22 +133,17 @@ const colHead = computed(() => (isEnabledAxis.value ? '启用' : '仅管理员')
             </SwitchRoot>
             <span v-else-if="!g.isFlat" class="ct-na">—</span>
           </div>
-          <span class="ct-resetcol">
-            <button v-if="groupManaged(g) || overriddenLeaves(g) > 0" type="button" class="ct-reset" aria-label="恢复整组默认"
-              title="恢复整组默认（含单独设置）" @click.stop="resetGroup(g)">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
-            </button>
-          </span>
         </div>
 
         <!-- 叶子行：开关显示生效值；单独设置 = 名旁圆点 + amber 环 + ↺ -->
         <template v-if="expanded[g.key]">
           <div v-for="n in g.nodes" :key="n.path" class="ct-row ct-leaf"
-            :class="{ danger: n.danger, overridden: hasAxisOverride(n.path), grouped: configurable(n) && groupManaged(g) && !hasAxisOverride(n.path) && !(isEnabledAxis && n.danger) }">
+            :class="{ danger: isEnabledAxis && n.danger, overridden: configurable(n) && hasAxisOverride(n.path), grouped: configurable(n) && groupManaged(g) && !hasAxisOverride(n.path) && !(isEnabledAxis && n.danger) }">
             <div class="ct-lname">
               <span class="lbl">{{ n.label }}
-                <span v-if="n.danger" class="dtag" title="危险命令：不随整组开关，需逐条开启">危险</span>
-                <span v-if="hasAxisOverride(n.path)" class="ov-dot" title="此命令已单独设置" aria-label="已单独设置"></span>
+                <!-- 危险标只在功能页（enabled 轴）有信息量：不随整组、需逐条开启；权限页该三条恒锁定，标是噪音 -->
+                <span v-if="isEnabledAxis && n.danger" class="dtag" title="危险命令：不随整组开关，需逐条开启">危险</span>
+                <span v-if="configurable(n) && hasAxisOverride(n.path)" class="ov-dot" title="此命令已单独设置" aria-label="已单独设置"></span>
               </span>
               <span class="path mono">/pal {{ n.path }}</span>
             </div>
@@ -166,12 +155,6 @@ const colHead = computed(() => (isEnabledAxis.value ? '启用' : '仅管理员')
                 <SwitchThumb class="pw-switch-thumb" />
               </SwitchRoot>
             </div>
-            <span class="ct-resetcol">
-              <button v-if="hasAxisOverride(n.path)" type="button" class="ct-reset" aria-label="恢复跟随"
-                title="恢复跟随（清除单独设置）" @click.stop="resetAxis(n.path)">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
-              </button>
-            </span>
           </div>
         </template>
       </div>
@@ -223,11 +206,6 @@ const colHead = computed(() => (isEnabledAxis.value ? '启用' : '仅管理员')
 .pw-switch.ovr { box-shadow: 0 0 0 2px var(--override); }
 
 .ct-cell { width: 120px; display: flex; align-items: center; justify-content: flex-end; flex: none; }
-.ct-resetcol { width: 36px; display: flex; justify-content: flex-end; flex: none; }
-.ct-reset { display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; color: var(--ink-3); background: none; border: 1px solid transparent; border-radius: var(--r-sm); padding: 0; cursor: pointer; transition: color var(--motion-fast), border-color var(--motion-fast), background var(--motion-fast); }
-.ct-reset svg { width: 14px; height: 14px; display: block; }
-.ct-reset:hover { color: var(--override); border-color: color-mix(in srgb, var(--override) 45%, transparent); background: color-mix(in srgb, var(--override) 8%, transparent); }
-.ct-reset:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
 .ct-na { color: var(--ink-3); font-size: var(--fs-caption); }
 
 .ct-lock { display: inline-flex; align-items: baseline; gap: var(--space-1); font-size: var(--fs-caption); color: var(--ink-3); font-style: normal; }

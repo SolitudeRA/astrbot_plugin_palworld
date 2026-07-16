@@ -123,32 +123,40 @@ describe('SettingsPanel', () => {
     expect(w.text()).not.toContain('有未保存的更改') // applyConfig 复位
   })
 
-  it('权限章渲染 callout + 受托名单 + 命令树', async () => {
+  it('权限章渲染 callout + 管理员名单 + 命令树', async () => {
     (window.AstrBotPluginPage!.apiGet as any).mockResolvedValue(cfg())
     const w = mountAt('permissions'); await flushPromises()
-    expect(w.text()).toContain('受托') // 受托名单区块
-    expect(w.text()).toContain('管理员限制') // 命令树区块标题（单轴化后改名）
-    expect(w.text()).toContain('/pal player info') // 命令树含具体命令完整路径
+    expect(w.text()).toContain('管理员名单') // 名单区块（原「受托名单」）
+    expect(w.text()).toContain('命令权限') // 命令树区块标题
+    expect(w.text()).toContain('/pal world status') // 命令树含具体命令完整路径（恒开核心必列）
     expect(w.text()).toContain('名单为空') // 空名单提示
     expect(w.text()).toContain('名册全局') // 爆炸半径安全警句(勿静默删除)
   })
 
   it('权限章：点击命令树三态段 → 覆盖命令权限并置 dirty，collectBody 产出该行', async () => {
-    (window.AstrBotPluginPage!.apiGet as any).mockResolvedValue(cfg())
+    const c = cfg()
+    c.config.command_permissions = [{ command: 'player', enabled: 'on', admin_only: 'inherit' }] // 开玩家功能，行才在权限页列出
+    ;(window.AstrBotPluginPage!.apiGet as any).mockResolvedValue(c)
     const w = mountAt('permissions'); await flushPromises()
-    expect((w.vm as any).state.command_perms).toEqual({})
+    expect((w.vm as any).state.command_perms).toEqual({ player: { enabled: 'on', admin_only: 'inherit' } })
     const row = w.findAll('.ct-leaf').find((r) => r.text().includes('player info'))!
     // 单轴表：admin 开关 off(继承所有人) → 点击置 on（仅管理员）= 显式覆盖
     await row.find('.pw-switch').trigger('click')
     expect((w.vm as any).state.command_perms['player info']).toEqual({ enabled: 'inherit', admin_only: 'on' })
     expect(w.text()).toContain('有未保存的更改')
     const body = collectBody((w.vm as any).state)
-    expect(body.command_permissions).toEqual([{ command: 'player info', enabled: 'inherit', admin_only: 'on' }])
+    expect(body.command_permissions).toEqual([
+      { command: 'player', enabled: 'on', admin_only: 'inherit' },
+      { command: 'player info', enabled: 'inherit', admin_only: 'on' },
+    ])
   })
 
   it('权限章：applyConfig 从 command_permissions 行还原树 state（hydrate 往返）', async () => {
     const c = cfg()
-    c.config.command_permissions = [{ command: 'guild list', enabled: 'inherit', admin_only: 'on' }];
+    c.config.command_permissions = [
+      { command: 'guild', enabled: 'on', admin_only: 'inherit' }, // 开公会功能，行才在权限页列出
+      { command: 'guild list', enabled: 'inherit', admin_only: 'on' },
+    ];
     (window.AstrBotPluginPage!.apiGet as any).mockResolvedValue(c)
     const w = mountAt('permissions'); await flushPromises()
     // 树 state 读回该覆盖行

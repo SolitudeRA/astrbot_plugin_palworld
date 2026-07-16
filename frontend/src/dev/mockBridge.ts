@@ -300,7 +300,7 @@ function scenarioMulti(): Db {
       { id: 'aiocqhttp:10002', note: '副管理员' },
     ],
     command_permissions: [
-      { command: 'server ban', enabled: 'inherit', admin_only: 'on' },
+      { command: 'guild list', enabled: 'inherit', admin_only: 'on' },
       { command: 'world today', enabled: 'off', admin_only: 'inherit' },
       { command: 'rank', enabled: 'on', admin_only: 'inherit' },
     ],
