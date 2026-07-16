@@ -126,11 +126,11 @@ describe('SettingsPanel', () => {
   it('权限章渲染 callout + 管理员名单 + 命令树', async () => {
     (window.AstrBotPluginPage!.apiGet as any).mockResolvedValue(cfg())
     const w = mountAt('permissions'); await flushPromises()
-    expect(w.text()).toContain('管理员名单') // 名单区块（原「受托名单」）
+    expect(w.text()).toContain('管理员名单') // 管理员名单区块
     expect(w.text()).toContain('命令权限') // 命令树区块标题
     expect(w.text()).toContain('/pal world status') // 命令树含具体命令完整路径（恒开核心必列）
     expect(w.text()).toContain('名单为空') // 空名单提示
-    expect(w.text()).toContain('名册全局') // 爆炸半径安全警句(勿静默删除)
+    expect(w.text()).toContain('名单全局') // 爆炸半径安全警句(勿静默删除)
   })
 
   it('权限章：点击命令树三态段 → 覆盖命令权限并置 dirty，collectBody 产出该行', async () => {

@@ -310,7 +310,7 @@ async function save(): Promise<boolean> {
         <div class="callout">
           <p class="callout-t">两层权限模型</p>
           <p>管理员命令的准入由两层共同决定：<b>管理员名单</b>决定谁有管理员身份，<b>锁定命令</b>决定哪些命令只有管理员能用。未锁定的命令所有群成员都能用。</p>
-          <p class="callout-warn">名册全局：加入者在其所在每个群都有管理员权，含对任意群 server add/remove；多群共用同一 bot 请谨慎。</p>
+          <p class="callout-warn">名单全局：加入者在其所在每个群都有管理员权，含对任意群 server add/remove；多群共用同一 bot 请谨慎。</p>
         </div>
         <section>
           <div class="group-head"><span class="t">管理员名单</span><span class="c">名单内成员可执行下方锁定的命令</span></div>
