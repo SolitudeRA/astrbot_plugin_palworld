@@ -58,11 +58,12 @@ async function purge() {
 </template>
 
 <style scoped>
-.orphan-cleanup { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; }
+.orphan-cleanup { display: flex; flex-direction: column; gap: var(--space-2); margin-top: var(--space-2); }
 .danger-text { color: var(--warn); }
-.rows { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
-.mono { font-family: ui-monospace, monospace; font-size: 12px; }
-.ack { display: flex; align-items: center; gap: 8px; font-size: 12.5px; }
-.danger-btn { align-self: flex-start; padding: 6px 14px; border-radius: var(--r); border: 1px solid var(--warn); background: color-mix(in srgb, var(--warn) 10%, var(--card)); color: var(--warn); cursor: pointer; }
+.rows { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-1); }
+.mono { font-size: var(--fs-caption); }
+.ack { display: flex; align-items: center; gap: var(--space-2); font-size: var(--fs-caption); }
+.danger-btn { align-self: flex-start; padding: var(--space-2) var(--space-4); border-radius: var(--r); border: 1px solid var(--warn); background: color-mix(in srgb, var(--warn) 10%, var(--card)); color: var(--warn); cursor: pointer; }
+.danger-btn:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
 .danger-btn:disabled { opacity: .5; cursor: not-allowed; }
 </style>

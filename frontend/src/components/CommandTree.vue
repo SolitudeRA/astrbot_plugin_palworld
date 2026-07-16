@@ -126,41 +126,41 @@ const optsOf = (axis: Axis) => (axis === 'enabled' ? ENABLE_OPTS : ADMIN_OPTS)
 </template>
 
 <style scoped>
-.cmdtree { display: flex; flex-direction: column; gap: 10px; }
-.ct-legend { display: flex; flex-direction: column; gap: 3px; padding: 0 2px 2px; }
-.ct-legend .t { font-size: 13px; font-weight: 600; color: var(--ink); }
-.ct-legend .c { font-size: 12px; color: var(--ink-2); line-height: 1.5; }
-.ct-legend b { color: var(--ink); font-weight: 600; }
+.cmdtree { display: flex; flex-direction: column; gap: var(--space-3); }
+.ct-legend { display: flex; flex-direction: column; gap: var(--space-1); padding: 0 2px 2px; }
+.ct-legend .t { font-size: var(--fs-sm); font-weight: var(--fw-semibold); color: var(--ink); }
+.ct-legend .c { font-size: var(--fs-caption); color: var(--ink-2); line-height: var(--lh-base); }
+.ct-legend b { color: var(--ink); font-weight: var(--fw-semibold); }
 
 .ct-group { border: 1px solid var(--rule); border-radius: var(--r); overflow: hidden; background: var(--card); }
-.ct-row { display: flex; align-items: center; gap: 10px; padding: 8px 12px; }
+.ct-row { display: flex; align-items: center; gap: var(--space-3); padding: var(--space-2) var(--space-3); }
 .ct-grouphead { background: var(--sink); border-bottom: 1px solid var(--rule); }
-.ct-gname { flex: 1; display: flex; align-items: center; gap: 7px; font-family: var(--sans); font-size: 13px; font-weight: 600; color: var(--ink); background: none; border: none; cursor: pointer; text-align: left; padding: 0; }
-.ct-gname .chev { display: inline-block; font-size: 10px; color: var(--ink-3); transition: transform .15s; }
+.ct-gname { flex: 1; display: flex; align-items: center; gap: var(--space-2); font-family: var(--sans); font-size: var(--fs-sm); font-weight: var(--fw-semibold); color: var(--ink); background: none; border: none; cursor: pointer; text-align: left; padding: 0; }
+.ct-gname .chev { display: inline-block; font-size: var(--fs-caption); color: var(--ink-3); transition: transform var(--motion-fast); }
 .ct-gname .chev.open { transform: rotate(90deg); }
-.ct-gname:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; border-radius: 4px; }
+.ct-gname:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; border-radius: var(--r-sm); }
 
 .ct-leaf { border-top: 1px solid var(--rule-2); }
 .ct-leaf.danger { background: color-mix(in srgb, var(--warn) 6%, var(--card)); }
 .ct-lname { flex: 1; display: flex; flex-direction: column; gap: 1px; min-width: 0; }
-.ct-lname .lbl { font-size: 12.5px; color: var(--ink); display: flex; align-items: center; gap: 6px; }
-.ct-lname .path { font-size: 11px; color: var(--ink-3); }
-.dtag { font-size: 10px; font-weight: 600; color: var(--on-warn, #fff); background: var(--warn); border-radius: 4px; padding: 1px 5px; }
+.ct-lname .lbl { font-size: var(--fs-caption); color: var(--ink); display: flex; align-items: center; gap: var(--space-2); }
+.ct-lname .path { font-size: var(--fs-caption); color: var(--ink-3); }
+.dtag { font-size: var(--fs-caption); font-weight: var(--fw-semibold); color: var(--on-warn); background: var(--warn); border-radius: var(--r-sm); padding: 1px var(--space-1); }
 
-.ct-cells { display: flex; gap: 8px; flex: none; }
+.ct-cells { display: flex; gap: var(--space-2); flex: none; }
 .ct-cell { width: 168px; display: flex; align-items: center; justify-content: flex-end; gap: 0; }
-.ct-colh { font-size: 11px; color: var(--ink-3); font-weight: 600; width: 100%; text-align: center; }
-.ct-na { color: var(--ink-3); font-size: 12px; }
+.ct-colh { font-size: var(--fs-caption); color: var(--ink-3); font-weight: var(--fw-semibold); width: 100%; text-align: center; }
+.ct-na { color: var(--ink-3); font-size: var(--fs-caption); }
 
-.seg { font-family: var(--sans); font-size: 11.5px; color: var(--ink-2); background: var(--card); border: 1px solid var(--rule-2); padding: 4px 9px; cursor: pointer; transition: background .12s, color .12s, border-color .12s; }
-.seg:first-child { border-radius: 7px 0 0 7px; }
-.seg:last-child { border-radius: 0 7px 7px 0; }
+.seg { font-family: var(--sans); font-size: var(--fs-caption); color: var(--ink-2); background: var(--card); border: 1px solid var(--rule-2); padding: var(--space-1) var(--space-2); cursor: pointer; transition: background var(--motion-fast), color var(--motion-fast), border-color var(--motion-fast); }
+.seg:first-child { border-radius: var(--r-sm) 0 0 var(--r-sm); }
+.seg:last-child { border-radius: 0 var(--r-sm) var(--r-sm) 0; }
 .seg + .seg { border-left: none; }
 .seg:hover { color: var(--ink); }
 .seg:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; position: relative; z-index: 1; }
-.seg.sel { color: var(--ink); background: var(--sink); font-weight: 600; }
+.seg.sel { color: var(--ink); background: var(--sink); font-weight: var(--fw-semibold); }
 .seg.act { color: var(--on-amber); background: var(--amber); border-color: var(--amber); }
 
-.ct-lock { display: inline-flex; align-items: baseline; gap: 4px; font-size: 11.5px; color: var(--ink-3); font-style: normal; }
-.ct-lock small { font-size: 9.5px; color: var(--ink-3); opacity: .75; border: 1px solid var(--rule-2); border-radius: 4px; padding: 0 3px; }
+.ct-lock { display: inline-flex; align-items: baseline; gap: var(--space-1); font-size: var(--fs-caption); color: var(--ink-3); font-style: normal; }
+.ct-lock small { font-size: var(--fs-caption); color: var(--ink-3); opacity: .75; border: 1px solid var(--rule-2); border-radius: var(--r-sm); padding: 0 var(--space-1); }
 </style>

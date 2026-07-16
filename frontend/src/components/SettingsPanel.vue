@@ -261,11 +261,11 @@ async function save(): Promise<boolean> {
 
 <style scoped>
 /* 只读模式标识：仿 muted chip，靠右贴于章标题；窄屏允许换行避免溢出 */
-.chapter-head { flex-wrap: wrap; row-gap: 6px; }
-.mode-badge { margin-left: auto; align-self: center; font-size: 11.5px; color: var(--ink-2); background: color-mix(in srgb, var(--focus) 6%, var(--card)); border: 1px solid var(--rule); border-radius: var(--r); padding: 4px 10px; white-space: nowrap; }
-.callout { background: color-mix(in srgb, var(--focus) 7%, var(--card)); border: 1px solid color-mix(in srgb, var(--focus) 30%, var(--rule)); border-left: 3px solid var(--focus); border-radius: var(--r); padding: 13px 16px; display: flex; flex-direction: column; gap: 6px; }
-.callout p { margin: 0; font-size: 12.5px; color: var(--ink-2); line-height: 1.55; }
-.callout p b { color: var(--ink); font-weight: 600; }
-.callout .callout-t { font-size: 13.5px; font-weight: 600; color: var(--ink); }
+.chapter-head { flex-wrap: wrap; row-gap: var(--space-2); }
+.mode-badge { margin-left: auto; align-self: center; font-size: var(--fs-caption); color: var(--ink-2); background: color-mix(in srgb, var(--focus) 6%, var(--card)); border: 1px solid var(--rule); border-radius: var(--r); padding: var(--space-1) var(--space-3); white-space: nowrap; }
+.callout { background: color-mix(in srgb, var(--focus) 7%, var(--card)); border: 1px solid color-mix(in srgb, var(--focus) 30%, var(--rule)); border-left: 3px solid var(--focus); border-radius: var(--r); padding: var(--space-3) var(--space-4); display: flex; flex-direction: column; gap: var(--space-2); }
+.callout p { margin: 0; font-size: var(--fs-caption); color: var(--ink-2); line-height: var(--lh-base); }
+.callout p b { color: var(--ink); font-weight: var(--fw-semibold); }
+.callout .callout-t { font-size: var(--fs-sm); font-weight: var(--fw-semibold); color: var(--ink); }
 .callout .callout-warn { color: var(--warn); }
 </style>

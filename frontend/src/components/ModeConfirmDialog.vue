@@ -65,18 +65,18 @@ function confirm() {
 </template>
 
 <style scoped>
-.modal-backdrop { position: fixed; inset: 0; background: rgba(0, 0, 0, .45); display: flex; align-items: center; justify-content: center; z-index: 50; }
-.modal { background: var(--card); border: 1px solid var(--rule); border-radius: var(--r); padding: 20px 22px; width: min(560px, 92vw); max-height: 86vh; overflow: auto; display: flex; flex-direction: column; gap: 12px; }
-.modal h3 { margin: 0; font-size: 15px; }
-.lead { margin: 0; font-size: 12.5px; color: var(--ink-2); line-height: 1.55; }
-.warn { margin: 0; font-size: 12.5px; color: var(--warn); }
-.muted { margin: 0; font-size: 12.5px; color: var(--ink-2); }
-.rows { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
-.rows label { display: flex; align-items: center; gap: 8px; font-size: 12.5px; }
-.mono { font-family: ui-monospace, monospace; }
-.tag-new { font-size: 11px; color: var(--warn); border: 1px solid var(--warn); border-radius: 4px; padding: 0 5px; }
-.tag-has { font-size: 11px; color: var(--ink-2); border: 1px solid var(--rule); border-radius: 4px; padding: 0 5px; }
-.actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 4px; }
-.actions button { padding: 6px 14px; border-radius: var(--r); cursor: pointer; }
+.modal-backdrop { position: fixed; inset: 0; background: var(--scrim); display: flex; align-items: center; justify-content: center; z-index: var(--z-modal); }
+.modal { background: var(--card); border: 1px solid var(--rule); border-radius: var(--r); padding: var(--space-5) var(--space-6); width: min(560px, 92vw); max-height: 86vh; overflow: auto; display: flex; flex-direction: column; gap: var(--space-3); }
+.modal h3 { margin: 0; font-size: var(--fs-heading); }
+.lead { margin: 0; font-size: var(--fs-caption); color: var(--ink-2); line-height: var(--lh-base); }
+.warn { margin: 0; font-size: var(--fs-caption); color: var(--warn); }
+.muted { margin: 0; font-size: var(--fs-caption); color: var(--ink-2); }
+.rows { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-2); }
+.rows label { display: flex; align-items: center; gap: var(--space-2); font-size: var(--fs-caption); }
+.tag-new { font-size: var(--fs-caption); color: var(--warn); border: 1px solid var(--warn); border-radius: var(--r-sm); padding: 0 var(--space-1); }
+.tag-has { font-size: var(--fs-caption); color: var(--ink-2); border: 1px solid var(--rule); border-radius: var(--r-sm); padding: 0 var(--space-1); }
+.actions { display: flex; justify-content: flex-end; gap: var(--space-3); margin-top: var(--space-1); }
+.actions button { padding: var(--space-2) var(--space-4); border-radius: var(--r); cursor: pointer; }
 .ghost { background: transparent; border: 1px solid var(--rule); color: var(--ink); }
+.ghost:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
 </style>
