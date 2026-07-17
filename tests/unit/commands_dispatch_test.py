@@ -13,7 +13,11 @@ from __future__ import annotations
 from types import SimpleNamespace
 
 from palworld_terminal.application.command_permissions import CommandOverride
-from palworld_terminal.application.routing_service import Resolution
+from palworld_terminal.application.routing_service import (
+    Resolution,
+    UnbindResult,
+    UseResult,
+)
 from palworld_terminal.presentation.commands import Commands
 from palworld_terminal.presentation.locale import L
 from tests.unit._perm import overrides
@@ -67,11 +71,11 @@ class _RecordRouting:
 
     async def use(self, umo, name):
         self.use_calls.append((umo, name))
-        return "USE_OK"
+        return UseResult(ok=True, server_id=name, replaced_active=None)
 
     async def unbind(self, umo, name):
         self.unbind_calls.append((umo, name))
-        return "UNBIND_OK"
+        return UnbindResult(removed=True, was_active=False)
 
     def ready_servers(self):
         self.ready_called = True
@@ -79,7 +83,11 @@ class _RecordRouting:
 
 
 class _RecordRepo:
+    def __init__(self) -> None:
+        self.list_called = False
+
     async def list_group_servers(self, umo):
+        self.list_called = True
         return {}
 
 
@@ -331,7 +339,7 @@ async def test_link_add_requires_admin():
     assert out == L("admin_required")
     assert routing.use_calls == []  # 非管理员未触达底层
     out2 = await c.link("u", "/pal link add Alpha", True, "admin", True)
-    assert out2 == "USE_OK"
+    assert out2 == "✅ 已授权本群 · Alpha（设为当前活动）"
     assert routing.use_calls == [("u", "Alpha")]
 
 
@@ -357,7 +365,7 @@ async def test_link_add_empty_name_usage():
     routing = _RecordRouting()
     c = _mk(routing, None, None, _cfg())
     out = await c.link("u", "/pal link add", True, "admin", True)
-    assert out == L("server_usage")
+    assert out == L("link_add_usage")
     assert routing.use_calls == []
 
 
@@ -371,10 +379,11 @@ async def test_link_add_name_via_override():
 
 async def test_link_list_reaches_impl():
     routing = _RecordRouting()
-    c = _mk(routing, None, _RecordRepo(), _cfg())
+    repo = _RecordRepo()
+    c = _mk(routing, None, repo, _cfg())
     out = await c.link("u", "/pal link list", True, "s", False)
     assert isinstance(out, str)
-    assert routing.ready_called  # 触达 link_list 底层
+    assert repo.list_called  # 触达 link_list 底层（群授权查询）
 
 
 async def test_link_bare_group_returns_group_help():

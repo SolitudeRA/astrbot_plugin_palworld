@@ -17,6 +17,30 @@ class Resolution:
     error: str | None
 
 
+@dataclass(slots=True)
+class UseResult:
+    """/pal link add 结构化结果（spec §5#8）：locale 渲染上提 commands 层。
+
+    ok=False → 名字不存在/未就绪（commands 渲染 link_add_unknown）；ok=True 时
+    replaced_active 为被替换的旧活动服务器 id（set_active 前 get_binding_active 取旧值，
+    仅旧≠新时填），commands 据此决定是否出「原活动服务器已替换」脚注。
+    """
+    ok: bool
+    server_id: str | None
+    replaced_active: str | None
+
+
+@dataclass(slots=True)
+class UnbindResult:
+    """/pal link remove 结构化结果（spec §5#8）：先查存在性，修幂等假成功。
+
+    removed=False → 本群无该服务器授权记录（commands 渲染中性素文，不谎报「已撤销」）；
+    was_active → 撤的是本群当前活动服务器（commands 据此出「原为活动服务器」脚注）。
+    """
+    removed: bool
+    was_active: bool
+
+
 class RoutingService:
     def __init__(self, repo: Repository, cfg: AppConfig) -> None:
         self._repo = repo
@@ -102,18 +126,30 @@ class RoutingService:
         # Step 5: friendly prompt
         return Resolution(None, L("no_server_resolved"))
 
-    async def use(self, umo: str, name: str) -> str:
+    async def use(self, umo: str, name: str) -> UseResult:
+        """授权本群使用某服务器并设为当前活动（spec §5#8：结构化返回，渲染上提）。"""
         srv = self._ready_by_name(name)
         if srv is None:
-            return L("server_unknown", server=name)
+            return UseResult(ok=False, server_id=None, replaced_active=None)
+        old_active = await self._repo.get_binding_active(umo)  # set_active 前取旧活动
         await self._repo.set_active(umo, srv.server_id)
-        return L("use_ok", server=srv.server_id)
+        replaced = old_active if (old_active is not None and old_active != srv.server_id) else None
+        return UseResult(ok=True, server_id=srv.server_id, replaced_active=replaced)
 
-    async def unbind(self, umo: str, name: str) -> str:
+    async def unbind(self, umo: str, name: str) -> UnbindResult:
+        """撤销本群对某服务器的授权（spec §5#8：先查存在性 → 修幂等假成功）。
+
+        target 用 _ready_by_name 命中的 server_id，未命中回退原名（残留记录仍可清理）。
+        revoke 前查 list_group_servers：无该记录 → removed=False（不谎报已撤销）。
+        """
         srv = self._ready_by_name(name)
         target = srv.server_id if srv is not None else name
+        group = await self._repo.list_group_servers(umo)
+        if target not in group:
+            return UnbindResult(removed=False, was_active=False)
+        _allowed, was_active = group[target]
         await self._repo.revoke(umo, target)
-        return L("unbind_ok", server=target)
+        return UnbindResult(removed=True, was_active=was_active)
 
     def ready_servers(self) -> list[ServerConfig]:
         return self._ready_servers()

@@ -1,6 +1,10 @@
 from types import SimpleNamespace
 
-from palworld_terminal.application.routing_service import Resolution
+from palworld_terminal.application.routing_service import (
+    Resolution,
+    UnbindResult,
+    UseResult,
+)
 from palworld_terminal.config import ServerConfig, parse_config
 from palworld_terminal.domain.models import World
 from palworld_terminal.presentation.commands import Commands
@@ -37,10 +41,10 @@ class _FakeRouting:
 
     async def use(self, umo, name):
         self.used = (umo, name)
-        return f"USE_OK:{name}"
+        return UseResult(ok=True, server_id=name, replaced_active=None)
 
     async def unbind(self, umo, name):
-        return f"UNBIND_OK:{name}"
+        return UnbindResult(removed=True, was_active=False)
 
     def ready_servers(self):
         return [_server()]
@@ -60,7 +64,7 @@ class _FakeRepo:
         return _world()
 
     async def latest_metric(self, world_id):
-        return object()
+        return SimpleNamespace(observed_at=0)  # 新鲜（clock None→now=0）→ 🟢 在线
 
     async def list_group_servers(self, umo):
         return {"alpha": (True, True)}
@@ -144,7 +148,7 @@ async def test_link_add_happy_path():
     cmds = Commands(routing, _FakeQuery(), _FakeRepo(), _cfg_link(), None)
     out = await cmds.link("umo1", "/pal link add alpha", is_group=True,
                           sender_id="s:1", is_admin=True)
-    assert out == "USE_OK:alpha"
+    assert out == "✅ 已授权本群 · alpha（设为当前活动）"
     assert routing.used == ("umo1", "alpha")
 
 
@@ -153,7 +157,7 @@ async def test_link_remove_happy_path():
                     _cfg_link(), None)
     out = await cmds.link("umo1", "/pal link remove alpha", is_group=True,
                           sender_id="s:1", is_admin=True)
-    assert out == "UNBIND_OK:alpha"
+    assert out == "✅ 已撤销本群授权 · alpha"
 
 
 async def test_link_add_without_name_returns_usage():
@@ -161,7 +165,7 @@ async def test_link_add_without_name_returns_usage():
                     _cfg_link(), None)
     out = await cmds.link("umo1", "/pal link add", is_group=True,
                           sender_id="s:1", is_admin=True)
-    assert out == L("server_usage")
+    assert out == L("link_add_usage")
 
 
 async def test_link_typo_subcommand_returns_group_help():
@@ -187,7 +191,7 @@ async def test_link_add_override_token():
     cmds = Commands(routing, _FakeQuery(), _FakeRepo(), _cfg_link(), None)
     out = await cmds.link("umo1", "/pal link add @alpha", is_group=True,
                           sender_id="s:1", is_admin=True)
-    assert out == "USE_OK:alpha"
+    assert out == "✅ 已授权本群 · alpha（设为当前活动）"
     assert routing.used == ("umo1", "alpha")
 
 

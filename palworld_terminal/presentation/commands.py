@@ -9,8 +9,9 @@ from ..application.command_permissions import (
     effective_admin_only,
     effective_enabled,
 )
+from ..application.query_service import metric_stale
 from ..application.report_service import server_timezone
-from ..domain.enums import EndpointName
+from ..domain.enums import AccessMode, EndpointName
 from ..presentation.command_registry import DISPATCH, METHOD_PATH
 from ..presentation.confirmation import PendingAction
 from ..presentation.dtos import ServerStatusRow
@@ -514,35 +515,66 @@ class Commands:
         # 若日后新增第二个 read 子动作，须改回按 DISPATCH 泛化分发（getattr(method)）。
         return await self.link_list(umo, is_group, is_admin)
 
+    async def _server_reachable(self, server_id: str, now: int, metrics_seconds: int) -> bool:
+        """link list 可达性派生（spec §4.20/§3）：该服当前 world 最新 metric 新鲜 → 在线。
+
+        无 world / 无 metric / 陈旧 → 不可达（离线）。复用 T2 metric_stale 同阈值同 helper
+        （status 降级与 link list 可达共用同一新鲜度判定，避免语义分叉）。
+        """
+        world = await self._repo.get_current_world(server_id)
+        if world is None:
+            return False
+        metric = await self._repo.latest_metric(world.world_id)
+        if metric is None:
+            return False
+        return not metric_stale(metric.observed_at, now, metrics_seconds)
+
     async def link_list(self, umo, is_group, is_admin) -> str:
-        """旧裸 /pal server 列表逻辑迁入（ready + 群绑定状态 → format_servers）。"""
-        ready_ids = {s.server_id for s in self._routing.ready_servers()}
+        """/pal link list（spec §4.20）：ready + 群授权状态 + 三态可达点 → format_servers。
+
+        三态点：未就绪(🟡)=配置不完整(not ready)；在线(🟢)/离线(🔴)=ready 服务器按其当前
+        world 最新 metric 新鲜度派生（reachability）。私聊不查群授权（授权段由 formatter 省略）。
+        """
+        now = self._clock.now() if self._clock else 0
+        metrics_seconds = getattr(
+            getattr(self._cfg, "polling", None), "metrics_seconds", 30)
         group = await self._repo.list_group_servers(umo) if is_group else {}
         rows = []
         for s in (self._cfg.servers if self._cfg else self._routing.ready_servers()):
             allowed, active = group.get(s.server_id, (False, False))
+            online = s.ready and await self._server_reachable(s.server_id, now, metrics_seconds)
             rows.append(ServerStatusRow(
-                name=s.name, ready=s.ready, online=s.server_id in ready_ids,
+                name=s.name, ready=s.ready, online=online,
                 allowed=allowed, active=active,
             ))
         skipped = self._cfg.skipped if self._cfg else []
-        return format_servers(rows, skipped, is_admin)
+        return format_servers(rows, skipped, is_admin, is_group=is_group)
 
     async def link_add(self, umo, name, is_group) -> str:
-        """旧 /pal server add 逻辑迁入（routing.use；is_group/空名守卫）。"""
+        """/pal link add（spec §4.21）：routing.use 结构化返回 → 渲染上提本层。"""
         if not is_group:
             return L("use_only_group")
         if not name:
-            return L("server_usage")
-        return await self._routing.use(umo, name)
+            return L("link_add_usage")
+        result = await self._routing.use(umo, name)
+        if not result.ok:
+            return L("link_add_unknown", server=name)   # 拆键：routing server_unknown 素文不用
+        if result.replaced_active is not None:
+            return L("link_add_ok_replaced", server=result.server_id, old=result.replaced_active)
+        return L("link_add_ok", server=result.server_id)
 
     async def link_remove(self, umo, name, is_group) -> str:
-        """旧 /pal server remove 逻辑迁入（routing.unbind；is_group/空名守卫）。"""
+        """/pal link remove（spec §4.22）：routing.unbind 结构化返回 → 渲染上提本层。"""
         if not is_group:
             return L("use_only_group")
         if not name:
-            return L("server_usage")
-        return await self._routing.unbind(umo, name)
+            return L("link_remove_usage")
+        result = await self._routing.unbind(umo, name)
+        if not result.removed:
+            return L("link_remove_none", server=name)   # 无授权记录：素文中性无操作
+        if result.was_active:
+            return L("link_remove_ok_active", server=name)
+        return L("link_remove_ok", server=name)
 
     def help(self, message_str, is_admin) -> str:
         arg = parse_arg(message_str, "help")
@@ -552,14 +584,43 @@ class Commands:
         )
 
     async def whoami(self, sender_id: str) -> str:
+        """/pal whoami（spec §4.27）：账号标识 + 引导脚注；已是管理员次行加注（零查询）。"""
         if sender_id.endswith(":"):  # 账号段为空(取不到 sender)
             return L("whoami_no_sender")
+        if self.is_plugin_admin(sender_id):
+            return L("whoami_admin", id=sender_id)
         return L("whoami", id=sender_id)
 
     async def whereami(self, umo: str) -> str:
+        """/pal whereami（spec §4.28）：群标识 + 授权态按 access_mode 分流。
+
+        open 模式 → 授权名单不参与 resolve，改显「开放模式无需授权」（否则输出与真实
+        可用性相反）；restricted → 渲染授权段 + 脚注，多模式查 list_group_servers、单模式
+        零查询 single_allowed_groups（active 括注是多模式概念，单模式变体省略）。
+        """
         if not umo:
             return L("whereami_no_umo")
-        return L("whereami", umo=umo)
+        head = L("whereami_head", umo=umo)
+        if self._cfg.routing.access_mode is not AccessMode.RESTRICTED:
+            return f"{head}\n{L('whereami_open')}"
+        if self._world_mode() == "single":
+            allowed = {e.umo for e in self._cfg.routing.single_allowed_groups}
+            if umo in allowed:
+                ready = self._routing.ready_servers()
+                status = L("whereami_authed", servers=ready[0].name) if ready \
+                    else L("whereami_authed", servers="")
+            else:
+                status = L("whereami_unauthed")
+        else:
+            group = await self._repo.list_group_servers(umo)
+            authed: list[str] = []
+            for s in self._cfg.servers:
+                is_allowed, active = group.get(s.server_id, (False, False))
+                if is_allowed:
+                    authed.append(f"{s.name}（当前活动）" if active else s.name)
+            status = (L("whereami_authed", servers="、".join(authed))
+                      if authed else L("whereami_unauthed"))
+        return f"{head}\n{status}\n{L('whereami_footer')}"
 
     # ---- 服务器管控写编排（本功能安全模型的心脏；门序为铁律）----
 

@@ -517,14 +517,81 @@ def test_format_rules_privacy_note_footer():
     assert text.endswith("└ 据点模块在 strict 隐私模式下停用")
 
 
-def test_format_servers_admin_shows_skipped_section():
-    rows = [ServerStatusRow("alpha", True, True, True, True)]
-    skipped = [SkippedServer(raw_name="dup", reason="duplicate")]
-    admin_text = format_servers(rows, skipped, is_admin=True)
+def test_format_servers_three_state_dots():
+    # spec §4.20：🟢 在线（ready+可达）/ 🔴 离线（ready 不可达）/ 🟡 未就绪（配置不完整）。
+    rows = [
+        ServerStatusRow("主服", ready=True, online=True, allowed=True, active=True),
+        ServerStatusRow("备用服", ready=True, online=False, allowed=False, active=False),
+        ServerStatusRow("测试服", ready=False, online=False, allowed=False, active=False),
+    ]
+    text = format_servers(rows, [], is_admin=False, is_group=True)
+    assert text.startswith("🔗 已配置服务器")
+    assert "· 主服 🟢 在线 · 本群已授权 · 当前活动" in text
+    assert "· 备用服 🔴 离线 · 本群未授权" in text
+    assert "· 测试服 🟡 未就绪 · 本群未授权" in text
+
+
+def test_format_servers_private_omits_auth_segment():
+    # spec §4.20：私聊时授权段省略（不出「本群未授权」怪语义）。
+    rows = [ServerStatusRow("主服", ready=True, online=True, allowed=False, active=False)]
+    text = format_servers(rows, [], is_admin=False, is_group=False)
+    assert "· 主服 🟢 在线" in text
+    assert "本群" not in text
+    assert "当前活动" not in text
+
+
+def test_format_servers_admin_shows_skipped_section_cn_reason():
+    # spec §4.20：无效配置素节头（无 ⚠️）+ reason 中文化；仅管理员可见。
+    rows = [ServerStatusRow("alpha", ready=True, online=True, allowed=True, active=True)]
+    skipped = [SkippedServer(raw_name="bad name", reason="illegal_char")]
+    admin_text = format_servers(rows, skipped, is_admin=True, is_group=True)
     assert "alpha" in admin_text
-    assert "被跳过" in admin_text
-    guest_text = format_servers(rows, skipped, is_admin=False)
-    assert "被跳过" not in guest_text
+    assert "无效配置" in admin_text
+    assert "· bad name（名称含非法字符）" in admin_text
+    assert "被跳过" not in admin_text  # 旧节头素文废弃
+    guest_text = format_servers(rows, skipped, is_admin=False, is_group=True)
+    assert "无效配置" not in guest_text
+    assert "bad name" not in guest_text
+
+
+def test_format_servers_skipped_reason_map():
+    rows = [ServerStatusRow("alpha", ready=True, online=True, allowed=True, active=False)]
+    skipped = [
+        SkippedServer(raw_name="", reason="empty"),
+        SkippedServer(raw_name="dup", reason="duplicate"),
+        SkippedServer(raw_name="nocred", reason="no_credential"),
+    ]
+    text = format_servers(rows, skipped, is_admin=True, is_group=True)
+    assert "（名称为空）" in text
+    assert "· dup（名称重复）" in text
+    assert "· nocred（缺少凭据）" in text
+
+
+def test_format_servers_empty_state_uses_link_list_empty():
+    # spec §4.20：拆键 link_list_empty（routing 的 no_server_configured 保持原素文）。
+    text = format_servers([], [], is_admin=True, is_group=True)
+    assert text == "尚未配置 Palworld 服务器\n└ 在插件设置页「连接」章添加"
+
+
+def test_format_servers_admin_only_skipped_still_shows_section():
+    # 无有效 rows 但管理员有 skipped → 展示无效配置节（不落空态）。
+    skipped = [SkippedServer(raw_name="dup", reason="duplicate")]
+    text = format_servers([], skipped, is_admin=True, is_group=True)
+    assert "无效配置" in text and "dup" in text
+    # guest 看不到 skipped → 空态
+    assert format_servers([], skipped, is_admin=False, is_group=True) == (
+        "尚未配置 Palworld 服务器\n└ 在插件设置页「连接」章添加"
+    )
+
+
+def test_format_servers_folds_over_seven():
+    rows = [
+        ServerStatusRow(f"srv{i}", ready=True, online=True, allowed=True, active=False)
+        for i in range(9)
+    ]
+    text = format_servers(rows, [], is_admin=False, is_group=True)
+    assert "…等共 9 条" in text
+    assert "srv7" not in text  # 第 8 台起被折叠
 
 
 def test_format_help_role_separation():

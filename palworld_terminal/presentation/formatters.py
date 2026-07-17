@@ -242,21 +242,49 @@ def format_events(
     return "\n".join(lines)
 
 
+# skipped 配置 reason 中文化（spec §4.20）：无效配置节逐条回显原始名 + 中文原因。
+_SKIP_REASON = {
+    "empty": "名称为空",
+    "duplicate": "名称重复",
+    "illegal_char": "名称含非法字符",
+    "no_credential": "缺少凭据",
+}
+
+
 def format_servers(
-    rows: list[ServerStatusRow], skipped: list[SkippedServer], is_admin: bool
+    rows: list[ServerStatusRow], skipped: list[SkippedServer], is_admin: bool,
+    *, is_group: bool = True,
 ) -> str:
-    if not rows and not skipped:
-        return L("no_server_configured")
-    lines = ["已配置服务器："]
+    """/pal link list（spec §4.20）。标题无服务器主体（§2.1 豁免）。
+
+    状态三态点：🟡 未就绪（not ready）/ 🟢 在线（ready 且可达）/ 🔴 离线（ready 不可达）——
+    可达性由 commands 层按 metric 新鲜度派生填 row.online。私聊（is_group=False）授权段省略
+    （不出「本群未授权」怪语义）。无效配置素节头（无 ⚠️）+ reason 中文化，仅管理员可见。
+    空态拆键 link_list_empty（routing 的 no_server_configured 保原素文）；主列表折叠 7。
+    """
+    if not rows and not (is_admin and skipped):
+        return L("link_list_empty")
+    entries: list[str] = []
     for r in rows:
-        ready = "就绪" if r.ready else "未就绪"
-        online = "在线" if r.online else "离线"
-        allowed = "已授权" if r.allowed else "未授权"
-        active = " ·活动" if r.active else ""
-        lines.append(f"· {r.name} · {ready}/{online} · 本群{allowed}{active}")
+        if not r.ready:
+            dot, word = "🟡", "未就绪"
+        elif r.online:
+            dot, word = "🟢", "在线"
+        else:
+            dot, word = "🔴", "离线"
+        cells = [f"{r.name} {dot} {word}"]
+        if is_group:
+            cells.append("本群已授权" if r.allowed else "本群未授权")
+            if r.active:
+                cells.append("当前活动")
+        entries.append("· " + " · ".join(cells))
+    lines = ["🔗 已配置服务器", "", *fold(entries, 7, "条")]
     if is_admin and skipped:
-        lines.append("⚠ 被跳过的无效服务器配置：")
-        lines.extend(f"  · {s.raw_name}（{s.reason}）" for s in skipped)
+        lines.append("")
+        lines.append("无效配置")
+        lines.extend(
+            f"· {s.raw_name}（{_SKIP_REASON.get(s.reason, s.reason)}）" for s in skipped
+        )
     return "\n".join(lines)
 
 

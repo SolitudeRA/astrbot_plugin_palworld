@@ -29,10 +29,27 @@ MESSAGES: dict[str, str] = {
     "bases_empty": "暂无可展示的据点",
     "base_no_observation": "⚠️ 该据点尚无观测数据",
     "bases_disabled_strict": "⚠️ 据点模块在 strict 隐私模式下停用",
-    "use_only_group": "该命令仅可在群聊中使用。",
+    # 场景/环境不符类拦截统一 ⚠️（spec §3；link add/remove 共用同键同待遇）。
+    "use_only_group": "⚠️ 该命令仅可在群聊中使用",
     "admin_required": "该命令需要管理员权限。",
-    "use_ok": "已授权本群使用服务器「{server}」并设为当前活动服务器。",
-    "unbind_ok": "已撤销本群对服务器「{server}」的授权。",
+    # ---- link 组回执（spec §4.20-4.22）；渲染上提自 RoutingService 结构化返回 ----
+    # 空态拆键（routing 的 no_server_configured 保持原素文，§3/§7）。
+    "link_list_empty": "尚未配置 Palworld 服务器\n└ 在插件设置页「连接」章添加",
+    # add 成功统一用 srv.name；换活动服务器时补脚注。
+    "link_add_ok": "✅ 已授权本群 · {server}（设为当前活动）",
+    "link_add_ok_replaced": (
+        "✅ 已授权本群 · {server}（设为当前活动）\n└ 原活动服务器「{old}」已替换"
+    ),
+    # 不存在/未就绪拆键（routing 的 server_unknown 保持原素文，§3/§7）。
+    "link_add_unknown": "❌ 服务器「{server}」不存在或未就绪\n└ /pal link list 查看可用名称",
+    "link_add_usage": "用法：/pal link add <服务器名>",
+    # remove 成功；撤活动服务器时补脚注；无授权记录素文中性无操作。
+    "link_remove_ok": "✅ 已撤销本群授权 · {server}",
+    "link_remove_ok_active": (
+        "✅ 已撤销本群授权 · {server}\n└ 该服务器原为本群活动服务器，后续需重新授权指定"
+    ),
+    "link_remove_none": "本群没有「{server}」的授权记录",
+    "link_remove_usage": "用法：/pal link remove <服务器名>",
     "empty_day": "平静的一天，没有新事件",
     # events 空态两句变体（spec §4.4；标题锚点由 formatter 供，此处只存空句）。
     "events_empty": "最近还没有新事件",
@@ -64,11 +81,22 @@ MESSAGES: dict[str, str] = {
     ),
     "player_usage": "用法：/pal player info <玩家名>",
     "bind_usage": "用法：/pal player bind <玩家名>\n└ 绑定后可用 /pal me 查看自己的状态",
-    "whoami": "你的账号标识：{id}（建议私聊 bot 执行本命令，再把标识报给管理员加入管理员名单）",
-    "whoami_no_sender": "当前场景无法识别你的账号，请在群聊里再试。",
-    "whereami": "本群标识（UMO）：{umo}（把它交给管理员，在设置页「连接」章的授权群名单中添加即可授权本群查询）",
-    "whereami_no_umo": "当前场景无法识别群标识，请在目标群聊里再试。",
-    "server_usage": "用法：/pal link add <名称> 或 /pal link remove <名称>",
+    # whoami（spec §4.27）：账号标识 + 引导脚注；已是管理员次行加注；取不到场景类 ⚠️。
+    "whoami": (
+        "🪪 我的账号标识\n{id}\n└ 建议私聊使用；把标识交给管理员加入权限名单"
+    ),
+    "whoami_admin": (
+        "🪪 我的账号标识\n{id}\n你已在管理员名单中\n"
+        "└ 建议私聊使用；把标识交给管理员加入权限名单"
+    ),
+    "whoami_no_sender": "⚠️ 当前场景无法识别你的账号，请换个聊天场景再试",
+    # whereami（spec §4.28）：按 access_mode 分流；标题+群标识两行，授权段/脚注由 commands 拼。
+    "whereami_head": "📍 本群标识\n{umo}",
+    "whereami_open": "当前为开放模式，无需授权即可查询",
+    "whereami_authed": "本群已授权：{servers}",
+    "whereami_unauthed": "本群尚未授权",
+    "whereami_footer": "└ 未授权时把标识交给管理员即可开通查询",
+    "whereami_no_umo": "⚠️ 当前场景无法识别群标识，请在群聊中使用",
     # unbind（spec §4.12）：{anchor} 同 bind；悬空绑定绝不渲染 player_key 哈希（§6#10）。
     "unbind_self_ok": "✅ 已解除绑定 · {name}{anchor}\n└ 重新绑定用 /pal player bind <玩家名>",
     "unbind_self_dangling": "✅ 已解除绑定{anchor}",
