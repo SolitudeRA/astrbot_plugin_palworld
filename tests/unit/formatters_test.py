@@ -26,14 +26,32 @@ from palworld_terminal.presentation.formatters import (
 
 
 def test_format_degraded_shows_minutes_not_shutdown():
-    text = format_degraded(last_ok=1000, now=1000 + 300)
-    assert "5" in text
+    # 降级态两行：标题锚点 + 🔴 状态行「最后成功于 N 分钟前」（1500s / 60 = 25）
+    text = format_degraded(last_ok=1000, now=1000 + 1500, server_name="Palpagos")
+    assert "🌍 世界状态 · Palpagos" in text
+    assert "25 分钟前" in text
     assert "关机" not in text
 
 
 def test_format_degraded_never_ok():
-    text = format_degraded(last_ok=None, now=1000)
-    assert "无法获取" in text
+    text = format_degraded(last_ok=None, now=1000, server_name="Palpagos")
+    assert "🌍 世界状态 · Palpagos" in text
+    assert "尚未成功连接过服务器" in text
+
+
+def test_format_status_degraded_two_line_title_and_status():
+    # 陈旧降级：format_status 走两行降级块（标题 + 🔴 状态），用 dto.now 算相对分钟
+    dto = StatusDTO(
+        server_name="Palpagos", world_name="game-world", world_day=0, online=0,
+        max_players=0, basecamp_count=0, fps=0.0, frame_time=0.0, smoothness_label="",
+        players=[], peak_online_today=0, updated_at=1000, degraded=True,
+        last_ok=1000, now=1000 + 1500,
+    )
+    text = format_status(dto)
+    lines = text.split("\n")
+    assert len(lines) == 2
+    assert lines[0] == "🌍 世界状态 · Palpagos"
+    assert "25 分钟前" in lines[1]
 
 
 def test_format_status_takes_only_dto():

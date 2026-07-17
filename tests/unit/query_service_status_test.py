@@ -4,7 +4,7 @@ import pytest
 
 from palworld_terminal.adapters.metadata_repository import MetadataRepository
 from palworld_terminal.adapters.sqlite_repository import Repository
-from palworld_terminal.application.query_service import QueryService
+from palworld_terminal.application.query_service import QueryService, metric_stale
 from palworld_terminal.config import (
     AppConfig,
     BasesConfig,
@@ -82,11 +82,51 @@ async def test_status_assembles_dto(qs):
     assert sid >= 1
 
 
+def test_metric_stale_boundary():
+    # 阈值 = metrics_seconds×3+60；恰阈值内不算陈旧，超阈值一秒方算陈旧
+    assert metric_stale(1000, 1000, 30) is False          # 同刻
+    assert metric_stale(1000, 1000 + 150, 30) is False    # 30×3+60=150，恰阈值
+    assert metric_stale(1000, 1000 + 151, 30) is True     # 超阈值一秒
+
+
+def test_metric_stale_scales_with_metrics_seconds():
+    # 阈值随 metrics_seconds 缩放（纯派生，非硬编码常数）
+    assert metric_stale(0, 300, 30) is True    # 阈值 150，delta 300 → 陈旧
+    assert metric_stale(0, 300, 120) is False  # 阈值 420，delta 300 → 新鲜
+
+
 async def test_status_degraded_when_no_metric(qs):
     repo, q, _ = qs
     dto = await q.status(_world())
     assert dto.degraded is True
     assert dto.online == 0
+
+
+async def test_status_degraded_never_when_no_metric(qs):
+    # 无 metric = 从未成功：degraded 且 last_ok=None（走「尚未成功连接过服务器」句）
+    repo, q, _ = qs
+    dto = await q.status(_world())
+    assert dto.degraded is True
+    assert dto.last_ok is None
+
+
+async def test_status_degraded_when_metric_stale(qs):
+    # clock=1200，metrics_seconds=30 → 阈值 150s；指标距今 200s → 陈旧（死分支复活）
+    repo, q, _ = qs
+    await repo.insert_metric(WorldMetric(WID, 1000, 58.0, 17.2, 2, 42, 5))
+    dto = await q.status(_world())
+    assert dto.degraded is True
+    assert dto.last_ok == 1000    # 最后成功时间戳，供「最后成功于 N 分钟前」
+    assert dto.detail is None     # 降级行（含陈旧）不下发详细区
+    assert dto.now == 1200        # 供 formatter 计算相对分钟的真实当下
+
+
+async def test_status_live_when_metric_fresh_at_threshold(qs):
+    # 指标距今恰 150s（=阈值）→ 未过期，仍 live（非降级）
+    repo, q, _ = qs
+    await repo.insert_metric(WorldMetric(WID, 1050, 58.0, 17.2, 2, 42, 5))
+    dto = await q.status(_world())
+    assert dto.degraded is False
 
 
 async def test_status_is_cached(qs):

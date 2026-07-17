@@ -27,6 +27,16 @@ from .report_service import day_bounds
 _STATUS_TTL = 15
 _ONLINE_TTL = 15
 
+
+def metric_stale(observed_at: int, now: int, metrics_seconds: int) -> bool:
+    """指标新鲜度判定（spec §3 降级态）：距最后成功观测超阈值即视为陈旧。
+
+    阈值 = metrics_seconds × 3 + 60s 余量（纯派生自 polling.metrics_seconds，不新增
+    配置键、随轮询周期缩放）。status 降级双态与 link list 可达三态（T12）共用本判定。
+    边界：距今恰为阈值不算陈旧，超阈值方为陈旧。
+    """
+    return now - observed_at > metrics_seconds * 3 + 60
+
 # 状态卡 detail.rules 子集：输出键 → 设置快照字段。措辞经 meta.setting_display
 # 统一渲染（与 /pal world rules 同源）；快照缺该字段则整键省略。
 _STATUS_RULE_FIELDS = (
@@ -108,15 +118,21 @@ class QueryService:
             return cached
 
         metric = await self._repo.latest_metric(world.world_id)
+        now = self._clock.now()
         rows = await self._online_rows(world)
         # 「今日最高」按本地自然日(day_bounds:per-server tz 优先),与日报/排行同源;
         # 曾为 now-86400 滚动窗口,清晨查询会把昨日晚高峰算进「今日」
-        _day, day_start, _end = day_bounds(self._cfg, world, self._clock.now())
+        _day, day_start, _end = day_bounds(self._cfg, world, now)
         peak_today = await self._repo.peak_online(world.world_id, since=day_start)
-        degraded = metric is None
+        # 降级双态（spec §3）：无 metric=从未成功（last_ok=None）；有 metric 但超新鲜度
+        # 阈值=陈旧（degraded 且 last_ok=observed_at，供「最后成功于 N 分钟前」死分支复活）。
+        stale = metric is not None and metric_stale(
+            metric.observed_at, now, self._cfg.polling.metrics_seconds
+        )
+        degraded = metric is None or stale
 
         dto = StatusDTO(
-            server_name=world.server_name,
+            server_name=self._config_server_name(world),  # 降级标题锚点=配置名（spec §2.1）
             world_name=world.server_name,
             world_day=metric.world_day if metric else world.current_day,
             online=metric.online_players if metric else 0,
@@ -130,8 +146,9 @@ class QueryService:
             updated_at=metric.observed_at if metric else world.last_seen_at,
             degraded=degraded,
             last_ok=metric.observed_at if metric else None,
-            # detail 仅在有 metric（非 degraded）时装配；degraded 行不下发详细区
-            detail=None if metric is None else self._build_status_detail(world, metric),
+            now=now,
+            # detail 仅在 live（非 degraded）时装配；degraded（含陈旧）行不下发详细区
+            detail=None if degraded else self._build_status_detail(world, metric),
         )
         self._cache.set(key, dto, _STATUS_TTL)
         return dto
@@ -141,6 +158,14 @@ class QueryService:
             if s.server_id == server_id:
                 return s.base_url
         return ""
+
+    def _config_server_name(self, world: World) -> str:
+        """降级标题锚点用插件配置名（spec §2.1：server_id≡name，与 @override/link 同词汇）；
+        配置缺失（未注册/测试替身）回退游戏内 world.server_name。"""
+        for s in self._cfg.servers:
+            if s.server_id == world.server_id:
+                return s.name
+        return world.server_name
 
     def _status_rules(self, server_id: str) -> dict[str, str]:
         """detail.rules 白名单子集：从 settings 快照取 4 项，经 setting_display

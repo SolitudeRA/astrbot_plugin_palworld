@@ -83,6 +83,25 @@ async def test_query_happy_path():
     assert query.status_called_with == WID
 
 
+class _FakeRepoNoWorld:
+    async def get_current_world(self, server_id):
+        return None
+
+
+class _FakeClock5000:
+    def now(self):
+        return 5000
+
+
+async def test_resolve_world_none_renders_degraded_with_server_name():
+    # 第三落点：server ready 但无世界快照（从未成功）→ 降级标题带配置名 res.server.name
+    routing = _FakeRouting(Resolution(_server(), None))  # 配置名 "alpha"
+    cmds = Commands(routing, _FakeQuery(), _FakeRepoNoWorld(), cfg=None, clock=_FakeClock5000())
+    out = await cmds.status("umo1", "/pal status", is_group=True)
+    assert "🌍 世界状态 · alpha" in out
+    assert "尚未成功连接过服务器" in out
+
+
 async def test_query_resolution_error_returns_error_text():
     routing = _FakeRouting(Resolution(None, "服务器「x」不存在或未就绪。"))
     cmds = Commands(routing, _FakeQuery(), _FakeRepo(), cfg=None, clock=None)

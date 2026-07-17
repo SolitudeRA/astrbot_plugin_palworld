@@ -109,7 +109,9 @@ class Commands:
             return None, arg, res.error
         world = await self._repo.get_current_world(res.server.server_id)
         if world is None:
-            return None, arg, format_degraded(None, self._clock.now() if self._clock else 0)
+            # server ready 但无世界快照（恒「从未成功」句）：降级标题带配置名 res.server.name
+            now = self._clock.now() if self._clock else 0
+            return None, arg, format_degraded(None, now, res.server.name)
         return world, arg, None
 
     async def handle_query(

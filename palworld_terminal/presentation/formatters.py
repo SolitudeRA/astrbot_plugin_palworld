@@ -39,11 +39,16 @@ def _fmt_duration(seconds: int) -> str:
     return f"{m}分"
 
 
-def format_degraded(last_ok: int | None, now: int) -> str:
+def format_degraded(last_ok: int | None, now: int, server_name: str) -> str:
+    """降级态两行（spec §3/§4.1）：标题锚点全局统一 `🌍 世界状态 · {服务器名}`（不随
+    发起命令变化）+ 🔴 状态行。last_ok=None 为「从未成功」句；否则「最后成功于 N 分钟前」。
+    """
     if last_ok is None:
-        return L("degraded_never")
-    minutes = max(0, (now - last_ok) // 60)
-    return L("degraded", minutes=minutes)
+        status = L("degraded_never")
+    else:
+        minutes = max(0, (now - last_ok) // 60)
+        status = L("degraded", minutes=minutes)
+    return f"🌍 世界状态 · {server_name}\n{status}"
 
 
 def format_online(dto: OnlineDTO) -> str:
@@ -196,7 +201,8 @@ def format_help(topic: str | None, is_admin: bool, overrides, world_mode: str = 
 
 def format_status(dto: StatusDTO) -> str:
     if dto.degraded:
-        return format_degraded(dto.last_ok, dto.updated_at)
+        # now 用 dto.now（真实当下）：陈旧时 updated_at==last_ok，不能充当 now。
+        return format_degraded(dto.last_ok, dto.now, dto.server_name)
     lines = [
         f"世界：{dto.world_name} · 第 {dto.world_day} 天",
         f"在线：{dto.online}/{dto.max_players} 人 · 今日最高 {dto.peak_online_today}",

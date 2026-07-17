@@ -33,11 +33,14 @@ class StatusDTO:
     smoothness_label: str
     players: list[tuple[str, int, str]]   # (name, level, ping_bucket value)
     peak_online_today: int
-    updated_at: int
+    updated_at: int          # 数据时间戳（有 metric 时=observed_at；web 新鲜度用）
     degraded: bool
     last_ok: int | None
     # 详细区：仅 ready 且非 degraded 时装配（degraded/骨架行为 None，status_rows 不下发）
     detail: StatusDetailDTO | None = None
+    # 生成本快照时的真实当下：降级态 format_degraded 据此算「最后成功于 N 分钟前」
+    # （updated_at 在陈旧时=last_ok，不能充当 now）。仅聊天降级渲染消费，不入 web 白名单。
+    now: int = 0
 
 
 @dataclass(slots=True)

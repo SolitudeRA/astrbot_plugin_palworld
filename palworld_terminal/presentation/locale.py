@@ -17,8 +17,8 @@ MESSAGES: dict[str, str] = {
         "选择运行模式（单服务器 / 多服务器）并确认后即可使用。"
     ),
     "active_server_stale": "当前绑定的服务器已不可用，请管理员重新执行 /pal link add <名称>。",
-    "degraded": "当前无法获取 Palworld 世界数据。最后成功更新：{minutes} 分钟前。",
-    "degraded_never": "当前无法获取 Palworld 世界数据（尚无成功记录）。",
+    "degraded": "🔴 当前无法获取世界数据 · 最后成功于 {minutes} 分钟前",
+    "degraded_never": "🔴 尚未成功连接过服务器，请检查「连接」配置",
     "guild_not_found": "未找到公会「{name}」。",
     "base_not_found": "未找到据点「{name}」。",
     "bases_disabled_strict": "据点模块因 strict 隐私模式停用。",
