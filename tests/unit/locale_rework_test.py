@@ -3,7 +3,10 @@ from palworld_terminal.presentation.locale import MESSAGES, L
 
 def test_new_keys_present():
     assert "server_usage" in MESSAGES
-    assert L("unbind_self_ok", name="Alice") == "已解除你与玩家「Alice」的绑定。"
+    # spec §4.12：解绑成功新式样（{name}+{anchor} 尾锚），悬空绝不出哈希。
+    assert L("unbind_self_ok", name="Alice", anchor=" · 主服") == (
+        "✅ 已解除绑定 · Alice · 主服\n└ 重新绑定用 /pal player bind <玩家名>"
+    )
     assert MESSAGES["unbind_self_none"]
 
 

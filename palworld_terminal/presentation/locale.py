@@ -34,21 +34,36 @@ MESSAGES: dict[str, str] = {
     "feature_disabled": "该功能未开放：当前配置或服务器不支持。",
     "rank_empty": "本服务器暂无玩家排行数据。",
     "rank_duration_strict": "时长榜（今日/累计）在 strict 隐私模式下停用。",
-    "player_not_found": "未找到玩家「{name}」。",
-    "me_unbound": "你还没绑定玩家，请用 /pal player bind <玩家名> 绑定。",
-    "me_hidden": "已将你从玩家排行/查询中隐藏。用 /pal me show 可恢复。",
-    "me_shown": "已恢复你在玩家排行/查询中的可见性。",
-    "bind_ok": "已绑定到玩家「{name}」。",
-    "bind_not_found": "未找到玩家「{name}」，无法绑定。",
+    # player info / bind / me not-found 脚注共用（spec §4.10/§4.11）。
+    "player_not_found": (
+        "❌ 未找到玩家「{name}」\n└ 名字须与游戏内完全一致，可用 /pal online 查在线玩家"
+    ),
+    # me 未绑定（spec §4.25）：多模式句内带服 / 单模式去锚；脚注两态皆带。
+    "me_unbound": "你还没有绑定玩家\n└ 用 /pal player bind <玩家名> 绑定",
+    "me_unbound_scoped": "你在「{server}」还没有绑定玩家\n└ 用 /pal player bind <玩家名> 绑定",
+    # me hide/show（spec §4.25）：多模式带服务器锚 / 单模式去服名。
+    "me_hidden": "✅ 已将你从排行与查询中隐藏\n└ /pal me show 恢复",
+    "me_hidden_scoped": "✅ 已将你从「{server}」的排行与查询中隐藏\n└ /pal me show 恢复",
+    "me_shown": "✅ 已恢复你的可见性",
+    "me_shown_scoped": "✅ 已恢复你在「{server}」的可见性",
+    # bind（spec §4.11）：{anchor} 由 commands 层按模式给（多模式 ` · {srv}` / 单模式 ""）。
+    "bind_ok": "✅ 已绑定玩家「{name}」{anchor}\n└ 现在可以用 /pal me 查看自己的状态了",
+    "bind_rebind": "✅ 已改绑到玩家「{name}」（原绑定「{old}」）{anchor}",
+    "bind_not_found": (
+        "❌ 未找到玩家「{name}」，无法绑定\n└ 名字须与游戏内完全一致，可用 /pal online 查在线玩家"
+    ),
     "player_usage": "用法：/pal player info <玩家名>",
-    "bind_usage": "用法：/pal player bind <玩家名>",
+    "bind_usage": "用法：/pal player bind <玩家名>\n└ 绑定后可用 /pal me 查看自己的状态",
     "whoami": "你的账号标识：{id}（建议私聊 bot 执行本命令，再把标识报给管理员加入管理员名单）",
     "whoami_no_sender": "当前场景无法识别你的账号，请在群聊里再试。",
     "whereami": "本群标识（UMO）：{umo}（把它交给管理员，在设置页「连接」章的授权群名单中添加即可授权本群查询）",
     "whereami_no_umo": "当前场景无法识别群标识，请在目标群聊里再试。",
     "server_usage": "用法：/pal link add <名称> 或 /pal link remove <名称>",
-    "unbind_self_ok": "已解除你与玩家「{name}」的绑定。",
-    "unbind_self_none": "你还没有绑定玩家，无需解绑。",
+    # unbind（spec §4.12）：{anchor} 同 bind；悬空绑定绝不渲染 player_key 哈希（§6#10）。
+    "unbind_self_ok": "✅ 已解除绑定 · {name}{anchor}\n└ 重新绑定用 /pal player bind <玩家名>",
+    "unbind_self_dangling": "✅ 已解除绑定{anchor}",
+    "unbind_self_none": "你还没有绑定玩家，无需解绑",
+    "unbind_self_none_scoped": "你在「{server}」还没有绑定玩家，无需解绑",
     # ---- 服务器管控（写命令 / 二次确认）----
     "admin_ok": "已在服务器「{server}」执行【{action}】。",
     "admin_shutdown_initiated": "已向服务器「{server}」发起【{action}】（服务器已断开连接，视为已发起）。",

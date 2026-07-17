@@ -4,7 +4,7 @@ from dataclasses import dataclass, field
 
 from ..adapters.sqlite_repository import Repository
 from ..config import AppConfig
-from ..domain.models import Base, BaseObservation, World, WorldEvent
+from ..domain.models import Base, BaseObservation, PlayerIdentity, World, WorldEvent
 from ..infrastructure.cache import TTLCache
 from ..infrastructure.clock import Clock
 from ..presentation.dtos import (
@@ -106,6 +106,16 @@ class PlayerProfileDTO:
     level: int
     online: bool
     online_seconds: int
+    # spec §5#16 扩字段（数据 PlayerIdentity 现成，DTO 通管；player info + me 共用卡片）。
+    # 今日在线=day 窗口 per-player 聚合同源 rank today；累计=同源 rank total；
+    # guild_name=latest_guild_key 解析（gamedata 锁定期自然缺席→None→formatter 省行）；
+    # hidden=仅 me 路径查 get_hidden_keys 落位（首次现身行「· 已隐藏」角标）。
+    first_seen_at: int = 0
+    last_seen_at: int = 0
+    guild_name: str | None = None
+    today_seconds: int = 0
+    total_seconds: int = 0
+    hidden: bool = False
 
 
 @dataclass(slots=True)
@@ -609,16 +619,63 @@ class QueryService:
         keys = await self._repo.list_players_by_name(world.world_id, name)
         return any(k in excluded for k in keys)
 
+    async def _profile_extras(
+        self, world: World, ident: PlayerIdentity
+    ) -> tuple[int, int, str | None]:
+        """卡片扩字段供数（spec §5#5/§5#16）：今日在线（day 窗口 per-player 墙钟交叠，
+        与 rank today 同源同封顶口径）、留存期累计（同源 rank total，Σobserved_seconds）、
+        公会名（latest_guild_key → list_guilds 解析；gamedata 锁定期公会表空→None→省行）。"""
+        now = self._clock.now()
+        _day, start, end = day_bounds(self._cfg, world, now)
+        today = 0
+        for s in await self._repo.sessions_in_day(world.world_id, start, end):
+            if s.player_key != ident.player_key:
+                continue
+            wall_end = s.left_at if s.left_at is not None else now
+            overlap = min(end, wall_end) - max(start, s.joined_at)
+            today += min(s.observed_seconds, max(overlap, 0))
+        totals = await self._repo.total_durations(world.world_id)
+        total = totals.get(ident.player_key, 0)
+        guild_name: str | None = None
+        if ident.latest_guild_key is not None:
+            for g in await self._repo.list_guilds(world.world_id):
+                if g.guild_key == ident.latest_guild_key:
+                    guild_name = g.latest_name
+                    break
+        return today, total, guild_name
+
+    async def _build_profile(
+        self, world: World, ident: PlayerIdentity, *, hidden: bool
+    ) -> PlayerProfileDTO:
+        session = await self._repo.get_open_session(world.world_id, ident.player_key)
+        today, total, guild_name = await self._profile_extras(world, ident)
+        return PlayerProfileDTO(
+            name=ident.latest_name, level=ident.latest_level,
+            online=session is not None,
+            online_seconds=session.observed_seconds if session is not None else 0,
+            first_seen_at=ident.first_seen_at, last_seen_at=ident.last_seen_at,
+            guild_name=guild_name, today_seconds=today, total_seconds=total,
+            hidden=hidden,
+        )
+
     async def player_profile(self, world: World, name: str) -> PlayerProfileDTO | None:
+        """/pal player info：按名解析 + name_banned 名字级收敛（隐藏玩家返 None，
+        故 player info 卡片 hidden 恒 False——不泄漏被隐藏者存在）。"""
         ident = await self._repo.get_player_by_name(world.world_id, name)
         if ident is None:
             return None
         excluded = await self.load_excluded_keys(world)
         if await self.name_banned(world, ident.latest_name, excluded):
             return None
-        session = await self._repo.get_open_session(world.world_id, ident.player_key)
-        return PlayerProfileDTO(
-            name=ident.latest_name, level=ident.latest_level,
-            online=session is not None,
-            online_seconds=session.observed_seconds if session is not None else 0,
-        )
+        return await self._build_profile(world, ident, hidden=False)
+
+    async def profile_for_key(
+        self, world: World, player_key: str
+    ) -> PlayerProfileDTO | None:
+        """/pal me：按绑定 player_key 直取（不套 name_banned——本人可见自己即便已隐藏）；
+        hidden 标记查 get_hidden_keys 落「· 已隐藏」角标。悬空绑定（玩家行不存在）返 None。"""
+        ident = await self._repo.get_player(world.world_id, player_key)
+        if ident is None:
+            return None
+        hidden = player_key in await self._repo.get_hidden_keys(world.world_id)
+        return await self._build_profile(world, ident, hidden=hidden)

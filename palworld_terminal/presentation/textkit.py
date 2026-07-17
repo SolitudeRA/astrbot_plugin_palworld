@@ -76,6 +76,12 @@ def rel_datetime(ts: int, now: int, tz: str | tzinfo) -> str:
     return f"{rel_date(ts, now, z)} {_local(ts, z).strftime('%H:%M')}"
 
 
+def abs_date(ts: int, tz: str | tzinfo) -> str:
+    """绝对日期 YYYY-MM-DD（spec §2.4）：玩家「首次现身」等固定日期场景，
+    不走相对词形。tz 接受 IANA 字符串或 tzinfo。"""
+    return _local(int(ts), _resolve_tz(tz)).strftime("%Y-%m-%d")
+
+
 def time_of_day(ts: int, tz: str | tzinfo) -> str:
     """当日时分 HH:MM（spec §2.5）：events 今天条目 / events today 变体带时刻，
     节头/标题行已承载日期，故此处只出时分。tz 接受 IANA 字符串或 tzinfo。"""

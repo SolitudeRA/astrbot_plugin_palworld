@@ -9,7 +9,6 @@ from ..application.command_permissions import (
     effective_admin_only,
     effective_enabled,
 )
-from ..application.query_service import PlayerProfileDTO
 from ..application.report_service import server_timezone
 from ..domain.enums import EndpointName
 from ..presentation.command_registry import DISPATCH, METHOD_PATH
@@ -263,7 +262,9 @@ class Commands:
 
     @_gated
     async def player(self, umo, message_str, is_group) -> str:
-        world, arg, err, _srv = await self._resolve_world(umo, message_str, "player", is_group)
+        world, arg, err, server_name = await self._resolve_world(
+            umo, message_str, "player", is_group
+        )
         if err is not None:
             return err
         if not arg.name:
@@ -271,11 +272,22 @@ class Commands:
         dto = await self._query.player_profile(world, arg.name)
         if dto is None:
             return L("player_not_found", name=arg.name)
-        return format_player(dto, strict=self._cfg.privacy.mode == "strict")
+        return format_player(
+            dto, strict=self._cfg.privacy.mode == "strict",
+            server_name=server_name, world_mode=self._world_mode(),
+            tz=server_timezone(self._cfg, world), now=self._clock.now(),
+        )
+
+    def _server_anchor(self, server_name: str) -> str:
+        """账号状态族尾锚（spec §3）：多模式 ` · {srv}`，单模式空串（world_mode 判定
+        与 help 尾注同源）。bind/unbind 成功回执的尾部服务器锚共用。"""
+        return f" · {server_name}" if self._world_mode() != "single" else ""
 
     @_gated
     async def bind(self, umo, message_str, is_group, sender_id) -> str:
-        world, arg, err, _srv = await self._resolve_world(umo, message_str, "bind", is_group)
+        world, arg, err, server_name = await self._resolve_world(
+            umo, message_str, "bind", is_group
+        )
         if err is not None:
             return err
         if not arg.name:
@@ -287,49 +299,65 @@ class Commands:
         if await self._query.name_banned(world, ident.latest_name, excluded):
             return L("bind_not_found", name=arg.name)   # 存在性收敛(名字级,与榜单/查询一致)
         phash = hash_user_id(self._salt, world.world_id, sender_id)
+        # 改绑透明化（spec §4.11）：upsert 前查旧绑定；仅换到不同玩家且旧绑定可解析出不同名
+        # 才出「原绑定」子句——同名重绑/首次绑定/悬空旧绑定一律走朴素 ✅（不啰嗦、不漏哈希）。
+        old_key = await self._repo.get_binding(phash, world.world_id)
         await self._repo.upsert_binding(phash, world.world_id, ident.player_key)
-        return L("bind_ok", name=ident.latest_name)
+        anchor = self._server_anchor(server_name)
+        if old_key is not None and old_key != ident.player_key:
+            old_ident = await self._repo.get_player(world.world_id, old_key)
+            if old_ident is not None and old_ident.latest_name != ident.latest_name:
+                return L("bind_rebind", name=ident.latest_name,
+                         old=old_ident.latest_name, anchor=anchor)
+        return L("bind_ok", name=ident.latest_name, anchor=anchor)
 
     @_gated
     async def me(self, umo, message_str, is_group, sender_id) -> str:
-        world, arg, err, _srv = await self._resolve_world(umo, message_str, "me", is_group)
+        world, arg, err, server_name = await self._resolve_world(
+            umo, message_str, "me", is_group
+        )
         if err is not None:
             return err
+        scoped = self._world_mode() != "single"   # 多模式句内带服 / 尾锚（§3 账号状态族）
         phash = hash_user_id(self._salt, world.world_id, sender_id)
         player_key = await self._repo.get_binding(phash, world.world_id)
         if player_key is None:
-            return L("me_unbound")
+            return L("me_unbound_scoped", server=server_name) if scoped else L("me_unbound")
         sub = arg.name.strip().lower()
         if sub == "hide":
             await self._repo.set_hidden(world.world_id, player_key, phash)
-            return L("me_hidden")
+            return L("me_hidden_scoped", server=server_name) if scoped else L("me_hidden")
         if sub == "show":
             await self._repo.unset_hidden(world.world_id, player_key)
-            return L("me_shown")
-        ident = await self._repo.get_player(world.world_id, player_key)
-        if ident is None:
-            return L("me_unbound")
-        session = await self._repo.get_open_session(world.world_id, player_key)
-        dto = PlayerProfileDTO(
-            name=ident.latest_name, level=ident.latest_level,
-            online=session is not None,
-            online_seconds=session.observed_seconds if session is not None else 0,
+            return L("me_shown_scoped", server=server_name) if scoped else L("me_shown")
+        dto = await self._query.profile_for_key(world, player_key)
+        if dto is None:   # 悬空绑定（玩家行不存在）：回未绑定态，不冒空卡片
+            return L("me_unbound_scoped", server=server_name) if scoped else L("me_unbound")
+        return format_player(
+            dto, strict=self._cfg.privacy.mode == "strict",
+            server_name=server_name, world_mode=self._world_mode(),
+            tz=server_timezone(self._cfg, world), now=self._clock.now(), is_me=True,
         )
-        return format_player(dto, strict=self._cfg.privacy.mode == "strict")
 
     @_gated
     async def unbind_self(self, umo, message_str, is_group, sender_id) -> str:
-        world, _arg, err, _srv = await self._resolve_world(umo, message_str, "unbind", is_group)
+        world, _arg, err, server_name = await self._resolve_world(
+            umo, message_str, "unbind", is_group
+        )
         if err is not None:
             return err
+        scoped = self._world_mode() != "single"
         phash = hash_user_id(self._salt, world.world_id, sender_id)
         player_key = await self._repo.get_binding(phash, world.world_id)
         if player_key is None:
-            return L("unbind_self_none")
+            return (L("unbind_self_none_scoped", server=server_name)
+                    if scoped else L("unbind_self_none"))
         ident = await self._repo.get_player(world.world_id, player_key)
-        name = ident.latest_name if ident is not None else player_key
         await self._repo.delete_binding(phash, world.world_id)
-        return L("unbind_self_ok", name=name)
+        anchor = self._server_anchor(server_name)
+        if ident is None:   # 悬空绑定（spec §6#10）：绝不渲染 player_key 哈希
+            return L("unbind_self_dangling", anchor=anchor)
+        return L("unbind_self_ok", name=ident.latest_name, anchor=anchor)
 
     # ---- 分级组分发 + 门控下沉（安全模型心脏；spec §4.1 门控落点重构）----
     # 门不再挂方法级 _gated（一个 world_grp 跨 core/events/report 三门）；分发循环内

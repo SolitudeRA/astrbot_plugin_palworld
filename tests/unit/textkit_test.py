@@ -6,6 +6,7 @@ from datetime import datetime
 from zoneinfo import ZoneInfo
 
 from palworld_terminal.presentation.textkit import (
+    abs_date,
     fmt_duration,
     fold,
     quote_echo,
@@ -175,6 +176,20 @@ def test_time_of_day_pads_zero():
 
 def test_time_of_day_accepts_tz_string():
     assert time_of_day(_ep(2026, 7, 17, 0, 0), "Asia/Tokyo") == "00:00"
+
+
+# ---- abs_date（spec §2.4：绝对日期 YYYY-MM-DD，首次现身用）----
+
+def test_abs_date_iso():
+    assert abs_date(_ep(2026, 6, 30, 12, 0), _TZ) == "2026-06-30"
+
+
+def test_abs_date_pads_month_day():
+    assert abs_date(_ep(2026, 1, 3, 0, 0), _TZ) == "2026-01-03"
+
+
+def test_abs_date_accepts_tz_string():
+    assert abs_date(_ep(2026, 6, 30, 12, 0), "Asia/Tokyo") == "2026-06-30"
 
 
 # ---- quote_echo（spec §2.3：回执回显用全角双引号 “ ”）----

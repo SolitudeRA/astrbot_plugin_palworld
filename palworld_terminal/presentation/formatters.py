@@ -23,7 +23,14 @@ from ..presentation.dtos import (
     WorldSummaryDTO,
 )
 from ..presentation.locale import L
-from ..presentation.textkit import fmt_duration, fold, rel_date, time_of_day
+from ..presentation.textkit import (
+    abs_date,
+    fmt_duration,
+    fold,
+    rel_date,
+    rel_datetime,
+    time_of_day,
+)
 
 _PING_LABEL = {
     PingBucket.GOOD: "优秀", PingBucket.OK: "正常",
@@ -356,12 +363,45 @@ def format_today(dto, server_name: str) -> str:
     return "\n".join(lines)
 
 
-def format_player(dto: PlayerProfileDTO, *, strict: bool) -> str:
-    lines = [f"玩家 {dto.name}", f"· 等级 Lv{dto.level}",
-             f"· 状态 {'在线' if dto.online else '离线'}"]
-    if not strict and dto.online:
-        lines.append(f"· 本次在线 {_fmt_duration(dto.online_seconds)}")
-    return "\n".join(lines)
+def format_player(
+    dto: PlayerProfileDTO, *, strict: bool, server_name: str,
+    world_mode: str, tz, now: int, is_me: bool = False,
+) -> str:
+    """player info / me 卡片（spec §4.10 / §4.25）。
+
+    标题锚点主体=玩家名（is_me → `我的玩家`）；多模式补服务器锚 ` · {srv}`，单模式省略
+    （§3 账号状态族，world_mode 判定与 help 尾注同源）。在线佩 🟢，离线不佩点。
+    strict 双砍（同 rank 哲学）：砍本次/今日/累计/最后在线，留 Lv/在线状态/公会/首次现身。
+    「最后在线」用 rel_datetime（时间戳字段全档带 HH:MM）；「首次现身」用绝对日期。
+    公会名缺席（gamedata 锁定期）省整行；已隐藏角标仅 me 路径缀于首次现身行。
+    """
+    head = "我的玩家" if is_me else "玩家"
+    title = f"👤 {head} · {dto.name}"
+    if world_mode != "single":
+        title += f" · {server_name}"
+
+    if dto.online:
+        status = [f"Lv{dto.level}", "🟢 在线"]
+        if not strict:
+            status.append(f"本次 {fmt_duration(dto.online_seconds)}")
+    else:
+        status = [f"Lv{dto.level}", "离线"]
+        if not strict:
+            status.append(f"最后在线 {rel_datetime(dto.last_seen_at, now, tz)}")
+
+    block: list[str] = []
+    if not strict:
+        block.append(
+            f"今日在线 {fmt_duration(dto.today_seconds)} · 累计 {fmt_duration(dto.total_seconds)}"
+        )
+    if dto.guild_name:
+        block.append(f"公会「{dto.guild_name}」")
+    first_seen = f"首次现身 {abs_date(dto.first_seen_at, tz)}"
+    if is_me and dto.hidden:
+        first_seen += " · 已隐藏"
+    block.append(first_seen)
+
+    return "\n".join([title, " · ".join(status), "", *block])
 
 
 def format_rank(dto: RankBoardsDTO, *, which: str, strict: bool) -> str:
