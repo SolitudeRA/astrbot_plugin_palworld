@@ -28,7 +28,7 @@
 
 ### `guild` 组 —— 公会与据点(查询)
 
-> ⚠️ **暂不可用**:本组依赖上游 `game-data`(PalGameDataBridge),官方暂未对专用服务器开放,整组命令(及归队至此的 `world overview`)恒回「未开放」、配置写启用也不生效;上游开放后随插件更新恢复。
+> ⚠️ **暂不可用**:本组依赖上游 `game-data`(PalGameDataBridge),官方暂未对专用服务器开放,整组命令(及归队至此的 `world overview`)恒回「未开启」、配置写启用也不生效;上游开放后随插件更新恢复。
 
 | 指令 | 参数 | 功能组 | 说明 |
 |------|------|--------|------|
@@ -49,7 +49,7 @@
 
 | 指令 | 参数 | 功能组 | 权限 / 场景 | 说明 |
 |------|------|--------|-------------|------|
-| `/pal rank` | `[today\|total\|level]` | `players` | 所有人 | 排行榜变体:`today` 今日在线时长榜(缺省)、`total` 留存期内累计在线时长榜、`level` 等级榜 |
+| `/pal rank` | `[today\|total\|level]` | `players` | 所有人 | 排行榜变体:`today` 今日在线时长榜(缺省)、`total` 累计在线时长榜(附注「统计范围为数据留存期」)、`level` 等级榜 |
 | `/pal online` | — | `core` | 所有人 | 当前在线玩家名单 |
 | `/pal me` | `[hide\|show]` | `players` | 所有人 | 我的档案;`hide`/`show` 自助从排行/查询中隐藏或恢复 |
 | `/pal whoami` | — | `core` | 所有人(**建议私聊**) | 查看我的账号标识 `平台:账号`(如 `aiocqhttp:12345`);报给超管加入管理员名单用 |
@@ -73,17 +73,17 @@
 
 ## 功能开关 → 可用指令矩阵
 
-功能按组可插拔(v0.9.6 起由设置页「权限」章的命令树控制,落盘为 `command_permissions`;详见[配置项详解 · 命令树权限模型](configuration.md#features功能开关))。**关闭某命令/组:其指令回「未开放」、`/pal help` 里不再列出**(可配置组代码保留、改开即恢复);`guild` 组因上游 `game-data`(PalGameDataBridge)未开放当前**暂不可用**,配置写启用也不生效、`/game-data` 端点不轮询(观测只读端点恒采集)。
+功能按组可插拔(v0.9.6 起由设置页「权限」章的命令树控制,落盘为 `command_permissions`;详见[配置项详解 · 命令树权限模型](configuration.md#features功能开关))。**关闭某命令/组:其指令回「未开启」、`/pal help` 里不再列出**(可配置组代码保留、改开即恢复);`guild` 组因上游 `game-data`(PalGameDataBridge)未开放当前**暂不可用**,配置写启用也不生效、`/game-data` 端点不轮询(观测只读端点恒采集)。
 
 | 功能组 | 默认 | 对应指令(完整路径) | 开启时 | 关闭时指令行为 |
 |--------|------|----------|--------|----------------|
 | `core`(不可关闭) | 恒开 | `world status` `world rules` `online` `server`(裸) `link`(裸) `whoami` `whereami` `help` `confirm` | ✅ 可用 | —(无法关闭) |
-| `report` | 开 | `world today` | ✅ 可用 | ❌ 回「未开放」、help 隐藏 |
-| `events` | 开 | `world events` | ✅ 可用(并记录世界事件) | ❌ 回「未开放」、不生成事件 |
-| `guilds_bases` | **暂不可用**(上游未开放) | `world overview` `guild list` `guild info` `guild bases` `guild base` | —(上游未开放,配置写启用也不生效) | ❌ 恒回「未开放」、help 隐藏 |
-| `players` | **关** | `player info` `player bind` `player unbind` `rank` `me` | ✅ 可用 | ❌ 回「未开放」、help 隐藏 |
-| `server_admin_basic` | **关** | `server announce` `server save` `server kick` `server unban` | ✅ 仅授权管理员可用 | ❌ 管理员回「未开放」、help 隐藏;非管理员一律「需要管理员权限」 |
-| `server_admin_danger` | **关** | `server ban` `server shutdown` `server stop` | ✅ 仅授权管理员可用(可选二次确认) | ❌ 管理员回「未开放」、help 隐藏;非管理员一律「需要管理员权限」 |
+| `report` | 开 | `world today` | ✅ 可用 | ❌ 回「未开启」、help 隐藏 |
+| `events` | 开 | `world events` | ✅ 可用(并记录世界事件) | ❌ 回「未开启」、不生成事件 |
+| `guilds_bases` | **暂不可用**(上游未开放) | `world overview` `guild list` `guild info` `guild bases` `guild base` | —(上游未开放,配置写启用也不生效) | ❌ 恒回「未开启」、help 隐藏 |
+| `players` | **关** | `player info` `player bind` `player unbind` `rank` `me` | ✅ 可用 | ❌ 回「未开启」、help 隐藏 |
+| `server_admin_basic` | **关** | `server announce` `server save` `server kick` `server unban` | ✅ 仅授权管理员可用 | ❌ 管理员回「未开启」、help 隐藏;非管理员一律「需要管理员权限」 |
+| `server_admin_danger` | **关** | `server ban` `server shutdown` `server stop` | ✅ 仅授权管理员可用(可选二次确认) | ❌ 管理员回「未开启」、help 隐藏;非管理员一律「需要管理员权限」 |
 
 > `server_admin_basic` / `server_admin_danger` 默认关闭:属**受控写**,详见下节[服务器管控](#服务器管控受控写)。非管理员对写命令**一律**回「需要管理员权限」(与组开关状态无关,避免据回执反推危险组是否开启)。
 

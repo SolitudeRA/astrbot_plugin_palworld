@@ -129,12 +129,12 @@
   ```
 
   预期：每个游戏内据点对应一行 `palboxes`；`bases.confidence` 大多为 `high`/`medium`。
-- [ ] `/pal guilds` 应列出公会（含 PalBox 数），而非"公会数据暂不可用"。
+- [ ] `/pal guild list` 应列出公会（含 PalBox 数），而非"暂无公会观察数据"。
 
 **当前保守默认**：
 - 缺任一坐标的 PalBox 直接跳过、不进快照（`palworld_terminal/adapters/normalizer.py` 的 `normalize_game_data()` PalBox 解析分支）。
 - `GuildID` 缺失 → `guild_key=None`（`palworld_terminal/application/base_service.py` 的 `_guild_key()`），该据点置信度强制 `low`（`BaseService.apply()` 的置信度判定），低置信度不进公开事件（规格 §10.3）。
-- 公会聚合侧 `guild_id` 缺失的 actor/PalBox 一律不归公会（`palworld_terminal/application/guild_service.py` 的 `GuildService.apply()`）；无公会数据时 `/pal guilds` 显示 `L("guilds_unavailable")`（`palworld_terminal/presentation/formatters.py` 的 `format_guilds()`，文案 `palworld_terminal/presentation/locale.py` 的 `MESSAGES["guilds_unavailable"]`）。
+- 公会聚合侧 `guild_id` 缺失的 actor/PalBox 一律不归公会（`palworld_terminal/application/guild_service.py` 的 `GuildService.apply()`）；无公会数据时 `/pal guild list` 显示 `L("guilds_empty")`（`palworld_terminal/presentation/formatters.py` 的 `format_guilds()`，文案 `palworld_terminal/presentation/locale.py` 的 `MESSAGES["guilds_empty"]`）。
 
 **结果处置**：
 - 坐标/GuildID 稳定可用 → 维持现状，实测通过即可放心宣传据点功能。
