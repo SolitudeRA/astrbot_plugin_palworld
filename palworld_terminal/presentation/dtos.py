@@ -66,8 +66,15 @@ class WildTopRow:
 
 @dataclass(slots=True)
 class WorldSummaryDTO:
+    """world overview 人口普查（spec §4.2）。
+
+    online/max_players/basecamp_count 取 latest_metric（官方口径，与 status 同源）；
+    人口/设施计数来自 game-data 快照。FPS 归 status，不入本 DTO。
+    available=False（game-data 快照缺失）时 formatter 走 ⚠️ 取数失败态（不再静默全 0）。
+    """
     world_day: int
     online: int
+    max_players: int
     players: int
     otomo: int
     base_pal: int
@@ -75,22 +82,29 @@ class WorldSummaryDTO:
     npc: int
     palbox: int
     guilds: int
-    fps: float
-    average_fps: float
+    basecamp_count: int
     wild_top: list[WildTopRow]
+    available: bool
 
 
 @dataclass(slots=True)
-class RuleRow:
-    label: str
-    value: str
+class RuleSection:
+    title: str                       # 节名（模式/倍率/节奏/上限），素文无图标
+    items: list[tuple[str, str]]     # (展示label, 已渲染值)——formatter 两两并一行
 
 
 @dataclass(slots=True)
 class RulesDTO:
-    rows: list[RuleRow]
+    """world rules 策展分节（spec §4.3）。
+
+    sections 已由 query 层按策展清单裁剪 + 值渲染（倍率 1.0x / 节奏保游戏原单位 /
+    上限裸数）。available=False（settings 快照未获取）→ formatter 走 ⚠️ 取数失败态。
+    privacy_note 两模式分叉句（strict / advanced），balanced 为 None。
+    """
+    sections: list[RuleSection]
+    available: bool
+    privacy_note: str | None
     updated_at: int
-    advanced_note: str | None
 
 
 @dataclass(slots=True)

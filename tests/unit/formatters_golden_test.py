@@ -5,8 +5,9 @@ from palworld_terminal.domain.enums import PingBucket
 from palworld_terminal.presentation.dtos import (
     OnlineDTO,
     OnlinePlayerRow,
-    RuleRow,
     RulesDTO,
+    RuleSection,
+    StatusDetailDTO,
     StatusDTO,
     WildTopRow,
     WorldSummaryDTO,
@@ -32,30 +33,54 @@ def _check_golden(name: str, actual: str) -> None:
 
 
 def test_status_golden():
+    # 样张镜像 spec §4.1（Palpagos=配置名 srv.name，经 server_name 参数供数，非游戏内 world_name）。
+    # 头行分子 = len(players)=2（收敛后名单数，spec §3）；版本/运行时长来自 detail。
+    detail = StatusDetailDTO(
+        version="0.6.5", description="", uptime_seconds=550800,  # 6天9时
+        frametime_ms=17.2, address="", rules={},
+    )
     dto = StatusDTO(
-        server_name="alpha", world_name="Palpagos", world_day=42, online=2, max_players=32,
-        basecamp_count=5, fps=58.0, frame_time=17.2, smoothness_label="流畅",
+        server_name="Palpagos", world_name="game-world", world_day=42, online=2,
+        max_players=32, basecamp_count=5, fps=58.0, frame_time=17.2, smoothness_label="流畅",
         players=[("Neo", 21, "good"), ("Trinity", 18, "ok")],
         peak_online_today=7, updated_at=1700000000, degraded=False, last_ok=1700000000,
+        detail=detail,
     )
-    _check_golden("status.txt", format_status(dto))
+    _check_golden("status.txt", format_status(dto, "Palpagos"))
 
 
 def test_world_golden():
+    # 样张镜像 spec §4.2（居民/设施/野生 Top 三节；FPS 已删除；据点取官方 basecamp_count）。
     dto = WorldSummaryDTO(
-        world_day=42, online=2, players=2, otomo=3, base_pal=8, wild=15, npc=4,
-        palbox=3, guilds=2, fps=58.0, average_fps=56.5,
-        wild_top=[WildTopRow("Lamball", 5), WildTopRow("Chikipi", 3)],
+        world_day=42, online=2, max_players=32, players=12, otomo=38, base_pal=102,
+        wild=361, npc=45, palbox=8, guilds=5, basecamp_count=5,
+        wild_top=[WildTopRow("疾风隼", 24), WildTopRow("棉悠悠", 18)], available=True,
     )
-    _check_golden("world.txt", format_world(dto))
+    _check_golden("world.txt", format_world(dto, "Palpagos"))
 
 
 def test_rules_golden():
+    # 样张镜像 spec §4.3（模式/倍率/节奏/上限四节；同类字段两两并一行；倍率 1.0x /
+    # 节奏保游戏原单位 / 上限裸数——值均由 query 层策展渲染，此处直接给定稿串）。
     dto = RulesDTO(
-        rows=[RuleRow("经验倍率", "1.0x"), RuleRow("捕获倍率", "1.0x"), RuleRow("最大玩家", "32")],
-        updated_at=1700000000, advanced_note=None,
+        sections=[
+            RuleSection("模式", [
+                ("难度", "普通"), ("硬核", "关闭"), ("死亡惩罚", "掉落物品"),
+                ("帕鲁永久死亡", "关闭"), ("PVP 伤害", "关闭"), ("友军伤害", "关闭"),
+                ("入侵者袭击", "开启"),
+            ]),
+            RuleSection("倍率", [
+                ("经验", "1.0x"), ("捕获", "1.2x"), ("工作速度", "1.0x"),
+                ("帕鲁刷新", "1.0x"), ("白天流速", "1.0x"), ("夜晚流速", "1.0x"),
+            ]),
+            RuleSection("节奏", [("蛋孵化", "72 小时"), ("空投间隔", "180 分钟")]),
+            RuleSection("上限", [
+                ("玩家", "32"), ("公会成员", "20"), ("据点 每公会", "4"), ("全服", "128"),
+            ]),
+        ],
+        available=True, privacy_note=None, updated_at=1700000000,
     )
-    _check_golden("rules.txt", format_rules(dto))
+    _check_golden("rules.txt", format_rules(dto, "Palpagos"))
 
 
 def test_today_golden():

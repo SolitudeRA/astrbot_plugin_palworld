@@ -4,8 +4,13 @@ import functools
 from collections.abc import Awaitable, Callable
 
 from ..adapters.privacy_filter import hash_user_id
-from ..application.command_permissions import effective_admin_only, effective_enabled
+from ..application.command_permissions import (
+    active_endpoints,
+    effective_admin_only,
+    effective_enabled,
+)
 from ..application.query_service import PlayerProfileDTO
+from ..domain.enums import EndpointName
 from ..presentation.command_registry import DISPATCH, METHOD_PATH
 from ..presentation.confirmation import PendingAction
 from ..presentation.dtos import ServerStatusRow
@@ -100,35 +105,61 @@ class Commands:
         self._confirmations = confirmations
 
     async def _resolve_world(self, umo: str, message_str: str, subcommand: str, is_group: bool):
+        """解析 (world, arg, err, server_name)。
+
+        server_name = 解析出的配置名 srv.name（spec §2.1 锚点供数机制）：查询类 formatter
+        以此作标题锚点主体名，**不扩 DTO、不取游戏内 world.server_name**。后续查询任务
+        （T6/T8/T9/T10…）沿用本 4 元返回把 server_name 透传各自 formatter。err 分支下
+        server_name 无意义，回 ""（调用方遇 err 直接返回，不消费该位）。
+        """
         try:
             arg = parse_arg(message_str, subcommand)
         except ArgError:
-            return None, None, L("arg_error")
+            return None, None, L("arg_error"), ""
         res = await self._routing.resolve(umo, arg.server_override, is_group)
         if res.server is None:
-            return None, arg, res.error
+            return None, arg, res.error, ""
         world = await self._repo.get_current_world(res.server.server_id)
         if world is None:
             # server ready 但无世界快照（恒「从未成功」句）：降级标题带配置名 res.server.name
             now = self._clock.now() if self._clock else 0
-            return None, arg, format_degraded(None, now, res.server.name)
-        return world, arg, None
+            return None, arg, format_degraded(None, now, res.server.name), res.server.name
+        return world, arg, None, res.server.name
 
     async def handle_query(
         self, umo: str, message_str: str, subcommand: str, is_group: bool,
         formatter: Callable, query_fn: Callable[..., Awaitable],
     ) -> str:
-        world, _arg, err = await self._resolve_world(umo, message_str, subcommand, is_group)
+        world, _arg, err, _server_name = await self._resolve_world(
+            umo, message_str, subcommand, is_group
+        )
         if err is not None:
             return err
         dto = await query_fn(world)
         return formatter(dto)
 
+    def _guilds_bases_on(self) -> bool:
+        """guilds_bases 家族是否生效开启（GAME_DATA 端点派生自任一 guilds_bases 命令生效值）。
+        status 的 `据点` 独立行随此谓词开合（spec §4.1）；测试替身缺 cfg 时保守回 False。"""
+        cfg = self._cfg
+        if cfg is None:
+            return False
+        return EndpointName.GAME_DATA in active_endpoints(cfg.permissions.command_overrides)
+
+    def _is_strict(self) -> bool:
+        cfg = self._cfg
+        if cfg is None:
+            return False
+        return getattr(getattr(cfg, "privacy", None), "mode", "") == "strict"
+
     async def status(self, umo, message_str, is_group) -> str:
-        return await self.handle_query(
-            umo, message_str, "status", is_group,
-            formatter=format_status, query_fn=self._query.status,
+        world, _arg, err, server_name = await self._resolve_world(
+            umo, message_str, "status", is_group
         )
+        if err is not None:
+            return err
+        dto = await self._query.status(world)
+        return format_status(dto, server_name, show_bases=self._guilds_bases_on())
 
     async def online(self, umo, message_str, is_group) -> str:
         return await self.handle_query(
@@ -137,16 +168,22 @@ class Commands:
         )
 
     async def world(self, umo, message_str, is_group) -> str:
-        return await self.handle_query(
-            umo, message_str, "world", is_group,
-            formatter=format_world, query_fn=self._query.world_summary,
+        world, _arg, err, server_name = await self._resolve_world(
+            umo, message_str, "world", is_group
         )
+        if err is not None:
+            return err
+        dto = await self._query.world_summary(world)
+        return format_world(dto, server_name, strict=self._is_strict())
 
     async def rules(self, umo, message_str, is_group) -> str:
-        return await self.handle_query(
-            umo, message_str, "rules", is_group,
-            formatter=format_rules, query_fn=self._query.rules,
+        world, _arg, err, server_name = await self._resolve_world(
+            umo, message_str, "rules", is_group
         )
+        if err is not None:
+            return err
+        dto = await self._query.rules(world)
+        return format_rules(dto, server_name)
 
     @_gated
     async def guilds(self, umo, message_str, is_group) -> str:
@@ -157,7 +194,7 @@ class Commands:
 
     @_gated
     async def guild(self, umo, message_str, is_group) -> str:
-        world, arg, err = await self._resolve_world(umo, message_str, "guild", is_group)
+        world, arg, err, _srv = await self._resolve_world(umo, message_str, "guild", is_group)
         if err is not None:
             return err
         dto = await self._query.guild(world, arg.name)
@@ -174,7 +211,7 @@ class Commands:
 
     @_gated
     async def base(self, umo, message_str, is_group) -> str:
-        world, arg, err = await self._resolve_world(umo, message_str, "base", is_group)
+        world, arg, err, _srv = await self._resolve_world(umo, message_str, "base", is_group)
         if err is not None:
             return err
         dto = await self._query.base(world, arg.name)
@@ -185,7 +222,7 @@ class Commands:
     @_gated
     async def events(self, umo, message_str, is_group) -> str:
         today_only = "today" in message_str.split()
-        world, _arg, err = await self._resolve_world(umo, message_str, "events", is_group)
+        world, _arg, err, _srv = await self._resolve_world(umo, message_str, "events", is_group)
         if err is not None:
             return err
         dto = await self._query.events(world, today_only=today_only)
@@ -193,14 +230,14 @@ class Commands:
 
     @_gated
     async def today(self, umo, message_str, is_group) -> str:
-        world, _arg, err = await self._resolve_world(umo, message_str, "today", is_group)
+        world, _arg, err, _srv = await self._resolve_world(umo, message_str, "today", is_group)
         if err is not None:
             return err
         return format_today(await self._query.today(world))
 
     @_gated
     async def rank(self, umo, message_str, is_group) -> str:
-        world, arg, err = await self._resolve_world(umo, message_str, "rank", is_group)
+        world, arg, err, _srv = await self._resolve_world(umo, message_str, "rank", is_group)
         if err is not None:
             return err
         strict = self._cfg.privacy.mode == "strict"
@@ -215,7 +252,7 @@ class Commands:
 
     @_gated
     async def player(self, umo, message_str, is_group) -> str:
-        world, arg, err = await self._resolve_world(umo, message_str, "player", is_group)
+        world, arg, err, _srv = await self._resolve_world(umo, message_str, "player", is_group)
         if err is not None:
             return err
         if not arg.name:
@@ -227,7 +264,7 @@ class Commands:
 
     @_gated
     async def bind(self, umo, message_str, is_group, sender_id) -> str:
-        world, arg, err = await self._resolve_world(umo, message_str, "bind", is_group)
+        world, arg, err, _srv = await self._resolve_world(umo, message_str, "bind", is_group)
         if err is not None:
             return err
         if not arg.name:
@@ -244,7 +281,7 @@ class Commands:
 
     @_gated
     async def me(self, umo, message_str, is_group, sender_id) -> str:
-        world, arg, err = await self._resolve_world(umo, message_str, "me", is_group)
+        world, arg, err, _srv = await self._resolve_world(umo, message_str, "me", is_group)
         if err is not None:
             return err
         phash = hash_user_id(self._salt, world.world_id, sender_id)
@@ -271,7 +308,7 @@ class Commands:
 
     @_gated
     async def unbind_self(self, umo, message_str, is_group, sender_id) -> str:
-        world, _arg, err = await self._resolve_world(umo, message_str, "unbind", is_group)
+        world, _arg, err, _srv = await self._resolve_world(umo, message_str, "unbind", is_group)
         if err is not None:
             return err
         phash = hash_user_id(self._salt, world.world_id, sender_id)

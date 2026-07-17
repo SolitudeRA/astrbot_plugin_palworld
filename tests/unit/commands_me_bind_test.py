@@ -40,7 +40,7 @@ async def cmds_env(tmp_path):
         c = Commands(routing=None, query=query, repo=repo, cfg=cfg, clock=clock, salt=_SALT)
         async def _rw(umo, msg, sub, is_group):
             from palworld_terminal.presentation.server_arg import parse_arg
-            return _W, parse_arg(msg, sub), None
+            return _W, parse_arg(msg, sub), None, "srv"
         c._resolve_world = _rw
         return c
     yield repo, build

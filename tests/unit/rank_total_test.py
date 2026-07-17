@@ -129,7 +129,7 @@ def _cmds(mode="strict"):
 
     async def _rw(umo, msg, sub, is_group):
         return (SimpleNamespace(world_id="w1", server_id="w"),
-                SimpleNamespace(name=msg, server_override=None), None)
+                SimpleNamespace(name=msg, server_override=None), None, "srv")
     c._resolve_world = _rw
     return c
 

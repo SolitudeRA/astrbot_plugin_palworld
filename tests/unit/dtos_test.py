@@ -7,8 +7,8 @@ from palworld_terminal.presentation.dtos import (
     GuildDTO,
     OnlineDTO,
     OnlinePlayerRow,
-    RuleRow,
     RulesDTO,
+    RuleSection,
     ServerStatusRow,
     StatusDTO,
     WildTopRow,
@@ -45,11 +45,14 @@ def test_base_detail_carries_confidence():
 
 def test_remaining_dtos_construct():
     WorldSummaryDTO(
-        world_day=1, online=0, players=0, otomo=0, base_pal=0, wild=0, npc=0,
-        palbox=0, guilds=0, fps=60.0, average_fps=59.0,
-        wild_top=[WildTopRow(name="Lamball", count=4)],
+        world_day=1, online=0, max_players=32, players=0, otomo=0, base_pal=0, wild=0,
+        npc=0, palbox=0, guilds=0, basecamp_count=0,
+        wild_top=[WildTopRow(name="Lamball", count=4)], available=True,
     )
-    RulesDTO(rows=[RuleRow(label="经验倍率", value="1.0x")], updated_at=1000, advanced_note=None)
+    RulesDTO(
+        sections=[RuleSection(title="倍率", items=[("经验", "1.0x")])],
+        available=True, privacy_note=None, updated_at=1000,
+    )
     GuildDTO(name="Noema", observed_members=4, palbox=2, base_pals=10, active_7d=3)
     GuildDetailDTO(
         name="Noema", first_seen_at=1, last_seen_at=2, observed_members=4,

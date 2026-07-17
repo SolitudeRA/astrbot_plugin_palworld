@@ -8,8 +8,13 @@ from palworld_terminal.presentation.dtos import (
     GuildDTO,
     OnlineDTO,
     OnlinePlayerRow,
+    RulesDTO,
+    RuleSection,
     ServerStatusRow,
+    StatusDetailDTO,
     StatusDTO,
+    WildTopRow,
+    WorldSummaryDTO,
 )
 from palworld_terminal.presentation.formatters import (
     format_base,
@@ -20,9 +25,27 @@ from palworld_terminal.presentation.formatters import (
     format_guilds,
     format_help,
     format_online,
+    format_rules,
     format_servers,
     format_status,
+    format_world,
 )
+
+
+def _detail(version="0.6.5", uptime=550800):
+    return StatusDetailDTO(
+        version=version, description="", uptime_seconds=uptime,
+        frametime_ms=17.2, address="", rules={},
+    )
+
+
+def _status(*, players, online=2, max_players=32, basecamp_count=5, detail=None):
+    return StatusDTO(
+        server_name="cfg-name", world_name="game-world", world_day=42, online=online,
+        max_players=max_players, basecamp_count=basecamp_count, fps=58.0, frame_time=17.2,
+        smoothness_label="流畅", players=players, peak_online_today=7,
+        updated_at=1700000000, degraded=False, last_ok=1700000000, detail=detail,
+    )
 
 
 def test_format_degraded_shows_minutes_not_shutdown():
@@ -40,33 +63,67 @@ def test_format_degraded_never_ok():
 
 
 def test_format_status_degraded_two_line_title_and_status():
-    # 陈旧降级：format_status 走两行降级块（标题 + 🔴 状态），用 dto.now 算相对分钟
+    # 陈旧降级：format_status 走两行降级块（标题锚点=server_name 参数 + 🔴 状态），用 dto.now 算分钟
     dto = StatusDTO(
-        server_name="Palpagos", world_name="game-world", world_day=0, online=0,
+        server_name="ignored", world_name="game-world", world_day=0, online=0,
         max_players=0, basecamp_count=0, fps=0.0, frame_time=0.0, smoothness_label="",
         players=[], peak_online_today=0, updated_at=1000, degraded=True,
         last_ok=1000, now=1000 + 1500,
     )
-    text = format_status(dto)
+    text = format_status(dto, "Palpagos")
     lines = text.split("\n")
     assert len(lines) == 2
     assert lines[0] == "🌍 世界状态 · Palpagos"
     assert "25 分钟前" in lines[1]
 
 
-def test_format_status_takes_only_dto():
-    # fps 分档（smoothness_label）由应用层依据 WorldConfig 计算并放入 DTO，
-    # formatter 不再接收 config —— 签名为 format_status(dto)。
-    dto = StatusDTO(
-        server_name="alpha", world_name="Palpagos", world_day=42, online=2, max_players=32,
-        basecamp_count=5, fps=58.0, frame_time=17.2, smoothness_label="流畅",
-        players=[("Neo", 21, "good")],
-        peak_online_today=7, updated_at=1700000000, degraded=False, last_ok=1700000000,
+def test_format_status_new_layout_matches_spec_4_1():
+    # spec §4.1 定稿样张逐行（标题锚点=配置名参数；据点独立行；玩家轻条目）。
+    dto = _status(
+        players=[("Neo", 21, "good"), ("Trinity", 18, "ok")], detail=_detail(),
     )
-    text = format_status(dto)
-    assert "Palpagos" in text
-    assert "流畅" in text
-    assert "Neo" in text
+    assert format_status(dto, "Palpagos") == (
+        "🌍 世界状态 · Palpagos\n"
+        "第 42 天 · v0.6.5 · 已运行 6天9时\n"
+        "\n"
+        "在线 2/32 · 今日峰值 7\n"
+        "性能 🟢 流畅 · FPS 58 · 帧时间 17.2ms\n"
+        "据点 5\n"
+        "\n"
+        "在线玩家\n"
+        "· Neo Lv21\n"
+        "· Trinity Lv18"
+    )
+
+
+def test_format_status_head_count_is_converged_list_length_not_raw():
+    # spec §3/§4.1 要点（B）：头行分子=收敛后名单长度，而非 metric 原始在线数（dto.online）。
+    # dto.online=9（原始/聚合）但收敛名单仅 2 人 → 头行须 2/32，杜绝「在线 9」列 2 人的存在性泄漏。
+    dto = _status(players=[("Neo", 21, "good"), ("Trinity", 18, "ok")], online=9, detail=_detail())
+    text = format_status(dto, "Palpagos")
+    assert "在线 2/32" in text
+    assert "在线 9" not in text
+
+
+def test_format_status_bases_line_hidden_when_group_off():
+    dto = _status(players=[("Neo", 21, "good")], detail=_detail())
+    on = format_status(dto, "Palpagos", show_bases=True)
+    off = format_status(dto, "Palpagos", show_bases=False)
+    assert "据点 5" in on
+    assert "据点" not in off
+
+
+def test_format_status_folds_players_over_seven():
+    players = [(f"P{i}", 20 + i, "good") for i in range(9)]
+    text = format_status(_status(players=players, max_players=32, detail=_detail()), "Palpagos")
+    assert "…等共 9 人" in text
+    assert "· P7" not in text  # 超 7 条后不再逐条列出
+
+
+def test_format_status_zero_players_omits_section():
+    text = format_status(_status(players=[], detail=_detail()), "Palpagos")
+    assert "在线玩家" not in text
+    assert "在线 0/32" in text
 
 
 def test_format_online_lists_players_and_bucket_label():
@@ -116,6 +173,78 @@ def test_format_events_and_empty():
     text = format_events([EventDTO(1000, "new_player", "新玩家加入世界")])
     assert "新玩家加入世界" in text
     assert "暂无" in format_events([])
+
+
+def _world_dto(*, available=True):
+    return WorldSummaryDTO(
+        world_day=42, online=2, max_players=32, players=12, otomo=38, base_pal=102,
+        wild=361, npc=45, palbox=8, guilds=5, basecamp_count=5,
+        wild_top=[WildTopRow("疾风隼", 24), WildTopRow("棉悠悠", 18)], available=available,
+    )
+
+
+def test_format_world_new_layout_matches_spec_4_2():
+    assert format_world(_world_dto(), "Palpagos") == (
+        "🗺️ 世界概览 · Palpagos\n"
+        "第 42 天 · 在线 2/32\n"
+        "\n"
+        "居民\n"
+        "· 角色 12 · NPC 45\n"
+        "· 帕鲁 随行 38 · 工作 102 · 野生 361\n"
+        "\n"
+        "设施\n"
+        "· PalBox 8 · 公会 5 · 据点 5\n"
+        "\n"
+        "野生帕鲁 Top（当前快照）\n"
+        "· 疾风隼 ×24\n"
+        "· 棉悠悠 ×18"
+    )
+
+
+def test_format_world_snapshot_missing_is_error_state():
+    # spec §4.2/§6#8：快照缺失不再静默全 0，走 ⚠️ 取数失败态。
+    text = format_world(_world_dto(available=False), "Palpagos")
+    assert text == "🗺️ 世界概览 · Palpagos\n⚠️ 尚未获取到世界快照，稍后再试"
+
+
+def test_format_world_strict_omits_palbox_keeps_guild_and_base():
+    text = format_world(_world_dto(), "Palpagos", strict=True)
+    assert "· 公会 5 · 据点 5" in text
+    assert "PalBox" not in text
+
+
+def _rules_dto(*, available=True, privacy_note=None):
+    return RulesDTO(
+        sections=[
+            RuleSection("模式", [("难度", "普通"), ("硬核", "关闭")]),
+            RuleSection("倍率", [("经验", "1.0x"), ("捕获", "1.2x")]),
+        ],
+        available=available, privacy_note=privacy_note, updated_at=1700000000,
+    )
+
+
+def test_format_rules_pairs_two_per_line():
+    text = format_rules(_rules_dto(), "Palpagos")
+    assert text == (
+        "📜 世界规则 · Palpagos\n"
+        "\n"
+        "模式\n"
+        "· 难度 普通 · 硬核 关闭\n"
+        "\n"
+        "倍率\n"
+        "· 经验 1.0x · 捕获 1.2x"
+    )
+
+
+def test_format_rules_unavailable_is_error_state():
+    # spec §4.3/§9：settings 未获取 → ⚠️ 取数失败态。
+    text = format_rules(_rules_dto(available=False), "Palpagos")
+    assert text == "📜 世界规则 · Palpagos\n⚠️ 尚未从服务器获取到规则数据，稍后再试"
+
+
+def test_format_rules_privacy_note_footer():
+    text = format_rules(_rules_dto(privacy_note="据点模块在 strict 隐私模式下停用"), "Palpagos")
+    assert text.endswith("└ 据点模块在 strict 隐私模式下停用")
 
 
 def test_format_servers_admin_shows_skipped_section():

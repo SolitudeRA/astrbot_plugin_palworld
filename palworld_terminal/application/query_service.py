@@ -15,8 +15,8 @@ from ..presentation.dtos import (
     GuildDTO,
     OnlineDTO,
     OnlinePlayerRow,
-    RuleRow,
     RulesDTO,
+    RuleSection,
     StatusDetailDTO,
     StatusDTO,
     WildTopRow,
@@ -45,6 +45,56 @@ _STATUS_RULE_FIELDS = (
     ("death_penalty", "DeathPenalty"),
     ("exp_rate", "ExpRate"),
 )
+
+# /pal world rules 策展分节（spec §4.3）：四节定序、每项 (展示label, settings字段, 值类型)。
+# 剔除服务器技术字段（端口/RCON/REST API/日志/认证/备份/聊天限速/跨平台）与长尾细倍率
+# （攻防/饱食度/耐力/生命恢复/建筑/采集/掉落）。值类型决定 value 渲染：
+#   enum    → meta.setting_display（枚举措辞，如 普通/关闭/开启/掉落物品）
+#   rate    → {num}x（ASCII x；spec §2.4「倍率 1.0x」，不用 metadata 的全角 ×）
+#   hours   → {num} 小时（游戏设定原单位，spec §2.4 豁免，不套时长格式）
+#   minutes → {num} 分钟（同上）
+#   int     → {num}（裸数，剥单位）
+_RULES_SECTIONS: tuple[tuple[str, tuple[tuple[str, str, str], ...]], ...] = (
+    ("模式", (
+        ("难度", "Difficulty", "enum"),
+        ("硬核", "bHardcore", "enum"),
+        ("死亡惩罚", "DeathPenalty", "enum"),
+        ("帕鲁永久死亡", "bPalLost", "enum"),
+        ("PVP 伤害", "bEnablePlayerToPlayerDamage", "enum"),
+        ("友军伤害", "bEnableFriendlyFire", "enum"),
+        ("入侵者袭击", "bEnableInvaderEnemy", "enum"),
+    )),
+    ("倍率", (
+        ("经验", "ExpRate", "rate"),
+        ("捕获", "PalCaptureRate", "rate"),
+        ("工作速度", "WorkSpeedRate", "rate"),
+        ("帕鲁刷新", "PalSpawnNumRate", "rate"),
+        ("白天流速", "DayTimeSpeedRate", "rate"),
+        ("夜晚流速", "NightTimeSpeedRate", "rate"),
+    )),
+    ("节奏", (
+        ("蛋孵化", "PalEggDefaultHatchingTime", "hours"),
+        ("空投间隔", "SupplyDropSpan", "minutes"),
+    )),
+    ("上限", (
+        ("玩家", "ServerPlayerMaxNum", "int"),
+        ("公会成员", "GuildPlayerMaxNum", "int"),
+        ("据点 每公会", "BaseCampMaxNumInGuild", "int"),
+        ("全服", "BaseCampMaxNum", "int"),
+    )),
+)
+
+
+def _fmt_rules_num(value) -> str:
+    """规则数值渲染：整值去小数点（32.0→32 / 1.0→1），非整保留（1.2→1.2）；
+    非数字原样回退（未知枚举/异常值不冒 500）。"""
+    try:
+        f = float(value)
+    except (TypeError, ValueError):
+        return str(value)
+    if f == int(f):
+        return str(int(f))
+    return f"{f:g}"
 
 
 @dataclass(slots=True)
@@ -358,24 +408,48 @@ class QueryService:
         self._cache.set(key, dtos, self._EVENTS_TTL)
         return dtos
 
+    def _render_rule_value(self, field: str, value, kind: str) -> str:
+        if kind == "enum":
+            # 枚举措辞与状态卡 detail 同源（setting_display：enum_map 优先）。
+            return self._meta.setting_display(field, value) if self._meta else str(value)
+        num = _fmt_rules_num(value)
+        if kind == "rate":
+            return f"{num}x"
+        if kind == "hours":
+            return f"{num} 小时"
+        if kind == "minutes":
+            return f"{num} 分钟"
+        return num  # int：裸数
+
     async def rules(self, world: World) -> RulesDTO:
         key = f"rules:{world.world_id}"
         cached = self._cache.get(key)
         if cached is not None:
             return cached
         raw = self._settings_cache.get(world.server_id, {})
-        rows: list[RuleRow] = []
-        for field_name, value in raw.items():
-            label, _unit = self._meta.setting_label(field_name)
-            # 措辞与状态卡 detail 同源（setting_display：enum_map 优先，否则 value+unit）
-            rows.append(RuleRow(label=label,
-                                value=self._meta.setting_display(field_name, value)))
-        advanced_note = None
-        if self._cfg.privacy.mode == "advanced":
-            advanced_note = "advanced 隐私模式暂按 balanced 生效。"
-        elif self._cfg.privacy.mode == "strict":
-            advanced_note = "strict 隐私模式下据点模块停用。"
-        dto = RulesDTO(rows=rows, updated_at=self._clock.now(), advanced_note=advanced_note)
+        # 具体目标已定位但快照缺失 = 取数失败态（spec §9 空态/错误态分派）：
+        # settings 未获取（空映射）→ available=False，formatter 走 ⚠️。
+        available = bool(raw)
+        sections: list[RuleSection] = []
+        if available:
+            for title, entries in _RULES_SECTIONS:
+                items: list[tuple[str, str]] = [
+                    (label, self._render_rule_value(field, raw[field], kind))
+                    for label, field, kind in entries
+                    if field in raw    # 快照缺该字段则整项省略（不塞空串，同 status detail）
+                ]
+                if items:
+                    sections.append(RuleSection(title=title, items=items))
+        # 隐私模式注两句分叉（spec §4.3，勿混）：strict = 据点模块停用；advanced = 暂按 balanced。
+        privacy_note = None
+        if self._cfg.privacy.mode == "strict":
+            privacy_note = "据点模块在 strict 隐私模式下停用"
+        elif self._cfg.privacy.mode == "advanced":
+            privacy_note = "advanced 隐私模式暂按 balanced 生效"
+        dto = RulesDTO(
+            sections=sections, available=available,
+            privacy_note=privacy_note, updated_at=self._clock.now(),
+        )
         self._cache.set(key, dto, 1800)
         return dto
 
@@ -403,14 +477,18 @@ class QueryService:
             WildTopRow(name=n, count=c)
             for n, c in sorted(wild_counter.items(), key=lambda kv: (-kv[1], kv[0]))[:5]
         ]
+        # 取数失败态（spec §4.2/§6#8）：概览人口普查依赖 game-data 快照——缺失时 available=False，
+        # formatter 走 ⚠️「尚未获取到世界快照」，不再静默渲染全 0 假数据。
+        # 在线/容量/据点数取 latest_metric 官方口径（与 status 同源）；FPS 归 status 不入本 DTO。
         dto = WorldSummaryDTO(
             world_day=metric.world_day if metric else world.current_day,
             online=metric.online_players if metric else counts["Player"],
+            max_players=metric.max_players if metric else 0,
             players=counts["Player"], otomo=counts["OtomoPal"], base_pal=counts["BaseCampPal"],
             wild=counts["WildPal"], npc=counts["NPC"], palbox=palbox, guilds=len(guild_ids),
-            fps=gd.fps if gd else (metric.fps if metric else 0.0),
-            average_fps=gd.average_fps if gd else (metric.fps if metric else 0.0),
+            basecamp_count=metric.basecamp_count if metric else 0,
             wild_top=wild_top,
+            available=gd is not None,
         )
         self._cache.set(key, dto, self._BASES_TTL)
         return dto

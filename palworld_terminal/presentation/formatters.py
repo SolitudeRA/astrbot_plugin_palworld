@@ -23,12 +23,16 @@ from ..presentation.dtos import (
     WorldSummaryDTO,
 )
 from ..presentation.locale import L
+from ..presentation.textkit import fmt_duration, fold
 
 _PING_LABEL = {
     PingBucket.GOOD: "优秀", PingBucket.OK: "正常",
     PingBucket.HIGH: "偏高", PingBucket.UNKNOWN: "未知",
 }
 _CONF_LABEL = {Confidence.HIGH: "高", Confidence.MEDIUM: "中", Confidence.LOW: "低"}
+
+# 性能流畅度档位 → 状态色点（spec §2.2/§4.1）：流畅🟢 / 一般🟡 / 卡顿·严重卡顿🔴。
+_SMOOTH_DOT = {"流畅": "🟢", "一般": "🟡", "卡顿": "🔴", "严重卡顿": "🔴"}
 
 
 def _fmt_duration(seconds: int) -> str:
@@ -199,42 +203,88 @@ def format_help(topic: str | None, is_admin: bool, overrides, world_mode: str = 
     return "\n".join(lines)
 
 
-def format_status(dto: StatusDTO) -> str:
+def format_status(dto: StatusDTO, server_name: str, *, show_bases: bool = True) -> str:
+    """world status（spec §4.1）。标题锚点 server_name = 配置名 srv.name（commands 层供数，
+    不取游戏内 world.server_name）。`据点` 独立行随 guilds_bases 组关闭而整行消失。
+
+    头行在线数分子 = 收敛后名单数（len(dto.players)，spec §3 隐私收敛）——与名单行数
+    必然同数，绝不出现「在线 3」却只列 2 人的存在性泄漏；容量 /max 与今日峰值取 metric
+    聚合值（不可归因，保留原值）。
+    """
     if dto.degraded:
         # now 用 dto.now（真实当下）：陈旧时 updated_at==last_ok，不能充当 now。
-        return format_degraded(dto.last_ok, dto.now, dto.server_name)
-    lines = [
-        f"世界：{dto.world_name} · 第 {dto.world_day} 天",
-        f"在线：{dto.online}/{dto.max_players} 人 · 今日最高 {dto.peak_online_today}",
-        f"据点：{dto.basecamp_count}（官方指标）",
-        f"性能：FPS {dto.fps:.0f}（{dto.smoothness_label}） · 帧时间 {dto.frame_time:.1f}ms",
-    ]
-    if dto.players:
-        lines.append("在线玩家：")
-        lines.extend(f"  · {n} Lv{lv}" for n, lv, _ in dto.players)
+        return format_degraded(dto.last_ok, dto.now, server_name)
+    detail = dto.detail
+    lines = [f"🌍 世界状态 · {server_name}"]
+    if detail is not None:
+        lines.append(
+            f"第 {dto.world_day} 天 · v{detail.version} · 已运行 {fmt_duration(detail.uptime_seconds)}"
+        )
+    else:  # 防御：live 恒有 detail；缺失时仅出天数，不冒 AttributeError。
+        lines.append(f"第 {dto.world_day} 天")
+    lines.append("")
+    lines.append(f"在线 {len(dto.players)}/{dto.max_players} · 今日峰值 {dto.peak_online_today}")
+    dot = _SMOOTH_DOT.get(dto.smoothness_label, "🟡")
+    lines.append(
+        f"性能 {dot} {dto.smoothness_label} · FPS {dto.fps:.0f} · 帧时间 {dto.frame_time:.1f}ms"
+    )
+    if show_bases:
+        lines.append(f"据点 {dto.basecamp_count}")
+    if dto.players:  # 0 人省略整节（含其上方空行）
+        lines.append("")
+        lines.append("在线玩家")
+        lines.extend(fold([f"· {n} Lv{lv}" for n, lv, _ in dto.players], 7, "人"))
     return "\n".join(lines)
 
 
-def format_world(dto: WorldSummaryDTO) -> str:
+def format_world(dto: WorldSummaryDTO, server_name: str, *, strict: bool = False) -> str:
+    """world overview 人口普查（spec §4.2）。FPS 归 status（不渲染）；据点数取官方口径。
+
+    快照缺失（available=False）→ ⚠️ 取数失败态（不再静默全 0）。strict 下省略设施节的
+    PalBox 项（保留公会/据点两计数——据点/公会为官方推导计数，非个体隐私）。
+    """
+    title = f"🗺️ 世界概览 · {server_name}"
+    if not dto.available:
+        return f"{title}\n{L('world_snapshot_missing')}"
     lines = [
-        f"世界概览 · 第 {dto.world_day} 天 · 在线 {dto.online} 人",
-        f"角色 {dto.players} · 随行 {dto.otomo} · 工作帕鲁 {dto.base_pal} · "
-        f"野生 {dto.wild} · NPC {dto.npc}",
-        f"PalBox {dto.palbox} · 公会 {dto.guilds}",
-        f"FPS 瞬时 {dto.fps:.0f} / 平均 {dto.average_fps:.0f}",
+        title,
+        f"第 {dto.world_day} 天 · 在线 {dto.online}/{dto.max_players}",
+        "",
+        "居民",
+        f"· 角色 {dto.players} · NPC {dto.npc}",
+        f"· 帕鲁 随行 {dto.otomo} · 工作 {dto.base_pal} · 野生 {dto.wild}",
+        "",
+        "设施",
     ]
+    facility = [] if strict else [f"PalBox {dto.palbox}"]
+    facility.append(f"公会 {dto.guilds}")
+    facility.append(f"据点 {dto.basecamp_count}")
+    lines.append("· " + " · ".join(facility))
     if dto.wild_top:
-        top = "、".join(f"{w.name}×{w.count}" for w in dto.wild_top)
-        lines.append(f"当前野生帕鲁 Top（仅当前快照）：{top}")
+        lines.append("")
+        lines.append("野生帕鲁 Top（当前快照）")
+        lines.extend(fold([f"· {w.name} ×{w.count}" for w in dto.wild_top], 7, "种"))
     return "\n".join(lines)
 
 
-def format_rules(dto: RulesDTO) -> str:
-    lines = ["世界规则："]
-    for r in dto.rows:
-        lines.append(f"· {r.label}：{r.value}")
-    if dto.advanced_note:
-        lines.append(f"注：{dto.advanced_note}")
+def format_rules(dto: RulesDTO, server_name: str) -> str:
+    """world rules 策展分节（spec §4.3）。同类字段两两并一行 `· A · B`。
+
+    快照缺失（available=False）→ ⚠️ 取数失败态。隐私模式注两句分叉走脚注 `└ `。
+    游戏设定原值（蛋孵化 72 小时 / 空投间隔 180 分钟）保游戏原单位（§2.4 豁免，query 已渲）。
+    """
+    title = f"📜 世界规则 · {server_name}"
+    if not dto.available:
+        return f"{title}\n{L('rules_unavailable')}"
+    lines = [title]
+    for sec in dto.sections:
+        lines.append("")
+        lines.append(sec.title)
+        for i in range(0, len(sec.items), 2):
+            cells = [f"{label} {value}" for label, value in sec.items[i:i + 2]]
+            lines.append("· " + " · ".join(cells))
+    if dto.privacy_note:
+        lines.append(f"└ {dto.privacy_note}")
     return "\n".join(lines)
 
 

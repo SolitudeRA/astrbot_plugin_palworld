@@ -78,8 +78,9 @@ async def test_rules_reads_shared_settings_cache(tmp_path: Path):
                             duration_ms=2, payload_bytes=4, error=None)
         await c._snapshot.ingest_settings(world, resp)
         dto = await c.query.rules(world)
-        assert dto.rows, "rules should render rows from the shared settings cache"
-        assert any("1.5" in row.value for row in dto.rows)
+        assert dto.available, "rules should be available when the settings cache is populated"
+        items = [v for sec in dto.sections for _label, v in sec.items]
+        assert any("1.5" in v for v in items)
     finally:
         await c.stop()
 

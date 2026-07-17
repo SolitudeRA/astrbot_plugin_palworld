@@ -19,7 +19,7 @@ def _cmds(mode="balanced", players_on=True):
     )
     c = Commands(routing=None, query=_Query(), repo=None, cfg=cfg, clock=SimpleNamespace(now=lambda: 0))
     async def _rw(umo, msg, sub, is_group):
-        return SimpleNamespace(world_id="w1", server_id="w"), SimpleNamespace(name=msg, server_override=None), None
+        return SimpleNamespace(world_id="w1", server_id="w"), SimpleNamespace(name=msg, server_override=None), None, "srv"
     c._resolve_world = _rw
     return c
 

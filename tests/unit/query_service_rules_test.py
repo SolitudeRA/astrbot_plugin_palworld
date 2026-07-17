@@ -97,31 +97,51 @@ async def _make(tmp_path, privacy_mode="balanced"):
     return db, repo, q
 
 
-async def test_rules_maps_settings_labels(tmp_path):
+def _rule_items(dto) -> dict[str, str]:
+    return {label: value for sec in dto.sections for label, value in sec.items}
+
+
+async def test_rules_curates_rate_field(tmp_path):
+    # 策展分节（spec §4.3）：ExpRate 落 倍率 节，值渲染为 1.5x（ASCII x，非全角 ×）。
     db, repo, q = await _make(tmp_path)
     dto = await q.rules(_world())
-    labels = {r.label: r.value for r in dto.rows}
-    assert labels["经验倍率"] == "1.5x"
-    assert dto.advanced_note is None
+    assert dto.available is True
+    assert _rule_items(dto)["经验"] == "1.5x"
+    assert dto.privacy_note is None
     await db.close()
 
 
 async def test_rules_maps_enum_values_via_setting_display(tmp_path):
-    # /pal world rules 与状态 detail 共用 setting_display：枚举值走 enum_map 措辞，
-    # 两处一致（不再直出原始 token 如 "ItemAndEquipment"）。
+    # 枚举字段走 setting_display（enum_map 措辞，不直出 "ItemAndEquipment"）。
     db, repo, q = await _make(tmp_path)
     q._settings_cache["alpha"] = {"DeathPenalty": "ItemAndEquipment"}
     dto = await q.rules(_world())
-    labels = {r.label: r.value for r in dto.rows}
-    assert labels["DeathPenalty"] == "掉落物品与装备"
+    assert _rule_items(dto)["死亡惩罚"] == "掉落物品与装备"
+    await db.close()
+
+
+async def test_rules_unavailable_when_snapshot_empty(tmp_path):
+    # 取数失败态（spec §4.3/§9）：settings 快照未获取 → available=False（formatter 走 ⚠️）。
+    db, repo, q = await _make(tmp_path)
+    q._settings_cache.clear()
+    dto = await q.rules(_world())
+    assert dto.available is False
+    assert dto.sections == []
     await db.close()
 
 
 async def test_rules_advanced_note(tmp_path):
     db, repo, q = await _make(tmp_path, privacy_mode="advanced")
     dto = await q.rules(_world())
-    assert dto.advanced_note is not None
-    assert "balanced" in dto.advanced_note
+    assert dto.privacy_note == "advanced 隐私模式暂按 balanced 生效"
+    await db.close()
+
+
+async def test_rules_strict_note_diverges(tmp_path):
+    # 两模式两句分叉（spec §4.3，勿混）：strict = 据点模块停用句。
+    db, repo, q = await _make(tmp_path, privacy_mode="strict")
+    dto = await q.rules(_world())
+    assert dto.privacy_note == "据点模块在 strict 隐私模式下停用"
     await db.close()
 
 
