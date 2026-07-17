@@ -79,6 +79,7 @@ export const OBJECT_SECTIONS: ObjectSection[] = [
   ]},
   { key: 'players', title: '玩家查询', subtitle: '「玩家查询」启用时生效', fields: [
     { key: 'rank_top_n', type: 'int', label: '排行榜人数', default: 5 },
+    { key: 'list_fold_limit', type: 'int', label: '列表折叠上限', default: 7, hint: '单个列表超过此条数则折叠为「前 N 条 + 汇总」（最小 1）' },
     { key: 'exclude_names', type: 'string', label: '排除名单', default: '', hint: '逗号分隔；名单内玩家不进榜单、不可查询' },
   ]},
   { key: 'server_admin', title: '服务器管控', subtitle: '「服务器管控」任一组启用时生效；写操作仅授权管理员可用', fields: [
