@@ -6,3 +6,9 @@ author: SolitudeRA
 repo: https://github.com/SolitudeRA/astrbot_plugin_palworld
 astrbot_version: ">=4.24.1"
 license: GPL-3.0
+support_platforms:
+  - aiocqhttp
+  - qq_official
+  - telegram
+  - discord
+  - kook
