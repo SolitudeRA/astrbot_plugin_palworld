@@ -324,24 +324,34 @@ def format_rules(dto: RulesDTO, server_name: str) -> str:
     return "\n".join(lines)
 
 
-def format_today(dto) -> str:
+def format_today(dto, server_name: str) -> str:
+    """world today 日报（spec §4.5）。标题锚点 server_name = 配置名 srv.name（commands
+    层供数），标题带日期（§2.1）。
+
+    三节（今日纪录/玩家成长/据点变化）措辞已由 ReportService 经 event_wording 单一真相源
+    渲染成串（名字解析后、隐藏玩家跳过），本函数只做版式：素节头无图标；每节独立折叠 7
+    （today 为节级特例，spec §2.7）；累计在线走 textkit.fmt_duration（N时M分，废 N 小时
+    聚合式）。空态标题同带日期 + 素文一句。据点变化节 gamedata 锁定期自然缺席（既有屏蔽）。
+    """
+    title = f"📅 今日日报 · {server_name} · {dto.day}"
     if getattr(dto, "is_empty", False):
-        return L("empty_day")
-    hours = dto.total_online_seconds // 3600
+        return f"{title}\n{L('empty_day')}"
     lines = [
-        f"今日日报 · {dto.day}",
-        f"世界天数：第 {dto.world_day_start} → {dto.world_day_end} 天",
-        f"活跃玩家 {dto.active_players} · 最高同时在线 {dto.peak_online} · 累计观察在线 {hours} 小时",
+        title,
+        "",
+        f"第 {dto.world_day_start} → {dto.world_day_end} 天 · 活跃玩家 {dto.active_players}"
+        f" · 峰值在线 {dto.peak_online} · 累计在线 {fmt_duration(dto.total_online_seconds)}",
     ]
-    if dto.records:
-        lines.append("今日纪录：")
-        lines.extend(f"  · {r}" for r in dto.records)
-    if dto.level_events:
-        lines.append("玩家成长：")
-        lines.extend(f"  · {e}" for e in dto.level_events)
-    if dto.base_events:
-        lines.append("据点变化：")
-        lines.extend(f"  · {e}" for e in dto.base_events)
+    for header, items in (
+        ("今日纪录", dto.records),
+        ("玩家成长", dto.growth),
+        ("据点变化", dto.base_changes),
+    ):
+        if items:
+            lines.append("")
+            lines.append(header)
+            lines.extend(fold([f"· {x}" for x in items], 7, "条"))
+    lines.append("")
     lines.append(dto.summary)
     return "\n".join(lines)
 

@@ -7,8 +7,10 @@ from zoneinfo import ZoneInfo
 from ..adapters.sqlite_repository import Repository
 from ..config import AppConfig
 from ..domain.enums import EventType
-from ..domain.models import World
+from ..domain.models import World, WorldEvent
 from ..infrastructure.clock import Clock
+from ..presentation.event_wording import event_wording
+from .name_resolver import load_excluded_keys, resolve_subjects
 
 _ACTIVE_SECONDS = 600  # spec §12: 活跃日 >= 10 分钟
 
@@ -44,38 +46,24 @@ def day_bounds(
 
 
 @dataclass(slots=True)
-class LevelEvent:
-    player_name: str
-    old_level: int
-    new_level: int
-
-    def __str__(self) -> str:
-        # player_name holds the HMAC subject_key; display names are not
-        # resolvable here in v0.1, so show a truncated hash (privacy-consistent).
-        return f"{self.player_name[:8]}… Lv{self.old_level}→Lv{self.new_level}"
-
-
-@dataclass(slots=True)
-class BaseEvent:
-    base_key: str
-    kind: str          # "new" / "vanished" / "worker_delta"
-    detail: str
-
-    def __str__(self) -> str:
-        return f"{self.detail}"
-
-
-@dataclass(slots=True)
 class DailyReport:
+    """今日日报结构化 DTO（spec §4.5）。三节措辞均由 event_wording 单一真相源渲染成串
+    （名字解析后，隐藏玩家已跳过）；formatter 只做版式。
+
+    - records：今日纪录（里程碑/在线纪录/新玩家/新公会）。
+    - growth：玩家成长（升级；显示名，隐藏玩家跳过）。
+    - base_changes：据点变化（新据点/消失/工作帕鲁；gamedata 锁定期自然缺席）。
+    - world_day_start/end：日窗口内 metrics 首末世界天数（epoch bug 修，§6#1）。
+    """
     day: str
     world_day_start: int
     world_day_end: int
     active_players: int
     peak_online: int
     total_online_seconds: int
-    level_events: list[LevelEvent]
-    base_events: list[BaseEvent]
     records: list[str]
+    growth: list[str]
+    base_changes: list[str]
     summary: str
     is_empty: bool
 
@@ -106,43 +94,53 @@ class ReportService:
         events = [e for e in raw if e.occurred_at < end]
         peak = await self._repo.peak_online(world.world_id, since=start)
 
-        milestones = [e for e in events if e.event_type == EventType.WORLD_DAY_MILESTONE]
-        records_ev = [e for e in events if e.event_type == EventType.ONLINE_RECORD]
-        new_players = [e for e in events if e.event_type == EventType.NEW_PLAYER]
-        new_guilds = [e for e in events if e.event_type == EventType.NEW_GUILD]
-        new_bases = [e for e in events if e.event_type == EventType.NEW_BASE]
-        level_ups = [e for e in events if e.event_type == EventType.PLAYER_LEVEL_UP]
-        vanished = [e for e in events if e.event_type == EventType.BASE_VANISHED]
-        worker_delta = [e for e in events if e.event_type == EventType.WORKER_DELTA]
+        # 世界天数（epoch bug 修，spec §6#1）：日窗口内 metrics 首末 world_day，非窗口
+        # epoch 秒；窗口无采样时回退 world.current_day（无从推断天数）。
+        day_range = await self._repo.world_day_bounds(world.world_id, start, end)
+        if day_range is None:
+            world_day_start = world_day_end = world.current_day
+        else:
+            world_day_start, world_day_end = day_range
 
-        level_events = [
-            LevelEvent(
-                player_name=e.subject_key,
-                old_level=int(e.payload.get("old", 0)),
-                new_level=int(e.payload.get("new", 0)),
-            )
-            for e in level_ups
-        ]
-        base_events: list[BaseEvent] = []
-        for e in new_bases:
-            base_events.append(BaseEvent(e.subject_key, "new", "新据点出现"))
-        for e in vanished:
-            base_events.append(BaseEvent(e.subject_key, "vanished", "据点消失"))
-        for e in worker_delta:
-            base_events.append(BaseEvent(e.subject_key, "worker_delta", "工作帕鲁变化"))
+        # 主体名批量解析（隐藏玩家跳过 / 据点·公会查无回退），与 events(T6) 共用同一
+        # resolver；措辞走 event_wording 单一真相源（spec §4.4/§4.5）。
+        excluded = await load_excluded_keys(
+            self._repo, world.world_id, self._cfg.players.exclude_names
+        )
+        names = await resolve_subjects(self._repo, world.world_id, events, excluded)
 
-        # 排序: 里程碑 → 新纪录 → 新玩家/公会/据点 → 成长 → 变化 → 编辑部总结
-        records: list[str] = []
-        for e in milestones:
-            records.append(f"世界推进至第 {e.payload.get('milestone')} 天")
-        for e in records_ev:
-            records.append(f"同时在线新纪录 {e.payload.get('value')} 人")
-        for e in new_players:
-            records.append(f"新玩家 {e.subject_key} 加入")
-        for e in new_guilds:
-            records.append(f"新公会 {e.subject_key} 出现")
-        for e in new_bases:
-            records.append(f"新据点 {e.subject_key} 出现")
+        def _wording(evs: list[WorldEvent]) -> list[str]:
+            out: list[str] = []
+            for e in evs:
+                # 玩家主体查无/隐藏（resolver 缺席）整条跳过——与 events 名字级收敛
+                # 同哲学，不泄漏隐藏玩家；据点/公会主体恒有名（含回退）。
+                if e.subject_type == "player" and e.subject_key not in names:
+                    continue
+                out.append(event_wording(e, names.get(e.subject_key, "")))
+            return out
+
+        by_type: dict[EventType, list[WorldEvent]] = {}
+        for e in events:
+            by_type.setdefault(e.event_type, []).append(e)
+
+        def _of(et: EventType) -> list[WorldEvent]:
+            return by_type.get(et, [])
+
+        # 三节分派 + 去重（spec §4.5）：今日纪录只收里程碑/在线纪录/新玩家/新公会；
+        # 据点类（新据点/消失/工作帕鲁）全归据点变化节，绝不重复进今日纪录。
+        new_player_lines = _wording(_of(EventType.NEW_PLAYER))
+        records = (
+            _wording(_of(EventType.WORLD_DAY_MILESTONE))
+            + _wording(_of(EventType.ONLINE_RECORD))
+            + new_player_lines
+            + _wording(_of(EventType.NEW_GUILD))
+        )
+        growth = _wording(_of(EventType.PLAYER_LEVEL_UP))
+        base_changes = (
+            _wording(_of(EventType.NEW_BASE))
+            + _wording(_of(EventType.BASE_VANISHED))
+            + _wording(_of(EventType.WORKER_DELTA))
+        )
 
         # v0.1 近似：与当日窗口交叠的会话，其 observed_seconds 全额计入当日，
         # 跨午夜会话不做按日切分。
@@ -157,44 +155,40 @@ class ReportService:
             1 for total in per_player.values() if total >= _ACTIVE_SECONDS
         )
 
-        has_content = bool(events) or active_players > 0
+        has_content = bool(records or growth or base_changes) or active_players > 0
         if has_content:
             summary = self._summary(
-                milestones, records_ev, new_players, new_guilds,
-                new_bases, level_events, base_events, active_players,
+                len(new_player_lines), len(growth), len(base_changes), active_players,
             )
         else:
             summary = "平静的一天"
 
         return DailyReport(
             day=day,
-            world_day_start=start,
-            world_day_end=end,
+            world_day_start=world_day_start,
+            world_day_end=world_day_end,
             active_players=active_players,
             peak_online=peak,
             total_online_seconds=total_online_seconds,
-            level_events=level_events,
-            base_events=base_events,
             records=records,
+            growth=growth,
+            base_changes=base_changes,
             summary=summary,
             is_empty=not has_content,
         )
 
     def _summary(
-        self, milestones, records_ev, new_players, new_guilds, new_bases,
-        level_events, base_events, active_players,
+        self, new_players: int, growth: int, base_changes: int, active_players: int,
     ) -> str:
+        """末行编辑部总结（spec §4.5）：`今天：N 名新玩家加入，N 次成长，N 处据点变化。`
+        无事件但有活跃玩家时回落在线活跃句；全空回「平静的一天」。"""
         parts: list[str] = []
-        if milestones:
-            parts.append(f"世界跨越 {len(milestones)} 个里程碑")
-        if records_ev:
-            parts.append("刷新在线纪录")
         if new_players:
-            parts.append(f"{len(new_players)} 名新玩家加入")
-        if level_events:
-            parts.append(f"{len(level_events)} 次成长")
-        if base_events:
-            parts.append(f"{len(base_events)} 处据点变化")
+            parts.append(f"{new_players} 名新玩家加入")
+        if growth:
+            parts.append(f"{growth} 次成长")
+        if base_changes:
+            parts.append(f"{base_changes} 处据点变化")
         if not parts and active_players:
             parts.append(f"{active_players} 名玩家在线活跃")
-        return "，".join(parts) + "。" if parts else "平静的一天"
+        return "今天：" + "，".join(parts) + "。" if parts else "平静的一天"

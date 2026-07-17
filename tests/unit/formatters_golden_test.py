@@ -1,6 +1,5 @@
 from pathlib import Path
 
-from palworld_terminal.application.report_service import BaseEvent, LevelEvent
 from palworld_terminal.domain.enums import PingBucket
 from palworld_terminal.presentation.dtos import (
     OnlineDTO,
@@ -84,24 +83,27 @@ def test_rules_golden():
 
 
 def test_today_golden():
+    # 样张镜像 spec §4.5（三节：今日纪录/玩家成长/据点变化；措辞已由 event_wording
+    # 在 ReportService 渲染成串，此处直接给定稿；累计在线 12时40分=45600s / fmt_duration）。
     class _Report:
-        day = "2026-07-10"
-        world_day_start = 41
-        world_day_end = 42
-        active_players = 5
-        peak_online = 7
-        total_online_seconds = 36000
-        level_events = [LevelEvent("a" * 64, 20, 21)]
-        base_events = [BaseEvent("b1", "new", "据点新增：Noema-2")]
-        records = ["在线人数刷新纪录：7 人"]
-        summary = "世界迎来新的一天。"
+        day = "2026-07-17"
         is_empty = False
+        world_day_start = 42
+        world_day_end = 45
+        active_players = 3
+        peak_online = 7
+        total_online_seconds = 45600  # 12时40分
+        records = [
+            "世界迎来第 100 天",
+            "在线人数新纪录 8 人",
+            "新玩家 Trinity 加入世界",
+            "新公会「Matrix」出现",
+        ]
+        growth = ["Neo 升级 Lv21→Lv22", "Trinity 升级 Lv17→Lv18"]
+        base_changes = ["新据点「海岸木材场」确认", "据点「河谷矿场」工作帕鲁 12→18"]
+        summary = "今天：1 名新玩家加入，2 次成长，2 处据点变化。"
 
-    _check_golden("today.txt", format_today(_Report()))
-
-
-def test_level_event_str_humanized():
-    assert "Lv20→Lv21" in str(LevelEvent("a" * 64, 20, 21))
+    _check_golden("today.txt", format_today(_Report(), "Palpagos"))
 
 
 def test_online_redacted_golden():

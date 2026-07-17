@@ -31,6 +31,7 @@ from palworld_terminal.presentation.formatters import (
     format_rules,
     format_servers,
     format_status,
+    format_today,
     format_world,
 )
 
@@ -358,3 +359,74 @@ def test_format_help_filters_disabled_groups():
     assert "/pal player info" in on and "/pal player bind" in on
     # guild 组即便开也恒不列（force-off）。
     assert "/pal guild info" not in on
+
+
+class _TodayReport:
+    """format_today 输入桩：ReportService 已把三节措辞渲染成串（event_wording 单一
+    真相源），formatter 只做版式（标题锚点/节级折叠/累计时长 fmt_duration）。"""
+
+    def __init__(self, **kw):
+        self.day = kw.get("day", "2026-07-17")
+        self.is_empty = kw.get("is_empty", False)
+        self.world_day_start = kw.get("world_day_start", 42)
+        self.world_day_end = kw.get("world_day_end", 45)
+        self.active_players = kw.get("active_players", 3)
+        self.peak_online = kw.get("peak_online", 7)
+        self.total_online_seconds = kw.get("total_online_seconds", 45600)
+        self.records = kw.get("records", [])
+        self.growth = kw.get("growth", [])
+        self.base_changes = kw.get("base_changes", [])
+        self.summary = kw.get("summary", "今天：无。")
+
+
+def test_today_title_carries_server_and_date():
+    text = format_today(_TodayReport(records=["世界迎来第 100 天"]), "Palpagos")
+    assert text.startswith("📅 今日日报 · Palpagos · 2026-07-17")
+
+
+def test_today_accumulated_time_uses_fmt_duration():
+    text = format_today(_TodayReport(total_online_seconds=45600, records=["x"]), "Palpagos")
+    assert "累计在线 12时40分" in text
+    assert "小时" not in text  # 废「N 小时」聚合式（spec §2.4）
+
+
+def test_today_header_line_shape():
+    text = format_today(
+        _TodayReport(world_day_start=42, world_day_end=45, active_players=3,
+                     peak_online=7, total_online_seconds=45600, records=["x"]),
+        "Palpagos",
+    )
+    assert "第 42 → 45 天 · 活跃玩家 3 · 峰值在线 7 · 累计在线 12时40分" in text
+
+
+def test_today_empty_state():
+    text = format_today(_TodayReport(is_empty=True), "Palpagos")
+    assert text == "📅 今日日报 · Palpagos · 2026-07-17\n平静的一天，没有新事件"
+
+
+def test_today_section_headers_plain_no_icons():
+    text = format_today(
+        _TodayReport(records=["a"], growth=["b"], base_changes=["c"]), "Palpagos"
+    )
+    assert "\n今日纪录\n" in text
+    assert "\n玩家成长\n" in text
+    assert "\n据点变化\n" in text
+    # 节头素文无图标（与 status/rules/events 一致）。
+    for header in ("今日纪录", "玩家成长", "据点变化"):
+        assert f"📅{header}" not in text
+
+
+def test_today_fold_per_section_at_7():
+    # 节级折叠特例（spec §2.7）：每节独立折叠 7 条，尾行「…等共 N 条」。
+    recs = [f"事件{i}" for i in range(8)]
+    text = format_today(_TodayReport(records=recs), "Palpagos")
+    assert "· 事件0" in text and "· 事件6" in text
+    assert "· 事件7" not in text
+    assert "…等共 8 条" in text
+
+
+def test_today_absent_section_omitted():
+    text = format_today(_TodayReport(records=["只有纪录"]), "Palpagos")
+    assert "今日纪录" in text
+    assert "玩家成长" not in text
+    assert "据点变化" not in text

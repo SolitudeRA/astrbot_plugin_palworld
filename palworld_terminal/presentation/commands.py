@@ -239,10 +239,12 @@ class Commands:
 
     @_gated
     async def today(self, umo, message_str, is_group) -> str:
-        world, _arg, err, _srv = await self._resolve_world(umo, message_str, "today", is_group)
+        world, _arg, err, server_name = await self._resolve_world(
+            umo, message_str, "today", is_group
+        )
         if err is not None:
             return err
-        return format_today(await self._query.today(world))
+        return format_today(await self._query.today(world), server_name)
 
     @_gated
     async def rank(self, umo, message_str, is_group) -> str:
