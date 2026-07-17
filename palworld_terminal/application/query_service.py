@@ -93,7 +93,13 @@ class QueryService:
 
     async def _online_rows(self, world: World) -> list[OnlinePlayerRow]:
         sessions = await self._repo.list_open_sessions(world.world_id)
-        rows: list[OnlinePlayerRow] = []
+        # 名字级隐私收敛（spec §3）：与 rank/player_profile 同语义——某显示名下任一 key
+        # 被排除/隐藏，则该名整组从 status「在线玩家」节与 online 名单一并剔除（存在性收敛，
+        # 防同名另一 key 补位泄露被隐藏者的在线状态）。status 与 online 共用本供数，一次堵死
+        # /pal me hide 现状经两入口落空的缺陷（§6#2）。收敛后行数即头行在线数分子（§3，供 T4/T9）。
+        excluded = await self.load_excluded_keys(world)
+        candidates: list[OnlinePlayerRow] = []
+        banned_names: set[str] = set()
         for s in sessions:
             obs = await self._repo.latest_observation(world.world_id, s.player_key)
             if obs is None:
@@ -101,13 +107,22 @@ class QueryService:
             # obs.name is always "" by design (observations are name-free);
             # resolve the display name from players.latest_name.
             ident = await self._repo.get_player(world.world_id, s.player_key)
-            rows.append(
+            name = ident.latest_name if ident is not None else ""
+            # 本会话 key 直接被排除/隐藏：整名 ban（覆盖 ident 缺失、name_banned 按名查不到的边角）。
+            if s.player_key in excluded:
+                banned_names.add(name)
+                continue
+            candidates.append(
                 OnlinePlayerRow(
-                    name=ident.latest_name if ident is not None else "",
-                    level=obs.level, ping_bucket=obs.ping_bucket,
+                    name=name, level=obs.level, ping_bucket=obs.ping_bucket,
                     online_seconds=s.observed_seconds,
                 )
             )
+        # 同名多 key 存在性收敛：候选名下任一 key（含离线/未在开放会话中）被排除/隐藏即整组剔除。
+        for name in {r.name for r in candidates}:
+            if name not in banned_names and await self.name_banned(world, name, excluded):
+                banned_names.add(name)
+        rows = [r for r in candidates if r.name not in banned_names]
         rows.sort(key=lambda r: (-r.level, r.name))
         return rows
 

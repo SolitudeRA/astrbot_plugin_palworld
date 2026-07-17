@@ -159,6 +159,86 @@ async def test_online_dto(qs):
     assert dto.rows[0].online_seconds == 200
 
 
+async def _online_player(repo, key, name, level, *, ping=PingBucket.GOOD, secs=200):
+    await repo.upsert_player(
+        PlayerIdentity(key, WID, name, 1000, 1200, level, "g1", IdConfidence.HIGH)
+    )
+    await repo.insert_session(
+        PlayerSession(None, WID, key, 1000, 1200, None, secs, SessionStatus.ACTIVE, None)
+    )
+    await repo.insert_observation(
+        PlayerObservation(1200, WID, key, name, level, ping, 3, "g1", None, None)
+    )
+
+
+def _player_names(status_dto) -> set[str]:
+    return {n for n, _lv, _ping in status_dto.players}
+
+
+async def test_hidden_player_absent_from_both_status_and_online(qs):
+    # spec §3 隐私收敛：me hide 后该名从 status 在线玩家节 AND online 名单同时消失（两入口一次堵死）
+    repo, q, _ = qs
+    await repo.insert_metric(WorldMetric(WID, 1200, 58.0, 17.2, 2, 42, 5))
+    await _online_player(repo, "pk1", "Neo", 21)
+    await _online_player(repo, "pk2", "Trinity", 18)
+    await repo.set_hidden(WID, "pk1", "phash")   # Neo 自助隐藏
+
+    online = await q.online(_world())
+    assert [r.name for r in online.rows] == ["Trinity"]
+    status = await q.status(_world())
+    assert _player_names(status) == {"Trinity"}
+    # 头行分子 = 收敛后名单数（§3：与名单行数必须同数），非 metric.online_players(=2)
+    assert len(online.rows) == 1
+    assert len(status.players) == 1
+
+
+async def test_same_name_multi_key_one_hidden_bans_whole_group(qs):
+    # 同名多 key 存在性收敛：两个同名「Neo」都在线，隐藏其一则整组剔除（不让另一 key 补位泄露）
+    repo, q, _ = qs
+    await repo.insert_metric(WorldMetric(WID, 1200, 58.0, 17.2, 3, 42, 5))
+    await _online_player(repo, "pk1", "Neo", 21)
+    await _online_player(repo, "pk2", "Neo", 20)
+    await _online_player(repo, "pk3", "Trinity", 18)
+    await repo.set_hidden(WID, "pk1", "phash")   # 仅隐藏其中一个 Neo
+
+    online = await q.online(_world())
+    assert [r.name for r in online.rows] == ["Trinity"]   # 两个 Neo 全没
+    status = await q.status(_world())
+    assert _player_names(status) == {"Trinity"}
+
+
+async def test_offline_hidden_key_bans_same_name_online_key(qs):
+    # 同名收敛跨在线/离线：离线的隐藏 key 与在线 key 同名，则在线的同名者亦整组剔除
+    # （name_banned 全量按名查询，同 player_profile 语义，防同名绕过）
+    repo, q, _ = qs
+    await repo.insert_metric(WorldMetric(WID, 1200, 58.0, 17.2, 2, 42, 5))
+    await _online_player(repo, "pk_on", "Neo", 21)
+    # 离线同名 key（无开放会话），被隐藏
+    await repo.upsert_player(
+        PlayerIdentity("pk_off", WID, "Neo", 500, 900, 15, "g1", IdConfidence.HIGH)
+    )
+    await repo.set_hidden(WID, "pk_off", "phash")
+
+    online = await q.online(_world())
+    assert [r.name for r in online.rows] == []
+    status = await q.status(_world())
+    assert _player_names(status) == set()
+
+
+async def test_excluded_name_config_removes_player_from_both(qs):
+    # exclude_names 配置排除同样经 load_excluded_keys 生效于两入口
+    repo, q, _ = qs
+    q._cfg.players.exclude_names = ["Neo"]
+    await repo.insert_metric(WorldMetric(WID, 1200, 58.0, 17.2, 2, 42, 5))
+    await _online_player(repo, "pk1", "Neo", 21)
+    await _online_player(repo, "pk2", "Trinity", 18)
+
+    online = await q.online(_world())
+    assert [r.name for r in online.rows] == ["Trinity"]
+    status = await q.status(_world())
+    assert _player_names(status) == {"Trinity"}
+
+
 _METADATA_DIR = Path(__file__).resolve().parents[2] / "metadata"
 
 
