@@ -118,7 +118,7 @@ def test_online_redacted_golden():
         updated_at=1700000000, degraded=False, max_players=32, peak_online=7,
     )
     text = format_online(dto, "Palpagos")
-    # privacy: no raw ping ms leaked
-    assert "3661" not in text or "在线" in text  # duration allowed, ping must be bucket
+    # privacy/format: raw online_seconds (3661) must render via fmt_duration, never dumped raw.
+    assert "3661" not in text
     assert "优秀" in text and "偏高" in text
     _check_golden("online_redacted.txt", text)

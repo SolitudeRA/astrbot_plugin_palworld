@@ -304,7 +304,7 @@ class Commands:
         if which in ("today", "total") and strict:
             return L("rank_duration_strict")
         dto = await self._query.rank(world, which)
-        return format_rank(dto, which=which, strict=strict, server_name=server_name)
+        return format_rank(dto, which=which, server_name=server_name)
 
     @_gated
     async def player(self, umo, message_str, is_group) -> str:

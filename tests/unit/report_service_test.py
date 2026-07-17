@@ -192,6 +192,9 @@ async def test_daily_three_section_dispatch_and_dedup(tmp_path):
         assert any("工作帕鲁" in r for r in rep.base_changes)
         # 成长节
         assert rep.growth == ["Neo 升级 Lv21→Lv22"]
+        # 末行编辑部总结主分支（spec §4.5）：经 _summary 三计数拼装（1 新玩家 / 1 成长 /
+        # 2 据点变化），锚定 golden 手造串之外的真实渲染路径，防 _summary 主分支回归。
+        assert rep.summary == "今天：1 名新玩家加入，1 次成长，2 处据点变化。"
     finally:
         await db.close()
 

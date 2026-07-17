@@ -535,11 +535,11 @@ _RANK_TITLE = {
 }
 
 
-def format_rank(dto: RankBoardsDTO, *, which: str, strict: bool, server_name: str) -> str:
+def format_rank(dto: RankBoardsDTO, *, which: str, server_name: str) -> str:
     """rank 单榜三变体（spec §4.23）。标题锚点 server_name = 配置名 srv.name（commands 层供数）。
 
-    strict 下 today/total（时长榜）已在 commands 层拦截（rank_duration_strict 直返），本函数
-    只渲染实际单榜；level 不受 strict 影响（strict 参数保留作签名一致，此处不再分叉）。
+    strict 隐私模式的双砍（today/total 时长榜拒渲染）在 commands 层完成——rank_duration_strict
+    直返先于本函数调用（真正的守卫落点），故本函数不接 strict、只渲染实际单榜；level 不受影响。
     名次序号 `1. `/`2. ` 纯渲染零成本；时长走 textkit.fmt_duration。total 变体附脚注
     `└ 统计范围为数据留存期`。空榜=标题锚点 + 素文 rank_empty（无脚注）。
     """
