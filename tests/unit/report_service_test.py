@@ -31,7 +31,7 @@ from palworld_terminal.infrastructure.database import Database
 from palworld_terminal.infrastructure.migrations import apply_migrations
 
 
-def _cfg(tz: str = "Asia/Tokyo") -> AppConfig:
+def _cfg(tz: str = "Asia/Tokyo", privacy_mode: str = "balanced") -> AppConfig:
     return AppConfig(
         servers=[], skipped=[],
         routing=RoutingConfig(access_mode=AccessMode.RESTRICTED, default_server=""),
@@ -40,7 +40,7 @@ def _cfg(tz: str = "Asia/Tokyo") -> AppConfig:
         world=WorldConfig(timezone=tz, locale="zh-CN", fps_smooth=50,
                           fps_moderate=35, fps_laggy=20),
         bases=BasesConfig(True, 5000, 0.2, 3, 2000, 0.5),
-        privacy=PrivacyConfig("balanced", False, False, 60, 120, 900),
+        privacy=PrivacyConfig(privacy_mode, False, False, 60, 120, 900),
         history=HistoryConfig(7, 90, 365, 180),
     )
 
@@ -58,14 +58,14 @@ DAY_START_UTC = 1783609200
 NOON = DAY_START_UTC + 12 * 3600
 
 
-async def _make(tmp_path: Path, tz="Asia/Tokyo"):
+async def _make(tmp_path: Path, tz="Asia/Tokyo", privacy_mode="balanced"):
     db = Database(tmp_path / "rep.db")
     await db.open()
     await apply_migrations(db)
     clock = FakeClock(start=NOON)
     repo = Repository(db, clock)
     events = EventService(repo, clock)
-    return ReportService(repo, _cfg(tz), clock), repo, events, clock, db
+    return ReportService(repo, _cfg(tz, privacy_mode), clock), repo, events, clock, db
 
 
 def _ident(world_id: str, key: str, name: str) -> PlayerIdentity:
@@ -195,6 +195,64 @@ async def test_daily_three_section_dispatch_and_dedup(tmp_path):
         # 末行编辑部总结主分支（spec §4.5）：经 _summary 三计数拼装（1 新玩家 / 1 成长 /
         # 2 据点变化），锚定 golden 手造串之外的真实渲染路径，防 _summary 主分支回归。
         assert rep.summary == "今天：1 名新玩家加入，1 次成长，2 处据点变化。"
+    finally:
+        await db.close()
+
+
+async def test_daily_strict_omits_growth_and_base_changes(tmp_path):
+    # Finding 2：strict 下今日纪录只留 world 主体（里程碑/在线纪录）；玩家成长（player 主体）
+    # 与据点变化（base 主体）整节缺席——与 events 同一 world-only 规则。聚合头行（峰值）照常。
+    report, repo, events, clock, db = await _make(tmp_path, privacy_mode="strict")
+    try:
+        w = _world()
+        clock.set(NOON)
+        await repo.upsert_player(
+            PlayerIdentity("pk1", w.world_id, "Neo", NOON, NOON, 22, None,
+                           IdConfidence.HIGH))
+        await repo.insert_metric(WorldMetric(
+            world_id=w.world_id, observed_at=NOON, fps=60.0, frame_time=16.0,
+            online_players=6, world_day=105, basecamp_count=1))
+        await events.world_day(w, 105)                          # milestone (world)
+        await events.online_record(w, value=8, confirmed=True)  # record (world)
+        await events.new_player(w, "pk1")                       # new player (player)
+        await events.level_up(w, "pk1", old=21, new=22)         # growth (player)
+        await events.new_guild(w, "gk1")                        # new guild (guild)
+        await events.base_events(w, [_bu(is_new=True)])         # NEW_BASE (base)
+        rep = await report.daily(w, day="2026-07-10")
+        # 今日纪录仅 world 主体：里程碑 + 在线纪录；新玩家/新公会（player/guild）缺席。
+        assert any("100" in r for r in rep.records)
+        assert "在线人数新纪录 8 人" in rep.records
+        assert not any("新玩家" in r for r in rep.records)
+        assert not any("新公会" in r for r in rep.records)
+        assert not any("Neo" in r for r in rep.records)
+        # 玩家成长 / 据点变化整节缺席。
+        assert rep.growth == []
+        assert rep.base_changes == []
+        # 聚合头行照常（peak 走 metric，非事件面）。
+        assert rep.peak_online == 6
+        assert rep.is_empty is False
+    finally:
+        await db.close()
+
+
+async def test_daily_strict_empty_when_only_individual_events(tmp_path):
+    # strict 下若仅有 player/base 个体事件且无活跃会话 → 事件全被裁、无聚合活动
+    # → 平静的一天（且 format_today 空态不崩）。
+    report, repo, events, clock, db = await _make(tmp_path, privacy_mode="strict")
+    try:
+        w = _world()
+        clock.set(NOON)
+        await repo.upsert_player(
+            PlayerIdentity("pk1", w.world_id, "Neo", NOON, NOON, 22, None,
+                           IdConfidence.HIGH))
+        await events.new_player(w, "pk1")
+        await events.level_up(w, "pk1", old=21, new=22)
+        rep = await report.daily(w, day="2026-07-10")
+        assert rep.records == []
+        assert rep.growth == []
+        assert rep.base_changes == []
+        assert rep.is_empty is True
+        assert rep.summary == "平静的一天"
     finally:
         await db.close()
 

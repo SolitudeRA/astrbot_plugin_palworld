@@ -684,3 +684,55 @@ def test_today_absent_section_omitted():
     assert "今日纪录" in text
     assert "玩家成长" not in text
     assert "据点变化" not in text
+
+
+# ---- Finding 1 回归：全部列表 formatter 遵从传入的 fold_limit（非硬编码 7）----
+# config → formatter 的 fold_limit 穿线一旦断（某 formatter 回退硬编码 7），本组即红。
+
+
+def test_formatters_honor_non_default_fold_limit():
+    # online：5 行、limit=3 → 前 3 行 + 「…等共 5 人」，第 4 行（P3）折叠出。
+    o_rows = [OnlinePlayerRow(f"P{i}", 20, PingBucket.OK, 600) for i in range(5)]
+    online = format_online(
+        OnlineDTO(rows=o_rows, updated_at=0, degraded=False, max_players=32, peak_online=5),
+        "S", fold_limit=3,
+    )
+    assert "…等共 5 人" in online
+    assert "· P3" not in online
+
+    # status：在线玩家 5 人、limit=3 → 前 3 + 「…等共 5 人」。
+    status = format_status(
+        _status(players=[(f"P{i}", 20, "good") for i in range(5)], detail=_detail()),
+        "S", fold_limit=3,
+    )
+    assert "…等共 5 人" in status
+    assert "· P3" not in status
+
+    # guilds：5 公会、limit=3 → 前 3 + 「…等共 5 个」。
+    guilds = format_guilds([GuildDTO(f"G{i}", 1, 1, 1) for i in range(5)], "S", fold_limit=3)
+    assert "…等共 5 个" in guilds
+    assert "G3" not in guilds
+
+    # today：今日纪录 5 条、limit=3 → 前 3 + 「…等共 5 条」（节级折叠）。
+    today = format_today(
+        _TodayReport(records=[f"E{i}" for i in range(5)]), "S", fold_limit=3,
+    )
+    assert "…等共 5 条" in today
+    assert "· E3" not in today
+
+    # bases：5 据点、limit=3 → 前 3 + 「…等共 5 个」（textkit.fold 重构后仍遵从 limit）。
+    bases = format_bases(
+        [BaseDTO(i, f"B{i}", "G", Confidence.HIGH, 0) for i in range(1, 6)],
+        "S", fold_limit=3,
+    )
+    assert "…等共 5 个" in bases
+    assert "#4" not in bases
+
+
+def test_format_bases_default_limit_unchanged_when_seven():
+    # 默认 limit=7 行为不变（textkit.fold 重构不改既有折叠语义）：8 据点 → 前 7 + 尾行。
+    dtos = [BaseDTO(i, f"B-{i}", "G", Confidence.HIGH, i) for i in range(1, 9)]
+    text = format_bases(dtos, "Palpagos")
+    assert "…等共 8 个" in text
+    assert "#8" not in text
+    assert "#7" in text

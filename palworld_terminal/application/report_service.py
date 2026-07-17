@@ -10,7 +10,11 @@ from ..domain.enums import EventType
 from ..domain.models import World, WorldEvent
 from ..infrastructure.clock import Clock
 from ..presentation.event_wording import event_wording
-from .name_resolver import load_excluded_keys, resolve_subjects
+from .name_resolver import (
+    keep_world_subject_under_strict,
+    load_excluded_keys,
+    resolve_subjects,
+)
 
 _ACTIVE_SECONDS = 600  # spec §12: 活跃日 >= 10 分钟
 
@@ -92,6 +96,13 @@ class ReportService:
                 break
             offset += _EVENT_PAGE
         events = [e for e in raw if e.occurred_at < end]
+        # strict 隐私：三节事件源只保留 world 主体（今日纪录留里程碑/在线纪录；玩家成长派生自
+        # player 主体、据点变化派生自 base 主体 → strict 下两节整节缺席）——与 events 共用同一
+        # world-only 规则单一真相源（keep_world_subject_under_strict），两路径口径不漂移。
+        # 聚合头行（活跃玩家/峰值在线/累计在线）走 sessions/peak，非事件面，strict 下保留。
+        events = keep_world_subject_under_strict(
+            events, self._cfg.privacy.mode == "strict"
+        )
         peak = await self._repo.peak_online(world.world_id, since=start)
 
         # 世界天数（epoch bug 修，spec §6#1）：日窗口内 metrics 首末 world_day，非窗口

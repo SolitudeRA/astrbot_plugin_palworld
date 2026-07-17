@@ -24,8 +24,8 @@ from ..presentation.dtos import (
     WorldSummaryDTO,
 )
 from ..presentation.event_wording import event_wording
+from .name_resolver import keep_world_subject_under_strict, resolve_subjects
 from .name_resolver import load_excluded_keys as _load_excluded_keys
-from .name_resolver import resolve_subjects
 from .report_service import day_bounds
 
 _STATUS_TTL = 15
@@ -454,6 +454,12 @@ class QueryService:
                  if today_only else None)
         # 候选池=近 20 条（折叠在 formatter 侧作用于该池之上，spec §4.4）。
         events = await self._repo.list_events(world.world_id, since=since, limit=20)
+        # strict 隐私：只保留 world 主体事件（聚合、无个体归因）；player/base/guild 主体
+        # （个体作息·时刻、据点、公会）不经 events 绕出 strict——与 status 双砍/据点不可绕
+        # 同哲学（world-only 规则与 today 同一真相源 keep_world_subject_under_strict）。
+        events = keep_world_subject_under_strict(
+            events, self._cfg.privacy.mode == "strict"
+        )
         # 主体名批量解析（含隐藏收敛 + 据点/公会回退，spec §4.4）；措辞走 event_wording 单一真相源。
         names = await self.resolve_event_subjects(world, events)
         dtos: list[EventDTO] = []
@@ -472,9 +478,14 @@ class QueryService:
         if kind == "enum":
             # 枚举措辞与状态卡 detail 同源（setting_display：enum_map 优先）。
             return self._meta.setting_display(field, value) if self._meta else str(value)
-        num = _fmt_rules_num(value)
         if kind == "rate":
-            return f"{num}x"
+            # 倍率恒一位小数（spec §2.4：默认 1.0 渲染 1.0x，不去尾成 1x）；
+            # 非数字（异常快照值）回退去尾渲染，不冒 500。
+            try:
+                return f"{float(value):.1f}x"
+            except (TypeError, ValueError):
+                return f"{_fmt_rules_num(value)}x"
+        num = _fmt_rules_num(value)
         if kind == "hours":
             return f"{num} 小时"
         if kind == "minutes":

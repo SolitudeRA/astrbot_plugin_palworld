@@ -14,6 +14,7 @@ from palworld_terminal.adapters.sqlite_repository import Repository
 from palworld_terminal.application.name_resolver import (
     BASE_FALLBACK,
     GUILD_FALLBACK,
+    keep_world_subject_under_strict,
     load_excluded_keys,
     resolve_subjects,
 )
@@ -156,6 +157,37 @@ async def test_world_subject_has_no_name(repo):
     ]
     names = await resolve_subjects(repo, WID, events, excluded_keys=set())
     assert names == {}
+
+
+# ---- Finding 2 回归：strict 只保留 world 主体事件（events/today 共用单一真相源）----
+
+
+def _mixed_events():
+    return [
+        _ev(EventType.WORLD_DAY_MILESTONE, "world", WID, {"milestone": 100}),
+        _ev(EventType.ONLINE_RECORD, "world", WID, {"value": 8}),
+        _ev(EventType.PLAYER_LEVEL_UP, "player", "pk1", {"old": 20, "new": 21}),
+        _ev(EventType.NEW_PLAYER, "player", "pk2"),
+        _ev(EventType.NEW_GUILD, "guild", "g1"),
+        _ev(EventType.NEW_BASE, "base", "b1"),
+        _ev(EventType.WORKER_DELTA, "base", "b1", {"prev": 12, "cur": 18}),
+        _ev(EventType.BASE_VANISHED, "base", "b2"),
+    ]
+
+
+def test_keep_world_subject_under_strict_drops_player_base_guild():
+    kept = keep_world_subject_under_strict(_mixed_events(), strict=True)
+    assert {e.subject_type for e in kept} == {"world"}
+    assert {e.event_type for e in kept} == {
+        EventType.WORLD_DAY_MILESTONE, EventType.ONLINE_RECORD,
+    }
+
+
+def test_keep_world_subject_under_strict_passthrough_when_not_strict():
+    src = _mixed_events()
+    kept = keep_world_subject_under_strict(src, strict=False)
+    assert kept == src           # 内容一致（balanced/advanced 不裁剪）
+    assert kept is not src       # 浅拷贝，不改入参
 
 
 async def test_load_excluded_keys_names_and_hidden(repo):

@@ -62,7 +62,9 @@ def format_degraded(last_ok: int | None, now: int, server_name: str) -> str:
     return f"🌍 世界状态 · {server_name}\n{status}"
 
 
-def format_online(dto: OnlineDTO, server_name: str, *, strict: bool = False) -> str:
+def format_online(
+    dto: OnlineDTO, server_name: str, *, strict: bool = False, fold_limit: int = 7,
+) -> str:
     """online 当前在线（spec §4.24）。标题锚点 server_name = 配置名 srv.name（commands 层供数）。
 
     头行在线数分子 = 收敛后名单数 len(dto.rows)（spec §3 隐私收敛——与名单行数必然同数，
@@ -83,12 +85,14 @@ def format_online(dto: OnlineDTO, server_name: str, *, strict: bool = False) -> 
         title,
         f"在线 {len(dto.rows)}/{dto.max_players} · 今日峰值 {dto.peak_online}",
         "",
-        *fold(entries, 7, "人"),
+        *fold(entries, fold_limit, "人"),
     ]
     return "\n".join(lines)
 
 
-def format_guilds(dto: list[GuildDTO], server_name: str, *, strict: bool = False) -> str:
+def format_guilds(
+    dto: list[GuildDTO], server_name: str, *, strict: bool = False, fold_limit: int = 7,
+) -> str:
     """guild list（spec §4.6）。标题锚点=服务器名（commands 层供数）。每公会成员~/工作帕鲁/
     据点数（PalBox 归 overview 设施节，此处不渲染；active_7d 砍位）。strict=字段级裁剪：
     砍「据点 N」计数位，公会本体保留（命令仍产出，非拒执行）。空态素文；>7 折叠「…等共 N 个」。"""
@@ -101,12 +105,14 @@ def format_guilds(dto: list[GuildDTO], server_name: str, *, strict: bool = False
         if not strict:
             cells.append(f"据点 {g.base_count}")
         entries.append("· " + " · ".join(cells))
-    lines = [title, "", *fold(entries, 7, "个")]
+    lines = [title, "", *fold(entries, fold_limit, "个")]
     lines.append("└ 公会与据点均为插件观察推导")
     return "\n".join(lines)
 
 
-def format_guild(dto: GuildDetailDTO, *, strict: bool, now: int, tz) -> str:
+def format_guild(
+    dto: GuildDetailDTO, *, strict: bool, now: int, tz, fold_limit: int = 7,
+) -> str:
     """guild info（spec §4.7）。标题锚点=公会名 dto.name。首次观察=绝对日期；最近=相对
     日期词表（时间戳字段全档带 HH:MM）。据点节 + 近期动态节实填（措辞经 event_wording
     单一真相源，query 层已渲染成串）。恒 0 占位（active_*/average_level）与 PalBox 砍位。
@@ -125,23 +131,28 @@ def format_guild(dto: GuildDetailDTO, *, strict: bool, now: int, tz) -> str:
             lines.append("")
             lines.append("据点")
             lines.extend(fold(
-                [f"· {name} 置信度{_CONF_LABEL[conf]}" for name, conf in dto.bases], 7, "个"
+                [f"· {name} 置信度{_CONF_LABEL[conf]}" for name, conf in dto.bases],
+                fold_limit, "个",
             ))
         if dto.recent_events:
             lines.append("")
             lines.append("近期动态")
-            lines.extend(fold([f"· {s}" for s in dto.recent_events], 7, "条"))
+            lines.extend(fold([f"· {s}" for s in dto.recent_events], fold_limit, "条"))
     return "\n".join(lines)
 
 
-def format_bases(dto: list[BaseDTO], server_name: str) -> str:
+def format_bases(dto: list[BaseDTO], server_name: str, *, fold_limit: int = 7) -> str:
     """guild bases（spec §4.8）。标题锚点=服务器名（commands 层供数）。按公会分组（未归属→
     「未确定公会」）；每据点 #序号（T5 统一含 low 序号空间）+ 置信度 + worker_count 实填
-    （>0 才渲染，无观测据点省该位）；hidden 恒不入清单；全局折叠 7「…等共 N 个」。空态素文。"""
+    （>0 才渲染，无观测据点省该位）；hidden 恒不入清单；全局折叠（textkit.fold 单一尾行
+    格式「…等共 N 个」，共用 cfg.players.list_fold_limit）。空态素文。"""
     title = f"🏕️ 据点 · {server_name}"
     if not dto:
         return f"{title}\n{L('bases_empty')}"
-    visible = dto[:7]
+    visible = dto[:fold_limit]
+    # 折叠尾行经 textkit.fold 生成（与其它列表共用同一限额与「…等共 N 个」尾格式）：
+    # 分组渲染用 visible，尾行只取 fold 汇总部分（未折叠时为空）。
+    tail = fold([b.display_name for b in dto], fold_limit, "个")[len(visible):]
     lines = [title]
     current_guild: str | None = None
     for b in visible:
@@ -154,8 +165,7 @@ def format_bases(dto: list[BaseDTO], server_name: str) -> str:
         if b.worker_count > 0:
             cells.append(f"工作帕鲁 {b.worker_count}")
         lines.append("· " + " · ".join(cells))
-    if len(dto) > 7:
-        lines.append(f"…等共 {len(dto)} 个")
+    lines.extend(tail)
     lines.append("└ 据点为插件观察推导；#序号可用于 /pal guild base")
     return "\n".join(lines)
 
@@ -253,7 +263,7 @@ _SKIP_REASON = {
 
 def format_servers(
     rows: list[ServerStatusRow], skipped: list[SkippedServer], is_admin: bool,
-    *, is_group: bool = True,
+    *, is_group: bool = True, fold_limit: int = 7,
 ) -> str:
     """/pal link list（spec §4.20）。标题无服务器主体（§2.1 豁免）。
 
@@ -278,7 +288,7 @@ def format_servers(
             if r.active:
                 cells.append("当前活动")
         entries.append("· " + " · ".join(cells))
-    lines = ["🔗 已配置服务器", "", *fold(entries, 7, "条")]
+    lines = ["🔗 已配置服务器", "", *fold(entries, fold_limit, "条")]
     if is_admin and skipped:
         lines.append("")
         lines.append("无效配置")
@@ -367,7 +377,9 @@ def format_help(topic: str | None, is_admin: bool, overrides, world_mode: str = 
     return "\n".join(lines)
 
 
-def format_status(dto: StatusDTO, server_name: str, *, show_bases: bool = True) -> str:
+def format_status(
+    dto: StatusDTO, server_name: str, *, show_bases: bool = True, fold_limit: int = 7,
+) -> str:
     """world status（spec §4.1）。标题锚点 server_name = 配置名 srv.name（commands 层供数，
     不取游戏内 world.server_name）。`据点` 独立行随 guilds_bases 组关闭而整行消失。
 
@@ -397,11 +409,13 @@ def format_status(dto: StatusDTO, server_name: str, *, show_bases: bool = True) 
     if dto.players:  # 0 人省略整节（含其上方空行）
         lines.append("")
         lines.append("在线玩家")
-        lines.extend(fold([f"· {n} Lv{lv}" for n, lv, _ in dto.players], 7, "人"))
+        lines.extend(fold([f"· {n} Lv{lv}" for n, lv, _ in dto.players], fold_limit, "人"))
     return "\n".join(lines)
 
 
-def format_world(dto: WorldSummaryDTO, server_name: str, *, strict: bool = False) -> str:
+def format_world(
+    dto: WorldSummaryDTO, server_name: str, *, strict: bool = False, fold_limit: int = 7,
+) -> str:
     """world overview 人口普查（spec §4.2）。FPS 归 status（不渲染）；据点数取官方口径。
 
     快照缺失（available=False）→ ⚠️ 取数失败态（不再静默全 0）。strict 下省略设施节的
@@ -427,7 +441,7 @@ def format_world(dto: WorldSummaryDTO, server_name: str, *, strict: bool = False
     if dto.wild_top:
         lines.append("")
         lines.append("野生帕鲁 Top（当前快照）")
-        lines.extend(fold([f"· {w.name} ×{w.count}" for w in dto.wild_top], 7, "种"))
+        lines.extend(fold([f"· {w.name} ×{w.count}" for w in dto.wild_top], fold_limit, "种"))
     return "\n".join(lines)
 
 
@@ -452,7 +466,7 @@ def format_rules(dto: RulesDTO, server_name: str) -> str:
     return "\n".join(lines)
 
 
-def format_today(dto, server_name: str) -> str:
+def format_today(dto, server_name: str, *, fold_limit: int = 7) -> str:
     """world today 日报（spec §4.5）。标题锚点 server_name = 配置名 srv.name（commands
     层供数），标题带日期（§2.1）。
 
@@ -478,7 +492,7 @@ def format_today(dto, server_name: str) -> str:
         if items:
             lines.append("")
             lines.append(header)
-            lines.extend(fold([f"· {x}" for x in items], 7, "条"))
+            lines.extend(fold([f"· {x}" for x in items], fold_limit, "条"))
     lines.append("")
     lines.append(dto.summary)
     return "\n".join(lines)

@@ -111,6 +111,16 @@ async def test_rules_curates_rate_field(tmp_path):
     await db.close()
 
 
+async def test_rules_rate_whole_number_keeps_one_decimal(tmp_path):
+    # Finding 3（spec §2.4/§4.3）：倍率恒一位小数——默认 1.0 必须渲染 1.0x（非去尾成 1x），
+    # 默认服全倍率=1.0 属最常见场景。锚定真渲染路径（golden 用预渲染 DTO 测不出本回归）。
+    db, repo, q = await _make(tmp_path)
+    q._settings_cache["alpha"] = {"ExpRate": "1.000000"}
+    dto = await q.rules(_world())
+    assert _rule_items(dto)["经验"] == "1.0x"
+    await db.close()
+
+
 async def test_rules_maps_enum_values_via_setting_display(tmp_path):
     # 枚举字段走 setting_display（enum_map 措辞，不直出 "ItemAndEquipment"）。
     db, repo, q = await _make(tmp_path)

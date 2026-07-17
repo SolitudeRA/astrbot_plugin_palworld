@@ -167,6 +167,14 @@ class Commands:
             return False
         return getattr(getattr(cfg, "privacy", None), "mode", "") == "strict"
 
+    def _fold_limit(self) -> int:
+        """列表折叠上限（spec §2.7）：全部列表 formatter 共用 cfg.players.list_fold_limit
+        单一真相源；测试替身缺 cfg/players 时回默认 7。"""
+        cfg = self._cfg
+        if cfg is None:
+            return 7
+        return getattr(getattr(cfg, "players", None), "list_fold_limit", 7)
+
     async def status(self, umo, message_str, is_group) -> str:
         world, _arg, err, server_name = await self._resolve_world(
             umo, message_str, "status", is_group
@@ -174,7 +182,10 @@ class Commands:
         if err is not None:
             return err
         dto = await self._query.status(world)
-        return format_status(dto, server_name, show_bases=self._guilds_bases_on())
+        return format_status(
+            dto, server_name, show_bases=self._guilds_bases_on(),
+            fold_limit=self._fold_limit(),
+        )
 
     async def online(self, umo, message_str, is_group) -> str:
         # online 是查询类但需标题锚点 server_name + strict 砍时长（spec §4.24），故不走
@@ -185,7 +196,9 @@ class Commands:
         if err is not None:
             return err
         dto = await self._query.online(world)
-        return format_online(dto, server_name, strict=self._is_strict())
+        return format_online(
+            dto, server_name, strict=self._is_strict(), fold_limit=self._fold_limit(),
+        )
 
     async def world(self, umo, message_str, is_group) -> str:
         world, _arg, err, server_name = await self._resolve_world(
@@ -194,7 +207,9 @@ class Commands:
         if err is not None:
             return err
         dto = await self._query.world_summary(world)
-        return format_world(dto, server_name, strict=self._is_strict())
+        return format_world(
+            dto, server_name, strict=self._is_strict(), fold_limit=self._fold_limit(),
+        )
 
     async def rules(self, umo, message_str, is_group) -> str:
         world, _arg, err, server_name = await self._resolve_world(
@@ -215,7 +230,9 @@ class Commands:
         if err is not None:
             return err
         dto = await self._query.guilds(world)
-        return format_guilds(dto, server_name, strict=self._is_strict())
+        return format_guilds(
+            dto, server_name, strict=self._is_strict(), fold_limit=self._fold_limit(),
+        )
 
     @_gated
     async def guild(self, umo, message_str, is_group) -> str:
@@ -232,6 +249,7 @@ class Commands:
         return format_guild(
             dto, strict=self._is_strict(),
             now=self._clock.now(), tz=server_timezone(self._cfg, world),
+            fold_limit=self._fold_limit(),
         )
 
     @_gated
@@ -246,7 +264,7 @@ class Commands:
         if err is not None:
             return err
         dto = await self._query.bases(world)
-        return format_bases(dto, server_name)
+        return format_bases(dto, server_name, fold_limit=self._fold_limit())
 
     @_gated
     async def base(self, umo, message_str, is_group) -> str:
@@ -277,7 +295,7 @@ class Commands:
             now=self._clock.now(),
             tz=server_timezone(self._cfg, world),
             today_only=today_only,
-            fold_limit=self._cfg.players.list_fold_limit,
+            fold_limit=self._fold_limit(),
         )
 
     @_gated
@@ -287,7 +305,9 @@ class Commands:
         )
         if err is not None:
             return err
-        return format_today(await self._query.today(world), server_name)
+        return format_today(
+            await self._query.today(world), server_name, fold_limit=self._fold_limit(),
+        )
 
     @_gated
     async def rank(self, umo, message_str, is_group) -> str:
@@ -562,7 +582,9 @@ class Commands:
                 allowed=allowed, active=active,
             ))
         skipped = self._cfg.skipped if self._cfg else []
-        return format_servers(rows, skipped, is_admin, is_group=is_group)
+        return format_servers(
+            rows, skipped, is_admin, is_group=is_group, fold_limit=self._fold_limit(),
+        )
 
     async def link_add(self, umo, name, is_group) -> str:
         """/pal link add（spec §4.21）：routing.use 结构化返回 → 渲染上提本层。"""

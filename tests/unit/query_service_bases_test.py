@@ -30,7 +30,7 @@ from palworld_terminal.infrastructure.migrations import apply_migrations
 WID = "alpha:guid-1:0"
 
 
-def _cfg() -> AppConfig:
+def _cfg(privacy_mode: str = "balanced") -> AppConfig:
     return AppConfig(
         servers=[], skipped=[],
         routing=RoutingConfig(access_mode=AccessMode.OPEN, default_server=""),
@@ -38,7 +38,7 @@ def _cfg() -> AppConfig:
         polling=PollingConfig(30, 30, 600, 1800, 120, 0.1, 6),
         world=WorldConfig("Asia/Tokyo", "zh-CN", 50, 35, 20),
         bases=BasesConfig(True, 5000, 0.2, 3, 2000, 0.5),
-        privacy=PrivacyConfig("balanced", False, False, 60, 120, 900),
+        privacy=PrivacyConfig(privacy_mode, False, False, 60, 120, 900),
         history=HistoryConfig(7, 90, 365, 180),
     )
 
@@ -259,3 +259,32 @@ async def test_events_skips_hidden_player_event(qs):
     ))
     dtos = await q.events(_world(), today_only=False)
     assert dtos == []
+
+
+async def test_events_strict_keeps_only_world_subject(qs):
+    # Finding 2（隐私泄漏）：strict 下 events 只保留 world 主体（里程碑/在线纪录，聚合无归因）；
+    # player（升级·时刻）与 base（据点，§4.7-4.9 不可绕出 strict）主体整条缺席。
+    repo, q, clock = qs
+    await repo.upsert_player(PlayerIdentity("pk1", WID, "Neo", 900, 1200, 22, None, IdConfidence.HIGH))
+    await repo.upsert_base(Base("b1", WID, "pb1", "海岸木材场", "g1", Confidence.HIGH, False, False, 900, 1200))
+    await repo.insert_event(WorldEvent(None, WID, EventType.WORLD_DAY_MILESTONE, "world", WID, 1200, 1200, {"milestone": 100}, "public", Confidence.HIGH, f"{WID}|WORLD_DAY_MILESTONE|100"))
+    await repo.insert_event(WorldEvent(None, WID, EventType.ONLINE_RECORD, "world", WID, 1200, 1200, {"value": 8}, "public", Confidence.HIGH, f"{WID}|ONLINE_RECORD|8"))
+    await repo.insert_event(WorldEvent(None, WID, EventType.PLAYER_LEVEL_UP, "player", "pk1", 1200, 1200, {"old": 21, "new": 22}, "public", Confidence.HIGH, f"{WID}|PLAYER_LEVEL_UP|pk1|22"))
+    await repo.insert_event(WorldEvent(None, WID, EventType.NEW_BASE, "base", "b1", 1200, 1200, {}, "public", Confidence.HIGH, f"{WID}|NEW_BASE|b1"))
+
+    # balanced（fixture q）：四条主体全在。
+    balanced = await q.events(_world(), today_only=False)
+    assert len(balanced) == 4
+
+    # strict：仅 world 主体两条，无个体作息/时刻/据点线（独立 cache，与 balanced 不串）。
+    q_strict = QueryService(
+        repo, TTLCache(clock), _cfg(privacy_mode="strict"), meta=None,
+        clock=clock, settings_cache={},
+    )
+    strict = await q_strict.events(_world(), today_only=False)
+    summaries = [d.summary for d in strict]
+    assert len(strict) == 2
+    assert "世界迎来第 100 天" in summaries
+    assert "在线人数新纪录 8 人" in summaries
+    assert all("Neo" not in s and "升级" not in s for s in summaries)        # player 缺席
+    assert all("海岸木材场" not in s and "新据点" not in s for s in summaries)  # base 缺席

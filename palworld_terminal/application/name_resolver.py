@@ -20,6 +20,19 @@ BASE_FALLBACK = "据点"
 GUILD_FALLBACK = "公会"
 
 
+def keep_world_subject_under_strict(
+    events: list[WorldEvent], strict: bool
+) -> list[WorldEvent]:
+    """strict 隐私模式：事件只保留 world 主体（世界迎来第 N 天 / 在线人数新纪录——聚合值、
+    无个体归因，与 status 保留 peak_online 同哲学）；player（升级/新玩家的活动与时刻）、
+    base（据点，§4.7-4.9「据点不可绕出 strict」）、guild 主体一律剔除。events（T6，
+    QueryService）与 today（T7，ReportService）两条数据路径共用本单一真相源，杜绝
+    「作息/时刻/据点」在 strict 下经事件面绕出。strict=False 原样返回（浅拷贝）。"""
+    if not strict:
+        return list(events)
+    return [e for e in events if e.subject_type == "world"]
+
+
 async def load_excluded_keys(
     repo: Repository, world_id: str, exclude_names: Iterable[str]
 ) -> set[str]:
