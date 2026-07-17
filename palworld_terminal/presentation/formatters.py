@@ -3,7 +3,7 @@ from __future__ import annotations
 from ..application.command_permissions import effective_enabled
 from ..application.query_service import PlayerProfileDTO, RankBoardsDTO
 from ..config import SkippedServer
-from ..domain.enums import Confidence, PingBucket
+from ..domain.enums import ActionCategory, Confidence, PingBucket
 from ..presentation.command_registry import (
     DISPATCH,
     FLAT_ACTIONS,
@@ -37,6 +37,14 @@ _PING_LABEL = {
     PingBucket.HIGH: "偏高", PingBucket.UNKNOWN: "未知",
 }
 _CONF_LABEL = {Confidence.HIGH: "高", Confidence.MEDIUM: "中", Confidence.LOW: "低"}
+
+# 行为分布类目（spec §4.9）：ActionCategory 8 档中文（细分工种数据面不存在，不臆造「伐木/搬运」）。
+_ACTION_CAT_LABEL = {
+    ActionCategory.WORKING: "工作中", ActionCategory.MOVING: "移动",
+    ActionCategory.IDLE: "闲置", ActionCategory.COMBAT: "战斗",
+    ActionCategory.SLEEPING: "睡觉", ActionCategory.EATING: "进食",
+    ActionCategory.INCAPACITATED: "濒死", ActionCategory.UNKNOWN: "未知",
+}
 
 # 性能流畅度档位 → 状态色点（spec §2.2/§4.1）：流畅🟢 / 一般🟡 / 卡顿·严重卡顿🔴。
 _SMOOTH_DOT = {"流畅": "🟢", "一般": "🟡", "卡顿": "🔴", "严重卡顿": "🔴"}
@@ -80,50 +88,114 @@ def format_online(dto: OnlineDTO, server_name: str, *, strict: bool = False) -> 
     return "\n".join(lines)
 
 
-def format_guilds(dto: list[GuildDTO]) -> str:
+def format_guilds(dto: list[GuildDTO], server_name: str, *, strict: bool = False) -> str:
+    """guild list（spec §4.6）。标题锚点=服务器名（commands 层供数）。每公会成员~/工作帕鲁/
+    据点数（PalBox 归 overview 设施节，此处不渲染；active_7d 砍位）。strict=字段级裁剪：
+    砍「据点 N」计数位，公会本体保留（命令仍产出，非拒执行）。空态素文；>7 折叠「…等共 N 个」。"""
+    title = f"🏰 公会 · {server_name}"
     if not dto:
-        return L("guilds_unavailable")
-    lines = ["世界公会（已观察/推导）："]
+        return f"{title}\n{L('guilds_empty')}"
+    entries: list[str] = []
     for g in dto:
-        lines.append(
-            f"· {g.name} · 成员~{g.observed_members} · PalBox {g.palbox} · "
-            f"工作帕鲁 {g.base_pals} · 近7日活跃 {g.active_7d}"
-        )
+        cells = [f"{g.name} 成员 ~{g.observed_members}", f"工作帕鲁 {g.base_pals}"]
+        if not strict:
+            cells.append(f"据点 {g.base_count}")
+        entries.append("· " + " · ".join(cells))
+    lines = [title, "", *fold(entries, 7, "个")]
+    lines.append("└ 公会与据点均为插件观察推导")
     return "\n".join(lines)
 
 
-def format_guild(dto: GuildDetailDTO) -> str:
+def format_guild(dto: GuildDetailDTO, *, strict: bool, now: int, tz) -> str:
+    """guild info（spec §4.7）。标题锚点=公会名 dto.name。首次观察=绝对日期；最近=相对
+    日期词表（时间戳字段全档带 HH:MM）。据点节 + 近期动态节实填（措辞经 event_wording
+    单一真相源，query 层已渲染成串）。恒 0 占位（active_*/average_level）与 PalBox 砍位。
+    strict=字段级裁剪：省略据点节 + 近期动态节 + 首行「据点 N」计数（据点类不经本命令绕出
+    strict）；公会本体（成员/工作帕鲁/首次观察/最近）保留。"""
+    head = [f"成员 ~{dto.observed_members}", f"工作帕鲁 {dto.base_pals}"]
+    if not strict:
+        head.append(f"据点 {dto.base_count}")
     lines = [
-        f"公会：{dto.name}（已观察/推导）",
-        f"观察成员：~{dto.observed_members} · 当日活跃 {dto.active_today} · 当周活跃 {dto.active_week}",
-        f"PalBox {dto.palbox} · 工作帕鲁 {dto.base_pals} · 平均等级 {dto.average_level:.1f}",
+        f"🏰 公会 · {dto.name}",
+        " · ".join(head),
+        f"首次观察 {abs_date(dto.first_seen_at, tz)} · 最近 {rel_datetime(dto.last_seen_at, now, tz)}",
     ]
-    if dto.base_event_lines:
-        lines.append("据点变化：")
-        lines.extend(f"  · {line}" for line in dto.base_event_lines)
+    if not strict:
+        if dto.bases:
+            lines.append("")
+            lines.append("据点")
+            lines.extend(fold(
+                [f"· {name} 置信度{_CONF_LABEL[conf]}" for name, conf in dto.bases], 7, "个"
+            ))
+        if dto.recent_events:
+            lines.append("")
+            lines.append("近期动态")
+            lines.extend(fold([f"· {s}" for s in dto.recent_events], 7, "条"))
     return "\n".join(lines)
 
 
-def format_bases(dto: list[BaseDTO]) -> str:
+def format_bases(dto: list[BaseDTO], server_name: str) -> str:
+    """guild bases（spec §4.8）。标题锚点=服务器名（commands 层供数）。按公会分组（未归属→
+    「未确定公会」）；每据点 #序号（T5 统一含 low 序号空间）+ 置信度 + worker_count 实填
+    （>0 才渲染，无观测据点省该位）；hidden 恒不入清单；全局折叠 7「…等共 N 个」。空态素文。"""
+    title = f"🏕️ 据点 · {server_name}"
     if not dto:
-        return "暂无可展示的据点（插件推导）。"
-    lines = ["据点列表（插件推导）："]
-    for b in dto:
+        return f"{title}\n{L('bases_empty')}"
+    visible = dto[:7]
+    lines = [title]
+    current_guild: str | None = None
+    for b in visible:
         guild = b.guild_name or "未确定公会"
-        lines.append(f"#{b.index} {b.display_name} · {guild} · 置信度 {_CONF_LABEL[b.confidence]}")
+        if guild != current_guild:
+            lines.append("")
+            lines.append(guild)
+            current_guild = guild
+        cells = [f"#{b.index} {b.display_name} 置信度{_CONF_LABEL[b.confidence]}"]
+        if b.worker_count > 0:
+            cells.append(f"工作帕鲁 {b.worker_count}")
+        lines.append("· " + " · ".join(cells))
+    if len(dto) > 7:
+        lines.append(f"…等共 {len(dto)} 个")
+    lines.append("└ 据点为插件观察推导；#序号可用于 /pal guild base")
     return "\n".join(lines)
+
+
+def _health_status(score: float) -> tuple[str, str]:
+    """健康度 → 状态点+词（spec §4.9）：🟢 健康 ≥75 / 🟡 一般 ≥40 / 🔴 低迷 <40。"""
+    if score >= 75:
+        return "🟢", "健康"
+    if score >= 40:
+        return "🟡", "一般"
+    return "🔴", "低迷"
 
 
 def format_base(dto: BaseDetailDTO) -> str:
-    guild = dto.guild_name or "未确定公会"
-    dist = "、".join(f"{k}:{v}" for k, v in dto.action_distribution.items()) or "无"
-    return "\n".join([
-        f"据点：{dto.display_name}（插件推导）",
-        f"所属公会：{guild} · 置信度 {_CONF_LABEL[dto.confidence]} · PalBox {dto.palbox_count}",
-        f"工作帕鲁 {dto.worker_count} · 活跃 {dto.active_count} · 平均等级 {dto.average_level:.1f}",
-        f"平均HP比 {dto.average_hp_ratio:.0%} · 活跃度 {dto.activity_score:.1f} · 健康度 {dto.health_score:.1f}",
-        f"Action 分布：{dist}",
-    ])
+    """guild base（spec §4.9）。标题锚点=据点名 dto.display_name。健康度→状态点+词；行为分布=
+    ActionCategory 8 档中文（有计数者按枚举定序渲染）。activity_score 裸数与 palbox_count 砍位。
+    available=False（无观测）→ ⚠️ 取数失败态（不再全 0 假数据，§6#8）。"""
+    title = f"🏕️ 据点 · {dto.display_name}"
+    guild = f"公会「{dto.guild_name}」" if dto.guild_name else "未确定公会"
+    ident = f"{guild} · 置信度{_CONF_LABEL[dto.confidence]}"
+    if not dto.available:
+        return f"{title}\n{ident}\n{L('base_no_observation')}"
+    dot, word = _health_status(dto.health_score)
+    lines = [
+        title,
+        ident,
+        "",
+        f"工作帕鲁 {dto.worker_count} · 活跃 {dto.active_count} · 平均 Lv{dto.average_level:.1f}",
+        f"状态 {dot} {word} · 平均HP {dto.average_hp_ratio:.0%}",
+    ]
+    dist = [
+        f"{_ACTION_CAT_LABEL[cat]} {dto.action_distribution[cat.value]}"
+        for cat in ActionCategory
+        if dto.action_distribution.get(cat.value, 0) > 0
+    ]
+    if dist:
+        lines.append("")
+        lines.append("行为分布")
+        lines.append("· " + " · ".join(dist))
+    return "\n".join(lines)
 
 
 def format_events(

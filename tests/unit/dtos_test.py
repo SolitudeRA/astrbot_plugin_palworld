@@ -36,11 +36,12 @@ def test_online_dto_uses_ping_bucket():
 def test_base_detail_carries_confidence():
     dto = BaseDetailDTO(
         display_name="Noema-2", guild_name="Noema", confidence=Confidence.HIGH,
-        palbox_count=1, worker_count=8, active_count=6, average_level=17.5,
+        worker_count=8, active_count=6, average_level=17.5,
         average_hp_ratio=0.9, action_distribution={"working": 6, "idle": 2},
-        activity_score=82.5, health_score=90.0,
+        health_score=90.0,
     )
     assert dto.confidence is Confidence.HIGH
+    assert dto.available is True  # 默认可用（无观测态由 query 置 False）
 
 
 def test_remaining_dtos_construct():
@@ -53,11 +54,11 @@ def test_remaining_dtos_construct():
         sections=[RuleSection(title="倍率", items=[("经验", "1.0x")])],
         available=True, privacy_note=None, updated_at=1000,
     )
-    GuildDTO(name="Noema", observed_members=4, palbox=2, base_pals=10, active_7d=3)
+    GuildDTO(name="Noema", observed_members=4, base_pals=10, base_count=2)
     GuildDetailDTO(
         name="Noema", first_seen_at=1, last_seen_at=2, observed_members=4,
-        active_today=2, active_week=3, palbox=2, base_pals=10, average_level=15.0,
-        base_event_lines=["据点新增：Noema-2"],
+        base_pals=10, base_count=2, bases=[("Noema-1", Confidence.HIGH)],
+        recent_events=["新据点「Noema-2」确认"],
     )
     BaseDTO(index=1, display_name="Noema-1", guild_name="Noema",
             confidence=Confidence.MEDIUM, worker_count=5)

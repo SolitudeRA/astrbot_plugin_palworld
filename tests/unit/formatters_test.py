@@ -185,31 +185,179 @@ def test_format_online_empty():
     assert "当前无玩家在线" in text
 
 
-def test_format_bases_folds_low_confidence_note():
-    dtos = [BaseDTO(1, "Noema-1", "Noema", Confidence.HIGH, 8)]
-    text = format_bases(dtos)
-    assert "Noema-1" in text
-    assert "#1" in text
+# ---- guild 组四条（spec §4.6-4.9；上游恢复后生效，落码即备）----
+
+_G_TZ = "Asia/Tokyo"
 
 
-def test_format_bases_empty():
-    assert "暂无" in format_bases([])
+def _g_ep(y, mo, d, h=0, mi=0):
+    return int(datetime(y, mo, d, h, mi, tzinfo=ZoneInfo(_G_TZ)).timestamp())
 
 
-def test_format_base_marks_derived():
-    dto = BaseDetailDTO("Noema-1", "Noema", Confidence.HIGH, 1, 8, 6, 17.5, 0.9,
-                        {"working": 6, "idle": 2}, 81.25, 90.0)
+def test_format_guilds_list_sample_4_6():
+    # spec §4.6：标题锚点=服务器名；每公会成员~/工作帕鲁/据点数；免责脚注；PalBox/active_7d 砍位。
+    dtos = [GuildDTO("Matrix", 4, 28, 2), GuildDTO("Zion", 2, 9, 1)]
+    assert format_guilds(dtos, "Palpagos") == (
+        "🏰 公会 · Palpagos\n"
+        "\n"
+        "· Matrix 成员 ~4 · 工作帕鲁 28 · 据点 2\n"
+        "· Zion 成员 ~2 · 工作帕鲁 9 · 据点 1\n"
+        "└ 公会与据点均为插件观察推导"
+    )
+
+
+def test_format_guilds_no_palbox():
+    # PalBox 计数归 overview 设施节，guild list 不再渲染（§4.6 定案）。
+    assert "PalBox" not in format_guilds([GuildDTO("Matrix", 4, 28, 2)], "Palpagos")
+
+
+def test_format_guilds_empty_plain_state():
+    assert format_guilds([], "Palpagos") == "🏰 公会 · Palpagos\n暂无公会观察数据"
+
+
+def test_format_guilds_strict_drops_base_count():
+    # 字段级裁剪：砍「据点 N」计数位，公会本体（成员/工作帕鲁）保留（命令仍产出）。
+    text = format_guilds([GuildDTO("Matrix", 4, 28, 2)], "Palpagos", strict=True)
+    assert "据点 2" not in text
+    assert "· Matrix 成员 ~4 · 工作帕鲁 28" in text
+
+
+def _guild_detail(**kw):
+    base = dict(
+        name="Matrix", first_seen_at=_g_ep(2026, 6, 28),
+        last_seen_at=_g_ep(2026, 7, 17, 14, 30), observed_members=4,
+        base_pals=28, base_count=2,
+        bases=[("海岸木材场", Confidence.HIGH), ("河谷矿场", Confidence.MEDIUM)],
+        recent_events=["新据点「河谷矿场」确认", "据点「海岸木材场」工作帕鲁 12→18"],
+    )
+    base.update(kw)
+    return GuildDetailDTO(**base)
+
+
+def test_format_guild_info_sample_4_7():
+    now = _g_ep(2026, 7, 17, 15, 0)
+    assert format_guild(_guild_detail(), strict=False, now=now, tz=_G_TZ) == (
+        "🏰 公会 · Matrix\n"
+        "成员 ~4 · 工作帕鲁 28 · 据点 2\n"
+        "首次观察 2026-06-28 · 最近 今天 14:30\n"
+        "\n"
+        "据点\n"
+        "· 海岸木材场 置信度高\n"
+        "· 河谷矿场 置信度中\n"
+        "\n"
+        "近期动态\n"
+        "· 新据点「河谷矿场」确认\n"
+        "· 据点「海岸木材场」工作帕鲁 12→18"
+    )
+
+
+def test_format_guild_info_no_palbox():
+    now = _g_ep(2026, 7, 17, 15, 0)
+    assert "PalBox" not in format_guild(_guild_detail(), strict=False, now=now, tz=_G_TZ)
+
+
+def test_format_guild_info_strict_field_trim():
+    # 字段级裁剪：省略「据点」节 + 「近期动态」节 + 首行「据点 N」计数；公会本体保留。
+    now = _g_ep(2026, 7, 17, 15, 0)
+    text = format_guild(_guild_detail(), strict=True, now=now, tz=_G_TZ)
+    assert "据点 2" not in text
+    assert "\n据点\n" not in text
+    assert "近期动态" not in text
+    assert "成员 ~4 · 工作帕鲁 28" in text
+    assert "首次观察 2026-06-28" in text
+
+
+def test_format_bases_sample_4_8():
+    # spec §4.8：按公会分组；worker_count 实填；含 low 行（#3 无观测省工作帕鲁位）；免责脚注。
+    dtos = [
+        BaseDTO(1, "海岸木材场", "Matrix", Confidence.HIGH, 18),
+        BaseDTO(2, "河谷矿场", "Matrix", Confidence.MEDIUM, 9),
+        BaseDTO(3, "BASE-3", None, Confidence.LOW, 0),
+    ]
+    assert format_bases(dtos, "Palpagos") == (
+        "🏕️ 据点 · Palpagos\n"
+        "\n"
+        "Matrix\n"
+        "· #1 海岸木材场 置信度高 · 工作帕鲁 18\n"
+        "· #2 河谷矿场 置信度中 · 工作帕鲁 9\n"
+        "\n"
+        "未确定公会\n"
+        "· #3 BASE-3 置信度低\n"
+        "└ 据点为插件观察推导；#序号可用于 /pal guild base"
+    )
+
+
+def test_format_bases_empty_plain_state():
+    assert format_bases([], "Palpagos") == "🏕️ 据点 · Palpagos\n暂无可展示的据点"
+
+
+def test_format_bases_folds_at_seven():
+    dtos = [BaseDTO(i, f"B-{i}", "G", Confidence.HIGH, i) for i in range(1, 10)]
+    text = format_bases(dtos, "Palpagos")
+    assert "…等共 9 个" in text
+    assert "#8" not in text  # 只渲染前 7 条据点行
+
+
+def test_format_base_sample_4_9():
+    dto = BaseDetailDTO(
+        display_name="海岸木材场", guild_name="Matrix", confidence=Confidence.HIGH,
+        worker_count=18, active_count=12, average_level=17.5, average_hp_ratio=0.92,
+        action_distribution={"working": 8, "moving": 5, "idle": 3, "unknown": 2},
+        health_score=90.0,
+    )
+    assert format_base(dto) == (
+        "🏕️ 据点 · 海岸木材场\n"
+        "公会「Matrix」 · 置信度高\n"
+        "\n"
+        "工作帕鲁 18 · 活跃 12 · 平均 Lv17.5\n"
+        "状态 🟢 健康 · 平均HP 92%\n"
+        "\n"
+        "行为分布\n"
+        "· 工作中 8 · 移动 5 · 闲置 3 · 未知 2"
+    )
+
+
+def test_format_base_no_palbox_no_activity_score():
+    dto = BaseDetailDTO("B", "G", Confidence.HIGH, 18, 12, 17.5, 0.92,
+                        {"working": 8}, 90.0)
     text = format_base(dto)
-    assert "插件推导" in text
-    assert "Noema-1" in text
+    assert "PalBox" not in text
+    assert "活跃度" not in text  # activity_score 裸数砍位
 
 
-def test_format_guilds_and_guild():
-    gs = format_guilds([GuildDTO("Noema", 4, 2, 10, 3)])
-    assert "Noema" in gs
-    gd = format_guild(GuildDetailDTO("Noema", 1, 2, 4, 2, 3, 2, 10, 15.0, ["据点新增：Noema-2"]))
-    assert "Noema" in gd
-    assert "据点新增" in gd
+def _health(score):
+    dto = BaseDetailDTO("B", "G", Confidence.HIGH, 1, 1, 1.0, 1.0, {}, score)
+    return format_base(dto)
+
+
+def test_format_base_health_dot_thresholds():
+    assert "状态 🟢 健康" in _health(75.0)
+    assert "状态 🟡 一般" in _health(74.9)
+    assert "状态 🟡 一般" in _health(40.0)
+    assert "状态 🔴 低迷" in _health(39.9)
+
+
+def test_format_base_action_distribution_eight_categories():
+    dist = {"working": 1, "moving": 2, "idle": 3, "combat": 4,
+            "sleeping": 5, "eating": 6, "incapacitated": 7, "unknown": 8}
+    dto = BaseDetailDTO("B", None, Confidence.LOW, 1, 1, 1.0, 1.0, dist, 50.0)
+    text = format_base(dto)
+    assert "· 工作中 1 · 移动 2 · 闲置 3 · 战斗 4 · 睡觉 5 · 进食 6 · 濒死 7 · 未知 8" in text
+    assert "未确定公会" in text  # guild_name None
+
+
+def test_format_base_no_observation_state():
+    # §6#8：无观测 → ⚠️ 取数失败态（不再全 0 假数据）。
+    dto = BaseDetailDTO("海岸木材场", "Matrix", Confidence.HIGH, 0, 0, 0.0, 0.0,
+                        {}, 0.0, available=False)
+    text = format_base(dto)
+    assert text == (
+        "🏕️ 据点 · 海岸木材场\n"
+        "公会「Matrix」 · 置信度高\n"
+        "⚠️ 该据点尚无观测数据"
+    )
+    assert "工作帕鲁 0" not in text
+    assert "行为分布" not in text
 
 
 _EVT_TZ = "Asia/Tokyo"

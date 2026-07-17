@@ -192,33 +192,57 @@ class Commands:
 
     @_gated
     async def guilds(self, umo, message_str, is_group) -> str:
-        return await self.handle_query(
-            umo, message_str, "guilds", is_group,
-            formatter=format_guilds, query_fn=self._query.guilds,
+        # guild list（spec §4.6）：标题锚点 server_name + strict 字段级裁剪（砍据点计数位，
+        # 命令仍产出）——故不走 handle_query（其 formatter 仅收 dto），显式 resolve 后透传。
+        world, _arg, err, server_name = await self._resolve_world(
+            umo, message_str, "guilds", is_group
         )
+        if err is not None:
+            return err
+        dto = await self._query.guilds(world)
+        return format_guilds(dto, server_name, strict=self._is_strict())
 
     @_gated
     async def guild(self, umo, message_str, is_group) -> str:
         world, arg, err, _srv = await self._resolve_world(umo, message_str, "guild", is_group)
         if err is not None:
             return err
+        if not arg.name:
+            return L("guild_usage")             # 无参补 usage（修 §6#11「未找到公会「」」）
         dto = await self._query.guild(world, arg.name)
         if dto is None:
             return L("guild_not_found", name=arg.name)
-        return format_guild(dto)
-
-    @_gated
-    async def bases(self, umo, message_str, is_group) -> str:
-        return await self.handle_query(
-            umo, message_str, "bases", is_group,
-            formatter=format_bases, query_fn=self._query.bases,
+        # guild info（spec §4.7）：标题锚点=公会名（formatter 内取 dto.name）；strict 字段级裁剪
+        # （砍据点节/近期动态节/据点计数）；「最近」相对日期需 now/tz（与 events 同源）。
+        return format_guild(
+            dto, strict=self._is_strict(),
+            now=self._clock.now(), tz=server_timezone(self._cfg, world),
         )
 
     @_gated
+    async def bases(self, umo, message_str, is_group) -> str:
+        # strict 整命令拒执行（spec §4.8/§6#4；同 rank 双砍先例——commands 层判）：strict 切换后
+        # DB 残留据点不经本命令绕出（接线死键 bases_disabled_strict）。
+        if self._is_strict():
+            return L("bases_disabled_strict")
+        world, _arg, err, server_name = await self._resolve_world(
+            umo, message_str, "bases", is_group
+        )
+        if err is not None:
+            return err
+        dto = await self._query.bases(world)
+        return format_bases(dto, server_name)
+
+    @_gated
     async def base(self, umo, message_str, is_group) -> str:
+        # strict 整命令拒执行（spec §4.9/§6#4，与 bases 同判）：据点详情不可绕出 strict。
+        if self._is_strict():
+            return L("bases_disabled_strict")
         world, arg, err, _srv = await self._resolve_world(umo, message_str, "base", is_group)
         if err is not None:
             return err
+        if not arg.name:
+            return L("base_usage")              # 无参补 usage（§6#11）
         dto = await self._query.base(world, arg.name)
         if dto is None:
             return L("base_not_found", name=arg.name)

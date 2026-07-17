@@ -113,25 +113,27 @@ class RulesDTO:
 
 @dataclass(slots=True)
 class GuildDTO:
+    """guild list 行（spec §4.6）。据点数=list_bases 按 guild_key 分组（§5#15）。
+    active_7d 占位与 PalBox 计数按定案砍位（PalBox 归 overview 设施节）。"""
     name: str
     observed_members: int
-    palbox: int
     base_pals: int
-    active_7d: int
+    base_count: int
 
 
 @dataclass(slots=True)
 class GuildDetailDTO:
+    """guild info 卡片（spec §4.7）。恒 0 占位（active_*/average_level）与 PalBox 砍位。
+    bases=(display_name, confidence) 按 guild_key 过滤（含 low 序号空间）；recent_events=
+    list_events 过滤该公会据点的 NEW_BASE/WORKER_DELTA/BASE_VANISHED，措辞经 event_wording。"""
     name: str
     first_seen_at: int
     last_seen_at: int
     observed_members: int
-    active_today: int
-    active_week: int
-    palbox: int
     base_pals: int
-    average_level: float
-    base_event_lines: list[str]
+    base_count: int
+    bases: list[tuple[str, Confidence]]
+    recent_events: list[str]
 
 
 @dataclass(slots=True)
@@ -145,17 +147,18 @@ class BaseDTO:
 
 @dataclass(slots=True)
 class BaseDetailDTO:
+    """guild base 详情（spec §4.9）。palbox_count（硬编码 1）与 activity_score 裸数砍位。
+    available=False（latest_base_observation 缺失）→ formatter 走 ⚠️ 无观测态（不再全 0 假数据）。"""
     display_name: str
     guild_name: str | None
     confidence: Confidence
-    palbox_count: int
     worker_count: int
     active_count: int
     average_level: float
     average_hp_ratio: float
     action_distribution: dict[str, int]
-    activity_score: float
     health_score: float
+    available: bool = True
 
 
 @dataclass(slots=True)

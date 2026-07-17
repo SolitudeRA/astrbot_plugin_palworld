@@ -61,29 +61,50 @@ async def qs(tmp_path: Path):
 
 
 async def test_guilds_dto(qs):
+    # §5#15：每公会据点数=list_bases 按 guild_key 分组；palbox/active_7d 砍位。
     repo, q, _ = qs
     await repo.upsert_guild(Guild("g1", WID, "Noema", 900, 1200, 4, 2, 10))
+    await repo.upsert_base(Base("b1", WID, "pb1", "N-1", "g1", Confidence.HIGH, False, False, 900, 1200))
+    await repo.upsert_base(Base("b2", WID, "pb2", "N-2", "g1", Confidence.MEDIUM, False, False, 900, 1200))
     dtos = await q.guilds(_world())
     assert dtos[0].name == "Noema"
-    assert dtos[0].palbox == 2
+    assert dtos[0].observed_members == 4
+    assert dtos[0].base_pals == 10
+    assert dtos[0].base_count == 2
 
 
 async def test_guild_detail_found(qs):
+    # §5#15：据点列表按 guild_key 过滤（含 low 序号空间）；base_count；恒 0 占位字段砍位。
     repo, q, _ = qs
     await repo.upsert_guild(Guild("g1", WID, "Noema", 900, 1200, 4, 2, 10))
+    await repo.upsert_base(Base("b1", WID, "pb1", "海岸木材场", "g1", Confidence.HIGH, False, False, 900, 1200))
     dto = await q.guild(_world(), "Noema")
     assert dto is not None
     assert dto.name == "Noema"
     assert dto.first_seen_at == 900
     assert dto.last_seen_at == 1200
     assert dto.observed_members == 4
-    assert dto.palbox == 2
     assert dto.base_pals == 10
-    # v0.1 degradation placeholders
-    assert dto.active_today == 0
-    assert dto.active_week == 0
-    assert dto.average_level == 0.0
-    assert dto.base_event_lines == []
+    assert dto.base_count == 1
+    assert dto.bases == [("海岸木材场", Confidence.HIGH)]
+    assert dto.recent_events == []
+
+
+async def test_guild_recent_events_filled(qs):
+    # §4.7 / §5#15：近期动态实填=list_events 过滤该公会据点的 NEW_BASE/WORKER_DELTA/BASE_VANISHED
+    # （措辞经 event_wording 单一真相源；他公会据点事件排除）。
+    repo, q, _ = qs
+    await repo.upsert_guild(Guild("g1", WID, "Matrix", 900, 1200, 4, 2, 28))
+    await repo.upsert_base(Base("b1", WID, "pb1", "海岸木材场", "g1", Confidence.HIGH, False, False, 900, 1200))
+    await repo.upsert_base(Base("b2", WID, "pb2", "别家据点", "g2", Confidence.HIGH, False, False, 900, 1200))
+    await repo.insert_event(WorldEvent(None, WID, EventType.NEW_BASE, "base", "b1", 1200, 1200, {}, "public", Confidence.HIGH, f"{WID}|NEW_BASE|b1"))
+    await repo.insert_event(WorldEvent(None, WID, EventType.WORKER_DELTA, "base", "b1", 1100, 1100, {"prev": 12, "cur": 18}, "public", Confidence.HIGH, f"{WID}|WORKER_DELTA|b1"))
+    await repo.insert_event(WorldEvent(None, WID, EventType.NEW_BASE, "base", "b2", 1150, 1150, {}, "public", Confidence.HIGH, f"{WID}|NEW_BASE|b2"))
+    dto = await q.guild(_world(), "Matrix")
+    assert dto.recent_events == [
+        "新据点「海岸木材场」确认",
+        "据点「海岸木材场」工作帕鲁 12→18",
+    ]
 
 
 async def test_guild_detail_not_found(qs):
@@ -100,6 +121,15 @@ async def test_bases_have_stable_index(qs):
     assert [d.index for d in dtos] == [1, 2]
 
 
+async def test_bases_worker_count_filled(qs):
+    # §5#15：guild bases worker_count 实填=latest_base_observation 每据点索引查询（现恒 0）。
+    repo, q, _ = qs
+    await repo.upsert_base(Base("b1", WID, "pb1", "N-1", "g1", Confidence.HIGH, False, False, 900, 1200))
+    await repo.insert_base_observation(BaseObservation("b1", WID, 1200, 18, 12, 17.5, 0.9, {"working": 18}))
+    dtos = await q.bases(_world())
+    assert dtos[0].worker_count == 18
+
+
 async def test_base_by_index(qs):
     repo, q, _ = qs
     await repo.upsert_base(Base("b1", WID, "pb1", "Noema-1", "g1", Confidence.HIGH, False, False, 900, 1200))
@@ -110,8 +140,19 @@ async def test_base_by_index(qs):
     assert dto is not None
     assert dto.display_name == "Noema-1"
     assert dto.worker_count == 8
-    # activity_score = 100*(0.75*(6/8) + 0.25*(8/8)) = 100*(0.5625+0.25)=81.25
-    assert abs(dto.activity_score - 81.25) < 0.01
+    assert dto.available is True
+    # health_score = 100*(0.8*0.9 + 0.2*1.0) = 92.0
+    assert abs(dto.health_score - 92.0) < 0.01
+
+
+async def test_base_no_observation_available_false(qs):
+    # §6#8：据点存在但无观测 → available=False（formatter 走 ⚠️，不再全 0 假数据）。
+    repo, q, _ = qs
+    await repo.upsert_base(Base("b1", WID, "pb1", "N-1", "g1", Confidence.HIGH, False, False, 900, 1200))
+    dto = await q.base(_world(), "#1")
+    assert dto is not None
+    assert dto.available is False
+    assert dto.worker_count == 0
 
 
 async def test_base_by_name(qs):
