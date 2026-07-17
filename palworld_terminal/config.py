@@ -121,10 +121,11 @@ class HistoryConfig:
 class PlayersConfig:
     rank_top_n: int
     exclude_names: list[str]
+    list_fold_limit: int = 7
 
 
 def _default_players() -> PlayersConfig:
-    return PlayersConfig(rank_top_n=5, exclude_names=[])
+    return PlayersConfig(rank_top_n=5, exclude_names=[], list_fold_limit=7)
 
 
 @dataclass(slots=True)
@@ -272,6 +273,15 @@ def _as_int(v, default: int) -> int:
         return int(v)
     except (TypeError, ValueError):
         return default
+
+
+def _clamp_rank_top_n(raw) -> int:
+    """rank_top_n 榜长 clamp（spec §2.7）：合法区间 1–50；0/负/畸形回默认 5、
+    超上限截到 50。注意 0/负是「回默认」而非「clamp 到下界」。"""
+    v = _as_int(raw, 5)
+    if v < 1:
+        return 5
+    return min(v, 50)
 
 
 def _as_float(v, default: float) -> float:
@@ -507,8 +517,10 @@ def parse_config(raw: Mapping, env: Mapping[str, str]) -> AppConfig:
         ),
         skipped_headers=skipped_headers,
         players=PlayersConfig(
-            rank_top_n=_as_int(pl.get("rank_top_n", 5), 5),
+            rank_top_n=_clamp_rank_top_n(pl.get("rank_top_n", 5)),
             exclude_names=[s.strip() for s in str(pl.get("exclude_names", "")).split(",") if s.strip()],
+            # 折叠上限：clamp ≥1，畸形回默认 7（spec §2.7 / §5#10）。
+            list_fold_limit=max(1, _as_int(pl.get("list_fold_limit", 7), 7)),
         ),
         permissions=permissions,
         server_admin=_parse_server_admin(raw),

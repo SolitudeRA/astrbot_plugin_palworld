@@ -206,7 +206,7 @@ class PalWorldTerminal(Star):
 
     def _busy_msg(self) -> str | None:
         if self._restarting or self._container is None:
-            return "插件正在重载配置，请稍后重试"
+            return L("busy")
         return None
 
     def _build_container(self, cfg):

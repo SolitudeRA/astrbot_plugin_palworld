@@ -19,7 +19,6 @@ MESSAGES: dict[str, str] = {
     "active_server_stale": "当前绑定的服务器已不可用，请管理员重新执行 /pal link add <名称>。",
     "degraded": "当前无法获取 Palworld 世界数据。最后成功更新：{minutes} 分钟前。",
     "degraded_never": "当前无法获取 Palworld 世界数据（尚无成功记录）。",
-    "auth_error": "世界数据接口配置异常，请联系管理员。",
     "guild_not_found": "未找到公会「{name}」。",
     "base_not_found": "未找到据点「{name}」。",
     "bases_disabled_strict": "据点模块因 strict 隐私模式停用。",
@@ -30,7 +29,6 @@ MESSAGES: dict[str, str] = {
     "unbind_ok": "已撤销本群对服务器「{server}」的授权。",
     "empty_day": "平静的一天，没有值得记录的事件。",
     "no_events": "近期暂无世界事件。",
-    "derived_note": "（插件推导）",
     "feature_disabled": "该功能未开放：当前配置或服务器不支持。",
     "rank_empty": "本服务器暂无玩家排行数据。",
     "rank_duration_strict": "时长榜（今日/累计）在 strict 隐私模式下停用。",
@@ -69,6 +67,9 @@ MESSAGES: dict[str, str] = {
     "admin_confirm_done": "已确认并执行【{action}】{target}，服务器「{server}」。",
     "admin_confirm_stale": "该操作已失效（相关功能已关闭或目标服务器不可用），请重新发起。",
     "admin_no_pending": "当前没有待确认的操作。",
+    # ---- 横切回执（命令输出重设计第一波；收编硬编码，spec §3/§7）----
+    "busy": "⚠️ 插件正在重载配置，请稍后重试",
+    "arg_error": "⚠️ 一条命令只能指定一个 @服务器",
 }
 
 

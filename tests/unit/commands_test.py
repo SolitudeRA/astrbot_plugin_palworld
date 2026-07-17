@@ -177,7 +177,7 @@ async def test_link_double_at_returns_arg_error():
                     _cfg_link(), None)
     out = await cmds.link("umo1", "/pal link @a @b", is_group=True,
                           sender_id="s:1", is_admin=True)
-    assert "参数格式错误" in out
+    assert "只能指定一个" in out
 
 
 def test_help_role_separation():

@@ -84,9 +84,6 @@ def _gated(fn):
 # 决定传参形态。其余读实现签名为 (umo, message_str, is_group)。
 _SENDER_METHODS = frozenset({"bind", "me", "unbind_self"})
 
-# 多 @override 兜底文案（与既有 server()/admin_write 一致）。
-_ARG_ERROR_MSG = "参数格式错误：一条命令只能指定一个 @服务器。"
-
 
 class Commands:
     def __init__(
@@ -106,7 +103,7 @@ class Commands:
         try:
             arg = parse_arg(message_str, subcommand)
         except ArgError:
-            return None, None, "参数格式错误：一条命令只能指定一个 @服务器。"
+            return None, None, L("arg_error")
         res = await self._routing.resolve(umo, arg.server_override, is_group)
         if res.server is None:
             return None, arg, res.error
@@ -334,7 +331,7 @@ class Commands:
         try:
             p = parse_group(message_str, group)
         except ArgError:
-            return _ARG_ERROR_MSG
+            return L("arg_error")
         if not p.sub:
             return self._group_help(group, is_admin)
         spec = DISPATCH[group].get(p.sub)
@@ -368,7 +365,7 @@ class Commands:
         try:
             p = parse_group(message_str, "server")
         except ArgError:
-            return _ARG_ERROR_MSG
+            return L("arg_error")
         if not p.sub:
             return self._group_help("server", is_admin)
         spec = DISPATCH["server"].get(p.sub)
@@ -387,7 +384,7 @@ class Commands:
         try:
             p = parse_group(message_str, "link")
         except ArgError:
-            return _ARG_ERROR_MSG
+            return L("arg_error")
         if not p.sub:
             return self._group_help("link", is_admin)
         spec = DISPATCH["link"].get(p.sub)
@@ -474,7 +471,7 @@ class Commands:
         try:
             arg = parse_arg(arg_str, command_str)
         except ArgError:
-            return "参数格式错误：一条命令只能指定一个 @服务器。"
+            return L("arg_error")
         rest = arg.name.strip()
         require = self._cfg.server_admin.require_confirmation
 
