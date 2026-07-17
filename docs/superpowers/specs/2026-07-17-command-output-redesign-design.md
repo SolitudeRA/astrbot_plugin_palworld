@@ -27,14 +27,14 @@
 
 ## 2. 原子规范
 
-1. **标题锚点**：查询类输出首行 `图标 命令名 · 主体名`。图标表：🌍 world status / 🗺️ overview / 📜 rules / 📰 events / 📅 today / 🏰 guild / 🏕️ 据点 / 👤 player·me / 🏆 rank / 👥 online / 🔗 link / 📖 help / 🪪 whoami / 📍 whereami。
-   **锚点数据源**：统一 = 插件配置名 `srv.name`（与 @override/link/server 回执/whereami 同一词汇——`_ready_by_name` 按 server_id≡name 匹配，标题可直接复制进 `@` 使用）。供数 = commands 层 resolve 出的 srv 作 formatter 参数，**不扩 DTO**。游戏内 servername（world.server_name）降格为 status 副信息，不作锚点（顺带消 normalizer 默认空串的「· 」空尾风险）。**本 spec 样张中「Palpagos」均为示意，落地渲染配置名**。
+1. **标题锚点**：查询类输出首行 `图标 命令名 · 主体名`。图标表：🌍 world status / 🗺️ overview / 📜 rules / 📰 events / 📅 today / 🏰 guild / 🏕️ 据点 / 👤 player·me / 🏆 rank / 👥 online / 🔗 link / 📖 help / 🪪 whoami / 📍 whereami。**无服务器主体豁免**：跨服务器/无主体命令（link list、help、whoami、whereami）标题不带「· 主体名」段。
+   **锚点数据源**：统一 = 插件配置名 `srv.name`（与 @override/link/server 回执/whereami 同一词汇——`_ready_by_name` 按 server_id≡name 匹配，标题可直接复制进 `@` 使用）。供数 = commands 层 resolve 出的 srv 作 formatter 参数，**不扩 DTO**。游戏内 servername（world.server_name）降格为 status 副信息，不作锚点（顺带消 normalizer 默认空串的「· 」空尾风险）。**本 spec 样张中「Palpagos」与「主服/主服务器/备用服/测试服」等服务器名均为示意，落地渲染配置名**。
 2. **状态色点**：🟢 正常 · 🟡 注意 · 🔴 异常。佩点域：性能档位 / 服务器可达态（🟢 在线 / 🔴 离线 / 🟡 未就绪）/ 健康度。玩家仅 🟢 标在线，**离线不佩点**（离线是常态缺席非异常）。回执图标 ✅ / ⚠️ / ❌ 只作整条回执头，**不作节头**。
-3. **结构**：一级 `· `；嵌套缩进两空格；脚注行 `└ `，三类=免责/引导/回执补充信息（参数回显、生效细节），**一条为限**；空行分节；节头素文无图标；禁用空格列对齐与横线装饰；**不放数据时效脚注**（降级态的「最后成功于」是诊断信息，保留在状态行内）。
-4. **数字与时长**：Lv{n}；时长「N天N时 / N时M分」全局统一（废「N小时M分」与「12 小时」聚合式）；有小时段分钟两位补零（21时05分），不足 1 时只写「45分」；百分比整数；FPS 整数；帧时间 {:.1f}ms；倍率 1.0x；绝对日期 YYYY-MM-DD。
-5. **相对日期**：三档词形 今天 / 昨天 / MM-DD（跨年 YYYY-MM-DD）。携时分场景：**时间戳字段**（最后在线/最近观察）全档带 HH:MM；**events/today 节内条目**仅今天条目带 HH:MM（节头承载日期）。
+3. **结构**：一级 `· `；嵌套缩进两空格；脚注行 `└ `，三类=免责/引导/回执补充信息（参数回显、生效细节），**一条为限**；空行分节；节头素文无图标；禁用空格列对齐与横线装饰；**不放数据时效脚注**（降级态的「最后成功于」是诊断信息，保留在状态行内）；引号字形统一全角（「」与 “ ”），回执内容回显用 “ ”。
+4. **数字与时长**：Lv{n}；时长「N天N时 / N时M分」全局统一（废「N小时M分」与「12 小时」聚合式）；有小时段分钟两位补零（21时05分），不足 1 时只写「45分」；百分比整数；FPS 整数；帧时间 {:.1f}ms；倍率 1.0x；绝对日期 YYYY-MM-DD。**豁免**：游戏设定类原值（蛋孵化时长/空投间隔等 rules 字段）保持游戏原单位（「72 小时」「180 分钟」），不套时长格式。
+5. **相对日期**：三档词形 今天 / 昨天 / MM-DD（跨年 YYYY-MM-DD）。携时分场景：**时间戳字段**（最后在线/最近观察）全档带 HH:MM；**events（含 events today 变体）节内条目**仅今天条目带 HH:MM（节头承载日期）；**world today 日报条目不带时刻**（标题行承载日期）。
 6. **推导标三档**：`（推导）` / 计数级 `~` 前缀（仅成员数类观测计数）/ 不标注（官方数据默认不标）。免责脚注正字「插件观察推导」。首见时间分工：玩家=「首次现身」，公会/据点=「首次观察」。
-7. **折叠纪律**：单位=**单列表 7 条**，尾行 `…等共 N 条`（量词随实体：人/条/项）。events 为消息级特例（多日节合计 7）；today 为节级（每节 7，满编 ~35 行接受，实测超限再收）。rank 榜长由 rank_top_n 独占（不受折叠约束），parse 层补 clamp 1–50、0/负回默认 5。折叠上限为独立配置键，5 落点清单见 §5.8。
+7. **折叠纪律**：单位=**单列表 7 条**，尾行 `…等共 N 条`（量词随实体：人/条/项）。events 为消息级特例（多日节合计 7）；today 为节级（每节 7，满编 ~35 行接受，实测超限再收）。rank 榜长由 rank_top_n 独占（不受折叠约束），parse 层补 clamp 1–50、0/负回默认 5。折叠上限为独立配置键，5 落点清单见 §5 #10。
 8. **正字表**：找不到统一「未找到」；未绑定统一「你还没有绑定玩家」；strict 停用句统一句形「{模块}在 strict 隐私模式下停用」。
 9. **空态/错误态分派（可判定式）**：**具体目标已定位但其数据缺失**（rules 快照 / overview 快照 / 单据点观测）= ⚠️ 取数失败态；**集合级列举结果为空**（无公会/无在线/无事件）= 素文空态（标题锚点+一句话+可选引导）；错误 = ❌/⚠️ + 原因 + 怎么办。全部收敛 locale。
 
@@ -46,6 +46,8 @@
 - **配置停用类拦截统一 ⚠️**：整命令被拒执行的停用主句戴 ⚠️——feature_disabled 与 strict 隐私停用同构（#23 时长榜 / #8 #9 据点模块三处适用）。**边界**：strict 下输出仍产出的字段级裁剪（online/me 砍时长）与正常输出附注（rules 尾注）保持素文——分界=命令是否被拒执行。
 - admin_required → `⚠️ 该命令需要管理员权限`。feature_disabled → `⚠️ 该功能未开启` + `└ 管理员可在插件设置页「权限」章开启`；**upstream_unavailable(path) 时省略该脚注**（锁定期设置页开不了，防假承诺；主句仍同句，维持锁定 spec「无专属聊天文案」决策）。
 - busy → `⚠️ 插件正在重载配置，请稍后重试`（收编 locale）；ArgError → `⚠️ 一条命令只能指定一个 @服务器`（收编 locale，三处同串归一；第四处 help 裸抛经「help 跳过 parse_arg」根治，见 #26）。
+- 裸组迷你帮助：`用法：/pal {group} <sub1 / sub2 / …>` 式样沿用，guest 过滤（visible_actions）不变；group_no_actions 沿用。
+- 写命令 resolve 失败 `❌ 无法执行：{reason}`：❌ 为回执头（写路径既有式样沿用），{reason} 内嵌 resolve 六分支原素文不改——不构成对「六分支素文」的违例。
 
 **降级态（三落点）**
 - 全局统一式：`🔴 当前无法获取世界数据 · 最后成功于 N 分钟前` / 从未成功 `🔴 尚未成功连接过服务器，请检查「连接」配置`。
@@ -81,7 +83,12 @@
 · Trinity Lv18
 ```
 
-降级态（一行）：`🔴 当前无法获取世界数据 · 最后成功于 25 分钟前`；从未成功：`🔴 尚未成功连接过服务器，请检查「连接」配置`。
+降级态（标题行 + 状态行两行）：
+```
+🌍 世界状态 · Palpagos
+🔴 当前无法获取世界数据 · 最后成功于 25 分钟前
+```
+从未成功时状态行为：`🔴 尚未成功连接过服务器，请检查「连接」配置`。
 
 规则：版本/运行时长来自 StatusDetail（现成）；性能状态点=流畅度档位（流畅🟢/一般🟡/卡顿·严重卡顿🔴）；据点独立行（guilds_bases 组关闭时整行消失）；玩家列表轻条目（名+Lv，Ping/时长归 online）；>7 人折叠 `…等共 N 人`；0 人省略该节；不放 description。**在线玩家节走 §3 隐私收敛**；头行分子=收敛后名单数；降级供数见 §3 三落点。
 
@@ -130,7 +137,7 @@
 ```
 
 取数失败态（⚠️ 归错误态）：`📜 世界规则 · Palpagos` + `⚠️ 尚未从服务器获取到规则数据，稍后再试`。
-隐私模式注（两种模式两句分叉，勿混）：strict → `└ strict 隐私模式下据点模块停用`；advanced → `└ advanced 隐私模式暂按 balanced 生效`。
+隐私模式注（两种模式两句分叉，勿混）：strict → `└ 据点模块在 strict 隐私模式下停用`（句形随 §2.8 正字）；advanced → `└ advanced 隐私模式暂按 balanced 生效`。
 
 规则：策展分节（模式/倍率/节奏/上限），同类字段两两并一行（`A · B`）；**剔除**服务器技术字段（端口/RCON/REST API/日志格式/认证/备份/聊天限速/跨平台）与长尾细倍率（帕鲁·玩家攻防、饱食度/耐力/生命恢复、建筑/采集/掉落细项）；rules() 读 settings 全量快照，字段现成，只动 formatter/query 策展清单；未知枚举值原样回退兜底不动。
 
@@ -168,7 +175,7 @@ today 变体（`events today`，不设节头）：`📰 今日事件 · Palpagos
 | 天数里程碑 | `世界迎来第 {m} 天` |
 | 在线纪录 | `在线人数新纪录 {value} 人` |
 
-规则：**主体名批量解析为本条 query 层扩**（player_key/guild_key/base_key→显示名；现状 PLAYER_LEVEL_UP/NEW_PLAYER 无名、NEW_GUILD/NEW_BASE 直出内部 subject_key）；隐藏玩家（excluded keys）事件 query 层跳过（与 rank 名字级收敛同哲学）；据点解析用 §3 同源清单；日分组 day_bounds 同源（per-server tz/DST 安全）；仅今天条目带 HH:MM；折叠=消息级合计 7 条；据点/公会事件锁定期写侧不产，渲染规则照落地上游恢复即生效；「疑似消失」不另加（推导）标。
+规则：候选池=近 20 条（现状 list_events 窗口沿用，折叠作用于该池之上）；**主体名批量解析为本条 query 层扩**（player_key/guild_key/base_key→显示名；现状 PLAYER_LEVEL_UP/NEW_PLAYER 无名、NEW_GUILD/NEW_BASE 直出内部 subject_key）；隐藏玩家（excluded keys）事件 query 层跳过（与 rank 名字级收敛同哲学）；据点解析用 §3 同源清单；日分组 day_bounds 同源（per-server tz/DST 安全）；仅今天条目带 HH:MM；折叠=消息级合计 7 条；据点/公会事件锁定期写侧不产，渲染规则照落地上游恢复即生效；「疑似消失」不另加（推导）标。
 
 ### 4.5 world today
 
@@ -209,7 +216,7 @@ today 变体（`events today`，不设节头）：`📰 今日事件 · Palpagos
 └ 公会与据点均为插件观察推导
 ```
 
-规则：active_7d 恒 0 占位**砍位**；每公会据点数=list_bases 按 guild_key 分组（一条查询）；成员数保留 `~` 推导标；折叠 7；空态 `🏰 公会 · Palpagos` + `暂无公会观察数据`（集合空=素文）。
+规则：active_7d 恒 0 占位**砍位**；**PalBox 计数归 overview 设施节，guild 列表/详情不再渲染**（现渲染有此列，定案删除非疏漏）；每公会据点数=list_bases 按 guild_key 分组（一条查询）；成员数保留 `~` 推导标；折叠 7；空态 `🏰 公会 · Palpagos` + `暂无公会观察数据`（集合空=素文）；**strict 态=字段级裁剪**（命令仍产出）：砍「据点 N」计数位，公会本体（成员/工作帕鲁）保留。
 
 ### 4.7 guild info（上游恢复后生效）
 
@@ -227,7 +234,7 @@ today 变体（`events today`，不设节头）：`📰 今日事件 · Palpagos
 · 据点「海岸木材场」工作帕鲁 12→18
 ```
 
-规则：恒 0 占位（active_today/active_week/average_level）**砍位**；first/last_seen_at 已在 DTO 零成本渲染（相对日期词表：时间戳字段全档带 HH:MM）；「近期动态」实填=list_events 过滤该公会据点的 NEW_BASE/WORKER_DELTA/BASE_VANISHED（措辞同 §4.4 事件表）；据点列表=list_bases 按 guild_key 过滤；无参补 usage 态 `用法：/pal guild info <公会名>`（修现状「未找到公会「」」）；找不到 `❌ 未找到公会「Zion2」` + `└ /pal guild list 查看已观察公会`。
+规则：恒 0 占位（active_today/active_week/average_level）**砍位**；PalBox 同 #6 定案不渲染；first/last_seen_at 已在 DTO 零成本渲染（相对日期词表：时间戳字段全档带 HH:MM）；「近期动态」实填=list_events 过滤该公会据点的 NEW_BASE/WORKER_DELTA/BASE_VANISHED（措辞同 §4.4 事件表）；据点列表=list_bases 按 guild_key 过滤；**strict 态=字段级裁剪**：省略「据点」节与「近期动态」节及首行「据点 2」计数（据点类数据不经本命令绕出 strict，公会本体保留）；无参补 usage 态 `用法：/pal guild info <公会名>`（修现状「未找到公会「」」）；找不到 `❌ 未找到公会「Zion2」` + `└ /pal guild list 查看已观察公会`。
 
 ### 4.8 guild bases（上游恢复后生效）
 
@@ -291,18 +298,18 @@ strict 态：砍全部时长+最后在线（rank 双砍同哲学），留 Lv/在
 ### 4.12 player unbind
 
 成功（多模式带锚）：`✅ 已解除绑定 · Neo · 主服` + `└ 重新绑定用 /pal player bind <玩家名>`
-未绑定：`你还没有绑定玩家，无需解绑`（素文）
+未绑定：`你在「主服」还没有绑定玩家，无需解绑`（素文；单模式：`你还没有绑定玩家，无需解绑`——与 #25 未绑定同锚规则）
 悬空绑定：`✅ 已解除绑定 · 主服`（**不渲染 player_key 哈希**——修现状「已解除你与玩家「abc123hash…」」；单模式去锚）
 
 ### 4.13–4.19 server 写命令（announce/save/kick/unban/ban/shutdown/stop）
 
 成功回执统一式 `✅ 动作短语 · {server}`（**用上目标**，修现状不显示目标）：
-- announce：`✅ 公告已广播 · 主服务器` + `└ "今晚 10 点维护重启"`（回显内容）
+- announce：`✅ 公告已广播 · 主服务器` + `└ “今晚 10 点维护重启”`（回显内容，全角引号随 §2.3）
 - save：`✅ 已执行存档 · 主服务器`
 - kick：`✅ 已踢出 Neo（…1234） · 主服务器`
 - unban：`✅ 已解封 …1234 · 主服务器`
 - ban：`✅ 已封禁 Neo（…1234） · 主服务器`（有理由加 `└ 理由：刷屏`）
-- shutdown：`✅ 已发出关服指令 · 主服务器` + `└ 60 秒后关服 · 公告："服务器维护"`
+- shutdown：`✅ 已发出关服指令 · 主服务器` + `└ 60 秒后关服 · 公告：“服务器维护”`
 - stop：`✅ 已停止服务进程 · 主服务器`
 - 断连已发起（仅 shutdown/stop）：`✅ 指令已发出 · 主服务器` + `└ 服务器连接已断开，按已生效处理`
 
@@ -438,11 +445,13 @@ aiocqhttp:GroupMessage:123456789
 | 7 | AdminService | AdminResult.params 补 target_userid | server 写回执尾4 |
 | 8 | RoutingService | use → `{ok, server_id, replaced_active}`；unbind → `{removed, was_active}`（或 revoke 返 rowcount）；locale 渲染上提 commands 层 | link add/remove |
 | 9 | commands/formatters | format_degraded 扩 server_name；_resolve_world 传 res.server.name | 降级第三落点 |
-| 10 | config | rank_top_n parse 层 clamp 1–50；**折叠上限新配置键 5 落点**：_conf_schema.json 带 default（平台铁律：schema 无键装载即裁）→ config.py 解析带 clamp → config_view.py 数值类型表 → frontend schema.ts+schema.test.ts（建议挂既有 players 节白拿字段 drift 测试）→ pages/settings 产物重建 | 折叠纪律 |
+| 10 | config | rank_top_n parse 层 clamp 1–50；**折叠上限新配置键 5 落点**：_conf_schema.json 带 default（平台铁律：schema 无键装载即裁）→ config.py 解析带 clamp → config_view.py 数值类型表 → frontend schema.ts+schema.test.ts（建议挂既有 players 节白拿字段 drift 测试；若新开节则须补节全集对照断言——新节不在 drift 循环内，漏声明为完全静默丢失）→ pages/settings 产物重建 | 折叠纪律 |
 | 11 | QueryService/commands | _bases_indexed 改传 include_low=True（统一序号空间） | guild bases/base、事件解析 |
-| 12 | commands | guild bases/base strict 守卫（privacy.mode==strict 在 commands 层判，同 rank 先例） | #8/#9 |
+| 12 | commands | strict 守卫与裁剪：guild bases/base 整命令拒执行（commands 层判，同 rank 先例）；guild list/info 字段级裁剪（据点类字段/节省略） | #6/#7/#8/#9 |
 | 13 | commands | bind 前查旧绑定（改绑透明化）；me 已隐藏角标（get_hidden_keys） | #11/#25 |
 | 14 | query/formatters | 锚点供数：commands 层把 resolve 出的 srv.name 传 formatter（不扩 DTO） | 全部查询类标题 |
+| 15 | QueryService | guild 组供数扩展：每公会据点数（list_bases 按 guild_key 分组）；guild bases worker_count 实填（latest_base_observation 每据点索引查询，现恒 0）；guild info 据点列表（按 guild_key 过滤）+ 近期动态实填（list_events 过滤，替换恒空 base_event_lines） | #6/#7/#8 |
+| 16 | QueryService | PlayerProfileDTO 扩 first_seen_at/last_seen_at/guild 名/今日/累计/hidden 角标字段（数据 PlayerIdentity 现成，DTO 通管） | #10/#25 |
 
 ## 6. 捎带 bug 修清单（现网缺陷，随重设计根治）
 
@@ -455,13 +464,15 @@ aiocqhttp:GroupMessage:123456789
 7. events 的 NEW_GUILD/NEW_BASE 直出内部 subject_key 丑键；today 成长行直出截断哈希。
 8. world overview 快照缺失静默全 0 假数据；guild base 无观测全 0 假数据。
 9. whereami 引导在 open 模式与真实可用性相反（本次按 access_mode 分流修正）。
+10. player unbind 悬空绑定直出 player_key 哈希（「已解除你与玩家「abc123hash…」」）。
+11. guild info / guild base 无参落「未找到公会「」」而非 usage 提示。
 
 ## 7. locale 键表处置
 
 - **删除（死键）**：auth_error、derived_note（均零调用点）。
 - **新增**：link_list_empty（#20 空态）、link_add_unknown（#21，留 {server} 参数）、busy（收编 main.py 硬编码）、arg_error（收编 _ARG_ERROR_MSG 三处同串）、online 空态等 formatters 硬编码空态串收编键、server 写回执新式样键族（per-action 短语）、拦截/停用新句键。具体键名 plan 定，命名沿现有风格。
 - **改写**：feature_disabled（新句+条件脚注）、degraded/degraded_never（统一式）、admin_ok/admin_failed/admin_shutdown_initiated/admin_confirm_*（新回执式）、use_ok/unbind_ok（随 RoutingService 结构化返回上提改写或退役）、use_only_group/private_restricted/whoami*/whereami*（加 ⚠️ 与新式样）、rank_duration_strict/bases_disabled_strict（统一句形+⚠️，后者接线）、me_*/bind_*/unbind_self_*（新式样+正字+锚）、target_*/admin_*usage（新式样）、guilds_unavailable（并入 #6 空态口径）、empty_day/no_events（新空态句）。
-- **保持原样**：routing 六分支（no_server_configured/single_not_authorized/server_unknown/not_authorized/active_server_stale/no_server_resolved）、setup_required、link_single_mode。
+- **保持原样**：routing 六分支（no_server_configured/single_not_authorized/server_unknown/not_authorized/active_server_stale/no_server_resolved）、setup_required、link_single_mode、**group_no_actions**（裸组空态；裸组迷你帮助拼装串式样亦沿用，见 §3）。
 
 ## 8. 文档同步清单
 
@@ -475,17 +486,17 @@ aiocqhttp:GroupMessage:123456789
 1. **tests/golden/ 5 全文比对**（status/world/rules/today/online_redacted.txt）：**人工核对后重生成**——golden 机制文件缺失即静默用当前输出生成（formatters_golden_test.py:28-29），**禁止裸删重跑**。
 2. **中文子串断言**（grep `assert.*(世界|玩家|服务器|排行|在线|公会|据点)` 实测 23 文件 40 处）：commands_test/commands_rank_test/commands_player_test/commands_me_bind_test/commands_admin_write_test/gamedata_output_suppression_test/players_group_off_test/main_link_single_test/format_player_test/format_rank_test/formatters_test/report_service_test/locale_rework_test/guild_service_test/snapshot_service_info_test/scheduler_basic_test + integration privacy_test/smoke_test/phase3_smoke_test/routing_e2e_test 等，逐文件随新式样重锚。
 3. **report_service_test 专项**：:74-75 epoch 断言随 bug 修反转为真实 world_day；:194 pk-in-records 断言随名字解析落点反转；:102 核对留置。
-4. **locale 键表同步**：死键删除；MESSAGES["degraded"] 内容断言（locale_test.py:23）随统一式重写；新增键补测。
+4. **locale 键表同步**：死键删除；locale_test.py:23 为红线负断言（`"关机" not in MESSAGES["degraded"]`）**保持不动**（新统一式天然满足，勿弱化隐私红线）；degraded 若另有内容相等断言随统一式重锚；新增键补测。
 5. **readme 中文锚点联动**（§8；PR#13 先例入 checklist）。
 6. **help 类测试**（formatters_hierarchy_test/formatters_admin_help_test）：锚 "/pal …" 子串与 HELP_TEXT keys 结构，【】改素节头后多数存活——列**低风险核对项**，逐条跑红补改。
 7. **server 写回执消费方测试**（confirmation/admin 链路对【{action}】式样的断言）单独列出。
-8. 新增覆盖：stale 判定边界（假 clock）、隐私收敛两入口、据点序号空间一致性、RoutingService 结构化返回、多模式锚/单模式省略分支、strict 守卫 #8/#9、unban 前缀校验、help 双 @ 不再抛。
+8. 新增覆盖（**§5 每行小扩与 §6 每项各配至少一条测试**，逐项映射入 plan）：stale 判定边界（假 clock）、隐私收敛两入口（status+online）、据点序号空间一致性、RoutingService 结构化返回、多模式锚/单模式省略分支、strict 守卫与裁剪（#6/#7 字段级 + #8/#9 拒执行）、unban 前缀校验、help 双 @ 不再抛、**写回执显示目标+confirm 断连「已发起」语义（§6#6）**、**overview 快照缺失 ⚠️ 与 guild base 无观测 ⚠️（§6#8，golden 五文件不含此二态须新增用例）**、**whereami open 分流（§6#9）**、**events 侧名字解析（§6#7，§9#3 只覆盖 today）**、player 今日/累计/公会名聚合（§5#5）、target_userid 尾4（§5#7）、rank clamp 边界 0/负/1/50（§5#10）、改绑透明化与已隐藏角标（§5#13）、unbind 悬空不出哈希（§6#10）、guild info/base 无参 usage（§6#11）。
 
 ## 10. 验收标准
 
 1. 29 条命令输出与本 spec §4 样张逐条一致（据点名/世界名按 §2.1/§3 口径为示意，结构与措辞为准）。
 2. §3 横切规则全落地：图标分派无双待遇；降级三落点；隐私收敛两入口同数；据点序号空间单一。
-3. §6 九项捎带 bug 全部根治且各有回归测试。
+3. §6 十一项捎带 bug 全部根治且各有回归测试（映射见 §9#8）。
 4. 全库测试绿（含 §9 改写后）；ruff/mypy 全绿；前端测试绿；产物 no-drift（若动 frontend/schema.ts 须 `npm run build` 重建）。
 5. 文档与 readme 锚点按 §8 同步，两义分治无混改。
 6. 门控/安全语义零回归：门序铁律、visible_actions 角色隔离、confirm 原子性、name_banned 收敛、审计不落明文——现有安全测试全数保持。
