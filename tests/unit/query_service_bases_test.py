@@ -181,6 +181,9 @@ async def test_hidden_base_event_falls_back(qs):
 async def test_events_today_only_filters(qs):
     repo, q, clock = qs
     old = clock.now() - 100000
+    # 玩家事件须有身份方可解析名字（否则查无身份即跳过，spec §4.4 / T5 契约）
+    await repo.upsert_player(PlayerIdentity("p1", WID, "P-One", 800, old, 5, None, IdConfidence.HIGH))
+    await repo.upsert_player(PlayerIdentity("p2", WID, "P-Two", 800, 1200, 5, None, IdConfidence.HIGH))
     await repo.insert_event(WorldEvent(None, WID, EventType.NEW_PLAYER, "player", "p1", old, old, {}, "public", Confidence.HIGH, f"{WID}|NEW_PLAYER|p1"))
     await repo.insert_event(WorldEvent(None, WID, EventType.NEW_PLAYER, "player", "p2", 1200, 1200, {}, "public", Confidence.HIGH, f"{WID}|NEW_PLAYER|p2"))
     all_events = await q.events(_world(), today_only=False)
@@ -188,3 +191,30 @@ async def test_events_today_only_filters(qs):
     today = await q.events(_world(), today_only=True)
     assert len(today) == 1
     assert today[0].event_type == "new_player"
+    assert today[0].summary == "新玩家 P-Two 加入世界"  # 措辞经 event_wording 单一真相源
+
+
+async def test_events_render_wording_via_single_source(qs):
+    # events() 消费 name_resolver + event_wording：subject_key 解析为显示名、措辞照八类表。
+    repo, q, _ = qs
+    await repo.upsert_player(PlayerIdentity("pk1", WID, "Neo", 900, 1200, 22, None, IdConfidence.HIGH))
+    await repo.insert_event(WorldEvent(
+        None, WID, EventType.PLAYER_LEVEL_UP, "player", "pk1", 1200, 1200,
+        {"old": 21, "new": 22}, "public", Confidence.HIGH, f"{WID}|PLAYER_LEVEL_UP|pk1|22",
+    ))
+    dtos = await q.events(_world(), today_only=False)
+    assert len(dtos) == 1
+    assert dtos[0].summary == "Neo 升级 Lv21→Lv22"
+
+
+async def test_events_skips_hidden_player_event(qs):
+    # 隐藏玩家的事件在 query 层整条跳过（resolver 缺席即跳，spec §4.4）。
+    repo, q, _ = qs
+    await repo.upsert_player(PlayerIdentity("pk1", WID, "Neo", 900, 1200, 21, None, IdConfidence.HIGH))
+    await repo.set_hidden(WID, "pk1", "phash")
+    await repo.insert_event(WorldEvent(
+        None, WID, EventType.NEW_PLAYER, "player", "pk1", 1200, 1200,
+        {}, "public", Confidence.HIGH, f"{WID}|NEW_PLAYER|pk1",
+    ))
+    dtos = await q.events(_world(), today_only=False)
+    assert dtos == []

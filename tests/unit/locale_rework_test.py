@@ -19,6 +19,13 @@ def test_output_redesign_first_wave_new_keys():
     assert L("arg_error") == "⚠️ 一条命令只能指定一个 @服务器"
 
 
+def test_events_empty_state_two_variants():
+    # spec §4.4：events 空态两句变体（标题由 formatter 供，locale 只存空句）；旧 no_events 退役。
+    assert L("events_empty") == "最近还没有新事件"
+    assert L("events_empty_today") == "今天还没有新事件"
+    assert "no_events" not in MESSAGES
+
+
 def test_hint_strings_drop_old_command_names():
     # 用户可见提示串不得残留已删除的 /pal use、/pal servers
     for key in ("no_server_resolved", "not_authorized", "active_server_stale"):

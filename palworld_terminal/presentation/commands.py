@@ -10,6 +10,7 @@ from ..application.command_permissions import (
     effective_enabled,
 )
 from ..application.query_service import PlayerProfileDTO
+from ..application.report_service import server_timezone
 from ..domain.enums import EndpointName
 from ..presentation.command_registry import DISPATCH, METHOD_PATH
 from ..presentation.confirmation import PendingAction
@@ -222,11 +223,19 @@ class Commands:
     @_gated
     async def events(self, umo, message_str, is_group) -> str:
         today_only = "today" in message_str.split()
-        world, _arg, err, _srv = await self._resolve_world(umo, message_str, "events", is_group)
+        world, _arg, err, server_name = await self._resolve_world(
+            umo, message_str, "events", is_group
+        )
         if err is not None:
             return err
-        dto = await self._query.events(world, today_only=today_only)
-        return format_events(dto)
+        dtos = await self._query.events(world, today_only=today_only)
+        return format_events(
+            dtos, server_name,
+            now=self._clock.now(),
+            tz=server_timezone(self._cfg, world),
+            today_only=today_only,
+            fold_limit=self._cfg.players.list_fold_limit,
+        )
 
     @_gated
     async def today(self, umo, message_str, is_group) -> str:

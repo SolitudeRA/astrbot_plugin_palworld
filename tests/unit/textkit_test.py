@@ -11,6 +11,7 @@ from palworld_terminal.presentation.textkit import (
     quote_echo,
     rel_date,
     rel_datetime,
+    time_of_day,
 )
 
 _TZ = ZoneInfo("Asia/Tokyo")
@@ -160,6 +161,20 @@ def test_rel_datetime_same_year_mmdd_with_time():
 def test_rel_datetime_cross_year_full_with_time():
     now = _ep(2026, 1, 3, 10, 0)
     assert rel_datetime(_ep(2025, 12, 31, 23, 0), now, _TZ) == "2025-12-31 23:00"
+
+
+# ---- time_of_day（spec §2.5：events 今天条目 / today 变体带 HH:MM）----
+
+def test_time_of_day_hhmm():
+    assert time_of_day(_ep(2026, 7, 17, 14, 32), _TZ) == "14:32"
+
+
+def test_time_of_day_pads_zero():
+    assert time_of_day(_ep(2026, 7, 17, 9, 5), _TZ) == "09:05"
+
+
+def test_time_of_day_accepts_tz_string():
+    assert time_of_day(_ep(2026, 7, 17, 0, 0), "Asia/Tokyo") == "00:00"
 
 
 # ---- quote_echo（spec §2.3：回执回显用全角双引号 “ ”）----

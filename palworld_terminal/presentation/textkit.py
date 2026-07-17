@@ -76,6 +76,12 @@ def rel_datetime(ts: int, now: int, tz: str | tzinfo) -> str:
     return f"{rel_date(ts, now, z)} {_local(ts, z).strftime('%H:%M')}"
 
 
+def time_of_day(ts: int, tz: str | tzinfo) -> str:
+    """当日时分 HH:MM（spec §2.5）：events 今天条目 / events today 变体带时刻，
+    节头/标题行已承载日期，故此处只出时分。tz 接受 IANA 字符串或 tzinfo。"""
+    return _local(int(ts), _resolve_tz(tz)).strftime("%H:%M")
+
+
 def quote_echo(content: str) -> str:
     """回执内容回显（spec §2.3）：包全角双引号 “ ”。"""
     return f"{_LQUO}{content}{_RQUO}"

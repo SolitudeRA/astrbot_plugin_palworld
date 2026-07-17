@@ -22,6 +22,7 @@ from ..presentation.dtos import (
     WildTopRow,
     WorldSummaryDTO,
 )
+from ..presentation.event_wording import event_wording
 from .name_resolver import load_excluded_keys as _load_excluded_keys
 from .name_resolver import resolve_subjects
 from .report_service import day_bounds
@@ -402,14 +403,19 @@ class QueryService:
         # 「今日」窗口与 rank/日报同源(day_bounds:per-server tz 优先、DST 安全)
         since = (day_bounds(self._cfg, world, self._clock.now())[1]
                  if today_only else None)
+        # 候选池=近 20 条（折叠在 formatter 侧作用于该池之上，spec §4.4）。
         events = await self._repo.list_events(world.world_id, since=since, limit=20)
-        dtos = [
-            EventDTO(
+        # 主体名批量解析（含隐藏收敛 + 据点/公会回退，spec §4.4）；措辞走 event_wording 单一真相源。
+        names = await self.resolve_event_subjects(world, events)
+        dtos: list[EventDTO] = []
+        for e in events:
+            # 隐藏/查无玩家事件整条跳过（resolver 对 player 主体缺席即跳，不泄漏隐藏玩家）。
+            if e.subject_type == "player" and e.subject_key not in names:
+                continue
+            dtos.append(EventDTO(
                 occurred_at=e.occurred_at, event_type=e.event_type.value,
-                summary=_event_summary(e),
-            )
-            for e in events
-        ]
+                summary=event_wording(e, names.get(e.subject_key, "")),
+            ))
         self._cache.set(key, dtos, self._EVENTS_TTL)
         return dtos
 
@@ -616,25 +622,3 @@ class QueryService:
             online=session is not None,
             online_seconds=session.observed_seconds if session is not None else 0,
         )
-
-
-def _event_summary(e) -> str:
-    from ..domain.enums import EventType as _ET
-    p = e.payload or {}
-    if e.event_type is _ET.PLAYER_LEVEL_UP:
-        return f"玩家升级 Lv{p.get('old', '?')}→Lv{p.get('new', '?')}"
-    if e.event_type is _ET.NEW_PLAYER:
-        return "新玩家加入世界"
-    if e.event_type is _ET.NEW_GUILD:
-        return f"新公会出现：{p.get('name', e.subject_key)}"
-    if e.event_type is _ET.NEW_BASE:
-        return f"新据点确认：{p.get('name', e.subject_key)}"
-    if e.event_type is _ET.BASE_VANISHED:
-        return "据点已连续多次未被观察到"
-    if e.event_type is _ET.WORKER_DELTA:
-        return f"据点工作帕鲁数量变化：{p.get('prev', '?')}→{p.get('cur', '?')}"
-    if e.event_type is _ET.WORLD_DAY_MILESTONE:
-        return f"世界推进至第 {p.get('milestone', '?')} 天"
-    if e.event_type is _ET.ONLINE_RECORD:
-        return f"在线人数刷新纪录：{p.get('value', '?')} 人"
-    return e.event_type.value

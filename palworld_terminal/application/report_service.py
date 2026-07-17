@@ -16,17 +16,24 @@ _ACTIVE_SECONDS = 600  # spec §12: 活跃日 >= 10 分钟
 _EVENT_PAGE = 1000  # 日报事件分页大小(测试可缩小以覆盖分页路径)
 
 
-def day_bounds(
-    cfg: AppConfig, world: World, now: int, day: str | None = None
-) -> tuple[str, int, int]:
-    """自然日 [start, end) 边界（秒）。tz：per-server timezone 优先，回退 world tz。
-    用 timedelta(days=1) 而非 +86400，正确处理 DST 的 23/25 小时日。"""
+def server_timezone(cfg: AppConfig, world: World) -> str:
+    """该世界所属服务器的时区名：per-server timezone 优先，回退 world 默认 tz。
+    day_bounds（日窗口）与 events formatter（日分组/HH:MM）共用同一 tz 口径，
+    确保「今天」判定跨两者一致。"""
     server_tz = ""
     for s in cfg.servers:
         if s.server_id == world.server_id:
             server_tz = s.timezone
             break
-    tz = ZoneInfo(server_tz or cfg.world.timezone)
+    return server_tz or cfg.world.timezone
+
+
+def day_bounds(
+    cfg: AppConfig, world: World, now: int, day: str | None = None
+) -> tuple[str, int, int]:
+    """自然日 [start, end) 边界（秒）。tz：per-server timezone 优先，回退 world tz。
+    用 timedelta(days=1) 而非 +86400，正确处理 DST 的 23/25 小时日。"""
+    tz = ZoneInfo(server_timezone(cfg, world))
     if day is None:
         local = datetime.fromtimestamp(now, tz)
         day = local.strftime("%Y-%m-%d")

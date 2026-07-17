@@ -28,7 +28,9 @@ MESSAGES: dict[str, str] = {
     "use_ok": "已授权本群使用服务器「{server}」并设为当前活动服务器。",
     "unbind_ok": "已撤销本群对服务器「{server}」的授权。",
     "empty_day": "平静的一天，没有值得记录的事件。",
-    "no_events": "近期暂无世界事件。",
+    # events 空态两句变体（spec §4.4；标题锚点由 formatter 供，此处只存空句）。
+    "events_empty": "最近还没有新事件",
+    "events_empty_today": "今天还没有新事件",
     "feature_disabled": "该功能未开放：当前配置或服务器不支持。",
     "rank_empty": "本服务器暂无玩家排行数据。",
     "rank_duration_strict": "时长榜（今日/累计）在 strict 隐私模式下停用。",

@@ -1,3 +1,6 @@
+from datetime import datetime
+from zoneinfo import ZoneInfo
+
 from palworld_terminal.config import SkippedServer
 from palworld_terminal.domain.enums import Confidence, PingBucket
 from palworld_terminal.presentation.dtos import (
@@ -169,10 +172,89 @@ def test_format_guilds_and_guild():
     assert "据点新增" in gd
 
 
-def test_format_events_and_empty():
-    text = format_events([EventDTO(1000, "new_player", "新玩家加入世界")])
-    assert "新玩家加入世界" in text
-    assert "暂无" in format_events([])
+_EVT_TZ = "Asia/Tokyo"
+
+
+def _evt_ep(y, mo, d, h=0, mi=0):
+    return int(datetime(y, mo, d, h, mi, tzinfo=ZoneInfo(_EVT_TZ)).timestamp())
+
+
+def _evt(occurred_at, summary, event_type="x"):
+    return EventDTO(occurred_at=occurred_at, event_type=event_type, summary=summary)
+
+
+def test_format_events_by_day_grouping_spec_4_4():
+    # spec §4.4：标题锚点 + 空行 + 日分组；仅今天条目带 HH:MM，过往日靠节头定位不带时刻。
+    now = _evt_ep(2026, 7, 17, 15, 0)
+    events = [
+        _evt(_evt_ep(2026, 7, 17, 14, 32), "Neo 升级 Lv21→Lv22"),
+        _evt(_evt_ep(2026, 7, 17, 9, 15), "在线人数新纪录 8 人"),
+        _evt(_evt_ep(2026, 7, 16, 20, 0), "新玩家 Trinity 加入世界"),
+        _evt(_evt_ep(2026, 7, 14, 10, 0), "新公会「Matrix」出现"),
+    ]
+    assert format_events(
+        events, "Palpagos", now=now, tz=_EVT_TZ, today_only=False, fold_limit=7,
+    ) == (
+        "📰 世界事件 · Palpagos\n"
+        "\n"
+        "今天\n"
+        "· 14:32 Neo 升级 Lv21→Lv22\n"
+        "· 09:15 在线人数新纪录 8 人\n"
+        "\n"
+        "昨天\n"
+        "· 新玩家 Trinity 加入世界\n"
+        "\n"
+        "07-14\n"
+        "· 新公会「Matrix」出现"
+    )
+
+
+def test_format_events_today_variant_no_day_headers():
+    # spec §4.4 today 变体：标题「今日事件」，无节头，直列带 HH:MM。
+    now = _evt_ep(2026, 7, 17, 15, 0)
+    events = [
+        _evt(_evt_ep(2026, 7, 17, 14, 32), "Neo 升级 Lv21→Lv22"),
+        _evt(_evt_ep(2026, 7, 17, 9, 15), "在线人数新纪录 8 人"),
+    ]
+    text = format_events(
+        events, "Palpagos", now=now, tz=_EVT_TZ, today_only=True, fold_limit=7,
+    )
+    assert text == (
+        "📰 今日事件 · Palpagos\n"
+        "\n"
+        "· 14:32 Neo 升级 Lv21→Lv22\n"
+        "· 09:15 在线人数新纪录 8 人"
+    )
+    assert "\n今天\n" not in text  # today 变体无日节头
+
+
+def test_format_events_message_level_fold_across_days():
+    # spec §2.7：events 为消息级折叠特例——多日节合计 ≤ fold_limit，尾行「…等共 N 条」。
+    now = _evt_ep(2026, 7, 17, 15, 0)
+    events = [_evt(_evt_ep(2026, 7, 17, 14, 0) - i * 60, f"今日{i}") for i in range(4)]
+    events += [_evt(_evt_ep(2026, 7, 16, 20, 0) - i * 60, f"昨日{i}") for i in range(5)]
+    text = format_events(
+        events, "Palpagos", now=now, tz=_EVT_TZ, today_only=False, fold_limit=7,
+    )
+    assert "…等共 9 条" in text            # 尾行量词「条」，N=池内总条数
+    assert "昨日2" in text                 # 第 7 条（4 今日 + 3 昨日）在编
+    assert "昨日3" not in text             # 第 8 条被折叠出
+    assert "昨日4" not in text
+
+
+def test_format_events_empty_normal_variant():
+    # spec §4.4/§9：集合空 → 素文（标题 + 一句话），不佩 ⚠️。
+    now = _evt_ep(2026, 7, 17, 15, 0)
+    assert format_events(
+        [], "Palpagos", now=now, tz=_EVT_TZ, today_only=False, fold_limit=7,
+    ) == "📰 世界事件 · Palpagos\n最近还没有新事件"
+
+
+def test_format_events_empty_today_variant():
+    now = _evt_ep(2026, 7, 17, 15, 0)
+    assert format_events(
+        [], "Palpagos", now=now, tz=_EVT_TZ, today_only=True, fold_limit=7,
+    ) == "📰 今日事件 · Palpagos\n今天还没有新事件"
 
 
 def _world_dto(*, available=True):

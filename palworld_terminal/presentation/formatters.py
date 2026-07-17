@@ -23,7 +23,7 @@ from ..presentation.dtos import (
     WorldSummaryDTO,
 )
 from ..presentation.locale import L
-from ..presentation.textkit import fmt_duration, fold
+from ..presentation.textkit import fmt_duration, fold, rel_date, time_of_day
 
 _PING_LABEL = {
     PingBucket.GOOD: "优秀", PingBucket.OK: "正常",
@@ -111,11 +111,47 @@ def format_base(dto: BaseDetailDTO) -> str:
     ])
 
 
-def format_events(dto: list[EventDTO]) -> str:
-    if not dto:
-        return L("no_events")
-    lines = ["近期世界事件："]
-    lines.extend(f"· {e.summary}" for e in dto)
+def format_events(
+    events: list[EventDTO], server_name: str, *,
+    now: int, tz, today_only: bool, fold_limit: int,
+) -> str:
+    """world events（spec §4.4）。标题锚点 server_name = 配置名 srv.name（commands 层供数）。
+
+    events 已由 query 层隐藏收敛 + 名字解析 + 八类措辞渲染（EventDTO.summary），按 occurred_at
+    DESC 排列。本函数只做呈现：日分组 / 仅今天条目带 HH:MM / 消息级折叠 / 空态两变体。
+
+    - today 变体（today_only）：标题「今日事件」，不设日节头，直列条目均带 HH:MM。
+    - 常规：按 rel_date 词形（今天/昨天/MM-DD）分节，仅「今天」节条目带 HH:MM，过往日靠
+      节头定位不带时刻（spec §2.5）。
+    - 折叠为**消息级特例**（spec §2.7）：多日节合计 ≤ fold_limit，尾行「…等共 N 条」；
+      经 textkit.fold 生成尾行（量词「条」，N=池内总条数）。
+    """
+    title = f"📰 今日事件 · {server_name}" if today_only else f"📰 世界事件 · {server_name}"
+    if not events:
+        empty = L("events_empty_today") if today_only else L("events_empty")
+        return f"{title}\n{empty}"
+
+    # 消息级折叠：截前 fold_limit 条渲染，尾行经 textkit.fold 复用同一「…等共 N 条」格式。
+    visible = events[:fold_limit]
+    tail = fold([e.summary for e in events], fold_limit, "条")[len(visible):]
+
+    lines = [title]
+    if today_only:
+        lines.append("")
+        lines.extend(f"· {time_of_day(e.occurred_at, tz)} {e.summary}" for e in visible)
+    else:
+        current_day: str | None = None
+        for e in visible:
+            day = rel_date(e.occurred_at, now, tz)
+            if day != current_day:
+                lines.append("")          # 空行分节（含标题与首节之间）
+                lines.append(day)         # 素节头无图标
+                current_day = day
+            if day == "今天":
+                lines.append(f"· {time_of_day(e.occurred_at, tz)} {e.summary}")
+            else:
+                lines.append(f"· {e.summary}")
+    lines.extend(tail)                     # 折叠尾行（未折叠时为空）
     return "\n".join(lines)
 
 
