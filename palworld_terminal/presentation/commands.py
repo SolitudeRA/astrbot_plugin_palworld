@@ -8,6 +8,7 @@ from ..application.command_permissions import (
     active_endpoints,
     effective_admin_only,
     effective_enabled,
+    upstream_unavailable,
 )
 from ..application.query_service import metric_stale
 from ..application.report_service import server_timezone
@@ -38,6 +39,19 @@ from ..presentation.server_arg import ArgError, parse_arg, parse_group
 
 # shutdown 倒计时秒数上界（spec §3：正整数、1–86400）。
 _SHUTDOWN_MAX_SECONDS = 86400
+
+
+def feature_disabled_text(path: str) -> str:
+    """feature_disabled 回执（spec §3 横切决策表）：主句恒戴 ⚠️（配置停用类）。
+
+    普通 enable off 追加「设置页开启」引导脚注；upstream_unavailable(path)（gamedata
+    上游锁定期）省略脚注——设置页开不了该功能，脚注是假承诺（维持锁定 spec「无专属聊天
+    文案」：锁定家族与普通 off 同回主句，差异仅在脚注省略）。全部 feature_disabled 落点
+    （_gated / _dispatch_read / link / admin_write）经此渲染，条件脚注收于单一真相源。
+    """
+    if upstream_unavailable(path):
+        return L("feature_disabled")
+    return f"{L('feature_disabled')}\n{L('feature_disabled_hint')}"
 
 
 def _parse_shutdown_seconds(token: str) -> int | None:
@@ -81,7 +95,7 @@ def _gated(fn):
     async def wrapper(self, *args, **kwargs):
         path = METHOD_PATH[fn.__name__]
         if not effective_enabled(self._cfg.permissions.command_overrides, path):
-            return L("feature_disabled")
+            return feature_disabled_text(path)
         return await fn(self, *args, **kwargs)
     return wrapper
 
@@ -450,7 +464,7 @@ class Commands:
         method, _feat_group, _gate = spec
         # per-子动作功能门（下沉）：逐子动作查完整路径生效值（组键/叶子/默认三级继承）。
         if not effective_enabled(self._cfg.permissions.command_overrides, f"{group} {p.sub}"):
-            return L("feature_disabled")
+            return feature_disabled_text(f"{group} {p.sub}")
         # admin_denied 下沉：按完整路径判锁，锁定且非管理员不触达实现。
         if self._admin_locked(f"{group} {p.sub}", sender_id, is_admin):
             return L("admin_required")
@@ -502,7 +516,7 @@ class Commands:
             return self._group_help("link", is_admin)
         method, _feat_group, gate = spec
         if not effective_enabled(self._cfg.permissions.command_overrides, f"link {p.sub}"):
-            return L("feature_disabled")
+            return feature_disabled_text(f"link {p.sub}")
         if gate == "admin":
             if not is_admin:
                 return L("admin_required")
@@ -577,9 +591,11 @@ class Commands:
         return L("link_remove_ok", server=name)
 
     def help(self, message_str, is_admin) -> str:
-        arg = parse_arg(message_str, "help")
+        # help 输出与 @服务器 无关：跳过 parse_arg（§6#3）——尾双 @（/pal help x @a @b）不再
+        # 裸抛 ArgError 致用户无回复。topic 维持忽略（不扩 /pal help <组>，YAGNI）。
+        del message_str
         return format_help(
-            arg.name or None, is_admin,
+            None, is_admin,
             self._cfg.permissions.command_overrides, self._world_mode(),
         )
 
@@ -636,7 +652,7 @@ class Commands:
         if not effective_enabled(
             self._cfg.permissions.command_overrides, f"server {command_str}"
         ):
-            return L("feature_disabled")
+            return feature_disabled_text(f"server {command_str}")
 
         try:
             arg = parse_arg(arg_str, command_str)
@@ -734,7 +750,7 @@ class Commands:
             result = await self._admin.stop(admin_id, umo, is_group)
             return self._render_result(result)
 
-        return L("feature_disabled")  # 未知写命令：不触达底层
+        return feature_disabled_text(f"server {command_str}")  # 未知写命令：不触达底层
 
     @staticmethod
     def _pending_phrase(command_str: str, payload: dict) -> str:

@@ -2,7 +2,7 @@ from types import SimpleNamespace
 
 from palworld_terminal.application.command_permissions import CommandOverride
 from palworld_terminal.application.query_service import RankBoardsDTO
-from palworld_terminal.presentation.commands import Commands
+from palworld_terminal.presentation.commands import Commands, feature_disabled_text
 
 
 class _Query:
@@ -26,7 +26,8 @@ def _cmds(mode="balanced", players_on=True):
 
 async def test_rank_gated_off_returns_feature_disabled():
     out = await _cmds(players_on=False).rank("u", "", True)
-    assert out == "该功能未开放：当前配置或服务器不支持。"
+    # rank=players（非上游不可用）→ 主句 ⚠️ + 「设置页开启」引导脚注（spec §3）。
+    assert out == feature_disabled_text("rank")
 
 
 async def test_rank_today_in_strict_returns_notice():

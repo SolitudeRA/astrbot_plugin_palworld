@@ -17,7 +17,7 @@ from types import SimpleNamespace
 
 from palworld_terminal.application.admin_service import AdminResult, TargetResult
 from palworld_terminal.application.command_permissions import CommandOverride
-from palworld_terminal.presentation.commands import Commands
+from palworld_terminal.presentation.commands import Commands, feature_disabled_text
 from palworld_terminal.presentation.confirmation import ConfirmationStore
 from palworld_terminal.presentation.locale import L
 
@@ -174,7 +174,8 @@ async def test_admin_group_off_returns_feature_disabled():
     out = await c.admin_write(
         "announce", "server_admin_basic", "p:1", "umo", True, "hi", is_admin=True
     )
-    assert out == L("feature_disabled")
+    # server 组非上游不可用 → 主句 ⚠️ + 「设置页开启」引导脚注（spec §3）。
+    assert out == feature_disabled_text("server announce")
     assert admin.calls == []
 
 

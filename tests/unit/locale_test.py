@@ -24,7 +24,7 @@ def test_never_says_server_offline():
 
 
 def test_admin_required_message():
-    assert L("admin_required") == "该命令需要管理员权限。"
+    assert L("admin_required") == "⚠️ 该命令需要管理员权限"
 
 
 def test_missing_key_raises():

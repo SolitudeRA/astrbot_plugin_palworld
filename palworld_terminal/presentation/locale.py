@@ -7,7 +7,8 @@ MESSAGES: dict[str, str] = {
     "not_authorized": "本会话未被授权使用服务器「{server}」。请管理员先执行 /pal link add {server}。",
     "link_single_mode": "当前为单世界模式，无需选择服务器：所有操作对应唯一服务器。",
     "group_no_actions": "该命令组暂无可用命令（可能未开放或需要管理员权限）。",
-    "private_restricted": "restricted 模式下私聊不可查询，请在群聊中使用。",
+    # 场景类拦截（spec §3）：从 routing 六分支素文豁免中摘出——戴 ⚠️（沿 PR#22 句仅加前缀）。
+    "private_restricted": "⚠️ restricted 模式下私聊不可查询，请在群聊中使用。",
     "single_not_authorized": (
         "本群未被授权查询本服务器。请在群里发 /pal whereami 获取本群标识，"
         "交管理员在插件设置页「连接」章的授权群名单中添加。"
@@ -31,7 +32,8 @@ MESSAGES: dict[str, str] = {
     "bases_disabled_strict": "⚠️ 据点模块在 strict 隐私模式下停用",
     # 场景/环境不符类拦截统一 ⚠️（spec §3；link add/remove 共用同键同待遇）。
     "use_only_group": "⚠️ 该命令仅可在群聊中使用",
-    "admin_required": "该命令需要管理员权限。",
+    # 配置停用类拦截（spec §3）：整命令被拒执行的停用主句统一戴 ⚠️。
+    "admin_required": "⚠️ 该命令需要管理员权限",
     # ---- link 组回执（spec §4.20-4.22）；渲染上提自 RoutingService 结构化返回 ----
     # 空态拆键（routing 的 no_server_configured 保持原素文，§3/§7）。
     "link_list_empty": "尚未配置 Palworld 服务器\n└ 在插件设置页「连接」章添加",
@@ -54,7 +56,10 @@ MESSAGES: dict[str, str] = {
     # events 空态两句变体（spec §4.4；标题锚点由 formatter 供，此处只存空句）。
     "events_empty": "最近还没有新事件",
     "events_empty_today": "今天还没有新事件",
-    "feature_disabled": "该功能未开放：当前配置或服务器不支持。",
+    # feature_disabled 主句戴 ⚠️（配置停用类，spec §3）；引导脚注为独立键，由 commands 渲染层
+    # 条件拼接——upstream_unavailable(path)（gamedata 锁定期）时省略（设置页开不了，假承诺）。
+    "feature_disabled": "⚠️ 该功能未开启",
+    "feature_disabled_hint": "└ 管理员可在插件设置页「权限」章开启",
     # rank 空榜（spec §4.23）：标题锚点由 formatter 供，此处只存素文空句。
     "rank_empty": "暂无排行数据",
     # rank strict 停用（spec §3/§4.23）：配置停用类统一 ⚠️ + 等级榜不受影响引导脚注。

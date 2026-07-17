@@ -1,7 +1,7 @@
 """players 组 OFF 语义端到端：关组→四命令回 feature_disabled、help 不列（spec §5/§6）。"""
 from types import SimpleNamespace
 
-from palworld_terminal.presentation.commands import Commands
+from palworld_terminal.presentation.commands import Commands, feature_disabled_text
 from palworld_terminal.presentation.formatters import format_help
 from tests.unit._perm import overrides
 
@@ -16,10 +16,12 @@ def _cmds(players_on):
 
 async def test_players_commands_gated_off():
     c = _cmds(players_on=False)
+    # players 组各命令非上游不可用 → 主句 ⚠️ + 「设置页开启」引导脚注（spec §3）。
+    expected = feature_disabled_text("player info")
     for coro in (c.rank("u", "", True), c.player("u", "Alice", True),
                  c.me("u", "", True, "p:1"), c.bind("u", "Alice", True, "p:1"),
                  c.unbind_self("u", "", True, "p:1")):
-        assert await coro == "该功能未开放：当前配置或服务器不支持。"
+        assert await coro == expected
 
 
 def test_help_hides_players_when_off():

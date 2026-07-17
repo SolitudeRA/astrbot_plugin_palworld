@@ -123,7 +123,7 @@ async def test_multi_mode_link_not_guarded(tmp_path: Path, monkeypatch):
     plugin = await _make_plugin(tmp_path, monkeypatch, _raw(world_mode="multi", access="open"))
     try:
         out = await _drive_link(plugin, _FakeEvent("/pal link add alpha"))
-        assert out == "该命令需要管理员权限。"  # 走到 Commands.link 的 admin 门 = 未被守卫短路
+        assert out == "⚠️ 该命令需要管理员权限"  # 走到 Commands.link 的 admin 门 = 未被守卫短路
     finally:
         await plugin.terminate()
 

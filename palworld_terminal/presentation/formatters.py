@@ -289,12 +289,14 @@ def format_servers(
 
 
 # 命令组显示标签（分级 help / 裸组迷你帮助共用；避免英文词汇泄漏干扰功能门测试）。
+# 组头词表与前端设置页 GROUP_LABELS 统一定字（spec §4.26）：world/guild/player/link
+# 同词；server 于聊天帮助补「（管理员）」标注（前端权限章靠锁图标呈现，无需此后缀）。
 _GROUP_LABEL: dict[str, str] = {
-    "world": "世界查询",
-    "guild": "公会与据点",
+    "world": "世界",
+    "guild": "公会",
     "player": "玩家",
     "server": "服务器管控（管理员）",
-    "link": "服务器选择",
+    "link": "服务器授权",
 }
 _FLAT_LABEL = "其他"
 
@@ -333,24 +335,35 @@ def visible_actions(
 
 
 def _help_line(path: str) -> str:
+    """行式 `· /pal {路径} {描述}`（spec §4.26）：一级 `· ` 前缀，路径与描述单空格分隔。"""
     desc = HELP_TEXT.get(path, "")
-    return f"/pal {path}  {desc}" if desc else f"/pal {path}"
+    return f"· /pal {path} {desc}" if desc else f"· /pal {path}"
 
 
 def format_help(topic: str | None, is_admin: bool, overrides, world_mode: str = "multi") -> str:
-    lines = ["PalWorldTerminal 命令："]
+    """分级 help（spec §4.26）：📖 标题 + 素节头（废【】，对齐全局素节头定案）+ 行式条目。
+
+    角色/功能/模式过滤逻辑零改动——visible_actions 是唯一谓词（guest 不见写命令/confirm）；
+    本函数只定版式与组头词表。尾注 `└ 命令末尾加 @服务器名 可指定服务器` 单模式省略（single
+    下 resolve 忽略 @override，尾注是空承诺）。topic 参数维持忽略（不扩 /pal help <组>）。
+    """
+    lines = ["📖 PalWorldTerminal 命令"]
     for group in DISPATCH:  # world/guild/player/server/link（插入序）
         vis = visible_actions(group, is_admin, overrides, world_mode)
         if not vis:
             continue
-        lines.append(f"【{_GROUP_LABEL.get(group, group)}】")
+        lines.append("")                                      # 空行分节
+        lines.append(_GROUP_LABEL.get(group, group))          # 素节头无图标/无【】
         lines.extend(_help_line(f"{group} {sub}") for sub, _spec in vis)
     flat = [name for name, spec in FLAT_ACTIONS.items()
             if _action_visible(name, spec, is_admin, overrides)]
     if flat:
-        lines.append(f"【{_FLAT_LABEL}】")
+        lines.append("")
+        lines.append(_FLAT_LABEL)
         lines.extend(_help_line(name) for name in flat)
-    lines.append("提示：命令末尾可加 @服务器名 指定服务器。")
+    if world_mode != "single":                                # 单模式省略 @ 尾注（空承诺）
+        lines.append("")
+        lines.append("└ 命令末尾加 @服务器名 可指定服务器")
     return "\n".join(lines)
 
 

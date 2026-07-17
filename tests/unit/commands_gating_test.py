@@ -7,7 +7,7 @@ from types import SimpleNamespace
 import pytest
 
 from palworld_terminal.application.command_permissions import CommandOverride as CO
-from palworld_terminal.presentation.commands import Commands
+from palworld_terminal.presentation.commands import Commands, feature_disabled_text
 from palworld_terminal.presentation.locale import L
 from tests.unit._perm import overrides
 
@@ -42,8 +42,9 @@ async def test_guilds_disabled_returns_feature_disabled():
 async def test_events_and_today_gated():
     cmds = Commands(None, _BoomQuery(), _Repo(),
                     cfg=_cfg(guilds_bases=False, events=False, report=False), clock=None)
-    assert await cmds.events("u", "", True) == L("feature_disabled")
-    assert await cmds.today("u", "", True) == L("feature_disabled")
+    # events/today 非上游不可用 → 主句 ⚠️ + 「设置页开启」引导脚注（spec §3）。
+    assert await cmds.events("u", "", True) == feature_disabled_text("world events")
+    assert await cmds.today("u", "", True) == feature_disabled_text("world today")
 
 
 async def test_enabled_group_not_gated():

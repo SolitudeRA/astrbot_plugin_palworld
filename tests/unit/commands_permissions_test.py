@@ -50,6 +50,6 @@ def test_is_plugin_admin():
 def test_admin_denied_only_for_locked_non_admin():
     # 锁完整路径 "rank"（可锁）；生效 admin_only=True。
     c = _cmds(admins=["aiocqhttp:1"], overrides={"rank": CommandOverride(admin_only=True)})
-    assert c.admin_denied("rank", "aiocqhttp:2") == "该命令需要管理员权限。"  # 锁定+非管理员
+    assert c.admin_denied("rank", "aiocqhttp:2") == "⚠️ 该命令需要管理员权限"  # 锁定+非管理员
     assert c.admin_denied("rank", "aiocqhttp:1") is None                    # 管理员放行
     assert c.admin_denied("online", "aiocqhttp:2") is None                  # 未锁放行

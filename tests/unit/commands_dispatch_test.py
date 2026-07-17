@@ -18,7 +18,7 @@ from palworld_terminal.application.routing_service import (
     UnbindResult,
     UseResult,
 )
-from palworld_terminal.presentation.commands import Commands
+from palworld_terminal.presentation.commands import Commands, feature_disabled_text
 from palworld_terminal.presentation.locale import L
 from tests.unit._perm import overrides
 
@@ -137,10 +137,12 @@ async def test_world_per_subaction_feature_gate():
             _cfg(feats={"events": False, "report": False}))
     # status(core) 过功能门 → 触达实现 → 回路由错误串（证明未被门拦）
     assert await c.world_grp("u", "/pal world status", True, "s", False) == "ROUTING_ERR"
-    # events(events 组关) → feature_disabled，不触达实现
-    assert await c.world_grp("u", "/pal world events", True, "s", False) == L("feature_disabled")
-    # today(report 组关) → feature_disabled，不触达实现
-    assert await c.world_grp("u", "/pal world today", True, "s", False) == L("feature_disabled")
+    # events(events 组关) → feature_disabled，不触达实现（非上游不可用 → 带引导脚注）
+    assert await c.world_grp("u", "/pal world events", True, "s", False) \
+        == feature_disabled_text("world events")
+    # today(report 组关) → feature_disabled，不触达实现（同上）
+    assert await c.world_grp("u", "/pal world today", True, "s", False) \
+        == feature_disabled_text("world today")
 
 
 async def test_world_overview_force_off_feature_disabled():
