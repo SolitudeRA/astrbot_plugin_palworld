@@ -276,7 +276,18 @@ class QueryService:
         if cached is not None:
             return cached
         rows = await self._online_rows(world)
-        dto = OnlineDTO(rows=rows, updated_at=self._clock.now(), degraded=False)
+        # 头行供数（spec §3/§4.24）：/max 取 metric.max_players、今日峰值取当日 peak_online
+        # 聚合（与 status 同源，按本地自然日 day_bounds 起点；缺 metric 则 0）。头行在线数分子
+        # 恒 = len(rows)（收敛后名单数），不取 metric.online_players——T3 隐私收敛在此闭合。
+        now = self._clock.now()
+        metric = await self._repo.latest_metric(world.world_id)
+        _day, day_start, _end = day_bounds(self._cfg, world, now)
+        peak_today = await self._repo.peak_online(world.world_id, since=day_start)
+        dto = OnlineDTO(
+            rows=rows, updated_at=now, degraded=False,
+            max_players=metric.max_players if metric else 0,
+            peak_online=peak_today,
+        )
         self._cache.set(key, dto, _ONLINE_TTL)
         return dto
 

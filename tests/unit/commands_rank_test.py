@@ -41,9 +41,12 @@ async def test_rank_total_in_strict_returns_notice():
 
 async def test_rank_level_not_affected_by_strict():
     out = await _cmds(mode="strict").rank("u", "level", True)
-    assert "等级榜" in out
+    assert out.splitlines()[0] == "🏆 等级榜 · srv"  # 标题锚点=resolve 出的配置名
+    assert "1. A Lv9" in out
 
 
 async def test_rank_default_is_today_board():
     out = await _cmds().rank("u", "", True)
-    assert "今日在线时长榜" in out and "等级榜" not in out
+    # 未识别首词回落 today（spec §4.23）；标题锚点带配置名；名次序号纯渲染。
+    assert out.splitlines()[0] == "🏆 今日在线时长榜 · srv" and "等级榜" not in out
+    assert "1. A 1分" in out

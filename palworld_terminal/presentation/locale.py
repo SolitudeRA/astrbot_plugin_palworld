@@ -32,8 +32,12 @@ MESSAGES: dict[str, str] = {
     "events_empty": "最近还没有新事件",
     "events_empty_today": "今天还没有新事件",
     "feature_disabled": "该功能未开放：当前配置或服务器不支持。",
-    "rank_empty": "本服务器暂无玩家排行数据。",
-    "rank_duration_strict": "时长榜（今日/累计）在 strict 隐私模式下停用。",
+    # rank 空榜（spec §4.23）：标题锚点由 formatter 供，此处只存素文空句。
+    "rank_empty": "暂无排行数据",
+    # rank strict 停用（spec §3/§4.23）：配置停用类统一 ⚠️ + 等级榜不受影响引导脚注。
+    "rank_duration_strict": "⚠️ 时长榜在 strict 隐私模式下停用\n└ 等级榜不受影响：/pal rank level",
+    # online 空态（spec §4.24）：标题锚点由 formatter 供，此处只存素文空句（收编硬编码）。
+    "online_empty": "当前无玩家在线",
     # player info / bind / me not-found 脚注共用（spec §4.10/§4.11）。
     "player_not_found": (
         "❌ 未找到玩家「{name}」\n└ 名字须与游戏内完全一致，可用 /pal online 查在线玩家"

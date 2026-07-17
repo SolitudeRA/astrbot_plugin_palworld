@@ -27,6 +27,7 @@ from palworld_terminal.infrastructure.cache import TTLCache
 from palworld_terminal.infrastructure.clock import FakeClock
 from palworld_terminal.infrastructure.database import Database
 from palworld_terminal.infrastructure.migrations import apply_migrations
+from palworld_terminal.presentation.formatters import format_online
 
 WID = "alpha:guid-1:0"
 
@@ -237,6 +238,24 @@ async def test_excluded_name_config_removes_player_from_both(qs):
     assert [r.name for r in online.rows] == ["Trinity"]
     status = await q.status(_world())
     assert _player_names(status) == {"Trinity"}
+
+
+async def test_online_head_count_numerator_is_converged_not_raw_metric(qs):
+    # spec §3 / T3 seam：online 头行分子 = 收敛后名单数，绝非 metric.online_players 原始值。
+    # metric 报在线 2，隐藏其一 → 头行须「在线 1/32」（收敛 1），而非「在线 2」（raw）。
+    # 端到端穿 query→formatter，证明 numerator=len(converged rows)，堵死存在性泄漏。
+    repo, q, _ = qs
+    await repo.insert_metric(WorldMetric(WID, 1200, 58.0, 17.2, 2, 42, 5, 32))  # online=2 max=32
+    await _online_player(repo, "pk1", "Neo", 21)
+    await _online_player(repo, "pk2", "Trinity", 18)
+    await repo.set_hidden(WID, "pk1", "phash")
+
+    dto = await q.online(_world())
+    assert len(dto.rows) == 1                       # 收敛后 1 人
+    assert dto.max_players == 32                    # /max 取 metric 聚合
+    text = format_online(dto, "Palpagos")
+    assert "在线 1/32" in text                       # 分子=收敛 1，非 raw metric.online_players=2
+    assert "在线 2/" not in text
 
 
 _METADATA_DIR = Path(__file__).resolve().parents[2] / "metadata"

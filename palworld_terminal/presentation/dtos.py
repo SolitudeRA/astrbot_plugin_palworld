@@ -56,6 +56,10 @@ class OnlineDTO:
     rows: list[OnlinePlayerRow]
     updated_at: int
     degraded: bool
+    # 头行供数（spec §4.24）：/max 容量=latest_metric.max_players、今日峰值=peak_online
+    # （聚合值，不可归因，保留原值）。头行在线数分子恒 = len(rows)（收敛后名单数，§3 隐私收敛）。
+    max_players: int = 0
+    peak_online: int = 0
 
 
 @dataclass(slots=True)

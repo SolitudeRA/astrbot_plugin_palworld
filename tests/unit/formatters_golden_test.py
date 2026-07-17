@@ -107,14 +107,17 @@ def test_today_golden():
 
 
 def test_online_redacted_golden():
+    # 样张镜像 spec §4.24（Palpagos=配置名 srv.name，经 server_name 参数供数）。
+    # 头行分子=len(rows)=2（收敛后名单数，T3 seam）；/32 容量=max_players、今日峰值=peak_online；
+    # Ping 恒渲染为语义档位（优秀/偏高），绝不泄漏 raw ms；时长走 fmt_duration。
     dto = OnlineDTO(
         rows=[
             OnlinePlayerRow("Neo", 21, PingBucket.GOOD, 3661),
             OnlinePlayerRow("Trinity", 18, PingBucket.HIGH, 600),
         ],
-        updated_at=1700000000, degraded=False,
+        updated_at=1700000000, degraded=False, max_players=32, peak_online=7,
     )
-    text = format_online(dto)
+    text = format_online(dto, "Palpagos")
     # privacy: no raw ping ms leaked
     assert "3661" not in text or "在线" in text  # duration allowed, ping must be bucket
     assert "优秀" in text and "偏高" in text

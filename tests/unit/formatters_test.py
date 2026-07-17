@@ -132,17 +132,56 @@ def test_format_status_zero_players_omits_section():
 
 def test_format_online_lists_players_and_bucket_label():
     dto = OnlineDTO(
-        rows=[OnlinePlayerRow("Neo", 21, PingBucket.GOOD, 3661)], updated_at=1000, degraded=False
+        rows=[OnlinePlayerRow("Neo", 21, PingBucket.GOOD, 3661)], updated_at=1000,
+        degraded=False, max_players=32, peak_online=7,
     )
-    text = format_online(dto)
-    assert "Neo" in text
-    assert "21" in text
+    text = format_online(dto, "Palpagos")
+    assert text.splitlines()[0] == "👥 当前在线 · Palpagos"
+    # 头行分子 = 收敛后名单数 len(rows)=1（T3 seam），/max 与今日峰值取聚合值。
+    assert "在线 1/32 · 今日峰值 7" in text
+    assert "· Neo Lv21" in text
     # ping bucket rendered as a friendly label, never a raw ms number
-    assert "优秀" in text
+    assert "优秀" in text and "3661" not in text
+    assert "1时01分" in text  # online_seconds 走 fmt_duration
+
+
+def test_format_online_head_count_is_converged_list_length():
+    # spec §3 / T3 seam：头行分子严格 = len(dto.rows)——OnlineDTO 不携带 raw metric 在线数，
+    # 名单数即分子，杜绝「在线 N」与名单行数不一致的存在性泄漏。
+    dto = OnlineDTO(
+        rows=[OnlinePlayerRow("Trinity", 18, PingBucket.OK, 2700)], updated_at=1000,
+        degraded=False, max_players=32, peak_online=9,
+    )
+    text = format_online(dto, "Palpagos")
+    assert "在线 1/32" in text
+    assert len([ln for ln in text.splitlines() if ln.startswith("· ")]) == 1
+
+
+def test_format_online_strict_drops_duration_keeps_name_lv_ping():
+    # spec §4.24：strict 砍时长字段，保留 名/Lv/Ping。
+    dto = OnlineDTO(
+        rows=[OnlinePlayerRow("Neo", 21, PingBucket.GOOD, 3661)], updated_at=1000,
+        degraded=False, max_players=32, peak_online=7,
+    )
+    text = format_online(dto, "Palpagos", strict=True)
+    assert "· Neo Lv21 · Ping 优秀" in text
+    assert "1时01分" not in text and "3661" not in text
+
+
+def test_format_online_folds_over_seven_with_person_unit():
+    # spec §2.7 折叠 7，尾行「…等共 N 人」。
+    rows = [OnlinePlayerRow(f"P{i}", 20 - i, PingBucket.OK, 600) for i in range(9)]
+    dto = OnlineDTO(rows=rows, updated_at=1000, degraded=False, max_players=32, peak_online=9)
+    text = format_online(dto, "Palpagos")
+    assert "…等共 9 人" in text
+    assert "在线 9/32" in text  # 头行分子仍为名单全长（非折叠可见数）
 
 
 def test_format_online_empty():
-    text = format_online(OnlineDTO(rows=[], updated_at=1000, degraded=False))
+    text = format_online(
+        OnlineDTO(rows=[], updated_at=1000, degraded=False), "Palpagos"
+    )
+    assert text.splitlines()[0] == "👥 当前在线 · Palpagos"
     assert "当前无玩家在线" in text
 
 

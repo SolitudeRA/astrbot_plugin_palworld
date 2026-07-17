@@ -42,14 +42,6 @@ _CONF_LABEL = {Confidence.HIGH: "高", Confidence.MEDIUM: "中", Confidence.LOW:
 _SMOOTH_DOT = {"流畅": "🟢", "一般": "🟡", "卡顿": "🔴", "严重卡顿": "🔴"}
 
 
-def _fmt_duration(seconds: int) -> str:
-    h, rem = divmod(max(seconds, 0), 3600)
-    m = rem // 60
-    if h:
-        return f"{h}小时{m}分"
-    return f"{m}分"
-
-
 def format_degraded(last_ok: int | None, now: int, server_name: str) -> str:
     """降级态两行（spec §3/§4.1）：标题锚点全局统一 `🌍 世界状态 · {服务器名}`（不随
     发起命令变化）+ 🔴 状态行。last_ok=None 为「从未成功」句；否则「最后成功于 N 分钟前」。
@@ -62,13 +54,29 @@ def format_degraded(last_ok: int | None, now: int, server_name: str) -> str:
     return f"🌍 世界状态 · {server_name}\n{status}"
 
 
-def format_online(dto: OnlineDTO) -> str:
+def format_online(dto: OnlineDTO, server_name: str, *, strict: bool = False) -> str:
+    """online 当前在线（spec §4.24）。标题锚点 server_name = 配置名 srv.name（commands 层供数）。
+
+    头行在线数分子 = 收敛后名单数 len(dto.rows)（spec §3 隐私收敛——与名单行数必然同数，
+    T3 seam 在此闭合，杜绝「在线 3」却只列 2 人的存在性泄漏）；/max 容量取 dto.max_players、
+    今日峰值取 dto.peak_online（metric 聚合值，不可归因，保留）。strict 砍时长字段（名/Lv/Ping
+    保留，同 rank/me 双砍哲学）。空态收编 locale online_empty。>7 折叠尾行「…等共 N 人」。
+    """
+    title = f"👥 当前在线 · {server_name}"
     if not dto.rows:
-        return "当前无玩家在线。"
-    lines = ["当前在线玩家："]
+        return f"{title}\n{L('online_empty')}"
+    entries: list[str] = []
     for r in dto.rows:
-        ping = _PING_LABEL[r.ping_bucket]
-        lines.append(f"· {r.name} Lv{r.level} · Ping {ping} · 在线 {_fmt_duration(r.online_seconds)}")
+        cells = [f"{r.name} Lv{r.level}", f"Ping {_PING_LABEL[r.ping_bucket]}"]
+        if not strict:
+            cells.append(fmt_duration(r.online_seconds))
+        entries.append("· " + " · ".join(cells))
+    lines = [
+        title,
+        f"在线 {len(dto.rows)}/{dto.max_players} · 今日峰值 {dto.peak_online}",
+        "",
+        *fold(entries, 7, "人"),
+    ]
     return "\n".join(lines)
 
 
@@ -404,24 +412,34 @@ def format_player(
     return "\n".join([title, " · ".join(status), "", *block])
 
 
-def format_rank(dto: RankBoardsDTO, *, which: str, strict: bool) -> str:
-    blocks: list[str] = []
-    if which in ("both", "today", "time") and not strict and dto.time_rows:
-        lines = ["今日在线时长榜："]
-        for name, secs in dto.time_rows:
-            lines.append(f"· {name} {_fmt_duration(secs)}")
-        blocks.append("\n".join(lines))
-    # total 同为时长榜,strict 下同砍(not strict 守卫覆盖 total 块)。
-    if which in ("both", "total") and not strict and dto.total_rows:
-        lines = ["留存期内累计时长榜："]
-        for name, secs in dto.total_rows:
-            lines.append(f"· {name} {_fmt_duration(secs)}")
-        blocks.append("\n".join(lines))
-    if which in ("both", "level") and dto.level_rows:
-        lines = ["等级榜："]
-        for name, level in dto.level_rows:
-            lines.append(f"· {name} Lv{level}")
-        blocks.append("\n".join(lines))
-    if not blocks:
-        return L("rank_empty")
-    return "\n\n".join(blocks)
+# rank 三变体榜名（spec §4.23）。which=time 为 today 别名；未识别值回落 today
+# （命令层已把非法首词归 today，此处 mapping 兜底防越界）。
+_RANK_TITLE = {
+    "today": "今日在线时长榜",
+    "time": "今日在线时长榜",
+    "total": "累计在线时长榜",
+    "level": "等级榜",
+}
+
+
+def format_rank(dto: RankBoardsDTO, *, which: str, strict: bool, server_name: str) -> str:
+    """rank 单榜三变体（spec §4.23）。标题锚点 server_name = 配置名 srv.name（commands 层供数）。
+
+    strict 下 today/total（时长榜）已在 commands 层拦截（rank_duration_strict 直返），本函数
+    只渲染实际单榜；level 不受 strict 影响（strict 参数保留作签名一致，此处不再分叉）。
+    名次序号 `1. `/`2. ` 纯渲染零成本；时长走 textkit.fmt_duration。total 变体附脚注
+    `└ 统计范围为数据留存期`。空榜=标题锚点 + 素文 rank_empty（无脚注）。
+    """
+    board = which if which in _RANK_TITLE else "today"
+    title = f"🏆 {_RANK_TITLE[board]} · {server_name}"
+    if board == "level":
+        rows = [f"{i}. {name} Lv{lv}" for i, (name, lv) in enumerate(dto.level_rows, 1)]
+    else:
+        source = dto.total_rows if board == "total" else dto.time_rows
+        rows = [f"{i}. {name} {fmt_duration(secs)}" for i, (name, secs) in enumerate(source, 1)]
+    if not rows:
+        return f"{title}\n{L('rank_empty')}"
+    lines = [title, *rows]
+    if board == "total":
+        lines.append("└ 统计范围为数据留存期")
+    return "\n".join(lines)

@@ -162,10 +162,15 @@ class Commands:
         return format_status(dto, server_name, show_bases=self._guilds_bases_on())
 
     async def online(self, umo, message_str, is_group) -> str:
-        return await self.handle_query(
-            umo, message_str, "online", is_group,
-            formatter=format_online, query_fn=self._query.online,
+        # online 是查询类但需标题锚点 server_name + strict 砍时长（spec §4.24），故不走
+        # handle_query（其 formatter 仅收 dto）：显式 resolve 后透传 server_name/strict。
+        world, _arg, err, server_name = await self._resolve_world(
+            umo, message_str, "online", is_group
         )
+        if err is not None:
+            return err
+        dto = await self._query.online(world)
+        return format_online(dto, server_name, strict=self._is_strict())
 
     async def world(self, umo, message_str, is_group) -> str:
         world, _arg, err, server_name = await self._resolve_world(
@@ -247,18 +252,20 @@ class Commands:
 
     @_gated
     async def rank(self, umo, message_str, is_group) -> str:
-        world, arg, err, _srv = await self._resolve_world(umo, message_str, "rank", is_group)
+        world, arg, err, server_name = await self._resolve_world(
+            umo, message_str, "rank", is_group
+        )
         if err is not None:
             return err
         strict = self._cfg.privacy.mode == "strict"
         which = arg.name.strip().lower()
         if which not in ("today", "total", "level"):
-            which = "today"  # 缺省 today（spec §6）
+            which = "today"  # 缺省 today（spec §4.23：未识别首词回落 today）
         # strict 双砍：today 与 total 同为时长榜(≈作息)均回 notice；level 不受影响。
         if which in ("today", "total") and strict:
             return L("rank_duration_strict")
         dto = await self._query.rank(world, which)
-        return format_rank(dto, which=which, strict=strict)
+        return format_rank(dto, which=which, strict=strict, server_name=server_name)
 
     @_gated
     async def player(self, umo, message_str, is_group) -> str:
