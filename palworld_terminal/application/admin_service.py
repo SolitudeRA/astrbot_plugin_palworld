@@ -110,6 +110,7 @@ class AdminService:
         else:
             message_key = "admin_ok"
 
+        body = json_body or {}
         return AdminResult(
             ok=ok,
             message_key=message_key,
@@ -117,6 +118,13 @@ class AdminService:
                 "server": server.name,
                 "action": action,
                 "target": target_name or "",
+                # spec §5#7：补 target_userid（原始 userid）——仅供聊天回执尾4/回显显示，
+                # 审计仍只落 target_hash（world_id 命名空间），绝不把明文 userid 入库。
+                "target_userid": target_userid or "",
+                # 回执供数：content = json_body 的 message（announce 回显 / shutdown 公告 /
+                # ban 理由，含义随 action）；seconds = shutdown 倒计时。渲染层按 action 取用。
+                "content": body.get("message", "") or "",
+                "seconds": body.get("waittime", 0),
                 "error": resp.error or "",
             },
         )

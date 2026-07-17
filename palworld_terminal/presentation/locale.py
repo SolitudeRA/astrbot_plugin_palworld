@@ -74,26 +74,49 @@ MESSAGES: dict[str, str] = {
     "unbind_self_dangling": "✅ 已解除绑定{anchor}",
     "unbind_self_none": "你还没有绑定玩家，无需解绑",
     "unbind_self_none_scoped": "你在「{server}」还没有绑定玩家，无需解绑",
-    # ---- 服务器管控（写命令 / 二次确认）----
-    "admin_ok": "已在服务器「{server}」执行【{action}】。",
-    "admin_shutdown_initiated": "已向服务器「{server}」发起【{action}】（服务器已断开连接，视为已发起）。",
-    "admin_failed": "服务器「{server}」执行【{action}】失败：{error}",
-    "admin_resolve_failed": "无法执行：{reason}",
-    "target_none": "未找到目标玩家「{target}」。",
-    "target_unreachable": "无法获取服务器在线玩家列表（服务器可能不可达），请稍后重试。",
-    "target_multi": "目标「{target}」有多个同名玩家（{candidates}）。请用 steam_ 前缀的 userid 精确指定。",
+    # ---- 服务器管控（写命令 / 二次确认；spec §4.13-4.19 / §4.29）----
+    # 成功回执统一式 `✅ 动作短语 · {server}`（用上目标尾4）：per-action 短语键族，
+    # 可选脚注（announce 回显 / ban 理由 / shutdown 倒计时）由 commands 渲染层拼接。
+    "admin_ok_announce": "✅ 公告已广播 · {server}",
+    "admin_ok_save": "✅ 已执行存档 · {server}",
+    "admin_ok_kick": "✅ 已踢出 {target} · {server}",
+    "admin_ok_unban": "✅ 已解封 {target} · {server}",
+    "admin_ok_ban": "✅ 已封禁 {target} · {server}",
+    "admin_ok_shutdown": "✅ 已发出关服指令 · {server}",
+    "admin_ok_stop": "✅ 已停止服务进程 · {server}",
+    # 脚注片段（回执补充信息；全角引号回显随 §2.3）。
+    "admin_fn_announce": "└ “{content}”",
+    "admin_fn_ban_reason": "└ 理由：{reason}",
+    "admin_fn_shutdown": "└ {seconds} 秒后关服",
+    "admin_fn_shutdown_msg": "└ {seconds} 秒后关服 · 公告：“{message}”",
+    # 断连已发起（直接路径，仅 shutdown/stop）：通用「指令已发出」+ 断连脚注。
+    "admin_initiated": "✅ 指令已发出 · {server}\n└ 服务器连接已断开，按已生效处理",
+    # 失败：❌ 回执头 + error 脚注（{action} 由渲染层转中文动作名）。
+    "admin_failed": "❌ {action}失败 · {server}\n└ {error}",
+    # resolve 失败：❌ 为回执头，{reason} 内嵌 routing 六分支原素文（§3，不加图标到六分支本身）。
+    "admin_resolve_failed": "❌ 无法执行：{reason}",
+    # 目标族三态（§4.13-4.19）。
+    "target_none": "❌ 未找到在线玩家「{target}」\n└ 离线玩家可用 steam_ userid 直接指定",
+    "target_unreachable": "❌ 无法获取在线玩家列表（服务器可能不可达），请稍后重试",
+    "target_multi": "⚠️ 「{target}」有多个同名在线玩家\n{candidates}\n└ 用 steam_ userid 精确指定",
+    # usage 全英文子命令（修「/pal server 踢出」不通顺）。
     "admin_announce_usage": "用法：/pal server announce <要广播的公告内容>",
-    "admin_target_usage": "用法：/pal server {action} <玩家名 或 steam_ 前缀 userid>（可在后面加理由）",
-    "admin_unban_usage": "用法：/pal server unban <steam_ 前缀的 userid>",
+    "admin_target_usage": "用法：/pal server {sub} <玩家名|steam_userid> [理由]",
+    "admin_unban_usage": "用法：/pal server unban <steam_userid>",
+    "admin_unban_prefix": "❌ userid 须以 steam_ 开头",
     "admin_shutdown_usage": "用法：/pal server shutdown <秒数> [公告]（秒数须为 1–86400 的整数，倒计时结束后关服）",
-    "admin_shutdown_summary": "（{seconds} 秒后关服）",
+    # 二次确认预览（⚠️ 待确认 · 动作短语 · 服务器 + 引导脚注）。
     "admin_confirm_preview": (
-        "⚠️ 即将执行【{action}】{target}，目标服务器「{server}」。"
-        "请在 {timeout} 秒内发送 /pal confirm 确认，逾期自动作废。"
+        "⚠️ 待确认 · {phrase} · {server}\n"
+        "└ {timeout} 秒内发送 /pal confirm 执行，逾期自动作废"
     ),
-    "admin_confirm_done": "已确认并执行【{action}】{target}，服务器「{server}」。",
-    "admin_confirm_stale": "该操作已失效（相关功能已关闭或目标服务器不可用），请重新发起。",
-    "admin_no_pending": "当前没有待确认的操作。",
+    # confirm 执行成功（正常完成）；断连已发起走 admin_confirm_initiated（§6#6 语义分立）。
+    "admin_confirm_done": "✅ 已确认执行 · {phrase} · {server}",
+    "admin_confirm_initiated": (
+        "✅ 已确认 · {verb}指令已发出 · {server}\n└ 服务器连接已断开，按已生效处理"
+    ),
+    "admin_confirm_stale": "⚠️ 该操作已失效（功能已关闭或服务器不可用），请重新发起",
+    "admin_no_pending": "当前没有待确认的操作（可能已超时作废）",
     # ---- 横切回执（命令输出重设计第一波；收编硬编码，spec §3/§7）----
     "busy": "⚠️ 插件正在重载配置，请稍后重试",
     "arg_error": "⚠️ 一条命令只能指定一个 @服务器",

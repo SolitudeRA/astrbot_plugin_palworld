@@ -292,3 +292,43 @@ async def test_unban_uses_userid_directly_and_hashes():
     a = svc._repo.audits[0]
     assert a["action"] == "unban" and a["target_name"] is None
     assert a["target_hash"] and a["target_hash"] != "steam_9"
+
+
+# ---- spec §5#7：AdminResult.params 补 target_userid（+ 回执供数 content/seconds）----
+# 仅用于聊天回执尾4/回显；审计仍只落 hash（上方 hash 断言不变）。
+
+
+@pytest.mark.asyncio
+async def test_announce_params_carry_content_and_empty_userid():
+    ok = SimpleNamespace(ok=True, status=200, error=None)
+    svc = _svc(ok)
+    res = await svc.announce("p:1", "umo", True, "hello")
+    assert res.params["content"] == "hello"      # 回显供数
+    assert res.params["target_userid"] == ""      # 无目标命令
+    assert res.params["target"] == ""
+
+
+@pytest.mark.asyncio
+async def test_shutdown_params_carry_seconds_and_message():
+    ok = SimpleNamespace(ok=True, status=200, error=None)
+    svc = _svc(ok)
+    res = await svc.shutdown("p:1", "umo", True, 60, "维护")
+    assert res.params["seconds"] == 60
+    assert res.params["content"] == "维护"
+
+
+@pytest.mark.asyncio
+async def test_kick_params_carry_target_userid_for_tail4():
+    svc = _svc_players([{"name": "Alice", "userId": "steam_1"}])
+    res = await svc.kick("p:1", "umo", True, "Alice", "afk")
+    assert res.ok
+    assert res.params["target"] == "Alice"
+    assert res.params["target_userid"] == "steam_1"  # 尾4 展示用（非明文入审计）
+
+
+@pytest.mark.asyncio
+async def test_unban_params_carry_userid_no_name():
+    svc = _svc_players([])
+    res = await svc.unban("p:1", "umo", True, "steam_76561198000001234")
+    assert res.params["target"] == ""  # unban 无名字解析
+    assert res.params["target_userid"] == "steam_76561198000001234"
