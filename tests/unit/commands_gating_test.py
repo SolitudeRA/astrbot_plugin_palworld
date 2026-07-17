@@ -47,7 +47,8 @@ async def test_events_and_today_gated():
 
 
 async def test_enabled_group_not_gated():
-    # guilds_bases 开启 → gate 放行 → 进入路由解析 → 返回路由错误文案（证明未被 gating 拦截）
+    # 启用的可配组（report/today 默认开）过 gate → 进入路由解析 → 返回路由错误文案
+    # （证明未被 gating 拦截；示范载体从 guild 迁到 today，guild 已 force-off 恒被拦）。
     from palworld_terminal.application.routing_service import Resolution
 
     class _Routing:
@@ -55,7 +56,15 @@ async def test_enabled_group_not_gated():
             return Resolution(None, "ROUTING_ERR")
 
     cmds = Commands(_Routing(), _BoomQuery(), _Repo(), cfg=_cfg(guilds_bases=True), clock=None)
-    assert await cmds.guilds("u", "", True) == "ROUTING_ERR"
+    assert await cmds.today("u", "", True) == "ROUTING_ERR"
+
+
+async def test_guilds_force_off_even_when_group_enabled():
+    # guilds_bases 上游不可用 force-off：即便配置 guild 组 on，guilds 命令恒 feature_disabled、
+    # 不触达底层（拦截保持既有文案，不新增专属文案）。
+    cmds = Commands(None, _BoomQuery(), _Repo(), cfg=_cfg(guilds_bases=True), clock=None)
+    assert await cmds.guilds("u", "", True) == L("feature_disabled")
+    assert await cmds.bases("u", "", True) == L("feature_disabled")
 
 
 # ---- 继承感知门控：组键 disable 波及叶子；叶子 admin_only 锁非管理员 ----
@@ -76,7 +85,9 @@ async def test_group_disable_blocks_leaf():
 
 @pytest.mark.asyncio
 async def test_leaf_admin_lock_denies_guest():
-    # guild 开 + 叶子 guild list 锁 admin_only → 非管理员回 admin_required。
-    cmds = _mk({"guild": CO(enabled=True), "guild list": CO(admin_only=True)})
-    out = await cmds.guild_grp("umo", "list", True, "guest", False)
+    # 门序（功能门先于 admin 锁）示范载体换 player（可启用组，锁分支可达）：
+    # player 开 + 叶子 player info 锁 admin_only → 非管理员回 admin_required。
+    # （旧 guild 载体 force-off 后功能门恒短路 feature_disabled，admin 锁分支不可达。）
+    cmds = _mk({"player": CO(enabled=True), "player info": CO(admin_only=True)})
+    out = await cmds.player_grp("umo", "info", True, "guest", False)
     assert out == L("admin_required")

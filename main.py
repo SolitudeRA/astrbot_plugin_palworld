@@ -166,6 +166,12 @@ class PalWorldTerminal(Star):
                 "以下 command_permissions 配置项非法（未知命令或轴违规）、未生效：%s",
                 "、".join(invalid),
             )
+        upstream_ineffective = c.config.permissions.upstream_ineffective_keys
+        if upstream_ineffective:
+            _log.warning(
+                "以下命令依赖的 game-data 接口上游未开放，配置的启用未生效：%s",
+                "、".join(upstream_ineffective),
+            )
 
     async def terminate(self) -> None:
         if self._container is not None:

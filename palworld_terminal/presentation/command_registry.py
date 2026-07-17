@@ -23,7 +23,7 @@ ActionSpec = tuple[str, str, str]
 DISPATCH: dict[str, dict[str, ActionSpec]] = {
     "world": {
         "status": ("status", "core", "read"),
-        "overview": ("world", "core", "read"),   # overview = 旧 /pal world 方法
+        "overview": ("world", "guilds_bases", "read"),   # overview = 旧 /pal world 方法；2026-07-16 归队 game-data 家族
         "rules": ("rules", "core", "read"),
         "events": ("events", "events", "read"),
         "today": ("today", "report", "read"),

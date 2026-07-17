@@ -120,9 +120,12 @@ def test_format_help_role_separation():
 
 
 def test_format_help_filters_disabled_groups():
+    # 「启用组出现在 help」示范载体迁 player（guild 上游不可用恒不列，另有 force-off 断言）。
     from tests.unit._perm import overrides
-    off = format_help(None, is_admin=False, overrides=overrides(guilds_bases=False))
-    assert "/pal guild info" not in off and "/pal guild bases" not in off
+    off = format_help(None, is_admin=False, overrides=overrides(players=False))
+    assert "/pal player info" not in off and "/pal player bind" not in off
     assert "/pal world status" in off
-    on = format_help(None, is_admin=False, overrides=overrides(guilds_bases=True))
-    assert "/pal guild info" in on and "/pal guild bases" in on
+    on = format_help(None, is_admin=False, overrides=overrides(players=True))
+    assert "/pal player info" in on and "/pal player bind" in on
+    # guild 组即便开也恒不列（force-off）。
+    assert "/pal guild info" not in on

@@ -109,7 +109,10 @@ def _raw_config(world_mode: str = "multi") -> dict:
                     "ping_good_ms": 60, "ping_ok_ms": 120, "uncertain_timeout": 900},
         "history": {"raw_metrics_days": 7, "aggregate_days": 90, "session_days": 365,
                     "observation_days": 180},
-        # 全组开启:关掉的组命令直接回「未开放」,不进函数体,冒烟就白跑
+        # 全组开启:关掉的组命令直接回「未开放」,不进函数体,冒烟就白跑。
+        # 注(2026-07-16 game-data 上游不可用锁定):guilds_bases 家族(guild list/info/
+        # bases/base + world overview)已 force-off,即便此处 True 也恒短路 feature_disabled
+        # (仍回非空串,冒烟不红),其函数体深路径覆盖已知丢失——待上游开放随插件更新回归。
         "features": {"report": True, "events": True, "guilds_bases": True, "players": True,
                      "server_admin_basic": True, "server_admin_danger": True},
         # sender = get_platform_name():get_sender_id() = test:u1(见 _Ev),

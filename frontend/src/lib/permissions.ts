@@ -36,6 +36,7 @@ export const hasOverride = (map: PermMap, command: string): boolean =>
 
 // enabled 生效：叶子覆盖 → （danger 不随组，F2）→ 组覆盖 → 内置默认
 export function inheritEnabled(map: PermMap, n: PalTreeNode): boolean {
+  if (n.unavailable) return false // 上游不可用硬锁——必须先于 !enableConfigurable 的恒开(fail-open)分支
   const dflt = DEFAULT_ENABLED[n.path] ?? false
   if (n.danger) return dflt
   if (n.group) {
@@ -45,6 +46,7 @@ export function inheritEnabled(map: PermMap, n: PalTreeNode): boolean {
   return dflt
 }
 export function effEnabled(map: PermMap, n: PalTreeNode): boolean {
+  if (n.unavailable) return false // 上游不可用硬锁——必须先于 !enableConfigurable 的恒开(fail-open)分支
   if (!n.enableConfigurable) return true // core 恒开
   const leaf = cellOf(map, n.path, 'enabled')
   if (leaf !== 'inherit') return leaf === 'on'

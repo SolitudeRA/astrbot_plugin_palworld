@@ -15,9 +15,19 @@ describe('effEnabled 三级继承（复刻后端 effective_enabled）', () => {
     expect(effEnabled({}, node('rank'))).toBe(false)
   })
   it('叶子覆盖优先于组与内置', () => {
-    const map: PermMap = { guild: { enabled: 'on', admin_only: 'inherit' }, 'guild list': { enabled: 'off', admin_only: 'inherit' } }
+    // 兄弟随组示范载体迁 player（guild 上游不可用恒 false，见下 force-off 用例）。
+    const map: PermMap = { player: { enabled: 'on', admin_only: 'inherit' }, 'player info': { enabled: 'off', admin_only: 'inherit' } }
+    expect(effEnabled(map, node('player info'))).toBe(false)
+    expect(effEnabled(map, node('player bind'))).toBe(true) // 兄弟随组
+  })
+  it('上游不可用硬锁：guild 组/叶 on 也恒 false（首判先于 !enableConfigurable 恒开）', () => {
+    // 唯一承重护栏：unavailable 首判必须先于 effEnabled 的 fail-open(!enableConfigurable→true)
+    // 分支，否则 guild 翻成 enableConfigurable=false 后会反转恒开——此断言错位即红。
+    const map: PermMap = { guild: { enabled: 'on', admin_only: 'inherit' }, 'guild list': { enabled: 'on', admin_only: 'inherit' } }
     expect(effEnabled(map, node('guild list'))).toBe(false)
-    expect(effEnabled(map, node('guild info'))).toBe(true) // 兄弟随组
+    expect(effEnabled(map, node('guild info'))).toBe(false)
+    expect(effEnabled({ 'guild base': { enabled: 'on', admin_only: 'inherit' } }, node('guild base'))).toBe(false)
+    expect(effEnabled({}, node('world overview'))).toBe(false)
   })
   it('danger 不从组继承（F2）：server 组 on 时 ban 仍内置关', () => {
     const map: PermMap = { server: { enabled: 'on', admin_only: 'inherit' } }
@@ -60,9 +70,10 @@ describe('内置默认由 PAL_TREE 派生', () => {
     expect(DEFAULT_ENABLED['world events']).toBe(true)
     expect(DEFAULT_ENABLED['guild list']).toBe(false)
   })
-  it('组默认抽查（world 开 / guild 关；无可配叶子的 link 不产键）', () => {
+  it('组默认抽查（world 开 / guild 与 link 皆无可配叶子不产键）', () => {
     expect(GROUP_DEFAULT_ENABLED['world']).toBe(true)
-    expect(GROUP_DEFAULT_ENABLED['guild']).toBe(false)
+    // guild 四叶全 unavailable → enableConfigurable=false → 无可配叶子 → 不产键（同 link）。
+    expect('guild' in GROUP_DEFAULT_ENABLED).toBe(false)
     expect('link' in GROUP_DEFAULT_ENABLED).toBe(false)
   })
 })

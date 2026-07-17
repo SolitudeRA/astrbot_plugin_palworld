@@ -51,6 +51,17 @@ const singleRestricted = computed(() => worldMode.value === 'single' && savedAcc
 const needsOnboarding = computed(() => state.sections.routing?.setup_confirmed !== true)
 // 仅在 ready 相态且未确认时上抛 true → App.vue 隐藏左轨；load 中 / 失败一律 false（左轨照常显示）。
 watchEffect(() => emit('onboarding', phase.value === 'ready' && needsOnboarding.value))
+
+// game-data 依赖功能「上游不可用」的原因说明横幅——设置页各配置章顶部显示，可「不再提醒」永久关闭。
+// localStorage 键落盘；受限 iframe 读写不可用时 try/catch 兜底（降级为本次会话内行为，复用 App.vue
+// readStored/writeStored 的容错模式，非直接调用其局部函数）。
+const GD_BANNER_KEY = 'palworld-terminal-gd-banner-dismissed'
+const gdBannerDismissed = ref(false)
+try { gdBannerDismissed.value = localStorage.getItem(GD_BANNER_KEY) === '1' } catch { /* 受限 iframe：本次会话内显示 */ }
+function dismissGdBanner() {
+  gdBannerDismissed.value = true
+  try { localStorage.setItem(GD_BANNER_KEY, '1') } catch { /* 降级：会话内关闭 */ }
+}
 // 按模式过滤 routing 段字段：恒隐藏 world_mode/setup_confirmed；access_mode 拆去危险区行；
 // single 再隐藏 default_server。仅过滤展示，state.sections.routing 仍保全值，collectBody 照常回传。
 // 拆空后段整个剔除（单模式 routing 无可见字段）；多模式剩 default_server，段改名「默认查询」更贴切。
@@ -220,6 +231,13 @@ async function save(): Promise<boolean> {
     <template v-else>
       <ModeOnboarding v-if="needsOnboarding" @confirm="onConfirmMode" />
       <template v-else>
+      <!-- game-data 上游不可用说明横幅：原因说明的唯一载体（聊天侧不重复），可永久关闭。
+           内联于此（勿抽子组件）——.callout 是本组件 scoped 样式。插点在 v-else 顶部：
+           6 配置章可见 / 观测章 v-show 隐藏本面板不显示 / onboarding 走 v-if 分支不显示。 -->
+      <div v-if="!gdBannerDismissed" class="callout gd-banner">
+        <p><b>公会/据点与世界概览功能暂不可用</b>：依赖的官方 game-data 接口（PalGameDataBridge）尚未对专用服务器开放，相关功能开关已禁用；待官方开放后随插件更新恢复。</p>
+        <button class="ghost" @click="dismissGdBanner">不再提醒</button>
+      </div>
       <div class="chapter-head"><h2>{{ chapterTitle }}</h2>
         <span v-if="!isAccess" class="mode-badge">当前模式：{{ worldMode === 'single' ? '单服务器' : '多服务器' }}</span>
       </div>
@@ -353,6 +371,8 @@ async function save(): Promise<boolean> {
 .callout p b { color: var(--ink); font-weight: var(--fw-semibold); }
 .callout .callout-t { font-size: var(--fs-sm); font-weight: var(--fw-semibold); color: var(--ink); }
 .callout .callout-warn { color: var(--warn); }
+/* game-data 不可用说明横幅：「不再提醒」按钮左对齐、不随 flex 列拉伸 */
+.gd-banner button { align-self: flex-start; }
 .dz-path { margin-left: var(--space-2); font-size: var(--fs-caption); color: var(--ink-3); font-weight: var(--fw-regular); }
 .pw-switch.ovr { box-shadow: 0 0 0 2px var(--override); }
 /* 访问模式改动未保存时的生效提示 */

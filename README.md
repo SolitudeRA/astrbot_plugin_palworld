@@ -32,7 +32,7 @@
 - **零信任接入** —— 自定义请求头携带网关凭证(如 Cloudflare Access),REST API 无需暴露公网
 - **隐私优先** —— 观测只读、不存 IP、标识 HMAC 哈希落库、坐标量化为粗网格;写操作目标 userid 仅存哈希
 - **WebUI 设置页** —— 可视化配置全部选项,亮暗双主题
-- **公会与据点** —— 依赖上游 `game-data`,默认关闭,开放后一键启用
+- **公会与据点** —— 依赖上游 `game-data`(PalGameDataBridge),**官方暂未对专用服务器开放,暂不可用**;上游开放后随插件更新恢复
 
 ## 效果预览
 
@@ -105,7 +105,7 @@ v0.9.5 起指令为**分级结构**:`/pal <组> <动作>`(裸组即迷你帮助)
 | `report` 日报 | 开 | `world today` |
 | `events` 世界事件 | 开 | `world events` |
 | `players` 玩家查询 | **默认关** | `player info` `player bind` `rank` `me` |
-| `guilds_bases` 公会与据点 | **默认关** | `guild list` `guild bases` 等 |
+| `guilds_bases` 公会与据点 | **暂不可用**(上游未开放) | `world overview` `guild list` `guild bases` 等 |
 
 > **从旧版升级**:旧的 `features` 功能开关与 `admin_only_commands` 名单已并入命令树,插件**首次装载时自动迁移**为等价的 `command_permissions` 三态行,无需手动改配置。对照表见 [docs/configuration.md · 命令树权限模型](https://github.com/SolitudeRA/astrbot_plugin_palworld/blob/main/docs/configuration.md#permissions权限管理)。
 
