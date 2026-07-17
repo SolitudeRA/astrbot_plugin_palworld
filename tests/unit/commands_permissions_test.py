@@ -2,6 +2,7 @@ from types import SimpleNamespace
 
 from palworld_terminal.application.command_permissions import CommandOverride
 from palworld_terminal.config import AdminEntry, PermissionsConfig
+from palworld_terminal.domain.enums import AccessMode
 from palworld_terminal.presentation.commands import Commands
 
 
@@ -10,7 +11,13 @@ def _cmds(admins=(), overrides=None):
         admins=[AdminEntry(id=a, note="") for a in admins],
         command_overrides=overrides or {},
     )
-    cfg = SimpleNamespace(permissions=perms)
+    # whereami 按 access_mode 分流：open 模式零 repo 依赖（回显群标识 + 开放模式句）。
+    cfg = SimpleNamespace(
+        permissions=perms,
+        routing=SimpleNamespace(
+            access_mode=AccessMode.OPEN, world_mode="multi", single_allowed_groups=[]),
+        servers=[],
+    )
     return Commands(routing=None, query=None, repo=None, cfg=cfg, clock=None, salt=b"")
 
 
@@ -43,6 +50,6 @@ def test_is_plugin_admin():
 def test_admin_denied_only_for_locked_non_admin():
     # 锁完整路径 "rank"（可锁）；生效 admin_only=True。
     c = _cmds(admins=["aiocqhttp:1"], overrides={"rank": CommandOverride(admin_only=True)})
-    assert c.admin_denied("rank", "aiocqhttp:2") == "该命令需要管理员权限。"  # 锁定+非管理员
+    assert c.admin_denied("rank", "aiocqhttp:2") == "⚠️ 该命令需要管理员权限"  # 锁定+非管理员
     assert c.admin_denied("rank", "aiocqhttp:1") is None                    # 管理员放行
     assert c.admin_denied("online", "aiocqhttp:2") is None                  # 未锁放行

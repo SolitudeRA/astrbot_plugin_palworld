@@ -115,6 +115,13 @@ def test_single_allowed_groups_is_top_level_template_list():
     assert sag["templates"]["group"]["display_item"] == "umo"
 
 
+def test_players_list_fold_limit_present():
+    # 折叠上限键（命令输出重设计 §5#10 五落点之一）：type int / default 7。
+    items = load_schema()["players"]["items"]
+    assert items["list_fold_limit"]["type"] == "int"
+    assert items["list_fold_limit"]["default"] == 7
+
+
 def test_server_admin_schema_present():
     s = load_schema()
     assert s["server_admin"]["type"] == "object"

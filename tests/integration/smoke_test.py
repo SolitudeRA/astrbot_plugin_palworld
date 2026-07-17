@@ -17,13 +17,14 @@ async def test_smoke_status_after_one_collection(harness):
     await snap.ingest_game_data(world, ok(load_fixture("normal_world", "game-data")))
 
     dto = await container.query.status(world)
-    text = format_status(dto)
+    # server_name = 配置名（spec §2.1 锚点供数；直调 formatter 用 dto.server_name 替 commands 层供数）
+    text = format_status(dto, dto.server_name)
 
-    # 合理文本：含世界名、天数 42、在线 2/32、官方据点数 3（metrics.basecampnum）
-    assert "Chronicle Test World" in text
+    # 合理文本（新式样 spec §4.1）：标题锚点、天数 42、在线 2/32、官方据点数 3（metrics.basecampnum）
+    assert "🌍 世界状态" in text
     assert "42" in text            # 世界天数
-    assert "2" in text and "32" in text  # 在线 N/M
-    assert "3" in text             # 官方 basecampnum
+    assert "2" in text and "32" in text  # 在线 N/M（分子=收敛后名单数）
+    assert "3" in text             # 官方 basecampnum（show_bases 默认 True）
 
     # 隐私：status 文本绝不含原始 ID / IP / 明文密码
     assert not IPV4.search(text)

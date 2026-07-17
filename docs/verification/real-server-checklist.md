@@ -129,12 +129,12 @@
   ```
 
   预期：每个游戏内据点对应一行 `palboxes`；`bases.confidence` 大多为 `high`/`medium`。
-- [ ] `/pal guilds` 应列出公会（含 PalBox 数），而非"公会数据暂不可用"。
+- [ ] `/pal guild list` 应列出公会（含 PalBox 数），而非"暂无公会观察数据"。
 
 **当前保守默认**：
 - 缺任一坐标的 PalBox 直接跳过、不进快照（`palworld_terminal/adapters/normalizer.py` 的 `normalize_game_data()` PalBox 解析分支）。
 - `GuildID` 缺失 → `guild_key=None`（`palworld_terminal/application/base_service.py` 的 `_guild_key()`），该据点置信度强制 `low`（`BaseService.apply()` 的置信度判定），低置信度不进公开事件（规格 §10.3）。
-- 公会聚合侧 `guild_id` 缺失的 actor/PalBox 一律不归公会（`palworld_terminal/application/guild_service.py` 的 `GuildService.apply()`）；无公会数据时 `/pal guilds` 显示 `L("guilds_unavailable")`（`palworld_terminal/presentation/formatters.py` 的 `format_guilds()`，文案 `palworld_terminal/presentation/locale.py` 的 `MESSAGES["guilds_unavailable"]`）。
+- 公会聚合侧 `guild_id` 缺失的 actor/PalBox 一律不归公会（`palworld_terminal/application/guild_service.py` 的 `GuildService.apply()`）；无公会数据时 `/pal guild list` 显示 `L("guilds_empty")`（`palworld_terminal/presentation/formatters.py` 的 `format_guilds()`，文案 `palworld_terminal/presentation/locale.py` 的 `MESSAGES["guilds_empty"]`）。
 
 **结果处置**：
 - 坐标/GuildID 稳定可用 → 维持现状，实测通过即可放心宣传据点功能。
@@ -232,7 +232,7 @@
 - [ ] **模板日报不虚构**：`/pal today` 仅含当日真实事件；空白日输出"平静的一天"（`palworld_terminal/presentation/locale.py` 的 `MESSAGES["empty_day"]`）。
 - [ ] **game-data 失败保留基础状态**：临时阻断 game-data（如防火墙拦 URL 路径）→ `/pal status`/`/pal online` 仍正常，仅世界详情缺失（失败静默返回，`palworld_terminal/application/snapshot_service.py` 的 `ingest_game_data()` 失败早退）。
 - [ ] **多服务器互不串数据**：配两台测试服，各自 `worlds.world_id` 以 `server_id` 为前缀（构造见 `snapshot_service.py` 的 `ingest_info()`，格式 `server_id:worldguid:epoch`）；`/pal status @A` 与 `@B` 数据互不混淆。
-- [ ] **restricted 授权闭环**：`access_mode=restricted` 下，未授权群任意查询被拒（文案 `locale.py` 的 `MESSAGES["not_authorized"]`）；管理员 `/pal server add testsv` 后同群可查（`MESSAGES["use_ok"]`）；私聊被拒（`MESSAGES["private_restricted"]`）。
+- [ ] **restricted 授权闭环**：`access_mode=restricted` 下，未授权群任意查询被拒（文案 `locale.py` 的 `MESSAGES["not_authorized"]`）；管理员 `/pal link add testsv` 后同群可查（`MESSAGES["link_add_ok"]`）；私聊被拒（`MESSAGES["private_restricted"]`）。
 
 ### 3.2 隐私（P0，全部必须通过）
 
@@ -276,4 +276,4 @@
    运行时路径自动化覆盖见 `tests/integration/player_uncertain_test.py`（`test_players_recovery_sweeps_timed_out_uncertain`、`test_world_switch_sweeps_old_world_on_next_tick`、`test_stale_world_players_tick_does_not_resurrect_sessions`、`test_restart_rebuilds_prev_worlds_from_db` 等）。**实服验证预期**：停服恢复后（超过 900s）首个健康 players tick 即收敛超时会话为 `closed/world_offline`，无需等待任何独立定时任务。
 2. **背压调整无日志**：规格 §6.1 要求"记 collector 降频/恢复日志"，当前 `palworld_terminal/infrastructure/scheduler.py` 无任何日志输出（全模块无 logging）。实服校准（第 2.6 节）只能靠 DB 时间戳间距推断背压是否触发；建议实现侧补一条 INFO 日志再进入 7 天稳定性观察。
 3. **`userId`/`userid` 首启自检未实现**：规格 §21.2-1 括注"首启自检"，当前代码没有该自检逻辑（`normalize_game_data()` 解析、`redact_game_data()` 脱敏 game-data 侧 `userid`，但无跨端点对比），第 2.1 节以手工 curl 对比替代；若希望长期保留自检，需在 `snapshot_service` 首个健康 game-data 快照处补对比与日志。
-4. **`privacy.mode=advanced` 的可见提示已实现**：规格 §15 要求 advanced 按 balanced 生效且**用户可见地提示**——当前 `query_service.py` 的 `rules()` 在 `mode=advanced` 时输出 `advanced_note`（"advanced 隐私模式暂按 balanced 生效。"，由 `formatters.py` 的 `format_rules()` 渲染为"注：…"）。验证 strict/balanced 时顺带确认：配置为 `advanced` 时 `/pal rules` 展示该提示，且落库/展示行为与 balanced 完全一致。
+4. **`privacy.mode=advanced` 的可见提示已实现**：规格 §15 要求 advanced 按 balanced 生效且**用户可见地提示**——当前 `query_service.py` 的 `rules()` 在 `mode=advanced` 时输出 `privacy_note`（"advanced 隐私模式暂按 balanced 生效"，由 `formatters.py` 的 `format_rules()` 渲染为脚注"└ advanced 隐私模式暂按 balanced 生效"）。验证 strict/balanced 时顺带确认：配置为 `advanced` 时 `/pal rules` 展示该提示，且落库/展示行为与 balanced 完全一致。

@@ -151,6 +151,7 @@
     "description": "玩家个体查询参数（对应 player 组 / rank / me 命令；须在 command_permissions 中启用，默认关）",
     "items": {
       "rank_top_n": { "type": "int", "description": "排行榜显示人数", "default": 5 },
+      "list_fold_limit": { "type": "int", "description": "列表输出折叠上限：单个列表超过此条数只显示前 N 条并汇总（最小 1）", "default": 7 },
       "exclude_names": { "type": "string", "description": "排除出榜/查询的玩家名（逗号分隔）", "default": "" }
     }
   },

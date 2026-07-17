@@ -33,11 +33,14 @@ class StatusDTO:
     smoothness_label: str
     players: list[tuple[str, int, str]]   # (name, level, ping_bucket value)
     peak_online_today: int
-    updated_at: int
+    updated_at: int          # 数据时间戳（有 metric 时=observed_at；web 新鲜度用）
     degraded: bool
     last_ok: int | None
     # 详细区：仅 ready 且非 degraded 时装配（degraded/骨架行为 None，status_rows 不下发）
     detail: StatusDetailDTO | None = None
+    # 生成本快照时的真实当下：降级态 format_degraded 据此算「最后成功于 N 分钟前」
+    # （updated_at 在陈旧时=last_ok，不能充当 now）。仅聊天降级渲染消费，不入 web 白名单。
+    now: int = 0
 
 
 @dataclass(slots=True)
@@ -53,6 +56,10 @@ class OnlineDTO:
     rows: list[OnlinePlayerRow]
     updated_at: int
     degraded: bool
+    # 头行供数（spec §4.24）：/max 容量=latest_metric.max_players、今日峰值=peak_online
+    # （聚合值，不可归因，保留原值）。头行在线数分子恒 = len(rows)（收敛后名单数，§3 隐私收敛）。
+    max_players: int = 0
+    peak_online: int = 0
 
 
 @dataclass(slots=True)
@@ -63,8 +70,15 @@ class WildTopRow:
 
 @dataclass(slots=True)
 class WorldSummaryDTO:
+    """world overview 人口普查（spec §4.2）。
+
+    online/max_players/basecamp_count 取 latest_metric（官方口径，与 status 同源）；
+    人口/设施计数来自 game-data 快照。FPS 归 status，不入本 DTO。
+    available=False（game-data 快照缺失）时 formatter 走 ⚠️ 取数失败态（不再静默全 0）。
+    """
     world_day: int
     online: int
+    max_players: int
     players: int
     otomo: int
     base_pal: int
@@ -72,45 +86,54 @@ class WorldSummaryDTO:
     npc: int
     palbox: int
     guilds: int
-    fps: float
-    average_fps: float
+    basecamp_count: int
     wild_top: list[WildTopRow]
+    available: bool
 
 
 @dataclass(slots=True)
-class RuleRow:
-    label: str
-    value: str
+class RuleSection:
+    title: str                       # 节名（模式/倍率/节奏/上限），素文无图标
+    items: list[tuple[str, str]]     # (展示label, 已渲染值)——formatter 两两并一行
 
 
 @dataclass(slots=True)
 class RulesDTO:
-    rows: list[RuleRow]
+    """world rules 策展分节（spec §4.3）。
+
+    sections 已由 query 层按策展清单裁剪 + 值渲染（倍率 1.0x / 节奏保游戏原单位 /
+    上限裸数）。available=False（settings 快照未获取）→ formatter 走 ⚠️ 取数失败态。
+    privacy_note 两模式分叉句（strict / advanced），balanced 为 None。
+    """
+    sections: list[RuleSection]
+    available: bool
+    privacy_note: str | None
     updated_at: int
-    advanced_note: str | None
 
 
 @dataclass(slots=True)
 class GuildDTO:
+    """guild list 行（spec §4.6）。据点数=list_bases 按 guild_key 分组（§5#15）。
+    active_7d 占位与 PalBox 计数按定案砍位（PalBox 归 overview 设施节）。"""
     name: str
     observed_members: int
-    palbox: int
     base_pals: int
-    active_7d: int
+    base_count: int
 
 
 @dataclass(slots=True)
 class GuildDetailDTO:
+    """guild info 卡片（spec §4.7）。恒 0 占位（active_*/average_level）与 PalBox 砍位。
+    bases=(display_name, confidence) 按 guild_key 过滤（含 low 序号空间）；recent_events=
+    list_events 过滤该公会据点的 NEW_BASE/WORKER_DELTA/BASE_VANISHED，措辞经 event_wording。"""
     name: str
     first_seen_at: int
     last_seen_at: int
     observed_members: int
-    active_today: int
-    active_week: int
-    palbox: int
     base_pals: int
-    average_level: float
-    base_event_lines: list[str]
+    base_count: int
+    bases: list[tuple[str, Confidence]]
+    recent_events: list[str]
 
 
 @dataclass(slots=True)
@@ -124,17 +147,18 @@ class BaseDTO:
 
 @dataclass(slots=True)
 class BaseDetailDTO:
+    """guild base 详情（spec §4.9）。palbox_count（硬编码 1）与 activity_score 裸数砍位。
+    available=False（latest_base_observation 缺失）→ formatter 走 ⚠️ 无观测态（不再全 0 假数据）。"""
     display_name: str
     guild_name: str | None
     confidence: Confidence
-    palbox_count: int
     worker_count: int
     active_count: int
     average_level: float
     average_hp_ratio: float
     action_distribution: dict[str, int]
-    activity_score: float
     health_score: float
+    available: bool = True
 
 
 @dataclass(slots=True)

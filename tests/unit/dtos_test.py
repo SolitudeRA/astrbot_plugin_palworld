@@ -7,8 +7,8 @@ from palworld_terminal.presentation.dtos import (
     GuildDTO,
     OnlineDTO,
     OnlinePlayerRow,
-    RuleRow,
     RulesDTO,
+    RuleSection,
     ServerStatusRow,
     StatusDTO,
     WildTopRow,
@@ -36,25 +36,29 @@ def test_online_dto_uses_ping_bucket():
 def test_base_detail_carries_confidence():
     dto = BaseDetailDTO(
         display_name="Noema-2", guild_name="Noema", confidence=Confidence.HIGH,
-        palbox_count=1, worker_count=8, active_count=6, average_level=17.5,
+        worker_count=8, active_count=6, average_level=17.5,
         average_hp_ratio=0.9, action_distribution={"working": 6, "idle": 2},
-        activity_score=82.5, health_score=90.0,
+        health_score=90.0,
     )
     assert dto.confidence is Confidence.HIGH
+    assert dto.available is True  # 默认可用（无观测态由 query 置 False）
 
 
 def test_remaining_dtos_construct():
     WorldSummaryDTO(
-        world_day=1, online=0, players=0, otomo=0, base_pal=0, wild=0, npc=0,
-        palbox=0, guilds=0, fps=60.0, average_fps=59.0,
-        wild_top=[WildTopRow(name="Lamball", count=4)],
+        world_day=1, online=0, max_players=32, players=0, otomo=0, base_pal=0, wild=0,
+        npc=0, palbox=0, guilds=0, basecamp_count=0,
+        wild_top=[WildTopRow(name="Lamball", count=4)], available=True,
     )
-    RulesDTO(rows=[RuleRow(label="经验倍率", value="1.0x")], updated_at=1000, advanced_note=None)
-    GuildDTO(name="Noema", observed_members=4, palbox=2, base_pals=10, active_7d=3)
+    RulesDTO(
+        sections=[RuleSection(title="倍率", items=[("经验", "1.0x")])],
+        available=True, privacy_note=None, updated_at=1000,
+    )
+    GuildDTO(name="Noema", observed_members=4, base_pals=10, base_count=2)
     GuildDetailDTO(
         name="Noema", first_seen_at=1, last_seen_at=2, observed_members=4,
-        active_today=2, active_week=3, palbox=2, base_pals=10, average_level=15.0,
-        base_event_lines=["据点新增：Noema-2"],
+        base_pals=10, base_count=2, bases=[("Noema-1", Confidence.HIGH)],
+        recent_events=["新据点「Noema-2」确认"],
     )
     BaseDTO(index=1, display_name="Noema-1", guild_name="Noema",
             confidence=Confidence.MEDIUM, worker_count=5)

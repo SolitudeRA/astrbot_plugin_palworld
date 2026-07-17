@@ -121,8 +121,8 @@ async def test_assembly_layer_report_and_events_have_no_guild_base_content(tmp_p
         report = await c.report.daily(world)
         # 正对照：非 game-data 记录（新玩家）照常渲染 → 证明报告机制在场，屏蔽是差分的。
         assert any("新玩家" in r for r in report.records)
-        # game-data 派生三处渲染面（report_service.py:135-138,190）全空：
-        assert report.base_events == []
+        # game-data 派生三处渲染面（今日纪录公会/据点、据点变化节、summary）全空：
+        assert report.base_changes == []
         assert not any(("新公会" in r or "新据点" in r) for r in report.records)
         assert "据点变化" not in report.summary
 

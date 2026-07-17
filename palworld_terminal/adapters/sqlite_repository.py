@@ -428,6 +428,29 @@ class Repository:
             max_players=r["max_players"],
         )
 
+    async def world_day_bounds(
+        self, world_id: str, start: int, end: int
+    ) -> tuple[int, int] | None:
+        """日窗口 [start, end) 内 metrics 首末 world_day（spec §5#4 / §6#1 epoch 修）。
+
+        按 observed_at 升序取首/末样本的 world_day，即当日「第 X → Y 天」；窗口内无
+        metric 采样时返回 None（无从推断，调用方回退 world.current_day）。修根治日报
+        误把窗口 epoch 秒直出为世界天数（「第 1752624000 天」）的现网 bug。
+        """
+        rows = await self._db.query(
+            "SELECT"
+            " (SELECT world_day FROM world_metrics WHERE world_id = ?"
+            "  AND observed_at >= ? AND observed_at < ?"
+            "  ORDER BY observed_at ASC LIMIT 1) AS first_day,"
+            " (SELECT world_day FROM world_metrics WHERE world_id = ?"
+            "  AND observed_at >= ? AND observed_at < ?"
+            "  ORDER BY observed_at DESC LIMIT 1) AS last_day",
+            (world_id, start, end, world_id, start, end),
+        )
+        if not rows or rows[0]["first_day"] is None:
+            return None
+        return int(rows[0]["first_day"]), int(rows[0]["last_day"])
+
     async def peak_online(self, world_id: str, since: int | None = None) -> int:
         if since is None:
             rows = await self._db.query(

@@ -4,8 +4,15 @@ import functools
 from collections.abc import Awaitable, Callable
 
 from ..adapters.privacy_filter import hash_user_id
-from ..application.command_permissions import effective_admin_only, effective_enabled
-from ..application.query_service import PlayerProfileDTO
+from ..application.command_permissions import (
+    active_endpoints,
+    effective_admin_only,
+    effective_enabled,
+    upstream_unavailable,
+)
+from ..application.query_service import metric_stale
+from ..application.report_service import server_timezone
+from ..domain.enums import AccessMode, EndpointName
 from ..presentation.command_registry import DISPATCH, METHOD_PATH
 from ..presentation.confirmation import PendingAction
 from ..presentation.dtos import ServerStatusRow
@@ -34,6 +41,19 @@ from ..presentation.server_arg import ArgError, parse_arg, parse_group
 _SHUTDOWN_MAX_SECONDS = 86400
 
 
+def feature_disabled_text(path: str) -> str:
+    """feature_disabled 回执（spec §3 横切决策表）：主句恒戴 ⚠️（配置停用类）。
+
+    普通 enable off 追加「设置页开启」引导脚注；upstream_unavailable(path)（gamedata
+    上游锁定期）省略脚注——设置页开不了该功能，脚注是假承诺（维持锁定 spec「无专属聊天
+    文案」：锁定家族与普通 off 同回主句，差异仅在脚注省略）。全部 feature_disabled 落点
+    （_gated / _dispatch_read / link / admin_write）经此渲染，条件脚注收于单一真相源。
+    """
+    if upstream_unavailable(path):
+        return L("feature_disabled")
+    return f"{L('feature_disabled')}\n{L('feature_disabled_hint')}"
+
+
 def _parse_shutdown_seconds(token: str) -> int | None:
     """解析 shutdown 首 token 为倒计时秒数：正整数且 ≤ 上界，否则 None。"""
     if not token.isdigit():  # 空串/负号/非数字均落此（isdigit 对 "-5"/"" 返 False）
@@ -43,8 +63,7 @@ def _parse_shutdown_seconds(token: str) -> int | None:
         return None
     return seconds
 
-# 写命令 → 面向用户的中文动作名（渲染消息/预览用；同时区分 stop 与 shutdown 的
-# 「已发起」文案——二者共用 admin_shutdown_initiated 键，靠 action 值区分）。
+# 写命令 → 面向用户的中文动作名（失败回执 `{action}失败`、预览/confirm 短语用）。
 _ACTION_LABEL = {
     "announce": "广播公告",
     "save": "存档",
@@ -56,13 +75,14 @@ _ACTION_LABEL = {
 }
 
 
-def _target_display(name: str | None, userid: str | None) -> str:
-    """预览/回执里的目标显示：角色名 + userid 尾段（消同名歧义）。"""
+def _target_phrase(name: str | None, userid: str | None) -> str:
+    """回执/预览/confirm 里的目标显示：角色名 +（…userid 尾4）消同名歧义。
+    steam_ 直传 / unban 无名字解析时退化为 `…尾4`（无「玩家」前缀）。"""
     tail = userid[-4:] if userid else ""
     if name:
-        return f"玩家 {name}（…{tail}）"
+        return f"{name}（…{tail}）"
     if tail:
-        return f"玩家（…{tail}）"
+        return f"…{tail}"
     return ""
 
 
@@ -75,7 +95,7 @@ def _gated(fn):
     async def wrapper(self, *args, **kwargs):
         path = METHOD_PATH[fn.__name__]
         if not effective_enabled(self._cfg.permissions.command_overrides, path):
-            return L("feature_disabled")
+            return feature_disabled_text(path)
         return await fn(self, *args, **kwargs)
     return wrapper
 
@@ -83,9 +103,6 @@ def _gated(fn):
 # 分发到需 sender_id 的实现方法（组内仅 player 用 bind/unbind_self）——分发器据此
 # 决定传参形态。其余读实现签名为 (umo, message_str, is_group)。
 _SENDER_METHODS = frozenset({"bind", "me", "unbind_self"})
-
-# 多 @override 兜底文案（与既有 server()/admin_write 一致）。
-_ARG_ERROR_MSG = "参数格式错误：一条命令只能指定一个 @服务器。"
 
 
 class Commands:
@@ -103,81 +120,162 @@ class Commands:
         self._confirmations = confirmations
 
     async def _resolve_world(self, umo: str, message_str: str, subcommand: str, is_group: bool):
+        """解析 (world, arg, err, server_name)。
+
+        server_name = 解析出的配置名 srv.name（spec §2.1 锚点供数机制）：查询类 formatter
+        以此作标题锚点主体名，**不扩 DTO、不取游戏内 world.server_name**。后续查询任务
+        （T6/T8/T9/T10…）沿用本 4 元返回把 server_name 透传各自 formatter。err 分支下
+        server_name 无意义，回 ""（调用方遇 err 直接返回，不消费该位）。
+        """
         try:
             arg = parse_arg(message_str, subcommand)
         except ArgError:
-            return None, None, "参数格式错误：一条命令只能指定一个 @服务器。"
+            return None, None, L("arg_error"), ""
         res = await self._routing.resolve(umo, arg.server_override, is_group)
         if res.server is None:
-            return None, arg, res.error
+            return None, arg, res.error, ""
         world = await self._repo.get_current_world(res.server.server_id)
         if world is None:
-            return None, arg, format_degraded(None, self._clock.now() if self._clock else 0)
-        return world, arg, None
+            # server ready 但无世界快照（恒「从未成功」句）：降级标题带配置名 res.server.name
+            now = self._clock.now() if self._clock else 0
+            return None, arg, format_degraded(None, now, res.server.name), res.server.name
+        return world, arg, None, res.server.name
 
     async def handle_query(
         self, umo: str, message_str: str, subcommand: str, is_group: bool,
         formatter: Callable, query_fn: Callable[..., Awaitable],
     ) -> str:
-        world, _arg, err = await self._resolve_world(umo, message_str, subcommand, is_group)
+        world, _arg, err, _server_name = await self._resolve_world(
+            umo, message_str, subcommand, is_group
+        )
         if err is not None:
             return err
         dto = await query_fn(world)
         return formatter(dto)
 
+    def _guilds_bases_on(self) -> bool:
+        """guilds_bases 家族是否生效开启（GAME_DATA 端点派生自任一 guilds_bases 命令生效值）。
+        status 的 `据点` 独立行随此谓词开合（spec §4.1）；测试替身缺 cfg 时保守回 False。"""
+        cfg = self._cfg
+        if cfg is None:
+            return False
+        return EndpointName.GAME_DATA in active_endpoints(cfg.permissions.command_overrides)
+
+    def _is_strict(self) -> bool:
+        cfg = self._cfg
+        if cfg is None:
+            return False
+        return getattr(getattr(cfg, "privacy", None), "mode", "") == "strict"
+
+    def _fold_limit(self) -> int:
+        """列表折叠上限（spec §2.7）：全部列表 formatter 共用 cfg.players.list_fold_limit
+        单一真相源；测试替身缺 cfg/players 时回默认 7。"""
+        cfg = self._cfg
+        if cfg is None:
+            return 7
+        return getattr(getattr(cfg, "players", None), "list_fold_limit", 7)
+
     async def status(self, umo, message_str, is_group) -> str:
-        return await self.handle_query(
-            umo, message_str, "status", is_group,
-            formatter=format_status, query_fn=self._query.status,
+        world, _arg, err, server_name = await self._resolve_world(
+            umo, message_str, "status", is_group
+        )
+        if err is not None:
+            return err
+        dto = await self._query.status(world)
+        return format_status(
+            dto, server_name, show_bases=self._guilds_bases_on(),
+            fold_limit=self._fold_limit(),
         )
 
     async def online(self, umo, message_str, is_group) -> str:
-        return await self.handle_query(
-            umo, message_str, "online", is_group,
-            formatter=format_online, query_fn=self._query.online,
+        # online 是查询类但需标题锚点 server_name + strict 砍时长（spec §4.24），故不走
+        # handle_query（其 formatter 仅收 dto）：显式 resolve 后透传 server_name/strict。
+        world, _arg, err, server_name = await self._resolve_world(
+            umo, message_str, "online", is_group
+        )
+        if err is not None:
+            return err
+        dto = await self._query.online(world)
+        return format_online(
+            dto, server_name, strict=self._is_strict(), fold_limit=self._fold_limit(),
         )
 
     async def world(self, umo, message_str, is_group) -> str:
-        return await self.handle_query(
-            umo, message_str, "world", is_group,
-            formatter=format_world, query_fn=self._query.world_summary,
+        world, _arg, err, server_name = await self._resolve_world(
+            umo, message_str, "world", is_group
+        )
+        if err is not None:
+            return err
+        dto = await self._query.world_summary(world)
+        return format_world(
+            dto, server_name, strict=self._is_strict(), fold_limit=self._fold_limit(),
         )
 
     async def rules(self, umo, message_str, is_group) -> str:
-        return await self.handle_query(
-            umo, message_str, "rules", is_group,
-            formatter=format_rules, query_fn=self._query.rules,
+        world, _arg, err, server_name = await self._resolve_world(
+            umo, message_str, "rules", is_group
         )
+        if err is not None:
+            return err
+        dto = await self._query.rules(world)
+        return format_rules(dto, server_name)
 
     @_gated
     async def guilds(self, umo, message_str, is_group) -> str:
-        return await self.handle_query(
-            umo, message_str, "guilds", is_group,
-            formatter=format_guilds, query_fn=self._query.guilds,
+        # guild list（spec §4.6）：标题锚点 server_name + strict 字段级裁剪（砍据点计数位，
+        # 命令仍产出）——故不走 handle_query（其 formatter 仅收 dto），显式 resolve 后透传。
+        world, _arg, err, server_name = await self._resolve_world(
+            umo, message_str, "guilds", is_group
+        )
+        if err is not None:
+            return err
+        dto = await self._query.guilds(world)
+        return format_guilds(
+            dto, server_name, strict=self._is_strict(), fold_limit=self._fold_limit(),
         )
 
     @_gated
     async def guild(self, umo, message_str, is_group) -> str:
-        world, arg, err = await self._resolve_world(umo, message_str, "guild", is_group)
+        world, arg, err, _srv = await self._resolve_world(umo, message_str, "guild", is_group)
         if err is not None:
             return err
+        if not arg.name:
+            return L("guild_usage")             # 无参补 usage（修 §6#11「未找到公会「」」）
         dto = await self._query.guild(world, arg.name)
         if dto is None:
             return L("guild_not_found", name=arg.name)
-        return format_guild(dto)
-
-    @_gated
-    async def bases(self, umo, message_str, is_group) -> str:
-        return await self.handle_query(
-            umo, message_str, "bases", is_group,
-            formatter=format_bases, query_fn=self._query.bases,
+        # guild info（spec §4.7）：标题锚点=公会名（formatter 内取 dto.name）；strict 字段级裁剪
+        # （砍据点节/近期动态节/据点计数）；「最近」相对日期需 now/tz（与 events 同源）。
+        return format_guild(
+            dto, strict=self._is_strict(),
+            now=self._clock.now(), tz=server_timezone(self._cfg, world),
+            fold_limit=self._fold_limit(),
         )
 
     @_gated
-    async def base(self, umo, message_str, is_group) -> str:
-        world, arg, err = await self._resolve_world(umo, message_str, "base", is_group)
+    async def bases(self, umo, message_str, is_group) -> str:
+        # strict 整命令拒执行（spec §4.8/§6#4；同 rank 双砍先例——commands 层判）：strict 切换后
+        # DB 残留据点不经本命令绕出（接线死键 bases_disabled_strict）。
+        if self._is_strict():
+            return L("bases_disabled_strict")
+        world, _arg, err, server_name = await self._resolve_world(
+            umo, message_str, "bases", is_group
+        )
         if err is not None:
             return err
+        dto = await self._query.bases(world)
+        return format_bases(dto, server_name, fold_limit=self._fold_limit())
+
+    @_gated
+    async def base(self, umo, message_str, is_group) -> str:
+        # strict 整命令拒执行（spec §4.9/§6#4，与 bases 同判）：据点详情不可绕出 strict。
+        if self._is_strict():
+            return L("bases_disabled_strict")
+        world, arg, err, _srv = await self._resolve_world(umo, message_str, "base", is_group)
+        if err is not None:
+            return err
+        if not arg.name:
+            return L("base_usage")              # 无参补 usage（§6#11）
         dto = await self._query.base(world, arg.name)
         if dto is None:
             return L("base_not_found", name=arg.name)
@@ -186,37 +284,53 @@ class Commands:
     @_gated
     async def events(self, umo, message_str, is_group) -> str:
         today_only = "today" in message_str.split()
-        world, _arg, err = await self._resolve_world(umo, message_str, "events", is_group)
+        world, _arg, err, server_name = await self._resolve_world(
+            umo, message_str, "events", is_group
+        )
         if err is not None:
             return err
-        dto = await self._query.events(world, today_only=today_only)
-        return format_events(dto)
+        dtos = await self._query.events(world, today_only=today_only)
+        return format_events(
+            dtos, server_name,
+            now=self._clock.now(),
+            tz=server_timezone(self._cfg, world),
+            today_only=today_only,
+            fold_limit=self._fold_limit(),
+        )
 
     @_gated
     async def today(self, umo, message_str, is_group) -> str:
-        world, _arg, err = await self._resolve_world(umo, message_str, "today", is_group)
+        world, _arg, err, server_name = await self._resolve_world(
+            umo, message_str, "today", is_group
+        )
         if err is not None:
             return err
-        return format_today(await self._query.today(world))
+        return format_today(
+            await self._query.today(world), server_name, fold_limit=self._fold_limit(),
+        )
 
     @_gated
     async def rank(self, umo, message_str, is_group) -> str:
-        world, arg, err = await self._resolve_world(umo, message_str, "rank", is_group)
+        world, arg, err, server_name = await self._resolve_world(
+            umo, message_str, "rank", is_group
+        )
         if err is not None:
             return err
         strict = self._cfg.privacy.mode == "strict"
         which = arg.name.strip().lower()
         if which not in ("today", "total", "level"):
-            which = "today"  # 缺省 today（spec §6）
+            which = "today"  # 缺省 today（spec §4.23：未识别首词回落 today）
         # strict 双砍：today 与 total 同为时长榜(≈作息)均回 notice；level 不受影响。
         if which in ("today", "total") and strict:
             return L("rank_duration_strict")
         dto = await self._query.rank(world, which)
-        return format_rank(dto, which=which, strict=strict)
+        return format_rank(dto, which=which, server_name=server_name)
 
     @_gated
     async def player(self, umo, message_str, is_group) -> str:
-        world, arg, err = await self._resolve_world(umo, message_str, "player", is_group)
+        world, arg, err, server_name = await self._resolve_world(
+            umo, message_str, "player", is_group
+        )
         if err is not None:
             return err
         if not arg.name:
@@ -224,11 +338,22 @@ class Commands:
         dto = await self._query.player_profile(world, arg.name)
         if dto is None:
             return L("player_not_found", name=arg.name)
-        return format_player(dto, strict=self._cfg.privacy.mode == "strict")
+        return format_player(
+            dto, strict=self._cfg.privacy.mode == "strict",
+            server_name=server_name, world_mode=self._world_mode(),
+            tz=server_timezone(self._cfg, world), now=self._clock.now(),
+        )
+
+    def _server_anchor(self, server_name: str) -> str:
+        """账号状态族尾锚（spec §3）：多模式 ` · {srv}`，单模式空串（world_mode 判定
+        与 help 尾注同源）。bind/unbind 成功回执的尾部服务器锚共用。"""
+        return f" · {server_name}" if self._world_mode() != "single" else ""
 
     @_gated
     async def bind(self, umo, message_str, is_group, sender_id) -> str:
-        world, arg, err = await self._resolve_world(umo, message_str, "bind", is_group)
+        world, arg, err, server_name = await self._resolve_world(
+            umo, message_str, "bind", is_group
+        )
         if err is not None:
             return err
         if not arg.name:
@@ -240,49 +365,65 @@ class Commands:
         if await self._query.name_banned(world, ident.latest_name, excluded):
             return L("bind_not_found", name=arg.name)   # 存在性收敛(名字级,与榜单/查询一致)
         phash = hash_user_id(self._salt, world.world_id, sender_id)
+        # 改绑透明化（spec §4.11）：upsert 前查旧绑定；仅换到不同玩家且旧绑定可解析出不同名
+        # 才出「原绑定」子句——同名重绑/首次绑定/悬空旧绑定一律走朴素 ✅（不啰嗦、不漏哈希）。
+        old_key = await self._repo.get_binding(phash, world.world_id)
         await self._repo.upsert_binding(phash, world.world_id, ident.player_key)
-        return L("bind_ok", name=ident.latest_name)
+        anchor = self._server_anchor(server_name)
+        if old_key is not None and old_key != ident.player_key:
+            old_ident = await self._repo.get_player(world.world_id, old_key)
+            if old_ident is not None and old_ident.latest_name != ident.latest_name:
+                return L("bind_rebind", name=ident.latest_name,
+                         old=old_ident.latest_name, anchor=anchor)
+        return L("bind_ok", name=ident.latest_name, anchor=anchor)
 
     @_gated
     async def me(self, umo, message_str, is_group, sender_id) -> str:
-        world, arg, err = await self._resolve_world(umo, message_str, "me", is_group)
+        world, arg, err, server_name = await self._resolve_world(
+            umo, message_str, "me", is_group
+        )
         if err is not None:
             return err
+        scoped = self._world_mode() != "single"   # 多模式句内带服 / 尾锚（§3 账号状态族）
         phash = hash_user_id(self._salt, world.world_id, sender_id)
         player_key = await self._repo.get_binding(phash, world.world_id)
         if player_key is None:
-            return L("me_unbound")
+            return L("me_unbound_scoped", server=server_name) if scoped else L("me_unbound")
         sub = arg.name.strip().lower()
         if sub == "hide":
             await self._repo.set_hidden(world.world_id, player_key, phash)
-            return L("me_hidden")
+            return L("me_hidden_scoped", server=server_name) if scoped else L("me_hidden")
         if sub == "show":
             await self._repo.unset_hidden(world.world_id, player_key)
-            return L("me_shown")
-        ident = await self._repo.get_player(world.world_id, player_key)
-        if ident is None:
-            return L("me_unbound")
-        session = await self._repo.get_open_session(world.world_id, player_key)
-        dto = PlayerProfileDTO(
-            name=ident.latest_name, level=ident.latest_level,
-            online=session is not None,
-            online_seconds=session.observed_seconds if session is not None else 0,
+            return L("me_shown_scoped", server=server_name) if scoped else L("me_shown")
+        dto = await self._query.profile_for_key(world, player_key)
+        if dto is None:   # 悬空绑定（玩家行不存在）：回未绑定态，不冒空卡片
+            return L("me_unbound_scoped", server=server_name) if scoped else L("me_unbound")
+        return format_player(
+            dto, strict=self._cfg.privacy.mode == "strict",
+            server_name=server_name, world_mode=self._world_mode(),
+            tz=server_timezone(self._cfg, world), now=self._clock.now(), is_me=True,
         )
-        return format_player(dto, strict=self._cfg.privacy.mode == "strict")
 
     @_gated
     async def unbind_self(self, umo, message_str, is_group, sender_id) -> str:
-        world, _arg, err = await self._resolve_world(umo, message_str, "unbind", is_group)
+        world, _arg, err, server_name = await self._resolve_world(
+            umo, message_str, "unbind", is_group
+        )
         if err is not None:
             return err
+        scoped = self._world_mode() != "single"
         phash = hash_user_id(self._salt, world.world_id, sender_id)
         player_key = await self._repo.get_binding(phash, world.world_id)
         if player_key is None:
-            return L("unbind_self_none")
+            return (L("unbind_self_none_scoped", server=server_name)
+                    if scoped else L("unbind_self_none"))
         ident = await self._repo.get_player(world.world_id, player_key)
-        name = ident.latest_name if ident is not None else player_key
         await self._repo.delete_binding(phash, world.world_id)
-        return L("unbind_self_ok", name=name)
+        anchor = self._server_anchor(server_name)
+        if ident is None:   # 悬空绑定（spec §6#10）：绝不渲染 player_key 哈希
+            return L("unbind_self_dangling", anchor=anchor)
+        return L("unbind_self_ok", name=ident.latest_name, anchor=anchor)
 
     # ---- 分级组分发 + 门控下沉（安全模型心脏；spec §4.1 门控落点重构）----
     # 门不再挂方法级 _gated（一个 world_grp 跨 core/events/report 三门）；分发循环内
@@ -334,7 +475,7 @@ class Commands:
         try:
             p = parse_group(message_str, group)
         except ArgError:
-            return _ARG_ERROR_MSG
+            return L("arg_error")
         if not p.sub:
             return self._group_help(group, is_admin)
         spec = DISPATCH[group].get(p.sub)
@@ -343,7 +484,7 @@ class Commands:
         method, _feat_group, _gate = spec
         # per-子动作功能门（下沉）：逐子动作查完整路径生效值（组键/叶子/默认三级继承）。
         if not effective_enabled(self._cfg.permissions.command_overrides, f"{group} {p.sub}"):
-            return L("feature_disabled")
+            return feature_disabled_text(f"{group} {p.sub}")
         # admin_denied 下沉：按完整路径判锁，锁定且非管理员不触达实现。
         if self._admin_locked(f"{group} {p.sub}", sender_id, is_admin):
             return L("admin_required")
@@ -368,7 +509,7 @@ class Commands:
         try:
             p = parse_group(message_str, "server")
         except ArgError:
-            return _ARG_ERROR_MSG
+            return L("arg_error")
         if not p.sub:
             return self._group_help("server", is_admin)
         spec = DISPATCH["server"].get(p.sub)
@@ -387,7 +528,7 @@ class Commands:
         try:
             p = parse_group(message_str, "link")
         except ArgError:
-            return _ARG_ERROR_MSG
+            return L("arg_error")
         if not p.sub:
             return self._group_help("link", is_admin)
         spec = DISPATCH["link"].get(p.sub)
@@ -395,7 +536,7 @@ class Commands:
             return self._group_help("link", is_admin)
         method, _feat_group, gate = spec
         if not effective_enabled(self._cfg.permissions.command_overrides, f"link {p.sub}"):
-            return L("feature_disabled")
+            return feature_disabled_text(f"link {p.sub}")
         if gate == "admin":
             if not is_admin:
                 return L("admin_required")
@@ -408,52 +549,116 @@ class Commands:
         # 若日后新增第二个 read 子动作，须改回按 DISPATCH 泛化分发（getattr(method)）。
         return await self.link_list(umo, is_group, is_admin)
 
+    async def _server_reachable(self, server_id: str, now: int, metrics_seconds: int) -> bool:
+        """link list 可达性派生（spec §4.20/§3）：该服当前 world 最新 metric 新鲜 → 在线。
+
+        无 world / 无 metric / 陈旧 → 不可达（离线）。复用 T2 metric_stale 同阈值同 helper
+        （status 降级与 link list 可达共用同一新鲜度判定，避免语义分叉）。
+        """
+        world = await self._repo.get_current_world(server_id)
+        if world is None:
+            return False
+        metric = await self._repo.latest_metric(world.world_id)
+        if metric is None:
+            return False
+        return not metric_stale(metric.observed_at, now, metrics_seconds)
+
     async def link_list(self, umo, is_group, is_admin) -> str:
-        """旧裸 /pal server 列表逻辑迁入（ready + 群绑定状态 → format_servers）。"""
-        ready_ids = {s.server_id for s in self._routing.ready_servers()}
+        """/pal link list（spec §4.20）：ready + 群授权状态 + 三态可达点 → format_servers。
+
+        三态点：未就绪(🟡)=配置不完整(not ready)；在线(🟢)/离线(🔴)=ready 服务器按其当前
+        world 最新 metric 新鲜度派生（reachability）。私聊不查群授权（授权段由 formatter 省略）。
+        """
+        now = self._clock.now() if self._clock else 0
+        metrics_seconds = getattr(
+            getattr(self._cfg, "polling", None), "metrics_seconds", 30)
         group = await self._repo.list_group_servers(umo) if is_group else {}
         rows = []
         for s in (self._cfg.servers if self._cfg else self._routing.ready_servers()):
             allowed, active = group.get(s.server_id, (False, False))
+            online = s.ready and await self._server_reachable(s.server_id, now, metrics_seconds)
             rows.append(ServerStatusRow(
-                name=s.name, ready=s.ready, online=s.server_id in ready_ids,
+                name=s.name, ready=s.ready, online=online,
                 allowed=allowed, active=active,
             ))
         skipped = self._cfg.skipped if self._cfg else []
-        return format_servers(rows, skipped, is_admin)
+        return format_servers(
+            rows, skipped, is_admin, is_group=is_group, fold_limit=self._fold_limit(),
+        )
 
     async def link_add(self, umo, name, is_group) -> str:
-        """旧 /pal server add 逻辑迁入（routing.use；is_group/空名守卫）。"""
+        """/pal link add（spec §4.21）：routing.use 结构化返回 → 渲染上提本层。"""
         if not is_group:
             return L("use_only_group")
         if not name:
-            return L("server_usage")
-        return await self._routing.use(umo, name)
+            return L("link_add_usage")
+        result = await self._routing.use(umo, name)
+        if not result.ok:
+            return L("link_add_unknown", server=name)   # 拆键：routing server_unknown 素文不用
+        if result.replaced_active is not None:
+            return L("link_add_ok_replaced", server=result.server_id, old=result.replaced_active)
+        return L("link_add_ok", server=result.server_id)
 
     async def link_remove(self, umo, name, is_group) -> str:
-        """旧 /pal server remove 逻辑迁入（routing.unbind；is_group/空名守卫）。"""
+        """/pal link remove（spec §4.22）：routing.unbind 结构化返回 → 渲染上提本层。"""
         if not is_group:
             return L("use_only_group")
         if not name:
-            return L("server_usage")
-        return await self._routing.unbind(umo, name)
+            return L("link_remove_usage")
+        result = await self._routing.unbind(umo, name)
+        if not result.removed:
+            return L("link_remove_none", server=name)   # 无授权记录：素文中性无操作
+        if result.was_active:
+            return L("link_remove_ok_active", server=name)
+        return L("link_remove_ok", server=name)
 
     def help(self, message_str, is_admin) -> str:
-        arg = parse_arg(message_str, "help")
+        # help 输出与 @服务器 无关：跳过 parse_arg（§6#3）——尾双 @（/pal help x @a @b）不再
+        # 裸抛 ArgError 致用户无回复。topic 维持忽略（不扩 /pal help <组>，YAGNI）。
+        del message_str
         return format_help(
-            arg.name or None, is_admin,
+            None, is_admin,
             self._cfg.permissions.command_overrides, self._world_mode(),
         )
 
     async def whoami(self, sender_id: str) -> str:
+        """/pal whoami（spec §4.27）：账号标识 + 引导脚注；已是管理员次行加注（零查询）。"""
         if sender_id.endswith(":"):  # 账号段为空(取不到 sender)
             return L("whoami_no_sender")
+        if self.is_plugin_admin(sender_id):
+            return L("whoami_admin", id=sender_id)
         return L("whoami", id=sender_id)
 
     async def whereami(self, umo: str) -> str:
+        """/pal whereami（spec §4.28）：群标识 + 授权态按 access_mode 分流。
+
+        open 模式 → 授权名单不参与 resolve，改显「开放模式无需授权」（否则输出与真实
+        可用性相反）；restricted → 渲染授权段 + 脚注，多模式查 list_group_servers、单模式
+        零查询 single_allowed_groups（active 括注是多模式概念，单模式变体省略）。
+        """
         if not umo:
             return L("whereami_no_umo")
-        return L("whereami", umo=umo)
+        head = L("whereami_head", umo=umo)
+        if self._cfg.routing.access_mode is not AccessMode.RESTRICTED:
+            return f"{head}\n{L('whereami_open')}"
+        if self._world_mode() == "single":
+            allowed = {e.umo for e in self._cfg.routing.single_allowed_groups}
+            if umo in allowed:
+                ready = self._routing.ready_servers()
+                status = L("whereami_authed", servers=ready[0].name) if ready \
+                    else L("whereami_authed", servers="")
+            else:
+                status = L("whereami_unauthed")
+        else:
+            group = await self._repo.list_group_servers(umo)
+            authed: list[str] = []
+            for s in self._cfg.servers:
+                is_allowed, active = group.get(s.server_id, (False, False))
+                if is_allowed:
+                    authed.append(f"{s.name}（当前活动）" if active else s.name)
+            status = (L("whereami_authed", servers="、".join(authed))
+                      if authed else L("whereami_unauthed"))
+        return f"{head}\n{status}\n{L('whereami_footer')}"
 
     # ---- 服务器管控写编排（本功能安全模型的心脏；门序为铁律）----
 
@@ -469,12 +674,12 @@ class Commands:
         if not effective_enabled(
             self._cfg.permissions.command_overrides, f"server {command_str}"
         ):
-            return L("feature_disabled")
+            return feature_disabled_text(f"server {command_str}")
 
         try:
             arg = parse_arg(arg_str, command_str)
         except ArgError:
-            return "参数格式错误：一条命令只能指定一个 @服务器。"
+            return L("arg_error")
         rest = arg.name.strip()
         require = self._cfg.server_admin.require_confirmation
 
@@ -484,7 +689,7 @@ class Commands:
             token = parts[0] if parts else ""
             reason = parts[1] if len(parts) > 1 else ""
             if not token:
-                return L("admin_target_usage", action=_ACTION_LABEL[command_str])
+                return L("admin_target_usage", sub=command_str)
             # 目标解析与执行须落在同一台服务器：用 override=None（与 AdminService
             # ._execute 的路由一致，避免「在 A 解析、在 B 执行」的错位）。
             # 写路径：for_write=True → 单模式绕过读授权名单（admin 硬门已在上文把守）。
@@ -495,19 +700,20 @@ class Commands:
             target = await self._admin.resolve_target(server.server_id, token)
             if target.kind == "unreachable":
                 # 拉取在线列表失败：不进 pending、不执行、不 post（区别于「无此玩家」）。
-                return L("target_unreachable", target=token)
+                return L("target_unreachable")
             if target.kind == "none":
                 return L("target_none", target=token)
             if target.kind == "multi":
-                return L(
-                    "target_multi", target=token,
-                    candidates="、".join(c["name"] for c in target.candidates),
+                # 候选行带 userid 尾4 消歧（· Neo（…1234））。
+                cand_lines = "\n".join(
+                    f"· {_target_phrase(c['name'], c['userid'])}"
+                    for c in target.candidates
                 )
+                return L("target_multi", target=token, candidates=cand_lines)
             if command_str == "ban" and require:
                 return self._store_pending(
                     command_str, group, admin_id, umo, server,
                     payload={"userid": target.userid, "name": target.name, "reason": reason},
-                    target_disp=_target_display(target.name, target.userid),
                 )
             result = await self._admin.execute_target(
                 admin_id, umo, is_group, action=command_str, path=command_str,
@@ -518,6 +724,9 @@ class Commands:
         if command_str == "unban":
             if not rest:
                 return L("admin_unban_usage")
+            # 本地 steam_ 前缀校验（零成本防不透明 REST 错误；解封无名字解析路径）。
+            if not rest.startswith("steam_"):
+                return L("admin_unban_prefix")
             result = await self._admin.unban(admin_id, umo, is_group, rest)
             return self._render_result(result)
 
@@ -546,7 +755,6 @@ class Commands:
                 return self._store_pending(
                     command_str, group, admin_id, umo, resolution.server,
                     payload={"seconds": seconds, "message": message},
-                    target_disp=L("admin_shutdown_summary", seconds=seconds),
                 )
             result = await self._admin.shutdown(admin_id, umo, is_group, seconds, message)
             return self._render_result(result)
@@ -559,15 +767,30 @@ class Commands:
                     return L("admin_resolve_failed", reason=resolution.error or "")
                 return self._store_pending(
                     command_str, group, admin_id, umo, resolution.server,
-                    payload={}, target_disp="",
+                    payload={},
                 )
             result = await self._admin.stop(admin_id, umo, is_group)
             return self._render_result(result)
 
-        return L("feature_disabled")  # 未知写命令：不触达底层
+        return feature_disabled_text(f"server {command_str}")  # 未知写命令：不触达底层
+
+    @staticmethod
+    def _pending_phrase(command_str: str, payload: dict) -> str:
+        """二次确认预览 / confirm 成功回执共用的「动作短语」（单一真相源）：
+        ban=封禁 Neo（…1234）；shutdown=关服（60 秒倒计时）；stop=停止服务。"""
+        if command_str == "ban":
+            return (
+                f"{_ACTION_LABEL['ban']} "
+                f"{_target_phrase(payload.get('name'), payload.get('userid'))}"
+            )
+        if command_str == "shutdown":
+            return f"{_ACTION_LABEL['shutdown']}（{payload['seconds']} 秒倒计时）"
+        if command_str == "stop":
+            return _ACTION_LABEL["stop"]
+        return _ACTION_LABEL.get(command_str, command_str)
 
     def _store_pending(
-        self, command_str, group, admin_id, umo, server, *, payload, target_disp,
+        self, command_str, group, admin_id, umo, server, *, payload,
     ) -> str:
         timeout = self._cfg.server_admin.confirmation_timeout
         self._confirmations.put(admin_id, PendingAction(
@@ -576,8 +799,9 @@ class Commands:
             expiry=self._clock.now() + timeout,
         ))
         return L(
-            "admin_confirm_preview", action=_ACTION_LABEL[command_str],
-            target=target_disp, server=server.name, timeout=timeout,
+            "admin_confirm_preview",
+            phrase=self._pending_phrase(command_str, payload),
+            server=server.name, timeout=timeout,
         )
 
     async def confirm(self, admin_id: str, umo: str, is_group: bool, is_admin: bool) -> str:
@@ -605,36 +829,100 @@ class Commands:
                 userid=p.payload["userid"], name=p.payload.get("name"),
                 reason=p.payload.get("reason", ""),
             )
-            target_disp = _target_display(p.payload.get("name"), p.payload["userid"])
         elif p.command_str == "shutdown":
             # 复用首发存入 payload 的 seconds+message（confirm 不重解析，秒数不丢）。
-            seconds = p.payload["seconds"]
             result = await self._admin.shutdown(
-                admin_id, p.umo, is_group, seconds, p.payload.get("message", "")
+                admin_id, p.umo, is_group, p.payload["seconds"],
+                p.payload.get("message", ""),
             )
-            target_disp = L("admin_shutdown_summary", seconds=seconds)
         elif p.command_str == "stop":
             result = await self._admin.stop(admin_id, p.umo, is_group)
-            target_disp = ""
         else:
             return L("admin_confirm_stale")
 
         if not result.ok:
             return self._render_result(result)  # 如实回执失败，不谎报「已确认执行」
+        # §6#6：区分「正常完成=已确认执行」与「断连已发起=已确认 · X指令已发出」。
+        # shutdown/stop 断连由 AdminService 标 message_key=admin_shutdown_initiated。
+        if result.message_key == "admin_shutdown_initiated":
+            return L(
+                "admin_confirm_initiated", verb=_ACTION_LABEL[p.command_str],
+                server=resolution.server.name,
+            )
         return L(
-            "admin_confirm_done", action=_ACTION_LABEL[p.command_str],
-            target=target_disp, server=resolution.server.name,
+            "admin_confirm_done",
+            phrase=self._pending_phrase(p.command_str, p.payload),
+            server=resolution.server.name,
         )
 
     def _render_result(self, result) -> str:
-        """AdminResult → 面向用户文案。action 英文键转中文；候选名列表转串。"""
+        """AdminResult → 面向用户回执（spec §4.13-4.19）。
+
+        成功 = per-action 短语 + 可选脚注；断连已发起（直接路径）= 通用「指令已发出」；
+        失败 = ❌ {动作}失败 + error 脚注；resolve 失败 = ❌ 无法执行：{reason}。
+        目标族（target_none/multi/unreachable）在 admin_write 分发内直接渲染，正常写流程
+        不经此处；下方保留兜底以防其它调用方（AdminService.kick/ban 直调）经此渲染。
+        """
         params = dict(result.params)
-        if "action" in params:
-            params["action"] = _ACTION_LABEL.get(params["action"], params["action"])
-        cand = params.get("candidates")
-        if isinstance(cand, list):
-            params["candidates"] = "、".join(str(x) for x in cand)
-        return L(result.message_key, **params)
+        key = result.message_key
+        if key == "admin_ok":
+            return self._render_admin_ok(params)
+        if key == "admin_shutdown_initiated":  # 断连已发起（直接路径，仅 shutdown/stop）
+            return L("admin_initiated", server=params.get("server", ""))
+        if key == "admin_failed":
+            action = str(params.get("action", ""))
+            return L(
+                "admin_failed", action=_ACTION_LABEL.get(action, action),
+                server=params.get("server", ""), error=params.get("error", ""),
+            )
+        if key == "admin_resolve_failed":
+            return L("admin_resolve_failed", reason=params.get("reason", ""))
+        if key == "target_unreachable":
+            return L("target_unreachable")
+        if key == "target_none":
+            return L("target_none", target=params.get("target", ""))
+        if key == "target_multi":
+            cand = params.get("candidates")
+            lines = ("\n".join(f"· {x}" for x in cand)
+                     if isinstance(cand, list) else str(cand or ""))
+            return L("target_multi", target=params.get("target", ""), candidates=lines)
+        return L(key, **params)  # 兜底
+
+    @staticmethod
+    def _render_admin_ok(params: dict) -> str:
+        """成功回执 per-action 短语 + 可选脚注（announce 回显 / ban 理由 / shutdown 倒计时）。"""
+        action = params.get("action", "")
+        server = params.get("server", "")
+        # content 含义随 action（announce 公告 / shutdown 公告 / ban 理由），供数自 _execute。
+        content = params.get("content", "") or ""
+        name = params.get("target") or None
+        userid = params.get("target_userid") or None
+        target = _target_phrase(name, userid)
+        if action == "announce":
+            lines = [L("admin_ok_announce", server=server)]
+            if content:
+                lines.append(L("admin_fn_announce", content=content))
+            return "\n".join(lines)
+        if action == "save":
+            return L("admin_ok_save", server=server)
+        if action == "kick":
+            return L("admin_ok_kick", target=target, server=server)
+        if action == "unban":
+            return L("admin_ok_unban", target=target, server=server)
+        if action == "ban":
+            lines = [L("admin_ok_ban", target=target, server=server)]
+            if content:  # ban 的 content = 理由
+                lines.append(L("admin_fn_ban_reason", reason=content))
+            return "\n".join(lines)
+        if action == "shutdown":
+            seconds = params.get("seconds", 0)
+            head = L("admin_ok_shutdown", server=server)
+            fn = (L("admin_fn_shutdown_msg", seconds=seconds, message=content)
+                  if content else L("admin_fn_shutdown", seconds=seconds))
+            return f"{head}\n{fn}"
+        if action == "stop":
+            return L("admin_ok_stop", server=server)
+        return L("admin_ok_save", server=server)  # 理论不可达兜底
 
     def clear_pending(self) -> None:
         """config 热重载时清空所有 pending（避免旧上下文被误确认）。"""

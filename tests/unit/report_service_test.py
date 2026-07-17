@@ -1,6 +1,7 @@
 from pathlib import Path
 
 from palworld_terminal.adapters.sqlite_repository import Repository
+from palworld_terminal.application.base_service import BaseUpdate
 from palworld_terminal.application.event_service import EventService
 from palworld_terminal.application.report_service import DailyReport, ReportService
 from palworld_terminal.config import (
@@ -12,14 +13,25 @@ from palworld_terminal.config import (
     RoutingConfig,
     WorldConfig,
 )
-from palworld_terminal.domain.enums import AccessMode, LeaveReason, SessionStatus
-from palworld_terminal.domain.models import PlayerSession, World, WorldMetric
+from palworld_terminal.domain.enums import (
+    AccessMode,
+    Confidence,
+    IdConfidence,
+    LeaveReason,
+    SessionStatus,
+)
+from palworld_terminal.domain.models import (
+    PlayerIdentity,
+    PlayerSession,
+    World,
+    WorldMetric,
+)
 from palworld_terminal.infrastructure.clock import FakeClock
 from palworld_terminal.infrastructure.database import Database
 from palworld_terminal.infrastructure.migrations import apply_migrations
 
 
-def _cfg(tz: str = "Asia/Tokyo") -> AppConfig:
+def _cfg(tz: str = "Asia/Tokyo", privacy_mode: str = "balanced") -> AppConfig:
     return AppConfig(
         servers=[], skipped=[],
         routing=RoutingConfig(access_mode=AccessMode.RESTRICTED, default_server=""),
@@ -28,7 +40,7 @@ def _cfg(tz: str = "Asia/Tokyo") -> AppConfig:
         world=WorldConfig(timezone=tz, locale="zh-CN", fps_smooth=50,
                           fps_moderate=35, fps_laggy=20),
         bases=BasesConfig(True, 5000, 0.2, 3, 2000, 0.5),
-        privacy=PrivacyConfig("balanced", False, False, 60, 120, 900),
+        privacy=PrivacyConfig(privacy_mode, False, False, 60, 120, 900),
         history=HistoryConfig(7, 90, 365, 180),
     )
 
@@ -46,14 +58,30 @@ DAY_START_UTC = 1783609200
 NOON = DAY_START_UTC + 12 * 3600
 
 
-async def _make(tmp_path: Path, tz="Asia/Tokyo"):
+async def _make(tmp_path: Path, tz="Asia/Tokyo", privacy_mode="balanced"):
     db = Database(tmp_path / "rep.db")
     await db.open()
     await apply_migrations(db)
     clock = FakeClock(start=NOON)
     repo = Repository(db, clock)
     events = EventService(repo, clock)
-    return ReportService(repo, _cfg(tz), clock), repo, events, clock, db
+    return ReportService(repo, _cfg(tz, privacy_mode), clock), repo, events, clock, db
+
+
+def _ident(world_id: str, key: str, name: str) -> PlayerIdentity:
+    return PlayerIdentity(key, world_id, name, NOON, NOON, 30, None, IdConfidence.HIGH)
+
+
+def _bu(**kw) -> BaseUpdate:
+    d = dict(
+        base_key="s1:guid:0|BASE|pb1", world_id="s1:guid:0", palbox_key="pb1",
+        guild_key="gk1", confidence=Confidence.HIGH, worker_count=6,
+        active_count=4, average_level=10.0, average_hp_ratio=0.9,
+        action_distribution={"working": 4}, is_new=False, is_vanished=False,
+        prev_worker_count=None,
+    )
+    d.update(kw)
+    return BaseUpdate(**d)
 
 
 async def test_daily_splits_events_and_orders(tmp_path):
@@ -61,23 +89,30 @@ async def test_daily_splits_events_and_orders(tmp_path):
     try:
         w = _world()
         clock.set(NOON)
+        # 玩家身份供名字解析（成长节显示名而非截断哈希，spec §4.5/§6#7）。
+        await repo.upsert_player(
+            PlayerIdentity("pk1", w.world_id, "Neo", NOON, NOON, 12, None,
+                           IdConfidence.HIGH))
         await events.world_day(w, 105)                # WORLD_DAY_MILESTONE(100)
         await repo.insert_metric(WorldMetric(
             world_id=w.world_id, observed_at=NOON, fps=60.0, frame_time=16.0,
             online_players=6, world_day=105, basecamp_count=1))
-        await events.online_record(w, value=6, confirmed=True)  # ONLINE_RECORD
+        await events.online_record(w, value=8, confirmed=True)  # ONLINE_RECORD(8>6)
         await events.new_player(w, "pk1")
         await events.level_up(w, "pk1", old=9, new=12)
         rep = await report.daily(w, day="2026-07-10")
         assert isinstance(rep, DailyReport)
         assert rep.day == "2026-07-10"
-        assert rep.world_day_start == DAY_START_UTC
-        assert rep.world_day_end == DAY_START_UTC + 86400
+        # epoch bug 修（spec §6#1）：世界天数取窗口内 metrics 首末 world_day，非 epoch 秒。
+        assert rep.world_day_start == 105
+        assert rep.world_day_end == 105
         assert rep.peak_online == 6
-        assert [le.new_level for le in rep.level_events] == [12]
-        assert rep.level_events[0].old_level == 9
-        # milestone + record present in records
+        # 成长节名字解析 + 措辞走 event_wording 单一真相源（spec §4.4/§4.5）。
+        assert rep.growth == ["Neo 升级 Lv9→Lv12"]
+        # 今日纪录收里程碑 + 在线纪录 + 新玩家（三节分派）。
         assert any("100" in r for r in rep.records)
+        assert "在线人数新纪录 8 人" in rep.records
+        assert "新玩家 Neo 加入世界" in rep.records
         assert rep.is_empty is False
         assert rep.summary  # non-empty editorial summary
     finally:
@@ -88,6 +123,8 @@ async def test_daily_natural_day_boundary_excludes_prev_day(tmp_path):
     report, repo, events, clock, db = await _make(tmp_path)
     try:
         w = _world()
+        await repo.upsert_player(_ident(w.world_id, "pk_prev", "PrevGuy"))
+        await repo.upsert_player(_ident(w.world_id, "pk_in", "InGuy"))
         # event one second BEFORE local midnight of 2026-07-10 → previous day
         clock.set(DAY_START_UTC - 1)
         await events.new_player(w, "pk_prev")
@@ -95,10 +132,10 @@ async def test_daily_natural_day_boundary_excludes_prev_day(tmp_path):
         clock.set(NOON)
         await events.new_player(w, "pk_in")
         rep = await report.daily(w, day="2026-07-10")
-        _new_player_keys = [
-            r for r in rep.records if "pk_in" in r or "pk_prev" in r
-        ]
-        # pk_prev must NOT appear; only pk_in counted
+        # 仅窗口内 pk_in 计入；pk_prev（含其名字）必须缺席。
+        assert any("InGuy" in r for r in rep.records)
+        assert not any("PrevGuy" in r for r in rep.records)
+        # 名字解析落点：绝不回落内部 key。
         assert not any("pk_prev" in r for r in rep.records)
     finally:
         await db.close()
@@ -111,12 +148,160 @@ async def test_daily_empty_day_reports_calm(tmp_path):
         rep = await report.daily(w, day="2026-07-10")
         assert rep.is_empty is True
         assert rep.summary == "平静的一天"
-        assert rep.level_events == []
-        assert rep.base_events == []
+        assert rep.growth == []
+        assert rep.base_changes == []
         assert rep.records == []
         assert rep.active_players == 0
         assert rep.peak_online == 0
         assert rep.total_online_seconds == 0
+    finally:
+        await db.close()
+
+
+async def test_daily_three_section_dispatch_and_dedup(tmp_path):
+    # 今日纪录只收里程碑/在线纪录/新玩家/新公会；据点类全归据点变化节（去重）。
+    report, repo, events, clock, db = await _make(tmp_path)
+    try:
+        w = _world()
+        clock.set(NOON)
+        await repo.upsert_player(
+            PlayerIdentity("pk1", w.world_id, "Neo", NOON, NOON, 22, None,
+                           IdConfidence.HIGH))
+        await repo.insert_metric(WorldMetric(
+            world_id=w.world_id, observed_at=NOON, fps=60.0, frame_time=16.0,
+            online_players=6, world_day=105, basecamp_count=1))
+        await events.world_day(w, 105)                           # milestone
+        await events.online_record(w, value=8, confirmed=True)   # record
+        await events.new_player(w, "pk1")                        # new player
+        await events.new_guild(w, "gk1")                         # new guild
+        await events.level_up(w, "pk1", old=21, new=22)          # growth
+        await events.base_events(w, [_bu(is_new=True)])          # NEW_BASE
+        await events.base_events(
+            w, [_bu(prev_worker_count=5, worker_count=12)])      # WORKER_DELTA
+        rep = await report.daily(w, day="2026-07-10")
+        # 今日纪录
+        assert "世界迎来第 100 天" in rep.records
+        assert "在线人数新纪录 8 人" in rep.records
+        assert "新玩家 Neo 加入世界" in rep.records
+        assert any(r.startswith("新公会") for r in rep.records)
+        # 去重：据点类绝不进今日纪录
+        assert not any("新据点" in r for r in rep.records)
+        assert not any("工作帕鲁" in r for r in rep.records)
+        # 据点变化节收全部据点类
+        assert any("新据点" in r for r in rep.base_changes)
+        assert any("工作帕鲁" in r for r in rep.base_changes)
+        # 成长节
+        assert rep.growth == ["Neo 升级 Lv21→Lv22"]
+        # 末行编辑部总结主分支（spec §4.5）：经 _summary 三计数拼装（1 新玩家 / 1 成长 /
+        # 2 据点变化），锚定 golden 手造串之外的真实渲染路径，防 _summary 主分支回归。
+        assert rep.summary == "今天：1 名新玩家加入，1 次成长，2 处据点变化。"
+    finally:
+        await db.close()
+
+
+async def test_daily_strict_omits_growth_and_base_changes(tmp_path):
+    # Finding 2：strict 下今日纪录只留 world 主体（里程碑/在线纪录）；玩家成长（player 主体）
+    # 与据点变化（base 主体）整节缺席——与 events 同一 world-only 规则。聚合头行（峰值）照常。
+    report, repo, events, clock, db = await _make(tmp_path, privacy_mode="strict")
+    try:
+        w = _world()
+        clock.set(NOON)
+        await repo.upsert_player(
+            PlayerIdentity("pk1", w.world_id, "Neo", NOON, NOON, 22, None,
+                           IdConfidence.HIGH))
+        await repo.insert_metric(WorldMetric(
+            world_id=w.world_id, observed_at=NOON, fps=60.0, frame_time=16.0,
+            online_players=6, world_day=105, basecamp_count=1))
+        await events.world_day(w, 105)                          # milestone (world)
+        await events.online_record(w, value=8, confirmed=True)  # record (world)
+        await events.new_player(w, "pk1")                       # new player (player)
+        await events.level_up(w, "pk1", old=21, new=22)         # growth (player)
+        await events.new_guild(w, "gk1")                        # new guild (guild)
+        await events.base_events(w, [_bu(is_new=True)])         # NEW_BASE (base)
+        rep = await report.daily(w, day="2026-07-10")
+        # 今日纪录仅 world 主体：里程碑 + 在线纪录；新玩家/新公会（player/guild）缺席。
+        assert any("100" in r for r in rep.records)
+        assert "在线人数新纪录 8 人" in rep.records
+        assert not any("新玩家" in r for r in rep.records)
+        assert not any("新公会" in r for r in rep.records)
+        assert not any("Neo" in r for r in rep.records)
+        # 玩家成长 / 据点变化整节缺席。
+        assert rep.growth == []
+        assert rep.base_changes == []
+        # 聚合头行照常（peak 走 metric，非事件面）。
+        assert rep.peak_online == 6
+        assert rep.is_empty is False
+    finally:
+        await db.close()
+
+
+async def test_daily_strict_empty_when_only_individual_events(tmp_path):
+    # strict 下若仅有 player/base 个体事件且无活跃会话 → 事件全被裁、无聚合活动
+    # → 平静的一天（且 format_today 空态不崩）。
+    report, repo, events, clock, db = await _make(tmp_path, privacy_mode="strict")
+    try:
+        w = _world()
+        clock.set(NOON)
+        await repo.upsert_player(
+            PlayerIdentity("pk1", w.world_id, "Neo", NOON, NOON, 22, None,
+                           IdConfidence.HIGH))
+        await events.new_player(w, "pk1")
+        await events.level_up(w, "pk1", old=21, new=22)
+        rep = await report.daily(w, day="2026-07-10")
+        assert rep.records == []
+        assert rep.growth == []
+        assert rep.base_changes == []
+        assert rep.is_empty is True
+        assert rep.summary == "平静的一天"
+    finally:
+        await db.close()
+
+
+async def test_daily_hidden_player_skipped(tmp_path):
+    # 隐藏玩家事件整条跳过（与 events 名字级收敛同哲学，不泄漏名号，spec §4.5）。
+    report, repo, events, clock, db = await _make(tmp_path)
+    try:
+        w = _world()
+        clock.set(NOON)
+        await repo.upsert_player(_ident(w.world_id, "pk_hidden", "Ghost"))
+        await repo.set_hidden(w.world_id, "pk_hidden", "self")
+        await events.new_player(w, "pk_hidden")
+        await events.level_up(w, "pk_hidden", old=29, new=30)
+        rep = await report.daily(w, day="2026-07-10")
+        assert not any("Ghost" in r for r in rep.records)
+        assert rep.growth == []
+        assert not any("pk_hidden" in r for r in rep.records)
+    finally:
+        await db.close()
+
+
+async def test_daily_world_day_from_window_metrics(tmp_path):
+    # epoch bug 修（spec §6#1）：世界天数取窗口内 metrics 首末 world_day。
+    report, repo, events, clock, db = await _make(tmp_path)
+    try:
+        w = _world()
+        await repo.insert_metric(WorldMetric(
+            world_id=w.world_id, observed_at=DAY_START_UTC + 3600, fps=60.0,
+            frame_time=16.0, online_players=1, world_day=42, basecamp_count=1))
+        await repo.insert_metric(WorldMetric(
+            world_id=w.world_id, observed_at=NOON, fps=60.0, frame_time=16.0,
+            online_players=1, world_day=45, basecamp_count=1))
+        rep = await report.daily(w, day="2026-07-10")
+        assert rep.world_day_start == 42
+        assert rep.world_day_end == 45
+        # 绝不再直出 epoch 秒（旧 bug 会渲染「第 1752624000 天」）。
+        assert rep.world_day_start < 1000
+    finally:
+        await db.close()
+
+
+async def test_daily_world_day_fallback_current_day_when_no_metrics(tmp_path):
+    report, repo, events, clock, db = await _make(tmp_path)
+    try:
+        w = _world()  # current_day=105
+        rep = await report.daily(w, day="2026-07-10")
+        assert rep.world_day_start == 105
+        assert rep.world_day_end == 105
     finally:
         await db.close()
 
@@ -174,7 +359,8 @@ async def test_daily_none_day_uses_clock_local_date(tmp_path):
         # clock at NOON of 2026-07-10 local (Asia/Tokyo) → day resolves to that date
         rep = await report.daily(w, day=None)
         assert rep.day == "2026-07-10"
-        assert rep.world_day_start == DAY_START_UTC
+        # 窗口无 metric 采样 → 世界天数回退 world.current_day（epoch 修后不再直出秒）。
+        assert rep.world_day_start == 105
     finally:
         await db.close()
 
@@ -187,10 +373,12 @@ async def test_daily_paginates_beyond_event_page(tmp_path, monkeypatch):
     try:
         w = _world()
         for i in range(5):
+            await repo.upsert_player(_ident(w.world_id, f"pk{i}", f"Name{i}"))
             clock.set(NOON + i)
             await events.new_player(w, f"pk{i}")
         rep = await report.daily(w, day="2026-07-10")
         for i in range(5):
-            assert any(f"pk{i}" in r for r in rep.records), f"pk{i} 被截断丢失"
+            # 名字解析后展示显示名（非哈希）；分页拉全五条一个不落。
+            assert any(f"Name{i}" in r for r in rep.records), f"Name{i} 被截断丢失"
     finally:
         await db.close()

@@ -1,6 +1,10 @@
 from types import SimpleNamespace
 
-from palworld_terminal.application.routing_service import Resolution
+from palworld_terminal.application.routing_service import (
+    Resolution,
+    UnbindResult,
+    UseResult,
+)
 from palworld_terminal.config import ServerConfig, parse_config
 from palworld_terminal.domain.models import World
 from palworld_terminal.presentation.commands import Commands
@@ -37,10 +41,10 @@ class _FakeRouting:
 
     async def use(self, umo, name):
         self.used = (umo, name)
-        return f"USE_OK:{name}"
+        return UseResult(ok=True, server_id=name, replaced_active=None)
 
     async def unbind(self, umo, name):
-        return f"UNBIND_OK:{name}"
+        return UnbindResult(removed=True, was_active=False)
 
     def ready_servers(self):
         return [_server()]
@@ -60,7 +64,7 @@ class _FakeRepo:
         return _world()
 
     async def latest_metric(self, world_id):
-        return object()
+        return SimpleNamespace(observed_at=0)  # 新鲜（clock None→now=0）→ 🟢 在线
 
     async def list_group_servers(self, umo):
         return {"alpha": (True, True)}
@@ -81,6 +85,25 @@ async def test_query_happy_path():
     )
     assert out == "OUT:STATUS_DTO"
     assert query.status_called_with == WID
+
+
+class _FakeRepoNoWorld:
+    async def get_current_world(self, server_id):
+        return None
+
+
+class _FakeClock5000:
+    def now(self):
+        return 5000
+
+
+async def test_resolve_world_none_renders_degraded_with_server_name():
+    # 第三落点：server ready 但无世界快照（从未成功）→ 降级标题带配置名 res.server.name
+    routing = _FakeRouting(Resolution(_server(), None))  # 配置名 "alpha"
+    cmds = Commands(routing, _FakeQuery(), _FakeRepoNoWorld(), cfg=None, clock=_FakeClock5000())
+    out = await cmds.status("umo1", "/pal status", is_group=True)
+    assert "🌍 世界状态 · alpha" in out
+    assert "尚未成功连接过服务器" in out
 
 
 async def test_query_resolution_error_returns_error_text():
@@ -125,7 +148,7 @@ async def test_link_add_happy_path():
     cmds = Commands(routing, _FakeQuery(), _FakeRepo(), _cfg_link(), None)
     out = await cmds.link("umo1", "/pal link add alpha", is_group=True,
                           sender_id="s:1", is_admin=True)
-    assert out == "USE_OK:alpha"
+    assert out == "✅ 已授权本群 · alpha（设为当前活动）"
     assert routing.used == ("umo1", "alpha")
 
 
@@ -134,7 +157,7 @@ async def test_link_remove_happy_path():
                     _cfg_link(), None)
     out = await cmds.link("umo1", "/pal link remove alpha", is_group=True,
                           sender_id="s:1", is_admin=True)
-    assert out == "UNBIND_OK:alpha"
+    assert out == "✅ 已撤销本群授权 · alpha"
 
 
 async def test_link_add_without_name_returns_usage():
@@ -142,7 +165,7 @@ async def test_link_add_without_name_returns_usage():
                     _cfg_link(), None)
     out = await cmds.link("umo1", "/pal link add", is_group=True,
                           sender_id="s:1", is_admin=True)
-    assert out == L("server_usage")
+    assert out == L("link_add_usage")
 
 
 async def test_link_typo_subcommand_returns_group_help():
@@ -168,7 +191,7 @@ async def test_link_add_override_token():
     cmds = Commands(routing, _FakeQuery(), _FakeRepo(), _cfg_link(), None)
     out = await cmds.link("umo1", "/pal link add @alpha", is_group=True,
                           sender_id="s:1", is_admin=True)
-    assert out == "USE_OK:alpha"
+    assert out == "✅ 已授权本群 · alpha（设为当前活动）"
     assert routing.used == ("umo1", "alpha")
 
 
@@ -177,7 +200,7 @@ async def test_link_double_at_returns_arg_error():
                     _cfg_link(), None)
     out = await cmds.link("umo1", "/pal link @a @b", is_group=True,
                           sender_id="s:1", is_admin=True)
-    assert "参数格式错误" in out
+    assert "只能指定一个" in out
 
 
 def test_help_role_separation():

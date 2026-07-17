@@ -2,7 +2,7 @@ from types import SimpleNamespace
 
 from palworld_terminal.application.command_permissions import CommandOverride
 from palworld_terminal.application.query_service import RankBoardsDTO
-from palworld_terminal.presentation.commands import Commands
+from palworld_terminal.presentation.commands import Commands, feature_disabled_text
 
 
 class _Query:
@@ -19,14 +19,15 @@ def _cmds(mode="balanced", players_on=True):
     )
     c = Commands(routing=None, query=_Query(), repo=None, cfg=cfg, clock=SimpleNamespace(now=lambda: 0))
     async def _rw(umo, msg, sub, is_group):
-        return SimpleNamespace(world_id="w1", server_id="w"), SimpleNamespace(name=msg, server_override=None), None
+        return SimpleNamespace(world_id="w1", server_id="w"), SimpleNamespace(name=msg, server_override=None), None, "srv"
     c._resolve_world = _rw
     return c
 
 
 async def test_rank_gated_off_returns_feature_disabled():
     out = await _cmds(players_on=False).rank("u", "", True)
-    assert out == "该功能未开放：当前配置或服务器不支持。"
+    # rank=players（非上游不可用）→ 主句 ⚠️ + 「设置页开启」引导脚注（spec §3）。
+    assert out == feature_disabled_text("rank")
 
 
 async def test_rank_today_in_strict_returns_notice():
@@ -41,9 +42,12 @@ async def test_rank_total_in_strict_returns_notice():
 
 async def test_rank_level_not_affected_by_strict():
     out = await _cmds(mode="strict").rank("u", "level", True)
-    assert "等级榜" in out
+    assert out.splitlines()[0] == "🏆 等级榜 · srv"  # 标题锚点=resolve 出的配置名
+    assert "1. A Lv9" in out
 
 
 async def test_rank_default_is_today_board():
     out = await _cmds().rank("u", "", True)
-    assert "今日在线时长榜" in out and "等级榜" not in out
+    # 未识别首词回落 today（spec §4.23）；标题锚点带配置名；名次序号纯渲染。
+    assert out.splitlines()[0] == "🏆 今日在线时长榜 · srv" and "等级榜" not in out
+    assert "1. A 1分" in out

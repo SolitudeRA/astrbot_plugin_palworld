@@ -4,7 +4,8 @@ from dataclasses import dataclass, field
 
 from ..adapters.sqlite_repository import Repository
 from ..config import AppConfig
-from ..domain.models import Base, BaseObservation, World
+from ..domain.enums import EventType
+from ..domain.models import Base, BaseObservation, PlayerIdentity, World, WorldEvent
 from ..infrastructure.cache import TTLCache
 from ..infrastructure.clock import Clock
 from ..presentation.dtos import (
@@ -15,17 +16,30 @@ from ..presentation.dtos import (
     GuildDTO,
     OnlineDTO,
     OnlinePlayerRow,
-    RuleRow,
     RulesDTO,
+    RuleSection,
     StatusDetailDTO,
     StatusDTO,
     WildTopRow,
     WorldSummaryDTO,
 )
+from ..presentation.event_wording import event_wording
+from .name_resolver import keep_world_subject_under_strict, resolve_subjects
+from .name_resolver import load_excluded_keys as _load_excluded_keys
 from .report_service import day_bounds
 
 _STATUS_TTL = 15
 _ONLINE_TTL = 15
+
+
+def metric_stale(observed_at: int, now: int, metrics_seconds: int) -> bool:
+    """指标新鲜度判定（spec §3 降级态）：距最后成功观测超阈值即视为陈旧。
+
+    阈值 = metrics_seconds × 3 + 60s 余量（纯派生自 polling.metrics_seconds，不新增
+    配置键、随轮询周期缩放）。status 降级双态与 link list 可达三态（T12）共用本判定。
+    边界：距今恰为阈值不算陈旧，超阈值方为陈旧。
+    """
+    return now - observed_at > metrics_seconds * 3 + 60
 
 # 状态卡 detail.rules 子集：输出键 → 设置快照字段。措辞经 meta.setting_display
 # 统一渲染（与 /pal world rules 同源）；快照缺该字段则整键省略。
@@ -36,6 +50,56 @@ _STATUS_RULE_FIELDS = (
     ("exp_rate", "ExpRate"),
 )
 
+# /pal world rules 策展分节（spec §4.3）：四节定序、每项 (展示label, settings字段, 值类型)。
+# 剔除服务器技术字段（端口/RCON/REST API/日志/认证/备份/聊天限速/跨平台）与长尾细倍率
+# （攻防/饱食度/耐力/生命恢复/建筑/采集/掉落）。值类型决定 value 渲染：
+#   enum    → meta.setting_display（枚举措辞，如 普通/关闭/开启/掉落物品）
+#   rate    → {num}x（ASCII x；spec §2.4「倍率 1.0x」，不用 metadata 的全角 ×）
+#   hours   → {num} 小时（游戏设定原单位，spec §2.4 豁免，不套时长格式）
+#   minutes → {num} 分钟（同上）
+#   int     → {num}（裸数，剥单位）
+_RULES_SECTIONS: tuple[tuple[str, tuple[tuple[str, str, str], ...]], ...] = (
+    ("模式", (
+        ("难度", "Difficulty", "enum"),
+        ("硬核", "bHardcore", "enum"),
+        ("死亡惩罚", "DeathPenalty", "enum"),
+        ("帕鲁永久死亡", "bPalLost", "enum"),
+        ("PVP 伤害", "bEnablePlayerToPlayerDamage", "enum"),
+        ("友军伤害", "bEnableFriendlyFire", "enum"),
+        ("入侵者袭击", "bEnableInvaderEnemy", "enum"),
+    )),
+    ("倍率", (
+        ("经验", "ExpRate", "rate"),
+        ("捕获", "PalCaptureRate", "rate"),
+        ("工作速度", "WorkSpeedRate", "rate"),
+        ("帕鲁刷新", "PalSpawnNumRate", "rate"),
+        ("白天流速", "DayTimeSpeedRate", "rate"),
+        ("夜晚流速", "NightTimeSpeedRate", "rate"),
+    )),
+    ("节奏", (
+        ("蛋孵化", "PalEggDefaultHatchingTime", "hours"),
+        ("空投间隔", "SupplyDropSpan", "minutes"),
+    )),
+    ("上限", (
+        ("玩家", "ServerPlayerMaxNum", "int"),
+        ("公会成员", "GuildPlayerMaxNum", "int"),
+        ("据点 每公会", "BaseCampMaxNumInGuild", "int"),
+        ("全服", "BaseCampMaxNum", "int"),
+    )),
+)
+
+
+def _fmt_rules_num(value) -> str:
+    """规则数值渲染：整值去小数点（32.0→32 / 1.0→1），非整保留（1.2→1.2）；
+    非数字原样回退（未知枚举/异常值不冒 500）。"""
+    try:
+        f = float(value)
+    except (TypeError, ValueError):
+        return str(value)
+    if f == int(f):
+        return str(int(f))
+    return f"{f:g}"
+
 
 @dataclass(slots=True)
 class PlayerProfileDTO:
@@ -43,6 +107,16 @@ class PlayerProfileDTO:
     level: int
     online: bool
     online_seconds: int
+    # spec §5#16 扩字段（数据 PlayerIdentity 现成，DTO 通管；player info + me 共用卡片）。
+    # 今日在线=day 窗口 per-player 聚合同源 rank today；累计=同源 rank total；
+    # guild_name=latest_guild_key 解析（gamedata 锁定期自然缺席→None→formatter 省行）；
+    # hidden=仅 me 路径查 get_hidden_keys 落位（首次现身行「· 已隐藏」角标）。
+    first_seen_at: int = 0
+    last_seen_at: int = 0
+    guild_name: str | None = None
+    today_seconds: int = 0
+    total_seconds: int = 0
+    hidden: bool = False
 
 
 @dataclass(slots=True)
@@ -83,7 +157,13 @@ class QueryService:
 
     async def _online_rows(self, world: World) -> list[OnlinePlayerRow]:
         sessions = await self._repo.list_open_sessions(world.world_id)
-        rows: list[OnlinePlayerRow] = []
+        # 名字级隐私收敛（spec §3）：与 rank/player_profile 同语义——某显示名下任一 key
+        # 被排除/隐藏，则该名整组从 status「在线玩家」节与 online 名单一并剔除（存在性收敛，
+        # 防同名另一 key 补位泄露被隐藏者的在线状态）。status 与 online 共用本供数，一次堵死
+        # /pal me hide 现状经两入口落空的缺陷（§6#2）。收敛后行数即头行在线数分子（§3，供 T4/T9）。
+        excluded = await self.load_excluded_keys(world)
+        candidates: list[OnlinePlayerRow] = []
+        banned_names: set[str] = set()
         for s in sessions:
             obs = await self._repo.latest_observation(world.world_id, s.player_key)
             if obs is None:
@@ -91,13 +171,22 @@ class QueryService:
             # obs.name is always "" by design (observations are name-free);
             # resolve the display name from players.latest_name.
             ident = await self._repo.get_player(world.world_id, s.player_key)
-            rows.append(
+            name = ident.latest_name if ident is not None else ""
+            # 本会话 key 直接被排除/隐藏：整名 ban（覆盖 ident 缺失、name_banned 按名查不到的边角）。
+            if s.player_key in excluded:
+                banned_names.add(name)
+                continue
+            candidates.append(
                 OnlinePlayerRow(
-                    name=ident.latest_name if ident is not None else "",
-                    level=obs.level, ping_bucket=obs.ping_bucket,
+                    name=name, level=obs.level, ping_bucket=obs.ping_bucket,
                     online_seconds=s.observed_seconds,
                 )
             )
+        # 同名多 key 存在性收敛：候选名下任一 key（含离线/未在开放会话中）被排除/隐藏即整组剔除。
+        for name in {r.name for r in candidates}:
+            if name not in banned_names and await self.name_banned(world, name, excluded):
+                banned_names.add(name)
+        rows = [r for r in candidates if r.name not in banned_names]
         rows.sort(key=lambda r: (-r.level, r.name))
         return rows
 
@@ -108,15 +197,21 @@ class QueryService:
             return cached
 
         metric = await self._repo.latest_metric(world.world_id)
+        now = self._clock.now()
         rows = await self._online_rows(world)
         # 「今日最高」按本地自然日(day_bounds:per-server tz 优先),与日报/排行同源;
         # 曾为 now-86400 滚动窗口,清晨查询会把昨日晚高峰算进「今日」
-        _day, day_start, _end = day_bounds(self._cfg, world, self._clock.now())
+        _day, day_start, _end = day_bounds(self._cfg, world, now)
         peak_today = await self._repo.peak_online(world.world_id, since=day_start)
-        degraded = metric is None
+        # 降级双态（spec §3）：无 metric=从未成功（last_ok=None）；有 metric 但超新鲜度
+        # 阈值=陈旧（degraded 且 last_ok=observed_at，供「最后成功于 N 分钟前」死分支复活）。
+        stale = metric is not None and metric_stale(
+            metric.observed_at, now, self._cfg.polling.metrics_seconds
+        )
+        degraded = metric is None or stale
 
         dto = StatusDTO(
-            server_name=world.server_name,
+            server_name=self._config_server_name(world),  # 降级标题锚点=配置名（spec §2.1）
             world_name=world.server_name,
             world_day=metric.world_day if metric else world.current_day,
             online=metric.online_players if metric else 0,
@@ -130,8 +225,9 @@ class QueryService:
             updated_at=metric.observed_at if metric else world.last_seen_at,
             degraded=degraded,
             last_ok=metric.observed_at if metric else None,
-            # detail 仅在有 metric（非 degraded）时装配；degraded 行不下发详细区
-            detail=None if metric is None else self._build_status_detail(world, metric),
+            now=now,
+            # detail 仅在 live（非 degraded）时装配；degraded（含陈旧）行不下发详细区
+            detail=None if degraded else self._build_status_detail(world, metric),
         )
         self._cache.set(key, dto, _STATUS_TTL)
         return dto
@@ -141,6 +237,14 @@ class QueryService:
             if s.server_id == server_id:
                 return s.base_url
         return ""
+
+    def _config_server_name(self, world: World) -> str:
+        """降级标题锚点用插件配置名（spec §2.1：server_id≡name，与 @override/link 同词汇）；
+        配置缺失（未注册/测试替身）回退游戏内 world.server_name。"""
+        for s in self._cfg.servers:
+            if s.server_id == world.server_id:
+                return s.name
+        return world.server_name
 
     def _status_rules(self, server_id: str) -> dict[str, str]:
         """detail.rules 白名单子集：从 settings 快照取 4 项，经 setting_display
@@ -173,21 +277,32 @@ class QueryService:
         if cached is not None:
             return cached
         rows = await self._online_rows(world)
-        dto = OnlineDTO(rows=rows, updated_at=self._clock.now(), degraded=False)
+        # 头行供数（spec §3/§4.24）：/max 取 metric.max_players、今日峰值取当日 peak_online
+        # 聚合（与 status 同源，按本地自然日 day_bounds 起点；缺 metric 则 0）。头行在线数分子
+        # 恒 = len(rows)（收敛后名单数），不取 metric.online_players——T3 隐私收敛在此闭合。
+        now = self._clock.now()
+        metric = await self._repo.latest_metric(world.world_id)
+        _day, day_start, _end = day_bounds(self._cfg, world, now)
+        peak_today = await self._repo.peak_online(world.world_id, since=day_start)
+        dto = OnlineDTO(
+            rows=rows, updated_at=now, degraded=False,
+            max_players=metric.max_players if metric else 0,
+            peak_online=peak_today,
+        )
         self._cache.set(key, dto, _ONLINE_TTL)
         return dto
 
     @staticmethod
-    def _activity_score(o: BaseObservation) -> float:
-        active_ratio = o.active_count / max(o.worker_count, 1)
-        total = sum(o.action_distribution.values()) or 1
-        known = sum(v for k, v in o.action_distribution.items() if k != "unknown")
-        known_ratio = known / total
-        return round(100 * (0.75 * active_ratio + 0.25 * known_ratio), 2)
-
-    @staticmethod
     def _health_score(o: BaseObservation) -> float:
         return round(100 * (0.8 * o.average_hp_ratio + 0.2 * 1.0), 2)
+
+    async def _base_counts_by_guild(self, world: World) -> dict[str | None, int]:
+        """每公会据点数（spec §5#15）：按统一序号空间（include_low，hidden 排除）的
+        guild_key 分组计数——与 guild bases 列表 / guild info 据点节口径一致。"""
+        counts: dict[str | None, int] = {}
+        for b in await self._repo.list_bases(world.world_id, include_low=True):
+            counts[b.guild_key] = counts.get(b.guild_key, 0) + 1
+        return counts
 
     async def guilds(self, world: World) -> list[GuildDTO]:
         key = f"guilds:{world.world_id}"
@@ -195,10 +310,11 @@ class QueryService:
         if cached is not None:
             return cached
         guilds = await self._repo.list_guilds(world.world_id)
+        base_counts = await self._base_counts_by_guild(world)
         dtos = [
             GuildDTO(
                 name=g.latest_name, observed_members=g.observed_member_count,
-                palbox=g.palbox_count, base_pals=g.base_pal_count, active_7d=0,
+                base_pals=g.base_pal_count, base_count=base_counts.get(g.guild_key, 0),
             )
             for g in guilds
         ]
@@ -218,25 +334,53 @@ class QueryService:
                 break
         if target is None:
             return None  # not found: do not cache None
-        # active_today/active_week/average_level are v0.1 degradation
-        # placeholders, consistent with GuildDTO.active_7d=0.
+        # 据点列表（§5#15）：统一序号空间（include_low、hidden 排除，与 guild bases/事件解析同源），
+        # 按 guild_key 过滤；无名据点回退 BASE-{序号}。
+        guild_bases = [
+            (i, b) for i, b in await self._bases_indexed(world) if b.guild_key == target.guild_key
+        ]
+        bases_list = [(b.display_name or f"BASE-{i}", b.confidence) for i, b in guild_bases]
+        recent = await self._guild_recent_events(world, {b.base_key for _, b in guild_bases})
+        # active_today/active_week/average_level/palbox 均 v0.1 恒 0 占位，本次砍位不再入 DTO。
         dto = GuildDetailDTO(
             name=target.latest_name,
             first_seen_at=target.first_seen_at,
             last_seen_at=target.last_seen_at,
             observed_members=target.observed_member_count,
-            active_today=0,
-            active_week=0,
-            palbox=target.palbox_count,
             base_pals=target.base_pal_count,
-            average_level=0.0,
-            base_event_lines=[],
+            base_count=len(guild_bases),
+            bases=bases_list,
+            recent_events=recent,
         )
         self._cache.set(key, dto, self._GUILDS_TTL)
         return dto
 
+    # guild info 近期动态实填（spec §4.7）：仅该公会据点的三类据点事件；措辞经 event_wording
+    # 单一真相源（与 events/today 同源，绝不另写措辞），据点名经 name_resolver 统一序号空间解析。
+    _GUILD_BASE_EVENTS = (EventType.NEW_BASE, EventType.WORKER_DELTA, EventType.BASE_VANISHED)
+
+    async def _guild_recent_events(
+        self, world: World, guild_base_keys: set[str]
+    ) -> list[str]:
+        if not guild_base_keys:
+            return []
+        events = await self._repo.list_events(world.world_id, since=None, limit=20)
+        relevant = [
+            e for e in events
+            if e.subject_type == "base"
+            and e.subject_key in guild_base_keys
+            and e.event_type in self._GUILD_BASE_EVENTS
+        ]
+        if not relevant:
+            return []
+        names = await self.resolve_event_subjects(world, relevant)
+        return [event_wording(e, names.get(e.subject_key, "")) for e in relevant]
+
     async def _bases_indexed(self, world: World) -> list[tuple[int, Base]]:
-        bases = await self._repo.list_bases(world.world_id)
+        # 统一序号空间（spec §3 据点名口径）：BASE-n 编号 / guild bases 列表序号 /
+        # guild base #序号 查找 / 事件主体解析全部基于同一张含 low 置信度、hidden 排除
+        # 的清单——否则事件里的 #N 与 /pal guild base #N 会对不上。
+        bases = await self._repo.list_bases(world.world_id, include_low=True)
         return list(enumerate(bases, start=1))
 
     async def bases(self, world: World) -> list[BaseDTO]:
@@ -248,14 +392,15 @@ class QueryService:
         guild_names: dict[str | None, str] = {
             g.guild_key: g.latest_name for g in await self._repo.list_guilds(world.world_id)
         }
-        dtos = [
-            BaseDTO(
+        # worker_count 实填（§5#15）：每据点一条 latest_base_observation 索引查询（现恒 0）。
+        dtos = []
+        for i, b in await self._bases_indexed(world):
+            obs = await self._repo.latest_base_observation(world.world_id, b.base_key)
+            dtos.append(BaseDTO(
                 index=i, display_name=b.display_name or f"BASE-{i}",
                 guild_name=guild_names.get(b.guild_key), confidence=b.confidence,
-                worker_count=0,
-            )
-            for i, b in await self._bases_indexed(world)
-        ]
+                worker_count=obs.worker_count if obs else 0,
+            ))
         self._cache.set(key, dtos, self._BASES_TTL)
         return dtos
 
@@ -266,6 +411,7 @@ class QueryService:
             g.guild_key: g.latest_name for g in await self._repo.list_guilds(world.world_id)
         }
         target = None
+        target_idx = 0
         token = key_or_index.strip()
         if token.startswith("#"):
             try:
@@ -274,29 +420,28 @@ class QueryService:
                 return None
             for i, b in indexed:
                 if i == idx:
-                    target = b
+                    target, target_idx = b, i
                     break
         else:
-            for _, b in indexed:
+            for i, b in indexed:
                 if (b.display_name and b.display_name == token) or guild_names.get(b.guild_key) == token:
-                    target = b
+                    target, target_idx = b, i
                     break
         if target is None:
             return None
+        # 无观测（obs is None）→ available=False：formatter 走 ⚠️「尚无观测数据」，不再全 0 假数据（§6#8）。
         obs = await self._repo.latest_base_observation(world.world_id, target.base_key)
-        worker = obs.worker_count if obs else 0
-        active = obs.active_count if obs else 0
-        avg_level = obs.average_level if obs else 0.0
-        avg_hp = obs.average_hp_ratio if obs else 0.0
-        dist = obs.action_distribution if obs else {}
         return BaseDetailDTO(
-            display_name=target.display_name or "BASE",
+            display_name=target.display_name or f"BASE-{target_idx}",
             guild_name=guild_names.get(target.guild_key),
-            confidence=target.confidence, palbox_count=1,
-            worker_count=worker, active_count=active, average_level=avg_level,
-            average_hp_ratio=avg_hp, action_distribution=dist,
-            activity_score=self._activity_score(obs) if obs else 0.0,
+            confidence=target.confidence,
+            worker_count=obs.worker_count if obs else 0,
+            active_count=obs.active_count if obs else 0,
+            average_level=obs.average_level if obs else 0.0,
+            average_hp_ratio=obs.average_hp_ratio if obs else 0.0,
+            action_distribution=obs.action_distribution if obs else {},
             health_score=self._health_score(obs) if obs else 0.0,
+            available=obs is not None,
         )
 
     async def events(self, world: World, today_only: bool) -> list[EventDTO]:
@@ -307,16 +452,45 @@ class QueryService:
         # 「今日」窗口与 rank/日报同源(day_bounds:per-server tz 优先、DST 安全)
         since = (day_bounds(self._cfg, world, self._clock.now())[1]
                  if today_only else None)
+        # 候选池=近 20 条（折叠在 formatter 侧作用于该池之上，spec §4.4）。
         events = await self._repo.list_events(world.world_id, since=since, limit=20)
-        dtos = [
-            EventDTO(
+        # strict 隐私：只保留 world 主体事件（聚合、无个体归因）；player/base/guild 主体
+        # （个体作息·时刻、据点、公会）不经 events 绕出 strict——与 status 双砍/据点不可绕
+        # 同哲学（world-only 规则与 today 同一真相源 keep_world_subject_under_strict）。
+        events = keep_world_subject_under_strict(
+            events, self._cfg.privacy.mode == "strict"
+        )
+        # 主体名批量解析（含隐藏收敛 + 据点/公会回退，spec §4.4）；措辞走 event_wording 单一真相源。
+        names = await self.resolve_event_subjects(world, events)
+        dtos: list[EventDTO] = []
+        for e in events:
+            # 隐藏/查无玩家事件整条跳过（resolver 对 player 主体缺席即跳，不泄漏隐藏玩家）。
+            if e.subject_type == "player" and e.subject_key not in names:
+                continue
+            dtos.append(EventDTO(
                 occurred_at=e.occurred_at, event_type=e.event_type.value,
-                summary=_event_summary(e),
-            )
-            for e in events
-        ]
+                summary=event_wording(e, names.get(e.subject_key, "")),
+            ))
         self._cache.set(key, dtos, self._EVENTS_TTL)
         return dtos
+
+    def _render_rule_value(self, field: str, value, kind: str) -> str:
+        if kind == "enum":
+            # 枚举措辞与状态卡 detail 同源（setting_display：enum_map 优先）。
+            return self._meta.setting_display(field, value) if self._meta else str(value)
+        if kind == "rate":
+            # 倍率恒一位小数（spec §2.4：默认 1.0 渲染 1.0x，不去尾成 1x）；
+            # 非数字（异常快照值）回退去尾渲染，不冒 500。
+            try:
+                return f"{float(value):.1f}x"
+            except (TypeError, ValueError):
+                return f"{_fmt_rules_num(value)}x"
+        num = _fmt_rules_num(value)
+        if kind == "hours":
+            return f"{num} 小时"
+        if kind == "minutes":
+            return f"{num} 分钟"
+        return num  # int：裸数
 
     async def rules(self, world: World) -> RulesDTO:
         key = f"rules:{world.world_id}"
@@ -324,18 +498,29 @@ class QueryService:
         if cached is not None:
             return cached
         raw = self._settings_cache.get(world.server_id, {})
-        rows: list[RuleRow] = []
-        for field_name, value in raw.items():
-            label, _unit = self._meta.setting_label(field_name)
-            # 措辞与状态卡 detail 同源（setting_display：enum_map 优先，否则 value+unit）
-            rows.append(RuleRow(label=label,
-                                value=self._meta.setting_display(field_name, value)))
-        advanced_note = None
-        if self._cfg.privacy.mode == "advanced":
-            advanced_note = "advanced 隐私模式暂按 balanced 生效。"
-        elif self._cfg.privacy.mode == "strict":
-            advanced_note = "strict 隐私模式下据点模块停用。"
-        dto = RulesDTO(rows=rows, updated_at=self._clock.now(), advanced_note=advanced_note)
+        # 具体目标已定位但快照缺失 = 取数失败态（spec §9 空态/错误态分派）：
+        # settings 未获取（空映射）→ available=False，formatter 走 ⚠️。
+        available = bool(raw)
+        sections: list[RuleSection] = []
+        if available:
+            for title, entries in _RULES_SECTIONS:
+                items: list[tuple[str, str]] = [
+                    (label, self._render_rule_value(field, raw[field], kind))
+                    for label, field, kind in entries
+                    if field in raw    # 快照缺该字段则整项省略（不塞空串，同 status detail）
+                ]
+                if items:
+                    sections.append(RuleSection(title=title, items=items))
+        # 隐私模式注两句分叉（spec §4.3，勿混）：strict = 据点模块停用；advanced = 暂按 balanced。
+        privacy_note = None
+        if self._cfg.privacy.mode == "strict":
+            privacy_note = "据点模块在 strict 隐私模式下停用"
+        elif self._cfg.privacy.mode == "advanced":
+            privacy_note = "advanced 隐私模式暂按 balanced 生效"
+        dto = RulesDTO(
+            sections=sections, available=available,
+            privacy_note=privacy_note, updated_at=self._clock.now(),
+        )
         self._cache.set(key, dto, 1800)
         return dto
 
@@ -363,14 +548,18 @@ class QueryService:
             WildTopRow(name=n, count=c)
             for n, c in sorted(wild_counter.items(), key=lambda kv: (-kv[1], kv[0]))[:5]
         ]
+        # 取数失败态（spec §4.2/§6#8）：概览人口普查依赖 game-data 快照——缺失时 available=False，
+        # formatter 走 ⚠️「尚未获取到世界快照」，不再静默渲染全 0 假数据。
+        # 在线/容量/据点数取 latest_metric 官方口径（与 status 同源）；FPS 归 status 不入本 DTO。
         dto = WorldSummaryDTO(
             world_day=metric.world_day if metric else world.current_day,
             online=metric.online_players if metric else counts["Player"],
+            max_players=metric.max_players if metric else 0,
             players=counts["Player"], otomo=counts["OtomoPal"], base_pal=counts["BaseCampPal"],
             wild=counts["WildPal"], npc=counts["NPC"], palbox=palbox, guilds=len(guild_ids),
-            fps=gd.fps if gd else (metric.fps if metric else 0.0),
-            average_fps=gd.average_fps if gd else (metric.fps if metric else 0.0),
+            basecamp_count=metric.basecamp_count if metric else 0,
             wild_top=wild_top,
+            available=gd is not None,
         )
         self._cache.set(key, dto, self._BASES_TTL)
         return dto
@@ -385,12 +574,20 @@ class QueryService:
         return report
 
     async def load_excluded_keys(self, world: World) -> set[str]:
-        keys: set[str] = set()
-        for name in self._cfg.players.exclude_names:
-            for key in await self._repo.list_players_by_name(world.world_id, name):
-                keys.add(key)
-        keys |= await self._repo.get_hidden_keys(world.world_id)
-        return keys
+        # 与 ReportService/name_resolver 共用同一真相源（避免口径复制漂移）。
+        return await _load_excluded_keys(
+            self._repo, world.world_id, self._cfg.players.exclude_names
+        )
+
+    async def resolve_event_subjects(
+        self, world: World, events: list[WorldEvent]
+    ) -> dict[str, str]:
+        """事件主体名批量解析入口（events() 接 resolver，供 T6 events 复用）。
+        隐藏/被排除玩家主体缺席（调用方跳过整条）；据点用统一序号空间、hidden 回退
+        「据点」；公会查无回退「公会」。ReportService（T7 today）另经 name_resolver
+        自由函数复用同一逻辑。"""
+        excluded = await self.load_excluded_keys(world)
+        return await resolve_subjects(self._repo, world.world_id, events, excluded)
 
     def _converge_by_name(
         self, pairs: list[tuple[str, int]], excluded_names: set[str], n: int,
@@ -472,38 +669,63 @@ class QueryService:
         keys = await self._repo.list_players_by_name(world.world_id, name)
         return any(k in excluded for k in keys)
 
+    async def _profile_extras(
+        self, world: World, ident: PlayerIdentity
+    ) -> tuple[int, int, str | None]:
+        """卡片扩字段供数（spec §5#5/§5#16）：今日在线（day 窗口 per-player 墙钟交叠，
+        与 rank today 同源同封顶口径）、留存期累计（同源 rank total，Σobserved_seconds）、
+        公会名（latest_guild_key → list_guilds 解析；gamedata 锁定期公会表空→None→省行）。"""
+        now = self._clock.now()
+        _day, start, end = day_bounds(self._cfg, world, now)
+        today = 0
+        for s in await self._repo.sessions_in_day(world.world_id, start, end):
+            if s.player_key != ident.player_key:
+                continue
+            wall_end = s.left_at if s.left_at is not None else now
+            overlap = min(end, wall_end) - max(start, s.joined_at)
+            today += min(s.observed_seconds, max(overlap, 0))
+        totals = await self._repo.total_durations(world.world_id)
+        total = totals.get(ident.player_key, 0)
+        guild_name: str | None = None
+        if ident.latest_guild_key is not None:
+            for g in await self._repo.list_guilds(world.world_id):
+                if g.guild_key == ident.latest_guild_key:
+                    guild_name = g.latest_name
+                    break
+        return today, total, guild_name
+
+    async def _build_profile(
+        self, world: World, ident: PlayerIdentity, *, hidden: bool
+    ) -> PlayerProfileDTO:
+        session = await self._repo.get_open_session(world.world_id, ident.player_key)
+        today, total, guild_name = await self._profile_extras(world, ident)
+        return PlayerProfileDTO(
+            name=ident.latest_name, level=ident.latest_level,
+            online=session is not None,
+            online_seconds=session.observed_seconds if session is not None else 0,
+            first_seen_at=ident.first_seen_at, last_seen_at=ident.last_seen_at,
+            guild_name=guild_name, today_seconds=today, total_seconds=total,
+            hidden=hidden,
+        )
+
     async def player_profile(self, world: World, name: str) -> PlayerProfileDTO | None:
+        """/pal player info：按名解析 + name_banned 名字级收敛（隐藏玩家返 None，
+        故 player info 卡片 hidden 恒 False——不泄漏被隐藏者存在）。"""
         ident = await self._repo.get_player_by_name(world.world_id, name)
         if ident is None:
             return None
         excluded = await self.load_excluded_keys(world)
         if await self.name_banned(world, ident.latest_name, excluded):
             return None
-        session = await self._repo.get_open_session(world.world_id, ident.player_key)
-        return PlayerProfileDTO(
-            name=ident.latest_name, level=ident.latest_level,
-            online=session is not None,
-            online_seconds=session.observed_seconds if session is not None else 0,
-        )
+        return await self._build_profile(world, ident, hidden=False)
 
-
-def _event_summary(e) -> str:
-    from ..domain.enums import EventType as _ET
-    p = e.payload or {}
-    if e.event_type is _ET.PLAYER_LEVEL_UP:
-        return f"玩家升级 Lv{p.get('old', '?')}→Lv{p.get('new', '?')}"
-    if e.event_type is _ET.NEW_PLAYER:
-        return "新玩家加入世界"
-    if e.event_type is _ET.NEW_GUILD:
-        return f"新公会出现：{p.get('name', e.subject_key)}"
-    if e.event_type is _ET.NEW_BASE:
-        return f"新据点确认：{p.get('name', e.subject_key)}"
-    if e.event_type is _ET.BASE_VANISHED:
-        return "据点已连续多次未被观察到"
-    if e.event_type is _ET.WORKER_DELTA:
-        return f"据点工作帕鲁数量变化：{p.get('prev', '?')}→{p.get('cur', '?')}"
-    if e.event_type is _ET.WORLD_DAY_MILESTONE:
-        return f"世界推进至第 {p.get('milestone', '?')} 天"
-    if e.event_type is _ET.ONLINE_RECORD:
-        return f"在线人数刷新纪录：{p.get('value', '?')} 人"
-    return e.event_type.value
+    async def profile_for_key(
+        self, world: World, player_key: str
+    ) -> PlayerProfileDTO | None:
+        """/pal me：按绑定 player_key 直取（不套 name_banned——本人可见自己即便已隐藏）；
+        hidden 标记查 get_hidden_keys 落「· 已隐藏」角标。悬空绑定（玩家行不存在）返 None。"""
+        ident = await self._repo.get_player(world.world_id, player_key)
+        if ident is None:
+            return None
+        hidden = player_key in await self._repo.get_hidden_keys(world.world_id)
+        return await self._build_profile(world, ident, hidden=hidden)

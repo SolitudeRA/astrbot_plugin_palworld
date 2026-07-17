@@ -13,8 +13,13 @@ from palworld_terminal.config import (
     RoutingConfig,
     WorldConfig,
 )
-from palworld_terminal.domain.enums import AccessMode, Confidence, EventType
-from palworld_terminal.domain.models import World, WorldMetric
+from palworld_terminal.domain.enums import (
+    AccessMode,
+    Confidence,
+    EventType,
+    IdConfidence,
+)
+from palworld_terminal.domain.models import PlayerIdentity, World, WorldMetric
 from palworld_terminal.infrastructure.clock import FakeClock
 from palworld_terminal.infrastructure.database import Database
 from palworld_terminal.infrastructure.migrations import apply_migrations
@@ -65,6 +70,9 @@ async def test_all_event_types_and_dedup_and_report(tmp_path: Path):
         # metrics for peak baseline
         await repo.insert_metric(WorldMetric(
             "s1:guid:0", NOON, 60.0, 16.0, 4, 105, 1))
+        # 玩家身份供成长节名字解析（displayName 而非截断哈希）。
+        await repo.upsert_player(PlayerIdentity(
+            "pk1", "s1:guid:0", "Neo", NOON, NOON, 12, None, IdConfidence.HIGH))
 
         await events.world_day(w, 105)                          # milestone 100
         await events.online_record(w, value=7, confirmed=True)  # record
@@ -93,8 +101,8 @@ async def test_all_event_types_and_dedup_and_report(tmp_path: Path):
 
         rep = await report.daily(w, day="2026-07-10")
         assert rep.is_empty is False
-        assert len(rep.level_events) == 1
-        assert len(rep.base_events) == 3
+        assert rep.growth == ["Neo 升级 Lv9→Lv12"]  # 成长节名字解析 + 措辞同源
+        assert len(rep.base_changes) == 3           # 新据点/消失/工作帕鲁全归据点变化
         assert any("100" in r for r in rep.records)
     finally:
         await db.close()

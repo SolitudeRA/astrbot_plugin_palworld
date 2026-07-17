@@ -4,7 +4,7 @@ import pytest
 
 from palworld_terminal.adapters.metadata_repository import MetadataRepository
 from palworld_terminal.adapters.sqlite_repository import Repository
-from palworld_terminal.application.query_service import QueryService
+from palworld_terminal.application.query_service import QueryService, metric_stale
 from palworld_terminal.config import (
     AppConfig,
     BasesConfig,
@@ -27,6 +27,7 @@ from palworld_terminal.infrastructure.cache import TTLCache
 from palworld_terminal.infrastructure.clock import FakeClock
 from palworld_terminal.infrastructure.database import Database
 from palworld_terminal.infrastructure.migrations import apply_migrations
+from palworld_terminal.presentation.formatters import format_online
 
 WID = "alpha:guid-1:0"
 
@@ -82,11 +83,51 @@ async def test_status_assembles_dto(qs):
     assert sid >= 1
 
 
+def test_metric_stale_boundary():
+    # 阈值 = metrics_seconds×3+60；恰阈值内不算陈旧，超阈值一秒方算陈旧
+    assert metric_stale(1000, 1000, 30) is False          # 同刻
+    assert metric_stale(1000, 1000 + 150, 30) is False    # 30×3+60=150，恰阈值
+    assert metric_stale(1000, 1000 + 151, 30) is True     # 超阈值一秒
+
+
+def test_metric_stale_scales_with_metrics_seconds():
+    # 阈值随 metrics_seconds 缩放（纯派生，非硬编码常数）
+    assert metric_stale(0, 300, 30) is True    # 阈值 150，delta 300 → 陈旧
+    assert metric_stale(0, 300, 120) is False  # 阈值 420，delta 300 → 新鲜
+
+
 async def test_status_degraded_when_no_metric(qs):
     repo, q, _ = qs
     dto = await q.status(_world())
     assert dto.degraded is True
     assert dto.online == 0
+
+
+async def test_status_degraded_never_when_no_metric(qs):
+    # 无 metric = 从未成功：degraded 且 last_ok=None（走「尚未成功连接过服务器」句）
+    repo, q, _ = qs
+    dto = await q.status(_world())
+    assert dto.degraded is True
+    assert dto.last_ok is None
+
+
+async def test_status_degraded_when_metric_stale(qs):
+    # clock=1200，metrics_seconds=30 → 阈值 150s；指标距今 200s → 陈旧（死分支复活）
+    repo, q, _ = qs
+    await repo.insert_metric(WorldMetric(WID, 1000, 58.0, 17.2, 2, 42, 5))
+    dto = await q.status(_world())
+    assert dto.degraded is True
+    assert dto.last_ok == 1000    # 最后成功时间戳，供「最后成功于 N 分钟前」
+    assert dto.detail is None     # 降级行（含陈旧）不下发详细区
+    assert dto.now == 1200        # 供 formatter 计算相对分钟的真实当下
+
+
+async def test_status_live_when_metric_fresh_at_threshold(qs):
+    # 指标距今恰 150s（=阈值）→ 未过期，仍 live（非降级）
+    repo, q, _ = qs
+    await repo.insert_metric(WorldMetric(WID, 1050, 58.0, 17.2, 2, 42, 5))
+    dto = await q.status(_world())
+    assert dto.degraded is False
 
 
 async def test_status_is_cached(qs):
@@ -117,6 +158,104 @@ async def test_online_dto(qs):
     assert dto.rows[0].name == "Neo"
     assert dto.rows[0].ping_bucket is PingBucket.HIGH
     assert dto.rows[0].online_seconds == 200
+
+
+async def _online_player(repo, key, name, level, *, ping=PingBucket.GOOD, secs=200):
+    await repo.upsert_player(
+        PlayerIdentity(key, WID, name, 1000, 1200, level, "g1", IdConfidence.HIGH)
+    )
+    await repo.insert_session(
+        PlayerSession(None, WID, key, 1000, 1200, None, secs, SessionStatus.ACTIVE, None)
+    )
+    await repo.insert_observation(
+        PlayerObservation(1200, WID, key, name, level, ping, 3, "g1", None, None)
+    )
+
+
+def _player_names(status_dto) -> set[str]:
+    return {n for n, _lv, _ping in status_dto.players}
+
+
+async def test_hidden_player_absent_from_both_status_and_online(qs):
+    # spec §3 隐私收敛：me hide 后该名从 status 在线玩家节 AND online 名单同时消失（两入口一次堵死）
+    repo, q, _ = qs
+    await repo.insert_metric(WorldMetric(WID, 1200, 58.0, 17.2, 2, 42, 5))
+    await _online_player(repo, "pk1", "Neo", 21)
+    await _online_player(repo, "pk2", "Trinity", 18)
+    await repo.set_hidden(WID, "pk1", "phash")   # Neo 自助隐藏
+
+    online = await q.online(_world())
+    assert [r.name for r in online.rows] == ["Trinity"]
+    status = await q.status(_world())
+    assert _player_names(status) == {"Trinity"}
+    # 头行分子 = 收敛后名单数（§3：与名单行数必须同数），非 metric.online_players(=2)
+    assert len(online.rows) == 1
+    assert len(status.players) == 1
+
+
+async def test_same_name_multi_key_one_hidden_bans_whole_group(qs):
+    # 同名多 key 存在性收敛：两个同名「Neo」都在线，隐藏其一则整组剔除（不让另一 key 补位泄露）
+    repo, q, _ = qs
+    await repo.insert_metric(WorldMetric(WID, 1200, 58.0, 17.2, 3, 42, 5))
+    await _online_player(repo, "pk1", "Neo", 21)
+    await _online_player(repo, "pk2", "Neo", 20)
+    await _online_player(repo, "pk3", "Trinity", 18)
+    await repo.set_hidden(WID, "pk1", "phash")   # 仅隐藏其中一个 Neo
+
+    online = await q.online(_world())
+    assert [r.name for r in online.rows] == ["Trinity"]   # 两个 Neo 全没
+    status = await q.status(_world())
+    assert _player_names(status) == {"Trinity"}
+
+
+async def test_offline_hidden_key_bans_same_name_online_key(qs):
+    # 同名收敛跨在线/离线：离线的隐藏 key 与在线 key 同名，则在线的同名者亦整组剔除
+    # （name_banned 全量按名查询，同 player_profile 语义，防同名绕过）
+    repo, q, _ = qs
+    await repo.insert_metric(WorldMetric(WID, 1200, 58.0, 17.2, 2, 42, 5))
+    await _online_player(repo, "pk_on", "Neo", 21)
+    # 离线同名 key（无开放会话），被隐藏
+    await repo.upsert_player(
+        PlayerIdentity("pk_off", WID, "Neo", 500, 900, 15, "g1", IdConfidence.HIGH)
+    )
+    await repo.set_hidden(WID, "pk_off", "phash")
+
+    online = await q.online(_world())
+    assert [r.name for r in online.rows] == []
+    status = await q.status(_world())
+    assert _player_names(status) == set()
+
+
+async def test_excluded_name_config_removes_player_from_both(qs):
+    # exclude_names 配置排除同样经 load_excluded_keys 生效于两入口
+    repo, q, _ = qs
+    q._cfg.players.exclude_names = ["Neo"]
+    await repo.insert_metric(WorldMetric(WID, 1200, 58.0, 17.2, 2, 42, 5))
+    await _online_player(repo, "pk1", "Neo", 21)
+    await _online_player(repo, "pk2", "Trinity", 18)
+
+    online = await q.online(_world())
+    assert [r.name for r in online.rows] == ["Trinity"]
+    status = await q.status(_world())
+    assert _player_names(status) == {"Trinity"}
+
+
+async def test_online_head_count_numerator_is_converged_not_raw_metric(qs):
+    # spec §3 / T3 seam：online 头行分子 = 收敛后名单数，绝非 metric.online_players 原始值。
+    # metric 报在线 2，隐藏其一 → 头行须「在线 1/32」（收敛 1），而非「在线 2」（raw）。
+    # 端到端穿 query→formatter，证明 numerator=len(converged rows)，堵死存在性泄漏。
+    repo, q, _ = qs
+    await repo.insert_metric(WorldMetric(WID, 1200, 58.0, 17.2, 2, 42, 5, 32))  # online=2 max=32
+    await _online_player(repo, "pk1", "Neo", 21)
+    await _online_player(repo, "pk2", "Trinity", 18)
+    await repo.set_hidden(WID, "pk1", "phash")
+
+    dto = await q.online(_world())
+    assert len(dto.rows) == 1                       # 收敛后 1 人
+    assert dto.max_players == 32                    # /max 取 metric 聚合
+    text = format_online(dto, "Palpagos")
+    assert "在线 1/32" in text                       # 分子=收敛 1，非 raw metric.online_players=2
+    assert "在线 2/" not in text
 
 
 _METADATA_DIR = Path(__file__).resolve().parents[2] / "metadata"

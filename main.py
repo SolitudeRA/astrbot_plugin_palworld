@@ -119,7 +119,7 @@ def _migrate_permissions_config(config) -> None:
 
 
 @register("astrbot_plugin_palworld", "SolitudeRA",
-          "监测 Palworld 专用服务器,分级指令提供状态查询、日报、玩家档案与受控服务器管控", "v0.9.8",
+          "监测 Palworld 专用服务器,分级指令提供状态查询、日报、玩家档案与受控服务器管控", "v0.9.9",
           "https://github.com/SolitudeRA/astrbot_plugin_palworld")
 class PalWorldTerminal(Star):
     def __init__(self, context, config):
@@ -206,7 +206,7 @@ class PalWorldTerminal(Star):
 
     def _busy_msg(self) -> str | None:
         if self._restarting or self._container is None:
-            return "插件正在重载配置，请稍后重试"
+            return L("busy")
         return None
 
     def _build_container(self, cfg):

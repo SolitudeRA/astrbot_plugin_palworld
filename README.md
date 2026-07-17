@@ -4,7 +4,7 @@
 
 # PalWorldTerminal · 帕鲁世界终端
 
-[![version](https://img.shields.io/badge/version-v0.9.8-007ec6)](https://github.com/SolitudeRA/astrbot_plugin_palworld/releases)
+[![version](https://img.shields.io/badge/version-v0.9.9-007ec6)](https://github.com/SolitudeRA/astrbot_plugin_palworld/releases)
 [![python](https://img.shields.io/badge/python-3.11%2B-007ec6)](https://www.python.org/)
 [![AstrBot](https://img.shields.io/badge/AstrBot-%E2%89%A5%204.24.1-fe7d37)](https://github.com/AstrBotDevs/AstrBot)
 [![license](https://img.shields.io/badge/license-GPL--3.0-97ca00)](https://github.com/SolitudeRA/astrbot_plugin_palworld/blob/main/LICENSE)
@@ -39,14 +39,16 @@
 `/pal world status` 的回复长这样:
 
 ```text
-世界：光之丘 · 第 60 天
-在线：3/32 人 · 今日最高 5
-据点：12（官方指标）
-性能：FPS 59（流畅） · 帧时间 16.8ms
-在线玩家：
-  · 旅人A Lv42
-  · 旅人B Lv38
-  · 旅人C Lv17
+🌍 世界状态 · Palpagos
+第 42 天 · v0.6.5 · 已运行 6天9时
+
+在线 2/32 · 今日峰值 7
+性能 🟢 流畅 · FPS 58 · 帧时间 17.2ms
+据点 5
+
+在线玩家
+· Neo Lv21
+· Trinity Lv18
 ```
 
 ## 快速开始

@@ -69,9 +69,11 @@ async def test_restricted_denies_then_use_allows(tmp_path: Path):
             UMO, "/pal link add alpha", is_group=True, sender_id="test:admin", is_admin=True)
         assert "alpha" in use_msg
 
-        # 3) now the same group can query status
+        # 3) now the same group can query status（新式样 spec §4.1：标题锚点+天数行）
         ok = await c.commands.status(UMO, "/pal status", is_group=True)
+        assert "🌍 世界状态 · alpha" in ok
         assert "第 42 天" in ok
-        assert "据点：5" in ok
+        # 据点行随 guilds_bases 组开合（默认关/上游不可用 → 整行消失，spec §4.1）
+        assert "据点" not in ok
     finally:
         await c.stop()

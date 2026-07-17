@@ -80,6 +80,7 @@ _NUM_FIELDS = {
     ("history", "raw_metrics_days"): "int", ("history", "aggregate_days"): "int",
     ("history", "session_days"): "int", ("history", "observation_days"): "int",
     ("players", "rank_top_n"): "int",
+    ("players", "list_fold_limit"): "int",
 }
 
 
