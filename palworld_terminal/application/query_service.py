@@ -4,7 +4,7 @@ from dataclasses import dataclass, field
 
 from ..adapters.sqlite_repository import Repository
 from ..config import AppConfig
-from ..domain.models import Base, BaseObservation, World
+from ..domain.models import Base, BaseObservation, World, WorldEvent
 from ..infrastructure.cache import TTLCache
 from ..infrastructure.clock import Clock
 from ..presentation.dtos import (
@@ -22,6 +22,8 @@ from ..presentation.dtos import (
     WildTopRow,
     WorldSummaryDTO,
 )
+from .name_resolver import load_excluded_keys as _load_excluded_keys
+from .name_resolver import resolve_subjects
 from .report_service import day_bounds
 
 _STATUS_TTL = 15
@@ -326,7 +328,10 @@ class QueryService:
         return dto
 
     async def _bases_indexed(self, world: World) -> list[tuple[int, Base]]:
-        bases = await self._repo.list_bases(world.world_id)
+        # 统一序号空间（spec §3 据点名口径）：BASE-n 编号 / guild bases 列表序号 /
+        # guild base #序号 查找 / 事件主体解析全部基于同一张含 low 置信度、hidden 排除
+        # 的清单——否则事件里的 #N 与 /pal guild base #N 会对不上。
+        bases = await self._repo.list_bases(world.world_id, include_low=True)
         return list(enumerate(bases, start=1))
 
     async def bases(self, world: World) -> list[BaseDTO]:
@@ -503,12 +508,20 @@ class QueryService:
         return report
 
     async def load_excluded_keys(self, world: World) -> set[str]:
-        keys: set[str] = set()
-        for name in self._cfg.players.exclude_names:
-            for key in await self._repo.list_players_by_name(world.world_id, name):
-                keys.add(key)
-        keys |= await self._repo.get_hidden_keys(world.world_id)
-        return keys
+        # 与 ReportService/name_resolver 共用同一真相源（避免口径复制漂移）。
+        return await _load_excluded_keys(
+            self._repo, world.world_id, self._cfg.players.exclude_names
+        )
+
+    async def resolve_event_subjects(
+        self, world: World, events: list[WorldEvent]
+    ) -> dict[str, str]:
+        """事件主体名批量解析入口（events() 接 resolver，供 T6 events 复用）。
+        隐藏/被排除玩家主体缺席（调用方跳过整条）；据点用统一序号空间、hidden 回退
+        「据点」；公会查无回退「公会」。ReportService（T7 today）另经 name_resolver
+        自由函数复用同一逻辑。"""
+        excluded = await self.load_excluded_keys(world)
+        return await resolve_subjects(self._repo, world.world_id, events, excluded)
 
     def _converge_by_name(
         self, pairs: list[tuple[str, int]], excluded_names: set[str], n: int,

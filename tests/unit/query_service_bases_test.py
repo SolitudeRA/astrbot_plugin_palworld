@@ -13,8 +13,15 @@ from palworld_terminal.config import (
     RoutingConfig,
     WorldConfig,
 )
-from palworld_terminal.domain.enums import AccessMode, Confidence, EventType
-from palworld_terminal.domain.models import Base, BaseObservation, Guild, World, WorldEvent
+from palworld_terminal.domain.enums import AccessMode, Confidence, EventType, IdConfidence
+from palworld_terminal.domain.models import (
+    Base,
+    BaseObservation,
+    Guild,
+    PlayerIdentity,
+    World,
+    WorldEvent,
+)
 from palworld_terminal.infrastructure.cache import TTLCache
 from palworld_terminal.infrastructure.clock import FakeClock
 from palworld_terminal.infrastructure.database import Database
@@ -119,6 +126,56 @@ async def test_base_missing_returns_none(qs):
     repo, q, _ = qs
     assert await q.base(_world(), "#9") is None
     assert await q.base(_world(), "Ghost") is None
+
+
+async def test_bases_include_low_in_number_space(qs):
+    # spec §3/§4.8：guild bases 列表含 low 置信度行，序号空间统一（include_low=True）
+    repo, q, _ = qs
+    await repo.upsert_base(Base("b1", WID, "pb1", None, "g1", Confidence.HIGH, False, False, 900, 1200))
+    await repo.upsert_base(Base("bLow", WID, "pb2", None, "g1", Confidence.LOW, False, False, 900, 1200))
+    dtos = await q.bases(_world())
+    assert [(d.index, d.display_name, d.confidence) for d in dtos] == [
+        (1, "BASE-1", Confidence.HIGH),
+        (2, "BASE-2", Confidence.LOW),
+    ]
+    # #序号查找命中 low 行（与列表同源）
+    low = await q.base(_world(), "#2")
+    assert low is not None and low.confidence == Confidence.LOW
+
+
+async def test_base_index_consistent_across_events_bases_lookup(qs):
+    # 同一 base_key 的 #序号在 events 解析 / bases 列表 / base #查找 三处必须一致
+    repo, q, _ = qs
+    await repo.upsert_base(Base("b1", WID, "pb1", None, "g1", Confidence.HIGH, False, False, 900, 1200))
+    await repo.upsert_base(Base("bLow", WID, "pb2", None, "g1", Confidence.LOW, False, False, 900, 1200))
+    dtos = await q.bases(_world())
+    ev = WorldEvent(None, WID, EventType.WORKER_DELTA, "base", "bLow", 1200, 1200,
+                    {"prev": 12, "cur": 18}, "public", Confidence.HIGH, "d")
+    names = await q.resolve_event_subjects(_world(), [ev])
+    # 事件解析名 == bases() 列表位次 2 的显示名
+    assert names["bLow"] == next(d.display_name for d in dtos if d.index == 2)
+    assert names["bLow"] == "BASE-2"
+    # 同一 #序号 命中同一据点
+    assert (await q.base(_world(), "#2")).confidence == Confidence.LOW
+
+
+async def test_resolve_event_subjects_skips_hidden_player(qs):
+    repo, q, _ = qs
+    await repo.upsert_player(PlayerIdentity("pk1", WID, "Neo", 900, 1200, 21, None, IdConfidence.HIGH))
+    await repo.set_hidden(WID, "pk1", "phash")
+    ev = WorldEvent(None, WID, EventType.NEW_PLAYER, "player", "pk1", 1200, 1200,
+                    {}, "public", Confidence.HIGH, "d")
+    names = await q.resolve_event_subjects(_world(), [ev])
+    assert "pk1" not in names
+
+
+async def test_hidden_base_event_falls_back(qs):
+    repo, q, _ = qs
+    await repo.upsert_base(Base("bHid", WID, "pbH", "秘密", "g1", Confidence.HIGH, False, True, 900, 1200))
+    ev = WorldEvent(None, WID, EventType.NEW_BASE, "base", "bHid", 1200, 1200,
+                    {}, "public", Confidence.HIGH, "d")
+    names = await q.resolve_event_subjects(_world(), [ev])
+    assert names["bHid"] == "据点"
 
 
 async def test_events_today_only_filters(qs):
