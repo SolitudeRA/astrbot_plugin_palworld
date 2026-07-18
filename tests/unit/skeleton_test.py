@@ -20,6 +20,9 @@ def test_metadata_yaml_has_all_top_keys():
     assert data["display_name"] == "PalWorldTerminal · 帕鲁世界终端"
     assert data["astrbot_version"] == ">=4.24.1,<5"
     assert data["license"] == "GPL-3.0"
+    assert data["support_platforms"] == [
+        "aiocqhttp", "qq_official", "telegram", "discord", "kook",
+    ]
 
 
 def test_requirements_runtime_only():

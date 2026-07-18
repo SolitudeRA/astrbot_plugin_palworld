@@ -157,8 +157,8 @@ def _default_permissions() -> PermissionsConfig:
 
 # 命令门不可锁集(完整路径);与 command_registry._NON_LOCKABLE 全等,
 # 此处内联以免 config 依赖 presentation 层。
-# server 各写子动作 + link 各子动作 + 元命令(help/whoami/confirm)由 feature 组 +
-# 管理员名单双闸把守,绝不可再被 admin_only_commands 锁,故一并预置。
+# server 各写子动作 + link 各子动作 + 元命令(help/whoami/whereami/confirm)
+# 各有内置权限语义,command_permissions 的 admin_only 轴对其无效,故一并预置。
 _NON_LOCKABLE = frozenset({
     "server announce", "server save", "server kick", "server unban",
     "server ban", "server shutdown", "server stop",

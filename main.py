@@ -244,7 +244,7 @@ class PalWorldTerminal(Star):
                 self._idle.set()
 
     async def _guarded_cmd(self, event, command_str, call):
-        """可锁命令的门:先判 admin_only_commands 再走 _guarded。"""
+        """可锁命令的门:先判 command_permissions 的 admin_only 生效值,再走 _guarded。"""
         self._inflight += 1
         self._idle.clear()
         try:

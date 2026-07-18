@@ -30,6 +30,8 @@ ENV/
 .nox/
 .coverage
 .coverage.*
+coverage/
+frontend/coverage/
 htmlcov/
 coverage.xml
 .mypy_cache/
@@ -37,6 +39,9 @@ coverage.xml
 .pyre/
 .ruff_cache/
 .hypothesis/
+.vitest/
+frontend/.vitest/
+*.tsbuildinfo
 
 # ---- 本项目运行时产物（绝不入库）----
 # SQLite 业务库及 WAL/SHM 边车
@@ -67,6 +72,13 @@ secret_salt
 *.swo
 *~
 *.code-workspace
+*.log
+*.tmp
+*.bak
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
 
 # ---- 操作系统 ----
 .DS_Store
@@ -76,6 +88,12 @@ desktop.ini
 # ---- 前端构建 ----
 /node_modules/
 frontend/node_modules/
+
+# README 截图专用本地入口（不进正式构建 / Git）
+/frontend/dev-shot.html
+
+# 本地代理调度状态
+**/.claude/scheduled_tasks.lock
 
 # ---- 头脑风暴可视化伴侣（本地 mockup，勿入库）----
 .superpowers/

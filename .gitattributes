@@ -1,2 +1,5 @@
+# 仓库同时保留 LF 与 CRLF；CR 属于行结束符，不作为尾随空白。
+* whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
+
 tests/golden/*.txt text eol=lf
 pages/settings/** text eol=lf

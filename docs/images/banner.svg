@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="360" viewBox="0 0 1280 360" role="img" aria-labelledby="title desc">
+  <title id="title">PalWorldTerminal — /pal 暖阳草原</title>
+  <desc id="desc">PalWorldTerminal Logo 与暖金色斜杠、深松绿色 pal 等宽字标，背景为原创暖阳草原景观。</desc>
+  <defs>
+    <linearGradient id="warmSky" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#FFF6DE"/>
+      <stop offset="0.52" stop-color="#E9F4DD"/>
+      <stop offset="1" stop-color="#BCE9ED"/>
+    </linearGradient>
+    <linearGradient id="sunset" x1="0" y1="0" x2="0" y2="1">
+      <stop stop-color="#FFD47A"/>
+      <stop offset="1" stop-color="#F19B42"/>
+    </linearGradient>
+    <filter id="softShadow" x="-30%" y="-30%" width="170%" height="180%">
+      <feDropShadow dx="0" dy="11" stdDeviation="15" flood-color="#285C4D" flood-opacity="0.22"/>
+    </filter>
+    <clipPath id="frame"><rect width="1280" height="360" rx="34"/></clipPath>
+  </defs>
+  <g clip-path="url(#frame)">
+    <rect width="1280" height="360" fill="url(#warmSky)"/>
+    <circle cx="1038" cy="238" r="116" fill="url(#sunset)"/>
+    <circle cx="1038" cy="238" r="148" fill="none" stroke="#FFF6DE" stroke-opacity="0.58" stroke-width="24"/>
+
+    <path d="M-35 292 C151 213 339 224 500 299 C639 364 770 329 926 269 C1085 208 1173 227 1321 276 V390 H-35 Z" fill="#A6D387"/>
+    <path d="M-26 327 C154 262 303 266 474 327 C651 390 803 360 957 309 C1091 265 1199 274 1310 310 V390 H-26 Z" fill="#72B96A"/>
+    <path d="M-20 355 C166 310 321 321 506 360 C683 397 883 376 1043 340 C1141 318 1229 322 1304 342 V390 H-20 Z" fill="#2D7158"/>
+
+    <image href="logo.png" x="58" y="64" width="238" height="238" preserveAspectRatio="xMidYMid meet" filter="url(#softShadow)"/>
+    <g font-family="Segoe UI Variable Display, Segoe UI, Arial, sans-serif">
+      <text x="371" y="91" font-size="24" font-weight="750" letter-spacing="5" fill="#285C4D" fill-opacity="0.82">PALWORLD TERMINAL</text>
+    </g>
+    <text x="353" y="250" font-family="Consolas, Cascadia Mono, monospace" font-size="154" font-weight="700" letter-spacing="-9"><tspan fill="#F4AD45">/</tspan><tspan fill="#285C4D">pal</tspan></text>
+
+    <g fill="#FFF9ED" fill-opacity="0.94">
+      <path d="M826 72 l7 17 17 7-17 7-7 17-7-17-17-7 17-7z"/>
+      <path d="M1177 74 l5 12 12 5-12 5-5 12-5-12-12-5 12-5z"/>
+      <circle cx="875" cy="133" r="6"/>
+    </g>
+    <g stroke="#285C4D" stroke-width="4" stroke-linecap="round" opacity="0.34">
+      <path d="M116 350 q5-24 17-39"/><path d="M137 350 q-2-22-15-35"/>
+      <path d="M1128 348 q7-28 22-44"/><path d="M1150 348 q-1-23-13-39"/>
+    </g>
+  </g>
+  <rect x="0.5" y="0.5" width="1279" height="359" rx="33.5" fill="none" stroke="#285C4D" stroke-opacity="0.14"/>
+</svg>
