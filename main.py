@@ -119,7 +119,7 @@ def _migrate_permissions_config(config) -> None:
 
 
 @register("astrbot_plugin_palworld", "SolitudeRA",
-          "监测 Palworld 专用服务器,分级指令提供状态查询、日报、玩家档案与受控服务器管控", "v0.9.9",
+          "监测 Palworld 专用服务器,分级指令提供状态查询、日报、玩家档案与受控服务器管控", "v1.0.0",
           "https://github.com/SolitudeRA/astrbot_plugin_palworld")
 class PalWorldTerminal(Star):
     def __init__(self, context, config):
@@ -244,7 +244,7 @@ class PalWorldTerminal(Star):
                 self._idle.set()
 
     async def _guarded_cmd(self, event, command_str, call):
-        """可锁命令的门:先判 admin_only_commands 再走 _guarded。"""
+        """可锁命令的门:先判 command_permissions 的 admin_only 生效值,再走 _guarded。"""
         self._inflight += 1
         self._idle.clear()
         try:

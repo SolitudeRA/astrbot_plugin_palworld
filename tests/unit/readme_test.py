@@ -119,16 +119,16 @@ def test_readme_documents_world_mode_and_link():
         assert phrase in DOCS, f"文档缺少 world_mode / link 说明: {phrase}"
 
 
-def test_readme_documents_lock_migration():
-    # flat→full-path 锁迁移映射表 + 「不迁移=失锁」告警(spec §7 B2)
-    for phrase in ("锁迁移", "完整路径", "失锁",
-                   "player info", "world status", "server kick"):
-        assert phrase in DOCS, f"文档缺少锁迁移映射表: {phrase}"
+def test_readme_documents_permission_migration():
+    # legacy 权限键会自动迁移到 command_permissions；无效锁明确告警。
+    for phrase in ("自动迁移", "command_permissions", "完整命令路径",
+                   "无效锁", "启动告警"):
+        assert phrase in DOCS, f"文档缺少权限自动迁移说明: {phrase}"
 
 
 def test_readme_documents_permission_management():
     # 权限管理:whoami 自查 + 管理员名单 + 命令门 + 三条安全告知
-    for phrase in ("/pal whoami", "管理员名单", "permission_admins", "admin_only_commands"):
+    for phrase in ("/pal whoami", "管理员名单", "permission_admins", "command_permissions"):
         assert phrase in DOCS, f"文档缺少权限管理说明: {phrase}"
     # 三条安全告知必须落在文档里
     for phrase in ("全局", "命名空间", "明文", "PII"):

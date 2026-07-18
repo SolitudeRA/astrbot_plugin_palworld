@@ -8,7 +8,7 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 def test_palworld_terminal_package_importable():
     import palworld_terminal
 
-    assert palworld_terminal.__version__ == "0.9.9"
+    assert palworld_terminal.__version__ == "1.0.0"
 
 
 def test_metadata_yaml_has_all_top_keys():
@@ -18,8 +18,11 @@ def test_metadata_yaml_has_all_top_keys():
         assert key in data, f"missing {key}"
     assert data["name"] == "astrbot_plugin_palworld"
     assert data["display_name"] == "PalWorldTerminal · 帕鲁世界终端"
-    assert data["astrbot_version"] == ">=4.24.1"
+    assert data["astrbot_version"] == ">=4.24.1,<5"
     assert data["license"] == "GPL-3.0"
+    assert data["support_platforms"] == [
+        "aiocqhttp", "qq_official", "telegram", "discord", "kook",
+    ]
 
 
 def test_requirements_runtime_only():

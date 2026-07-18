@@ -89,8 +89,8 @@ PAL_COMMAND_STRINGS: frozenset[str] = frozenset(
     + list(FLAT_ACTIONS)
 )
 
-# 不可锁集（完整路径）：server 各动作 + link 各动作 + 元命令（help/whoami/confirm）。
-# 这些由 feature 组 + 管理员名单双闸把守，绝不可再被 admin_only_commands 锁。
+# 不可锁集（完整路径）：server 各动作 + link 各动作 + 元命令（help/whoami/whereami/confirm）。
+# 这些各有内置权限语义，command_permissions 的 admin_only 轴对其无效。
 # 须与 config._NON_LOCKABLE 跨源全等（command_names_test 锚定两处一致）。
 _NON_LOCKABLE: frozenset[str] = frozenset(
     [f"server {sub}" for sub in DISPATCH["server"]]
@@ -98,7 +98,7 @@ _NON_LOCKABLE: frozenset[str] = frozenset(
     + ["help", "whoami", "whereami", "confirm"]
 )
 
-# 可被 admin_only_commands 锁定的完整路径 = 全部 − 不可锁集。
+# 可设置 admin_only 的完整路径 = 全部 − 不可锁集。
 LOCKABLE_COMMANDS: frozenset[str] = frozenset(PAL_COMMAND_STRINGS) - _NON_LOCKABLE
 
 # 分级 help 文案：完整路径 → 描述（含参数提示）。format_help / 裸组迷你帮助的展示真相源。

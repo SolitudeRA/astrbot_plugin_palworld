@@ -1,6 +1,6 @@
 # 完整指令与功能开关
 
-自 v0.9.5 起指令改为**分级结构**:`/pal <组> <动作> [参数]`。5 个命令组(`world`/`guild`/`player`/`server`/`link`)+ 7 个扁平命令(`rank`/`online`/`me`/`help`/`whoami`/`whereami`/`confirm`)。所有指令以 `/pal` 前缀触发、返回纯文本。查询指令只读;**服务器管控为受控写**(默认全关、仅授权管理员、全程审计,见[服务器管控](#服务器管控受控写))。带「功能组」的指令仅在对应组开启时可用(见下方矩阵);`core` 组指令恒可用。
+自 v0.9.5 起指令改为**分级结构**:`/pal <组> <动作> [参数]`。5 个命令组(`world`/`guild`/`player`/`server`/`link`)+ 7 个扁平命令(`rank`/`online`/`me`/`help`/`whoami`/`whereami`/`confirm`)。所有指令以 `/pal` 前缀触发、返回纯文本。查询指令只读;**服务器管控为受控写**(默认全关、仅授权管理员、执行阶段写请求留痕,见[服务器管控](#服务器管控受控写))。带「功能组」的指令仅在对应组开启时可用(见下方矩阵);`core` 组指令恒可用。
 
 > **裸组 = 迷你帮助**:只发组名(如 `/pal world`、`/pal server`)返回该组可用子动作的迷你帮助(按当前功能开关与你的角色过滤——访客不会看到管控写子动作)。
 
@@ -12,7 +12,7 @@
 - `/pal whoami` —— 查看我的账号标识
 - `/pal whereami` —— 查看当前群标识
 
-> 设置页在未确认时以**首次引导屏**取代正常配置章节;选模式并确认即写入 `world_mode` + `routing.setup_confirmed=true` 并保存,命令闸随即解除、转入正常设置页。模式主开关仍在 AstrBot 齿轮配置里(见[运行模式](#运行模式单世界--多世界)与[配置项详解 · routing](configuration.md#routing访问控制))。
+> 设置页在未确认时以**首次引导屏**取代正常配置章节;选模式并确认即写入 `world_mode` + `routing.setup_confirmed=true` 并保存,命令闸随即解除、转入正常设置页。之后可在设置页「连接」章安全切换模式;AstrBot 齿轮配置中的裸字段只作应急直编,不会执行授权迁移或二次确认(见[运行模式](#运行模式单世界--多世界)与[配置项详解 · routing](configuration.md#routing访问控制))。
 
 ## 指令详表
 
@@ -69,7 +69,7 @@
 
 任意查询指令末尾可加 **`@<服务器名>`** 单次指定目标服务器(详见下文「多世界模式与群授权」)。
 
-> **写命令的 `@server` 词序**:服务器覆盖只识别命令**末尾**的 `@<服务器名>`,如 `/pal server kick Alice 作弊 @beta`。`announce` 消息、`kick`/`ban` 理由是自由文本整串,若**恰以 `@词` 结尾**(如 `/pal server announce 快来 @discord`)会被误当服务器覆盖——自由文本请勿以 `@词` 收尾,或显式把 `@server` 放最末。连续空格/换行会被折叠为单空格,不保证逐字保留。
+> **管控命令不支持 `@server` 临时覆盖**:单世界固定使用唯一就绪服务器;多世界使用本群当前活动服务器。需要切换目标时,请先执行 `/pal link add <服务器名>`。不要在管控命令末尾附加 `@词`,它不会切换执行目标;公告和理由中的连续空格/换行会折叠为单空格,也不保证逐字保留。
 
 ## 功能开关 → 可用指令矩阵
 
@@ -93,7 +93,7 @@
 
 ## 运行模式:单世界 / 多世界
 
-`routing.world_mode` 决定服务器路由方式,**默认 `single` 单世界**。切换入口是插件齿轮配置里的模式主开关(自定义设置页无模式开关,只按当前模式呈现对应配置形态)。无存量用户,改默认直接生效、**无迁移**。
+`routing.world_mode` 决定服务器路由方式,**默认 `single` 单世界**。首次设置由插件页面引导选择;之后在设置页「连接」章使用带预览、授权迁移和残留清理的切换控件。AstrBot 齿轮配置中的裸字段只作应急直编,会跳过迁移与确认。
 
 - **`single` 单世界(默认)**:所有操作对应**唯一**服务器(取第一台就绪服务器)。`link` 组**隐藏且运行时拒绝**(无需选择),`@server` 覆盖与群绑定被忽略。读授权见下方 restricted 说明。
 - **`multi` 多世界**:一个插件监测多台服务器,按群授权、按群切换活动服务器。`link` 组用于选择/授权;查询可用 `@<服务器名>` 单次覆盖。读授权走 `/pal link` 的群授权(DB 名单)。
@@ -136,30 +136,17 @@
 
 - **管理员名单(`permission_admins`)**:超管在设置页「权限」章逐条维护(每行含 `id` = `平台:账号`,和可选 `note` 备注)。**只有**名单内的账号被视为本插件的管理员。玩家在群里(建议私聊)发 `/pal whoami` 得到自己的 `平台:账号`,报给超管加入。
 - **内置管理门**:`server` 组全部写命令、`/pal link add`、`/pal link remove`、`/pal confirm` 恒需管理员,由管理员名单判定(名单外成员执行会被拒)。
-- **命令门(`admin_only_commands`)**:超管可把任意查询命令锁成仅管理员可用,填**完整命令路径**(如 `player info`、`world status`、`rank`)。被锁命令对名单外成员回「该命令需要管理员权限。」。**不可锁集**(填入会被忽略)= `server` 组各写命令(`server announce` … `server stop`)+ `link` 组各命令(`link list`/`link add`/`link remove`)+ 元命令 `help`/`whoami`/`confirm`——这些由功能门 + 管理员门双闸把守,绝不可再被锁。
+- **命令权限树(`command_permissions`)**:在设置页分别控制每条命令或整组命令的 `enabled`(是否启用)与 `admin_only`(是否仅管理员),两轴都支持继承。命令行使用**完整路径**(如 `player info`、`world status`、`rank`),组行使用组名。名单外成员执行仅管理员命令时会收到「该命令需要管理员权限。」。**不可锁集** = `server` 组写命令、`link` 组命令和 `help`/`whoami`/`whereami`/`confirm`;它们分别由内置管理门控制或恒对所有人开放。
 
-### ⚠️ admin_only_commands 锁迁移(v0.9.5 破坏性)
+### 从旧版权限配置自动迁移
 
-分级后 `admin_only_commands` 的值从**扁平命令**(`player`)改为**完整路径**(`player info`)。**旧扁平值升级后不匹配新路径 = 锁静默失效(fail-open)**,插件会在启动日志中对每条无法识别的锁条目告警(unknown-lock),但**不会**替你猜测迁移。请照下表逐条改写:
-
-| 旧扁平锁值 | 新完整路径 | 旧扁平锁值 | 新完整路径 |
-|---|---|---|---|
-| `status` | `world status` | `guilds` | `guild list` |
-| `world` | `world overview` | `guild` | `guild info` |
-| `rules` | `world rules` | `bases` | `guild bases` |
-| `today` | `world today` | `base` | `guild base` |
-| `events` | `world events` | `player` | `player info` |
-| `rank` | `rank`(不变) | `bind` | `player bind` |
-| `online` | `online`(不变) | `unbind` | `player unbind` |
-| `me` | `me`(不变) | — | — |
-
-> **失锁风险**:未迁移的旧值(如仍写 `player`)不再匹配任何命令 → 该锁**不生效**,原本仅管理员的命令**对所有人开放**。请在升级后立即核对 `admin_only_commands`,并留意启动日志的 unknown-lock 告警。`server`/`link` 写命令**不可锁**(始终受管理员门把守),旧配置里若锁了它们(如 `kick`),升级后同样报 unknown-lock,可直接删除该条。
+v0.9.5 及更早版本使用 `features` 与 `admin_only_commands`;v0.9.6 起统一为 `command_permissions`。插件首次装载旧配置时会自动转换为三态权限行并删除旧键,无需手工维护旧名单。能够识别的完整命令路径会保留原权限;旧扁平值或不可锁命令会作为无效锁写入启动告警,不会被静默套用。升级后请在设置页「权限」章核对迁移结果,详细对照见[配置项详解 · 从旧版迁移](configuration.md#从旧版features--admin_only_commands迁移)。
 
 > **安全告知**:管理员名单是**全局**的——加入者在其所在的**每个群**都拥有管理员权(含对任意群执行 `link add`/`link remove` 与 `server` 组写命令)。多适配器实例 / 多群共用同一 bot 时共享同一**命名空间**,请谨慎授权。`id`/`note` 以**明文**落盘到 `data/config/`,`note` 勿填真实姓名、联系方式等 PII。详见[配置项详解 · 权限](configuration.md#permissions权限管理)。
 
 ## 服务器管控(受控写)
 
-插件从**只读监测**跨入**受控写管控**:`server` 组提供 7 条对官方 REST 写端点的管理命令(`announce`/`save`/`kick`/`unban`/`ban`/`shutdown`/`stop`)+ `/pal confirm` 二次确认。承诺从「绝不写」转为「受控写:默认全关、仅授权管理员、全程审计」。
+插件从**只读监测**跨入**受控写管控**:`server` 组提供 7 条对官方 REST 写端点的管理命令(`announce`/`save`/`kick`/`unban`/`ban`/`shutdown`/`stop`)+ `/pal confirm` 二次确认。承诺从「绝不写」转为「受控写:默认全关、仅授权管理员、进入实际执行阶段后留痕」。
 
 | 指令 | 参数 | 功能组 | 权限 / 场景 | 说明 |
 |------|------|--------|-------------|------|
@@ -177,7 +164,7 @@
 
 1. **管理员硬门(最先)**:非管理员名单成员**一律**回「需要管理员权限」——与功能组开关状态无关,不泄露危险组是否开启。硬编码仅认 `permission_admins` 名单,空名单则无人可执行(fail-closed)。
 2. **功能组门**:命令按组归属——`server_admin_basic` = {announce, save, kick, unban}、`server_admin_danger` = {ban, shutdown, stop},**默认全关**。运营者可只开 basic 不暴露 danger。
-3. **服务器授权门**:复用只读侧授权(RESTRICTED 下私聊拒、群授权名单、`@server` 覆盖)。**注意 OPEN 访问模式的爆炸半径**(见下)。
+3. **服务器授权门**:单世界写命令固定指向唯一就绪服务器,不查 `single_allowed_groups` 读名单;多世界写命令沿用群绑定授权,RESTRICTED 下私聊拒绝,也不接受 `@server` 临时覆盖。**注意 OPEN 访问模式的爆炸半径**(见下)。
 
 ### 二次确认(仅 danger 组,可选)
 
@@ -189,7 +176,7 @@
 
 ### 审计(落库 + 前端只读查看)
 
-每次写操作(无论成败)落一行审计到 `admin_audit` 表:时间、管理员标识、动作、服务器、目标(角色名 + userid **哈希**,不存明文)、结果/错误类别。审计可在设置页「审计」章只读查看(最近 N 条,倒序)。留存受 `audit_retention_days`(默认 180 天)限制,随清理链自动删旧行。审计表含明文 `admin_id`/`target_name`,属受控 PII。
+进入实际执行阶段的写操作会在审计存储正常时落一行到 `admin_audit` 表:时间、管理员标识、动作、服务器、目标(角色名 + userid **哈希**,不存明文)、结果/错误类别。审计可在设置页「审计」章只读查看(最近 N 条,倒序)。`audit_retention_days`(默认 180 天)当前只是留存目标,尚未由调度器自动清理旧行。审计表含明文 `admin_id`/`target_name`,属受控 PII。
 
 ### ⚠️ 安全告知(务必阅读)
 

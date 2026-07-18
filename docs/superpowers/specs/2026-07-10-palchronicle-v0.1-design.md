@@ -7,7 +7,7 @@
 > - 规格版本：v0.1-spec-2（经对抗式复核修订，见 §21）
 > - 编写日期：2026-07-10
 > - 目标运行环境：**AstrBot ≥ 4.10.4**（`template_list` 配置需要；建议最新 4.26.x）、Python ≥ 3.11、SQLite 3
-> - 上游设计文档：`C:\Users\arthu\Downloads\PalChronicle_完整设计方案.md`
+> - 上游设计文档：`PalChronicle_完整设计方案.md`（本地设计输入，未纳入仓库）
 
 ---
 

@@ -71,7 +71,7 @@ export const OBJECT_SECTIONS: ObjectSection[] = [
     { key: 'ping_ok_ms', type: 'int', label: 'Ping 正常阈值', default: 120, hint: '≤ 此值为正常，超过则为偏高（毫秒）' },
     { key: 'uncertain_timeout', type: 'int', label: '掉线判定时间（秒）', default: 900, hint: '超过此时长无响应即视为离线' },
   ]},
-  { key: 'history', title: '数据保留', subtitle: '各类数据的保留天数，到期自动清理', fields: [
+  { key: 'history', title: '数据保留', subtitle: '各类数据的留存目标；当前版本尚未自动清理', fields: [
     { key: 'raw_metrics_days', type: 'int', label: '原始指标', default: 7 },
     { key: 'aggregate_days', type: 'int', label: '预聚合统计', default: 90 },
     { key: 'session_days', type: 'int', label: '玩家会话', default: 365 },
@@ -85,7 +85,7 @@ export const OBJECT_SECTIONS: ObjectSection[] = [
   { key: 'server_admin', title: '服务器管控', subtitle: '「服务器管控」任一组启用时生效；写操作仅授权管理员可用', fields: [
     { key: 'require_confirmation', type: 'bool', label: '危险命令二次确认', default: false, hint: '开启后关服 / 封禁等危险命令须在有效期内 /pal confirm 再确认' },
     { key: 'confirmation_timeout', type: 'int', label: '确认有效期（秒）', default: 30, hint: '二次确认的有效时长，超时作废（范围 5-600）' },
-    { key: 'audit_retention_days', type: 'int', label: '审计留存天数', default: 180, hint: '管控操作日志保留天数，到期清理（范围 1-3650；日志含玩家名 / 账号等明文信息）' },
+    { key: 'audit_retention_days', type: 'int', label: '审计留存天数', default: 180, hint: '管控操作日志留存目标（范围 1-3650；当前尚未自动清理；日志含玩家名 / 账号等明文信息）' },
   ]},
 ]
 
