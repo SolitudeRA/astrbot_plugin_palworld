@@ -23,6 +23,7 @@ from palworld_terminal.domain.models import PlayerIdentity, World, WorldMetric
 from palworld_terminal.infrastructure.clock import FakeClock
 from palworld_terminal.infrastructure.database import Database
 from palworld_terminal.infrastructure.migrations import apply_migrations
+from palworld_terminal.presentation.event_wording import render_event
 
 DAY_START_UTC = 1783609200          # 2026-07-10 00:00 Asia/Tokyo
 NOON = DAY_START_UTC + 12 * 3600
@@ -101,8 +102,8 @@ async def test_all_event_types_and_dedup_and_report(tmp_path: Path):
 
         rep = await report.daily(w, day="2026-07-10")
         assert rep.is_empty is False
-        assert rep.growth == ["Neo 升级 Lv9→Lv12"]  # 成长节名字解析 + 措辞同源
+        assert [render_event(v) for v in rep.growth] == ["Neo 升级 Lv9→Lv12"]  # 成长节名字解析 + 措辞同源
         assert len(rep.base_changes) == 3           # 新据点/消失/工作帕鲁全归据点变化
-        assert any("100" in r for r in rep.records)
+        assert any("100" in render_event(r) for r in rep.records)
     finally:
         await db.close()

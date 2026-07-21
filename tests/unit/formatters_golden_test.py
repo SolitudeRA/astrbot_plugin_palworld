@@ -1,7 +1,7 @@
 from pathlib import Path
 
-from palworld_terminal.domain.enums import PingBucket
-from palworld_terminal.presentation.dtos import (
+from palworld_terminal.application.dtos import (
+    EventView,
     OnlineDTO,
     OnlinePlayerRow,
     RulesDTO,
@@ -11,6 +11,7 @@ from palworld_terminal.presentation.dtos import (
     WildTopRow,
     WorldSummaryDTO,
 )
+from palworld_terminal.domain.enums import EventType, PingBucket
 from palworld_terminal.presentation.formatters import (
     format_online,
     format_rules,
@@ -83,8 +84,9 @@ def test_rules_golden():
 
 
 def test_today_golden():
-    # 样张镜像 spec §4.5（三节：今日纪录/玩家成长/据点变化；措辞已由 event_wording
-    # 在 ReportService 渲染成串，此处直接给定稿；累计在线 12时40分=45600s / fmt_duration）。
+    # 样张镜像 spec §4.5（三节：今日纪录/玩家成长/据点变化）。三节现为 EventView 列
+    # （ReportService 经 event_view 构造），措辞由 render_event 逐字复现旧串；累计在线
+    # 12时40分=45600s / fmt_duration。golden today.txt 字节不变即锁定 render_event 复现保真。
     class _Report:
         day = "2026-07-17"
         is_empty = False
@@ -94,13 +96,19 @@ def test_today_golden():
         peak_online = 7
         total_online_seconds = 45600  # 12时40分
         records = [
-            "世界迎来第 100 天",
-            "在线人数新纪录 8 人",
-            "新玩家 Trinity 加入世界",
-            "新公会「Matrix」出现",
+            EventView(occurred_at=0, event_type=EventType.WORLD_DAY_MILESTONE, name="", milestone=100),
+            EventView(occurred_at=0, event_type=EventType.ONLINE_RECORD, name="", value=8),
+            EventView(occurred_at=0, event_type=EventType.NEW_PLAYER, name="Trinity"),
+            EventView(occurred_at=0, event_type=EventType.NEW_GUILD, name="Matrix"),
         ]
-        growth = ["Neo 升级 Lv21→Lv22", "Trinity 升级 Lv17→Lv18"]
-        base_changes = ["新据点「海岸木材场」确认", "据点「河谷矿场」工作帕鲁 12→18"]
+        growth = [
+            EventView(occurred_at=0, event_type=EventType.PLAYER_LEVEL_UP, name="Neo", old=21, new=22),
+            EventView(occurred_at=0, event_type=EventType.PLAYER_LEVEL_UP, name="Trinity", old=17, new=18),
+        ]
+        base_changes = [
+            EventView(occurred_at=0, event_type=EventType.NEW_BASE, name="海岸木材场"),
+            EventView(occurred_at=0, event_type=EventType.WORKER_DELTA, name="河谷矿场", prev=12, cur=18),
+        ]
         summary = "今天：1 名新玩家加入，2 次成长，2 处据点变化。"
 
     _check_golden("today.txt", format_today(_Report(), "Palpagos"))

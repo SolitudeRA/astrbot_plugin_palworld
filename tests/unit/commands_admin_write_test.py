@@ -15,8 +15,13 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
-from palworld_terminal.application.admin_service import AdminResult, TargetResult
+from palworld_terminal.application.admin_service import (
+    AdminResult,
+    AdminService,
+    TargetResult,
+)
 from palworld_terminal.application.command_permissions import CommandOverride
+from palworld_terminal.application.routing_service import Resolution, RoutingError
 from palworld_terminal.presentation.commands import Commands, feature_disabled_text
 from palworld_terminal.presentation.confirmation import ConfirmationStore
 from palworld_terminal.presentation.locale import L
@@ -62,6 +67,47 @@ class _FakeRoutingRevoke:
         return SimpleNamespace(
             server=SimpleNamespace(server_id=self._id, name=self._name), error=None
         )
+
+
+class _FailRouting:
+    """resolve 恒失败（server=None + RoutingError [+ error_params]）：驱动 admin_resolve_failed
+    渲染链。用真 Resolution dataclass（error_params 字段真实存在），验 str→enum 契约 +
+    error_params 透传 + `_render_routing_error` 嵌套渲染字节保真（spec §7.3 复核#1 最易破处）。
+    """
+
+    def __init__(self, error: RoutingError, params: dict | None = None) -> None:
+        self._error = error
+        self._params = params or {}
+
+    async def resolve(self, umo, override, is_group, *, for_write=False):
+        return Resolution(None, self._error, dict(self._params))
+
+
+class _NullRepo:
+    """真 AdminService 的占位 repo：resolve 失败在触达前短路，故方法内容无关紧要。"""
+
+    async def get_current_world(self, server_id):
+        return SimpleNamespace(world_id="w1")
+
+    async def insert_audit(self, **kw):
+        pass
+
+
+def _real_admin(routing) -> AdminService:
+    """真 AdminService（resolve 失败前不触达 fetch/post/repo）：验证 application 层
+    透传 error/error_params → presentation 边界 `_render_result` 渲染的完整链路。"""
+
+    async def fetch(server_id, endpoint):
+        return SimpleNamespace(ok=True, data=[])
+
+    async def post(server_id, path, json_body):
+        return SimpleNamespace(ok=True, status=200, error=None)
+
+    return AdminService(
+        routing=routing, fetch=fetch, post=post,
+        repo=_NullRepo(), salt=b"salt",
+        clock=SimpleNamespace(now=lambda: 1000),
+    )
 
 
 class _FakeAdmin:
@@ -734,3 +780,61 @@ async def test_double_confirm_executes_only_once():
     assert second == L("admin_no_pending")  # 第二次无 pending
     # AdminService.stop 恰被调用一次(claim 原子 pop 保证不双执行)
     assert [x for x in admin.calls if x == ("stop",)] == [("stop",)]
+
+
+# ---- admin resolve 失败 → admin_resolve_failed 嵌套渲染字节保真 ----
+# spec §7.3「字节陷阱·复核#1 最易破处」：Task 6 后 routing 产 RoutingError 枚举 + error_params，
+# 经 application 层透传（admin_service）或 commands 内联两路，最终嵌套进 `❌ 无法执行：{reason}`
+# （locale.py:130）。期望串硬编码自 locale.py（admin_resolve_failed + 各 routing code 模板）——
+# 对 `_render_routing_error` / 键名 error·error_params / 嵌套模板任一回归都变红。
+
+
+async def test_admin_resolve_failed_via_service_no_param_code():
+    # 落点(a) presentation 边界渲染：save → 真 AdminService._execute resolve 失败 →
+    # AdminResult(admin_resolve_failed, params.error/error_params) → _render_result。无参码。
+    routing = _FailRouting(RoutingError.NO_SERVER_CONFIGURED)
+    c = _cmds(admin=_real_admin(routing), cfg=_cfg(group_on=True))
+    out = await c.admin_write(
+        "save", "server_admin_basic", "p:1", "umo", True, "", is_admin=True
+    )
+    assert out == "❌ 无法执行：尚未配置 Palworld 服务器，请在插件配置页添加。"
+
+
+async def test_admin_resolve_failed_via_service_param_code():
+    # 落点(a) + 带参码：SERVER_UNKNOWN + error_params={"server":"Beta"} 经 admin_service
+    # 透传，验 error_params 真被填进模板（reason 含「Beta」）。
+    routing = _FailRouting(RoutingError.SERVER_UNKNOWN, {"server": "Beta"})
+    c = _cmds(admin=_real_admin(routing), cfg=_cfg(group_on=True))
+    out = await c.admin_write(
+        "announce", "server_admin_basic", "p:1", "umo", True, "hi", is_admin=True
+    )
+    assert out == "❌ 无法执行：服务器「Beta」不存在或未就绪。"
+
+
+async def test_admin_resolve_failed_inline_kick_param_code():
+    # 落点(b) commands 内联：kick 先 inline resolve（commands.py:706）失败 →
+    # 内联 L("admin_resolve_failed", reason=_render_routing_error(...))；带参码验透传。
+    routing = _FailRouting(RoutingError.SERVER_UNKNOWN, {"server": "Beta"})
+    admin = _FakeAdmin()
+    c = _cmds(admin=admin, cfg=_cfg(group_on=True), routing=routing)
+    out = await c.admin_write(
+        "kick", "server_admin_basic", "p:1", "umo", True, "Neo afk", is_admin=True
+    )
+    assert out == "❌ 无法执行：服务器「Beta」不存在或未就绪。"
+    assert admin.calls == []  # resolve 失败先于 resolve_target：不触达底层
+
+
+async def test_admin_resolve_failed_inline_stop_confirm_no_param_code():
+    # 落点(b) 第二处内联：stop + require_confirmation → inline resolve（commands.py:777）失败
+    # → 内联渲染；无参码 NO_SERVER_RESOLVED（reason 多行素文整段嵌入）。
+    routing = _FailRouting(RoutingError.NO_SERVER_RESOLVED)
+    admin = _FakeAdmin()
+    c = _cmds(admin=admin, cfg=_cfg(group_on=True, require=True), routing=routing)
+    out = await c.admin_write(
+        "stop", "server_admin_danger", "p:1", "umo", True, "", is_admin=True
+    )
+    assert out == (
+        "❌ 无法执行：本会话未指定服务器。管理员可用 /pal link add <名称> 授权，"
+        "/pal link list 查看服务器。"
+    )
+    assert admin.calls == []  # resolve 失败先于 pending/执行

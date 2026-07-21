@@ -2,6 +2,7 @@ from types import SimpleNamespace
 
 from palworld_terminal.application.routing_service import (
     Resolution,
+    RoutingError,
     UnbindResult,
     UseResult,
 )
@@ -107,7 +108,7 @@ async def test_resolve_world_none_renders_degraded_with_server_name():
 
 
 async def test_query_resolution_error_returns_error_text():
-    routing = _FakeRouting(Resolution(None, "服务器「x」不存在或未就绪。"))
+    routing = _FakeRouting(Resolution(None, RoutingError.SERVER_UNKNOWN, {"server": "x"}))
     cmds = Commands(routing, _FakeQuery(), _FakeRepo(), cfg=None, clock=None)
     out = await cmds.handle_query(
         "umo1", "/pal status", "status", is_group=True,

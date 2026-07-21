@@ -5,8 +5,17 @@ import re
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 
-from .application.command_permissions import CommandOverride
+from .application.command_permissions import (
+    COMMAND_META,
+    CommandOverride,
+    admin_configurable,
+    admin_forced_true,
+    enable_configurable,
+    upstream_unavailable,
+    upstream_unavailable_group,
+)
 from .domain.enums import AccessMode
+from .shared.command_registry import DISPATCH
 
 _ILLEGAL = (":", "@")
 # RFC 9110 tchar；用 fullmatch（$ 会在末尾换行前匹配，是暗坑）
@@ -336,18 +345,6 @@ def _parse_permissions(raw: Mapping) -> PermissionsConfig:
             continue
         seen.add(pid)
         admins.append(AdminEntry(id=pid, note=str(item.get("note", "") or "").strip()))
-
-    # command_permissions 三态行 → command_overrides（本任务；不含 legacy 迁移）。
-    # 函数体内相对 import：避免 config↔application/presentation 循环依赖。
-    from .application.command_permissions import (
-        COMMAND_META,
-        admin_configurable,
-        admin_forced_true,
-        enable_configurable,
-        upstream_unavailable,
-        upstream_unavailable_group,
-    )
-    from .presentation.command_registry import DISPATCH
 
     valid_group_keys = set(DISPATCH.keys())
     overrides: dict[str, dict] = {}

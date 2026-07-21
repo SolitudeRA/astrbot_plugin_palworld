@@ -8,10 +8,10 @@ from ..domain.enums import EventType
 from ..domain.models import Base, BaseObservation, PlayerIdentity, World, WorldEvent
 from ..infrastructure.cache import TTLCache
 from ..infrastructure.clock import Clock
-from ..presentation.dtos import (
+from .dtos import (
     BaseDetailDTO,
     BaseDTO,
-    EventDTO,
+    EventView,
     GuildDetailDTO,
     GuildDTO,
     OnlineDTO,
@@ -22,8 +22,8 @@ from ..presentation.dtos import (
     StatusDTO,
     WildTopRow,
     WorldSummaryDTO,
+    event_view,
 )
-from ..presentation.event_wording import event_wording
 from .name_resolver import keep_world_subject_under_strict, resolve_subjects
 from .name_resolver import load_excluded_keys as _load_excluded_keys
 from .report_service import day_bounds
@@ -355,13 +355,14 @@ class QueryService:
         self._cache.set(key, dto, self._GUILDS_TTL)
         return dto
 
-    # guild info 近期动态实填（spec §4.7）：仅该公会据点的三类据点事件；措辞经 event_wording
-    # 单一真相源（与 events/today 同源，绝不另写措辞），据点名经 name_resolver 统一序号空间解析。
+    # guild info 近期动态实填（spec §4.7）：仅该公会据点的三类据点事件；本层只经 event_view
+    # 构造 EventView（与 events/today 同源单一构造入口，措辞渲染下沉 presentation.render_event），
+    # 据点名经 name_resolver 统一序号空间解析。
     _GUILD_BASE_EVENTS = (EventType.NEW_BASE, EventType.WORKER_DELTA, EventType.BASE_VANISHED)
 
     async def _guild_recent_events(
         self, world: World, guild_base_keys: set[str]
-    ) -> list[str]:
+    ) -> list[EventView]:
         if not guild_base_keys:
             return []
         events = await self._repo.list_events(world.world_id, since=None, limit=20)
@@ -374,7 +375,7 @@ class QueryService:
         if not relevant:
             return []
         names = await self.resolve_event_subjects(world, relevant)
-        return [event_wording(e, names.get(e.subject_key, "")) for e in relevant]
+        return [event_view(e, names.get(e.subject_key, "")) for e in relevant]
 
     async def _bases_indexed(self, world: World) -> list[tuple[int, Base]]:
         # 统一序号空间（spec §3 据点名口径）：BASE-n 编号 / guild bases 列表序号 /
@@ -444,7 +445,7 @@ class QueryService:
             available=obs is not None,
         )
 
-    async def events(self, world: World, today_only: bool) -> list[EventDTO]:
+    async def events(self, world: World, today_only: bool) -> list[EventView]:
         key = f"events:{world.world_id}:{int(today_only)}"
         cached = self._cache.get(key)
         if cached is not None:
@@ -460,19 +461,17 @@ class QueryService:
         events = keep_world_subject_under_strict(
             events, self._cfg.privacy.mode == "strict"
         )
-        # 主体名批量解析（含隐藏收敛 + 据点/公会回退，spec §4.4）；措辞走 event_wording 单一真相源。
+        # 主体名批量解析（含隐藏收敛 + 据点/公会回退，spec §4.4）；视图经 event_view 单一
+        # 构造入口（措辞渲染下沉 presentation.render_event）。
         names = await self.resolve_event_subjects(world, events)
-        dtos: list[EventDTO] = []
+        views: list[EventView] = []
         for e in events:
             # 隐藏/查无玩家事件整条跳过（resolver 对 player 主体缺席即跳，不泄漏隐藏玩家）。
             if e.subject_type == "player" and e.subject_key not in names:
                 continue
-            dtos.append(EventDTO(
-                occurred_at=e.occurred_at, event_type=e.event_type.value,
-                summary=event_wording(e, names.get(e.subject_key, "")),
-            ))
-        self._cache.set(key, dtos, self._EVENTS_TTL)
-        return dtos
+            views.append(event_view(e, names.get(e.subject_key, "")))
+        self._cache.set(key, views, self._EVENTS_TTL)
+        return views
 
     def _render_rule_value(self, field: str, value, kind: str) -> str:
         if kind == "enum":

@@ -6,8 +6,8 @@
 """
 from __future__ import annotations
 
-from palworld_terminal.presentation.command_registry import HELP_TEXT
 from palworld_terminal.presentation.formatters import format_help
+from palworld_terminal.shared.command_registry import HELP_TEXT
 from tests.unit._perm import overrides
 
 

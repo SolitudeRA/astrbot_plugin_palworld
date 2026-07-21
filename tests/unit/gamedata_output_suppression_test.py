@@ -21,6 +21,7 @@ from palworld_terminal.config import parse_config
 from palworld_terminal.container import Container
 from palworld_terminal.domain.enums import EventType
 from palworld_terminal.infrastructure.clock import FakeClock
+from palworld_terminal.presentation.event_wording import render_event
 from tests.fixtures.loader import load_fixture
 
 # game-data 唯一产生的事件家族（spec §3.6 四枚举）
@@ -120,14 +121,16 @@ async def test_assembly_layer_report_and_events_have_no_guild_base_content(tmp_p
 
         report = await c.report.daily(world)
         # 正对照：非 game-data 记录（新玩家）照常渲染 → 证明报告机制在场，屏蔽是差分的。
-        assert any("新玩家" in r for r in report.records)
+        assert any("新玩家" in render_event(r) for r in report.records)
         # game-data 派生三处渲染面（今日纪录公会/据点、据点变化节、summary）全空：
         assert report.base_changes == []
-        assert not any(("新公会" in r or "新据点" in r) for r in report.records)
+        assert not any(("新公会" in render_event(r) or "新据点" in render_event(r)) for r in report.records)
         assert "据点变化" not in report.summary
 
         dtos = await c.query.events(world, today_only=False)
-        base_family = {t.value for t in _GAME_DATA_EVENTS}
+        # EventView.event_type 现为 EventType 枚举成员：护栏须以枚举成员集判定（非 .value 串集），
+        # 否则枚举化后 `EventType in {str}` 恒 False，假绿架空屏蔽护栏。
+        base_family = set(_GAME_DATA_EVENTS)
         assert not any(d.event_type in base_family for d in dtos)
     finally:
         await c.stop()

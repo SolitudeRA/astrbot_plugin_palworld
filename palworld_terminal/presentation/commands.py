@@ -10,12 +10,12 @@ from ..application.command_permissions import (
     effective_enabled,
     upstream_unavailable,
 )
+from ..application.dtos import ServerStatusRow
 from ..application.query_service import metric_stale
 from ..application.report_service import server_timezone
+from ..application.routing_service import RoutingError
 from ..domain.enums import AccessMode, EndpointName
-from ..presentation.command_registry import DISPATCH, METHOD_PATH
 from ..presentation.confirmation import PendingAction
-from ..presentation.dtos import ServerStatusRow
 from ..presentation.formatters import (
     format_base,
     format_bases,
@@ -36,6 +36,7 @@ from ..presentation.formatters import (
 )
 from ..presentation.locale import L
 from ..presentation.server_arg import ArgError, parse_arg, parse_group
+from ..shared.command_registry import DISPATCH, METHOD_PATH
 
 # shutdown 倒计时秒数上界（spec §3：正整数、1–86400）。
 _SHUTDOWN_MAX_SECONDS = 86400
@@ -52,6 +53,15 @@ def feature_disabled_text(path: str) -> str:
     if upstream_unavailable(path):
         return L("feature_disabled")
     return f"{L('feature_disabled')}\n{L('feature_disabled_hint')}"
+
+
+def _render_routing_error(err: RoutingError | None, params: dict | None) -> str:
+    """RoutingError → 本地化串（presentation 边界；err=None → 空串）。
+
+    逐字复现原 routing 内联 L(key, **params) 输出：枚举值即 locale key，
+    error_params 即模板填充参数。
+    """
+    return L(err.value, **(params or {})) if err is not None else ""
 
 
 def _parse_shutdown_seconds(token: str) -> int | None:
@@ -133,7 +143,7 @@ class Commands:
             return None, None, L("arg_error"), ""
         res = await self._routing.resolve(umo, arg.server_override, is_group)
         if res.server is None:
-            return None, arg, res.error, ""
+            return None, arg, _render_routing_error(res.error, res.error_params), ""
         world = await self._repo.get_current_world(res.server.server_id)
         if world is None:
             # server ready 但无世界快照（恒「从未成功」句）：降级标题带配置名 res.server.name
@@ -695,7 +705,8 @@ class Commands:
             # 写路径：for_write=True → 单模式绕过读授权名单（admin 硬门已在上文把守）。
             resolution = await self._routing.resolve(umo, None, is_group, for_write=True)
             if resolution.server is None:
-                return L("admin_resolve_failed", reason=resolution.error or "")
+                reason = _render_routing_error(resolution.error, resolution.error_params)
+                return L("admin_resolve_failed", reason=reason)
             server = resolution.server
             target = await self._admin.resolve_target(server.server_id, token)
             if target.kind == "unreachable":
@@ -751,7 +762,8 @@ class Commands:
                 # 写路径：for_write=True → 单模式绕过读授权名单。
                 resolution = await self._routing.resolve(umo, None, is_group, for_write=True)
                 if resolution.server is None:
-                    return L("admin_resolve_failed", reason=resolution.error or "")
+                    reason = _render_routing_error(resolution.error, resolution.error_params)
+                    return L("admin_resolve_failed", reason=reason)
                 return self._store_pending(
                     command_str, group, admin_id, umo, resolution.server,
                     payload={"seconds": seconds, "message": message},
@@ -764,7 +776,8 @@ class Commands:
                 # 写路径：for_write=True → 单模式绕过读授权名单。
                 resolution = await self._routing.resolve(umo, None, is_group, for_write=True)
                 if resolution.server is None:
-                    return L("admin_resolve_failed", reason=resolution.error or "")
+                    reason = _render_routing_error(resolution.error, resolution.error_params)
+                    return L("admin_resolve_failed", reason=reason)
                 return self._store_pending(
                     command_str, group, admin_id, umo, resolution.server,
                     payload={},
@@ -876,7 +889,8 @@ class Commands:
                 server=params.get("server", ""), error=params.get("error", ""),
             )
         if key == "admin_resolve_failed":
-            return L("admin_resolve_failed", reason=params.get("reason", ""))
+            reason = _render_routing_error(params.get("error"), params.get("error_params", {}))
+            return L("admin_resolve_failed", reason=reason)
         if key == "target_unreachable":
             return L("target_unreachable")
         if key == "target_none":

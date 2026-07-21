@@ -1,8 +1,7 @@
-from palworld_terminal.domain.enums import Confidence, PingBucket
-from palworld_terminal.presentation.dtos import (
+from palworld_terminal.application.dtos import (
     BaseDetailDTO,
     BaseDTO,
-    EventDTO,
+    EventView,
     GuildDetailDTO,
     GuildDTO,
     OnlineDTO,
@@ -14,6 +13,7 @@ from palworld_terminal.presentation.dtos import (
     WildTopRow,
     WorldSummaryDTO,
 )
+from palworld_terminal.domain.enums import Confidence, EventType, PingBucket
 
 
 def test_status_dto_fields():
@@ -58,9 +58,9 @@ def test_remaining_dtos_construct():
     GuildDetailDTO(
         name="Noema", first_seen_at=1, last_seen_at=2, observed_members=4,
         base_pals=10, base_count=2, bases=[("Noema-1", Confidence.HIGH)],
-        recent_events=["新据点「Noema-2」确认"],
+        recent_events=[EventView(occurred_at=1000, event_type=EventType.NEW_BASE, name="Noema-2")],
     )
     BaseDTO(index=1, display_name="Noema-1", guild_name="Noema",
             confidence=Confidence.MEDIUM, worker_count=5)
-    EventDTO(occurred_at=1000, event_type="new_player", summary="新玩家加入")
+    EventView(occurred_at=1000, event_type=EventType.NEW_PLAYER, name="Neo")
     ServerStatusRow(name="alpha", ready=True, online=True, allowed=True, active=True)

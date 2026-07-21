@@ -3,7 +3,7 @@ from pathlib import Path
 import pytest
 
 from palworld_terminal.adapters.sqlite_repository import Repository
-from palworld_terminal.application.routing_service import RoutingService
+from palworld_terminal.application.routing_service import RoutingError, RoutingService
 from palworld_terminal.config import (
     AppConfig,
     BasesConfig,
@@ -56,14 +56,16 @@ async def test_override_unknown_server_errors(repo):
     svc = RoutingService(repo, _cfg([_server("alpha")]))
     res = await svc.resolve("umo1", override="ghost", is_group=True)
     assert res.server is None
-    assert "不存在或未就绪" in res.error
+    assert res.error is RoutingError.SERVER_UNKNOWN
+    assert res.error_params == {"server": "ghost"}
 
 
 async def test_override_requires_allowed_in_restricted(repo):
     svc = RoutingService(repo, _cfg([_server("alpha")]))
     res = await svc.resolve("umo1", override="alpha", is_group=True)
     assert res.server is None
-    assert "未被授权" in res.error
+    assert res.error is RoutingError.NOT_AUTHORIZED
+    assert res.error_params == {"server": "alpha"}
 
 
 async def test_override_after_authorization_succeeds(repo):
@@ -87,7 +89,7 @@ async def test_dangling_active_falls_through_to_prompt(repo):
     svc = RoutingService(repo, _cfg([_server("alpha")]))  # beta removed
     res = await svc.resolve("umo1", override=None, is_group=True)
     assert res.server is None
-    assert res.error is not None
+    assert res.error is RoutingError.ACTIVE_SERVER_STALE
 
 
 async def test_disabled_server_not_used_as_default(repo):
@@ -114,11 +116,11 @@ async def test_private_chat_restricted_rejected(repo):
     svc = RoutingService(repo, _cfg([_server("alpha")]))
     res = await svc.resolve("umo1", override=None, is_group=False)
     assert res.server is None
-    assert "私聊" in res.error
+    assert res.error is RoutingError.PRIVATE_RESTRICTED
 
 
 async def test_no_server_configured(repo):
     svc = RoutingService(repo, _cfg([], access=AccessMode.OPEN))
     res = await svc.resolve("umo1", override=None, is_group=True)
     assert res.server is None
-    assert "尚未配置" in res.error
+    assert res.error is RoutingError.NO_SERVER_CONFIGURED

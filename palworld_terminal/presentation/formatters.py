@@ -1,19 +1,10 @@
 from __future__ import annotations
 
 from ..application.command_permissions import effective_enabled
-from ..application.query_service import PlayerProfileDTO, RankBoardsDTO
-from ..config import SkippedServer
-from ..domain.enums import ActionCategory, Confidence, PingBucket
-from ..presentation.command_registry import (
-    DISPATCH,
-    FLAT_ACTIONS,
-    HELP_TEXT,
-    ActionSpec,
-)
-from ..presentation.dtos import (
+from ..application.dtos import (
     BaseDetailDTO,
     BaseDTO,
-    EventDTO,
+    EventView,
     GuildDetailDTO,
     GuildDTO,
     OnlineDTO,
@@ -22,6 +13,10 @@ from ..presentation.dtos import (
     StatusDTO,
     WorldSummaryDTO,
 )
+from ..application.query_service import PlayerProfileDTO, RankBoardsDTO
+from ..config import SkippedServer
+from ..domain.enums import ActionCategory, Confidence, PingBucket
+from ..presentation.event_wording import render_event
 from ..presentation.locale import L
 from ..presentation.textkit import (
     abs_date,
@@ -30,6 +25,12 @@ from ..presentation.textkit import (
     rel_date,
     rel_datetime,
     time_of_day,
+)
+from ..shared.command_registry import (
+    DISPATCH,
+    FLAT_ACTIONS,
+    HELP_TEXT,
+    ActionSpec,
 )
 
 _PING_LABEL = {
@@ -114,8 +115,8 @@ def format_guild(
     dto: GuildDetailDTO, *, strict: bool, now: int, tz, fold_limit: int = 7,
 ) -> str:
     """guild info（spec §4.7）。标题锚点=公会名 dto.name。首次观察=绝对日期；最近=相对
-    日期词表（时间戳字段全档带 HH:MM）。据点节 + 近期动态节实填（措辞经 event_wording
-    单一真相源，query 层已渲染成串）。恒 0 占位（active_*/average_level）与 PalBox 砍位。
+    日期词表（时间戳字段全档带 HH:MM）。据点节 + 近期动态节实填（近期动态经 render_event
+    渲染，query 层已构造 EventView）。恒 0 占位（active_*/average_level）与 PalBox 砍位。
     strict=字段级裁剪：省略据点节 + 近期动态节 + 首行「据点 N」计数（据点类不经本命令绕出
     strict）；公会本体（成员/工作帕鲁/首次观察/最近）保留。"""
     head = [f"成员 ~{dto.observed_members}", f"工作帕鲁 {dto.base_pals}"]
@@ -137,7 +138,7 @@ def format_guild(
         if dto.recent_events:
             lines.append("")
             lines.append("近期动态")
-            lines.extend(fold([f"· {s}" for s in dto.recent_events], fold_limit, "条"))
+            lines.extend(fold([f"· {render_event(ev)}" for ev in dto.recent_events], fold_limit, "条"))
     return "\n".join(lines)
 
 
@@ -209,13 +210,14 @@ def format_base(dto: BaseDetailDTO) -> str:
 
 
 def format_events(
-    events: list[EventDTO], server_name: str, *,
+    events: list[EventView], server_name: str, *,
     now: int, tz, today_only: bool, fold_limit: int,
 ) -> str:
     """world events（spec §4.4）。标题锚点 server_name = 配置名 srv.name（commands 层供数）。
 
-    events 已由 query 层隐藏收敛 + 名字解析 + 八类措辞渲染（EventDTO.summary），按 occurred_at
-    DESC 排列。本函数只做呈现：日分组 / 仅今天条目带 HH:MM / 消息级折叠 / 空态两变体。
+    events 已由 query 层隐藏收敛 + 名字解析 + event_view 构造 EventView，按 occurred_at
+    DESC 排列；措辞经 render_event 渲染。本函数只做呈现：日分组 / 仅今天条目带 HH:MM /
+    消息级折叠 / 空态两变体。
 
     - today 变体（today_only）：标题「今日事件」，不设日节头，直列条目均带 HH:MM。
     - 常规：按 rel_date 词形（今天/昨天/MM-DD）分节，仅「今天」节条目带 HH:MM，过往日靠
@@ -230,12 +232,12 @@ def format_events(
 
     # 消息级折叠：截前 fold_limit 条渲染，尾行经 textkit.fold 复用同一「…等共 N 条」格式。
     visible = events[:fold_limit]
-    tail = fold([e.summary for e in events], fold_limit, "条")[len(visible):]
+    tail = fold([render_event(e) for e in events], fold_limit, "条")[len(visible):]
 
     lines = [title]
     if today_only:
         lines.append("")
-        lines.extend(f"· {time_of_day(e.occurred_at, tz)} {e.summary}" for e in visible)
+        lines.extend(f"· {time_of_day(e.occurred_at, tz)} {render_event(e)}" for e in visible)
     else:
         current_day: str | None = None
         for e in visible:
@@ -245,9 +247,9 @@ def format_events(
                 lines.append(day)         # 素节头无图标
                 current_day = day
             if day == "今天":
-                lines.append(f"· {time_of_day(e.occurred_at, tz)} {e.summary}")
+                lines.append(f"· {time_of_day(e.occurred_at, tz)} {render_event(e)}")
             else:
-                lines.append(f"· {e.summary}")
+                lines.append(f"· {render_event(e)}")
     lines.extend(tail)                     # 折叠尾行（未折叠时为空）
     return "\n".join(lines)
 
@@ -470,8 +472,8 @@ def format_today(dto, server_name: str, *, fold_limit: int = 7) -> str:
     """world today 日报（spec §4.5）。标题锚点 server_name = 配置名 srv.name（commands
     层供数），标题带日期（§2.1）。
 
-    三节（今日纪录/玩家成长/据点变化）措辞已由 ReportService 经 event_wording 单一真相源
-    渲染成串（名字解析后、隐藏玩家跳过），本函数只做版式：素节头无图标；每节独立折叠 7
+    三节（今日纪录/玩家成长/据点变化）已由 ReportService 经 event_view 构造 EventView
+    （名字解析后、隐藏玩家跳过），措辞经 render_event 渲染，本函数只做版式：素节头无图标；每节独立折叠 7
     （today 为节级特例，spec §2.7）；累计在线走 textkit.fmt_duration（N时M分，废 N 小时
     聚合式）。空态标题同带日期 + 素文一句。据点变化节 gamedata 锁定期自然缺席（既有屏蔽）。
     """
@@ -492,7 +494,7 @@ def format_today(dto, server_name: str, *, fold_limit: int = 7) -> str:
         if items:
             lines.append("")
             lines.append(header)
-            lines.extend(fold([f"· {x}" for x in items], fold_limit, "条"))
+            lines.extend(fold([f"· {render_event(x)}" for x in items], fold_limit, "条"))
     lines.append("")
     lines.append(dto.summary)
     return "\n".join(lines)

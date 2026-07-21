@@ -12,7 +12,7 @@ from datetime import UTC, datetime
 from urllib.parse import urlsplit
 
 from ..application.command_permissions import COMMAND_META
-from .command_registry import DISPATCH
+from ..shared.command_registry import DISPATCH
 
 _LIST_SECTIONS = ("servers", "custom_headers", "group_bindings", "permission_admins",
                   "command_permissions", "single_allowed_groups")

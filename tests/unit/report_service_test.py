@@ -29,6 +29,7 @@ from palworld_terminal.domain.models import (
 from palworld_terminal.infrastructure.clock import FakeClock
 from palworld_terminal.infrastructure.database import Database
 from palworld_terminal.infrastructure.migrations import apply_migrations
+from palworld_terminal.presentation.event_wording import render_event
 
 
 def _cfg(tz: str = "Asia/Tokyo", privacy_mode: str = "balanced") -> AppConfig:
@@ -107,12 +108,13 @@ async def test_daily_splits_events_and_orders(tmp_path):
         assert rep.world_day_start == 105
         assert rep.world_day_end == 105
         assert rep.peak_online == 6
-        # 成长节名字解析 + 措辞走 event_wording 单一真相源（spec §4.4/§4.5）。
-        assert rep.growth == ["Neo 升级 Lv9→Lv12"]
+        # 成长节名字解析 + 措辞走 render_event 渲染（application 只产 EventView，
+        # 措辞在 presentation 层，spec §4.4/§4.5）。
+        assert [render_event(v) for v in rep.growth] == ["Neo 升级 Lv9→Lv12"]
         # 今日纪录收里程碑 + 在线纪录 + 新玩家（三节分派）。
-        assert any("100" in r for r in rep.records)
-        assert "在线人数新纪录 8 人" in rep.records
-        assert "新玩家 Neo 加入世界" in rep.records
+        assert any("100" in render_event(r) for r in rep.records)
+        assert "在线人数新纪录 8 人" in [render_event(v) for v in rep.records]
+        assert "新玩家 Neo 加入世界" in [render_event(v) for v in rep.records]
         assert rep.is_empty is False
         assert rep.summary  # non-empty editorial summary
     finally:
@@ -133,10 +135,10 @@ async def test_daily_natural_day_boundary_excludes_prev_day(tmp_path):
         await events.new_player(w, "pk_in")
         rep = await report.daily(w, day="2026-07-10")
         # 仅窗口内 pk_in 计入；pk_prev（含其名字）必须缺席。
-        assert any("InGuy" in r for r in rep.records)
-        assert not any("PrevGuy" in r for r in rep.records)
+        assert any("InGuy" in render_event(r) for r in rep.records)
+        assert not any("PrevGuy" in render_event(r) for r in rep.records)
         # 名字解析落点：绝不回落内部 key。
-        assert not any("pk_prev" in r for r in rep.records)
+        assert not any("pk_prev" in render_event(r) for r in rep.records)
     finally:
         await db.close()
 
@@ -180,18 +182,18 @@ async def test_daily_three_section_dispatch_and_dedup(tmp_path):
             w, [_bu(prev_worker_count=5, worker_count=12)])      # WORKER_DELTA
         rep = await report.daily(w, day="2026-07-10")
         # 今日纪录
-        assert "世界迎来第 100 天" in rep.records
-        assert "在线人数新纪录 8 人" in rep.records
-        assert "新玩家 Neo 加入世界" in rep.records
-        assert any(r.startswith("新公会") for r in rep.records)
+        assert "世界迎来第 100 天" in [render_event(v) for v in rep.records]
+        assert "在线人数新纪录 8 人" in [render_event(v) for v in rep.records]
+        assert "新玩家 Neo 加入世界" in [render_event(v) for v in rep.records]
+        assert any(render_event(r).startswith("新公会") for r in rep.records)
         # 去重：据点类绝不进今日纪录
-        assert not any("新据点" in r for r in rep.records)
-        assert not any("工作帕鲁" in r for r in rep.records)
+        assert not any("新据点" in render_event(r) for r in rep.records)
+        assert not any("工作帕鲁" in render_event(r) for r in rep.records)
         # 据点变化节收全部据点类
-        assert any("新据点" in r for r in rep.base_changes)
-        assert any("工作帕鲁" in r for r in rep.base_changes)
+        assert any("新据点" in render_event(r) for r in rep.base_changes)
+        assert any("工作帕鲁" in render_event(r) for r in rep.base_changes)
         # 成长节
-        assert rep.growth == ["Neo 升级 Lv21→Lv22"]
+        assert [render_event(v) for v in rep.growth] == ["Neo 升级 Lv21→Lv22"]
         # 末行编辑部总结主分支（spec §4.5）：经 _summary 三计数拼装（1 新玩家 / 1 成长 /
         # 2 据点变化），锚定 golden 手造串之外的真实渲染路径，防 _summary 主分支回归。
         assert rep.summary == "今天：1 名新玩家加入，1 次成长，2 处据点变化。"
@@ -220,11 +222,11 @@ async def test_daily_strict_omits_growth_and_base_changes(tmp_path):
         await events.base_events(w, [_bu(is_new=True)])         # NEW_BASE (base)
         rep = await report.daily(w, day="2026-07-10")
         # 今日纪录仅 world 主体：里程碑 + 在线纪录；新玩家/新公会（player/guild）缺席。
-        assert any("100" in r for r in rep.records)
-        assert "在线人数新纪录 8 人" in rep.records
-        assert not any("新玩家" in r for r in rep.records)
-        assert not any("新公会" in r for r in rep.records)
-        assert not any("Neo" in r for r in rep.records)
+        assert any("100" in render_event(r) for r in rep.records)
+        assert "在线人数新纪录 8 人" in [render_event(v) for v in rep.records]
+        assert not any("新玩家" in render_event(r) for r in rep.records)
+        assert not any("新公会" in render_event(r) for r in rep.records)
+        assert not any("Neo" in render_event(r) for r in rep.records)
         # 玩家成长 / 据点变化整节缺席。
         assert rep.growth == []
         assert rep.base_changes == []
@@ -268,9 +270,9 @@ async def test_daily_hidden_player_skipped(tmp_path):
         await events.new_player(w, "pk_hidden")
         await events.level_up(w, "pk_hidden", old=29, new=30)
         rep = await report.daily(w, day="2026-07-10")
-        assert not any("Ghost" in r for r in rep.records)
+        assert not any("Ghost" in render_event(r) for r in rep.records)
         assert rep.growth == []
-        assert not any("pk_hidden" in r for r in rep.records)
+        assert not any("pk_hidden" in render_event(r) for r in rep.records)
     finally:
         await db.close()
 
@@ -379,6 +381,6 @@ async def test_daily_paginates_beyond_event_page(tmp_path, monkeypatch):
         rep = await report.daily(w, day="2026-07-10")
         for i in range(5):
             # 名字解析后展示显示名（非哈希）；分页拉全五条一个不落。
-            assert any(f"Name{i}" in r for r in rep.records), f"Name{i} 被截断丢失"
+            assert any(f"Name{i}" in render_event(r) for r in rep.records), f"Name{i} 被截断丢失"
     finally:
         await db.close()

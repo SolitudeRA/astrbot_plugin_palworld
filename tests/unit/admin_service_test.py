@@ -3,6 +3,7 @@ from types import SimpleNamespace
 import pytest
 
 from palworld_terminal.application.admin_service import AdminService
+from palworld_terminal.application.routing_service import RoutingError
 
 
 class _FakeRepo:
@@ -36,9 +37,16 @@ class _SingleRestrictedRouting:
     async def resolve(self, umo, override, is_group, *, for_write=False):
         self.calls.append(for_write)
         if not for_write:
-            return SimpleNamespace(server=None, error="single_not_authorized")
+            # 契约诚实：Task 6 后 error 为 RoutingError 枚举（非已渲染串）+ error_params。
+            return SimpleNamespace(
+                server=None,
+                error=RoutingError.SINGLE_NOT_AUTHORIZED,
+                error_params={},
+            )
         return SimpleNamespace(
-            server=SimpleNamespace(server_id="s1", name="Alpha"), error=None
+            server=SimpleNamespace(server_id="s1", name="Alpha"),
+            error=None,
+            error_params={},
         )
 
 

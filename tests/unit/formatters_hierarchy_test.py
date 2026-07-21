@@ -8,12 +8,12 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
-from palworld_terminal.presentation.command_registry import (
+from palworld_terminal.presentation.commands import Commands
+from palworld_terminal.presentation.formatters import format_help, visible_actions
+from palworld_terminal.shared.command_registry import (
     HELP_TEXT,
     PAL_COMMAND_STRINGS,
 )
-from palworld_terminal.presentation.commands import Commands
-from palworld_terminal.presentation.formatters import format_help, visible_actions
 from tests.unit._perm import all_on as _all_on
 from tests.unit._perm import overrides
 

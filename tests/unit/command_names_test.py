@@ -2,14 +2,14 @@ import re
 from pathlib import Path
 
 from palworld_terminal.config import _NON_LOCKABLE
-from palworld_terminal.presentation.command_registry import (
+from palworld_terminal.presentation.commands import Commands
+from palworld_terminal.shared.command_registry import (
     DISPATCH,
     FLAT_ACTIONS,
     LOCKABLE_COMMANDS,
     PAL_COMMAND_STRINGS,
     PAL_REGISTERED,
 )
-from palworld_terminal.presentation.commands import Commands
 
 _MAIN = (Path(__file__).resolve().parents[2] / "main.py").read_text(encoding="utf-8")
 
