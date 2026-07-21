@@ -60,7 +60,7 @@ def _cmds(query, mode="balanced"):
     async def _rw(umo, msg, sub, is_group):
         world = SimpleNamespace(world_id="w1", server_id="w")
         return world, SimpleNamespace(name=msg, server_override=None), None, "主服"
-    c._resolve_world = _rw
+    c._reads._resolve_world = _rw
     return c
 
 
