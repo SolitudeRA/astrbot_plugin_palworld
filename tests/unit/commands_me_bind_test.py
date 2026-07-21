@@ -42,7 +42,7 @@ async def cmds_env(tmp_path):
         async def _rw(umo, msg, sub, is_group):
             from palworld_terminal.presentation.server_arg import parse_arg
             return _W, parse_arg(msg, sub), None, "主服"
-        c._resolve_world = _rw
+        c._reads._resolve_world = _rw
         return c
     yield repo, build
     await db.close()
