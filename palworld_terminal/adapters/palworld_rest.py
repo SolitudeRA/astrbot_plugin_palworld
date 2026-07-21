@@ -19,9 +19,6 @@ _ENDPOINT_PATH: dict[EndpointName, str] = {
     EndpointName.GAME_DATA: "game-data",
 }
 
-# 写端点路径（独立于只读 _ENDPOINT_PATH，不进 EndpointName 轮询枚举）。
-_ADMIN_PATH = frozenset({"announce", "save", "kick", "unban", "ban", "shutdown", "stop"})
-
 
 class PalworldRestClient:
     def __init__(self, server: ServerConfig, clock: Clock) -> None:

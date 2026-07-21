@@ -140,7 +140,8 @@ class Container:
             info_cache=self._info_cache,
         )
         admin = AdminService(
-            self.routing, self._fetch, self._post, repo, salt, self._clock
+            self.routing, self._fetch, self._post, repo, salt, self._clock,
+            normalize_players=_normalizer_mod.normalize_players,
         )
         confirmations = ConfirmationStore(self._clock)
         self.commands = Commands(

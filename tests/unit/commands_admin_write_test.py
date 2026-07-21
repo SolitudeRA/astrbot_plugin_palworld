@@ -15,6 +15,7 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
+from palworld_terminal.adapters.normalizer import normalize_players
 from palworld_terminal.application.admin_service import (
     AdminResult,
     AdminService,
@@ -107,6 +108,7 @@ def _real_admin(routing) -> AdminService:
         routing=routing, fetch=fetch, post=post,
         repo=_NullRepo(), salt=b"salt",
         clock=SimpleNamespace(now=lambda: 1000),
+        normalize_players=normalize_players,
     )
 
 
