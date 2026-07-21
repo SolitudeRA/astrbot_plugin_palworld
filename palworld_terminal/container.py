@@ -8,7 +8,7 @@ from typing import cast
 
 from .adapters import normalizer as _normalizer_mod
 from .adapters.metadata_repository import MetadataRepository
-from .adapters.palworld_rest import PalworldRestClient, RestResponse
+from .adapters.palworld_rest import PalworldRestClient
 from .adapters.sqlite_repository import Repository
 from .application.admin_service import AdminService
 from .application.base_service import BaseService
@@ -32,6 +32,7 @@ from .infrastructure.salt import load_or_create_salt
 from .infrastructure.scheduler import Scheduler
 from .presentation.commands import Commands
 from .presentation.confirmation import ConfirmationStore
+from .shared.rest import RestResponse
 
 _log = logging.getLogger("palworld_terminal.container")
 

@@ -5,9 +5,10 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from ..adapters.normalizer import normalize_players
-from ..adapters.palworld_rest import _ADMIN_PATH, RestResponse
+from ..adapters.palworld_rest import _ADMIN_PATH
 from ..domain.enums import EndpointName
 from ..domain.privacy import hash_user_id
+from ..shared.rest import RestResponse
 
 _NETWORK_ERROR = "network error"
 

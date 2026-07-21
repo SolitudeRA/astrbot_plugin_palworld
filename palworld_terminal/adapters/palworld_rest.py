@@ -4,14 +4,12 @@
 """
 from __future__ import annotations
 
-from dataclasses import dataclass
-from typing import Any
-
 import aiohttp
 
 from ..config import ServerConfig
 from ..domain.enums import EndpointName
 from ..infrastructure.clock import Clock
+from ..shared.rest import RestResponse
 
 _ENDPOINT_PATH: dict[EndpointName, str] = {
     EndpointName.INFO: "info",
@@ -23,16 +21,6 @@ _ENDPOINT_PATH: dict[EndpointName, str] = {
 
 # 写端点路径（独立于只读 _ENDPOINT_PATH，不进 EndpointName 轮询枚举）。
 _ADMIN_PATH = frozenset({"announce", "save", "kick", "unban", "ban", "shutdown", "stop"})
-
-
-@dataclass(slots=True)
-class RestResponse:
-    ok: bool
-    status: int | None
-    data: Any | None
-    duration_ms: int
-    payload_bytes: int
-    error: str | None  # 已脱敏：不含凭证/URL/host
 
 
 class PalworldRestClient:

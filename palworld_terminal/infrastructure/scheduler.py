@@ -6,11 +6,11 @@ import logging
 import random
 from collections.abc import Awaitable, Callable
 
-from ..adapters.palworld_rest import RestResponse
 from ..config import PollingConfig, ServerConfig
 from ..domain.enums import EndpointName
 from ..infrastructure.clock import Clock
 from ..infrastructure.locks import EndpointLocks
+from ..shared.rest import RestResponse
 
 _log = logging.getLogger("palworld_terminal.scheduler")
 
