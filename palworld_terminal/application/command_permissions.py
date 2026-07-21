@@ -8,7 +8,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 
 from ..domain.enums import EndpointName
-from ..presentation.command_registry import (
+from ..shared.command_registry import (
     DISPATCH,
     FLAT_ACTIONS,
     LOCKABLE_COMMANDS,

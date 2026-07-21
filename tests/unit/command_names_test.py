@@ -2,7 +2,7 @@ import re
 from pathlib import Path
 
 from palworld_terminal.config import _NON_LOCKABLE
-from palworld_terminal.presentation.command_registry import (
+from palworld_terminal.shared.command_registry import (
     DISPATCH,
     FLAT_ACTIONS,
     LOCKABLE_COMMANDS,

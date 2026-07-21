@@ -4,7 +4,7 @@
 _NON_LOCKABLE / LOCKABLE_COMMANDS）；命令注册身份(11 首词)由 command_names_test
 锚定到 main.py。getattr introspection 抓 typo 方法名。
 """
-from palworld_terminal.presentation.command_registry import (
+from palworld_terminal.shared.command_registry import (
     _NON_LOCKABLE,
     DISPATCH,
     FLAT_ACTIONS,

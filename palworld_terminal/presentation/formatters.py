@@ -4,12 +4,6 @@ from ..application.command_permissions import effective_enabled
 from ..application.query_service import PlayerProfileDTO, RankBoardsDTO
 from ..config import SkippedServer
 from ..domain.enums import ActionCategory, Confidence, PingBucket
-from ..presentation.command_registry import (
-    DISPATCH,
-    FLAT_ACTIONS,
-    HELP_TEXT,
-    ActionSpec,
-)
 from ..presentation.dtos import (
     BaseDetailDTO,
     BaseDTO,
@@ -30,6 +24,12 @@ from ..presentation.textkit import (
     rel_date,
     rel_datetime,
     time_of_day,
+)
+from ..shared.command_registry import (
+    DISPATCH,
+    FLAT_ACTIONS,
+    HELP_TEXT,
+    ActionSpec,
 )
 
 _PING_LABEL = {

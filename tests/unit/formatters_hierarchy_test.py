@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
-from palworld_terminal.presentation.command_registry import (
+from palworld_terminal.shared.command_registry import (
     HELP_TEXT,
     PAL_COMMAND_STRINGS,
 )

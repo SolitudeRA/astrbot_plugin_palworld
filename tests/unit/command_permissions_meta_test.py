@@ -1,5 +1,5 @@
 from palworld_terminal.application import command_permissions as cp
-from palworld_terminal.presentation.command_registry import (
+from palworld_terminal.shared.command_registry import (
     _NON_LOCKABLE,
     DISPATCH,
     FLAT_ACTIONS,
@@ -54,7 +54,7 @@ def test_group_of_and_danger():
 
 def test_all_gated_methods_in_method_path():
     # METHOD_PATH 须覆盖全部 @_gated 方法名，否则运行时 METHOD_PATH[fn.__name__] KeyError。
-    from palworld_terminal.presentation.command_registry import METHOD_PATH
+    from palworld_terminal.shared.command_registry import METHOD_PATH
     gated = {"guilds", "guild", "bases", "base", "events", "today",
              "rank", "player", "bind", "me", "unbind_self"}   # 现 @_gated 方法名
     assert gated <= set(METHOD_PATH)

@@ -13,7 +13,6 @@ from ..application.command_permissions import (
 from ..application.query_service import metric_stale
 from ..application.report_service import server_timezone
 from ..domain.enums import AccessMode, EndpointName
-from ..presentation.command_registry import DISPATCH, METHOD_PATH
 from ..presentation.confirmation import PendingAction
 from ..presentation.dtos import ServerStatusRow
 from ..presentation.formatters import (
@@ -36,6 +35,7 @@ from ..presentation.formatters import (
 )
 from ..presentation.locale import L
 from ..presentation.server_arg import ArgError, parse_arg, parse_group
+from ..shared.command_registry import DISPATCH, METHOD_PATH
 
 # shutdown 倒计时秒数上界（spec §3：正整数、1–86400）。
 _SHUTDOWN_MAX_SECONDS = 86400
