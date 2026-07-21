@@ -67,7 +67,7 @@
 
 ```text
 🌍 世界状态 · Palpagos
-第 42 天 · v1.0.0 · 已运行 6天9时
+第 42 天 · v1.1.0 · 已运行 6天9时
 
 在线 2/32 · 今日峰值 7
 性能 🟢 流畅 · FPS 58 · 帧时间 17.2ms
@@ -99,7 +99,7 @@
 | 危险管控 | **关** | 封禁、倒计时关服、强制停服必须逐条开启；可选二次确认 |
 | 公会与据点 | **不可用** | 当前被插件硬锁，配置无法绕过 |
 
-> **公会与据点暂不可用**：Palworld 1.0 [官方文档](https://docs.palworldgame.com/api/rest-api/game-data/)已经列出 `/game-data`，但当前专用服务器仍返回 `404 PalGameDataBridge GameData API is not enabled`，[官方配置表](https://docs.palworldgame.com/settings-and-operation/configuration/)也没有提供启用方式。因此 v1.0.0 暂时关闭相关命令和派生功能；这不是权限或插件配置问题，需要等待服务端开放并由插件适配后才能使用。
+> **公会与据点暂不可用**：Palworld 1.0 [官方文档](https://docs.palworldgame.com/api/rest-api/game-data/)已经列出 `/game-data`，但当前专用服务器仍返回 `404 PalGameDataBridge GameData API is not enabled`，[官方配置表](https://docs.palworldgame.com/settings-and-operation/configuration/)也没有提供启用方式。因此 v1.1.0 暂时关闭相关命令和派生功能；这不是权限或插件配置问题，需要等待服务端开放并由插件适配后才能使用。
 
 ## 快速开始
 
