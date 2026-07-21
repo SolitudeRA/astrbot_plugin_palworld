@@ -14,6 +14,7 @@ query_service→report_service 的导入环。
 """
 from __future__ import annotations
 
+from ..application.dtos import EventView
 from ..domain.enums import EventType
 from ..domain.models import WorldEvent
 
@@ -43,4 +44,31 @@ def event_wording(event: WorldEvent, name: str) -> str:
         return f"世界迎来第 {p.get('milestone', '?')} 天"
     if et is EventType.ONLINE_RECORD:
         return f"在线人数新纪录 {p.get('value', '?')} 人"
+    return et.value
+
+
+def _or_q(v: int | None) -> object:
+    return v if v is not None else "?"
+
+
+def render_event(view: EventView) -> str:
+    """EventView → 面向用户措辞（spec §4.4 八类表，逐字对齐旧 event_wording）。
+    八类措辞唯一渲染源；未知类型兜底返回枚举值，不冒异常。"""
+    et = view.event_type
+    if et is EventType.PLAYER_LEVEL_UP:
+        return f"{view.name} 升级 Lv{_or_q(view.old)}→Lv{_or_q(view.new)}"
+    if et is EventType.NEW_PLAYER:
+        return f"新玩家 {view.name} 加入世界"
+    if et is EventType.NEW_GUILD:
+        return f"新公会「{view.name}」出现"
+    if et is EventType.NEW_BASE:
+        return f"新据点「{view.name}」确认"
+    if et is EventType.BASE_VANISHED:
+        return f"据点「{view.name}」疑似消失（连续多次未观察到）"
+    if et is EventType.WORKER_DELTA:
+        return f"据点「{view.name}」工作帕鲁 {_or_q(view.prev)}→{_or_q(view.cur)}"
+    if et is EventType.WORLD_DAY_MILESTONE:
+        return f"世界迎来第 {_or_q(view.milestone)} 天"
+    if et is EventType.ONLINE_RECORD:
+        return f"在线人数新纪录 {_or_q(view.value)} 人"
     return et.value
