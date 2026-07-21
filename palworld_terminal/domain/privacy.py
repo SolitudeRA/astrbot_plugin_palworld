@@ -2,16 +2,26 @@ from __future__ import annotations
 
 import hmac
 import math
+from dataclasses import dataclass
 from hashlib import sha256
 
-from ..config import PrivacyConfig
-from ..domain.enums import PingBucket
-from ..domain.models import (
+from .enums import PingBucket
+from .models import (
     CharacterActor,
     GameDataSnapshot,
     PlayerRow,
     PlayersSnapshot,
 )
+
+
+@dataclass(slots=True)
+class PrivacyConfig:
+    mode: str
+    public_exact_ping: bool
+    public_positions: bool
+    ping_good_ms: int
+    ping_ok_ms: int
+    uncertain_timeout: int
 
 
 def hash_user_id(salt: bytes, world_id: str, raw_user_id: str) -> str:

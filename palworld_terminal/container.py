@@ -7,7 +7,6 @@ from pathlib import Path
 from typing import cast
 
 from .adapters import normalizer as _normalizer_mod
-from .adapters import privacy_filter as _privacy_mod
 from .adapters.metadata_repository import MetadataRepository
 from .adapters.palworld_rest import PalworldRestClient, RestResponse
 from .adapters.sqlite_repository import Repository
@@ -22,6 +21,7 @@ from .application.report_service import ReportService
 from .application.routing_service import RoutingService
 from .application.snapshot_service import SnapshotService
 from .config import AppConfig, ServerConfig
+from .domain import privacy as _privacy_mod
 from .domain.enums import EndpointName
 from .infrastructure.cache import TTLCache
 from .infrastructure.clock import Clock

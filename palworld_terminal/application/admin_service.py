@@ -6,8 +6,8 @@ from typing import Any
 
 from ..adapters.normalizer import normalize_players
 from ..adapters.palworld_rest import _ADMIN_PATH, RestResponse
-from ..adapters.privacy_filter import hash_user_id
 from ..domain.enums import EndpointName
+from ..domain.privacy import hash_user_id
 
 _NETWORK_ERROR = "network error"
 

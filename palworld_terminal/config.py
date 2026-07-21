@@ -15,6 +15,7 @@ from .application.command_permissions import (
     upstream_unavailable_group,
 )
 from .domain.enums import AccessMode
+from .domain.privacy import PrivacyConfig
 from .shared.command_registry import DISPATCH
 
 _ILLEGAL = (":", "@")
@@ -106,16 +107,6 @@ class BasesConfig:
     confirmation_samples: int
     position_grid_size: int
     z_weight: float
-
-
-@dataclass(slots=True)
-class PrivacyConfig:
-    mode: str
-    public_exact_ping: bool
-    public_positions: bool
-    ping_good_ms: int
-    ping_ok_ms: int
-    uncertain_timeout: int
 
 
 @dataclass(slots=True)
