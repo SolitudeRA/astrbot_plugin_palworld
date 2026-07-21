@@ -53,21 +53,25 @@ _WORDING_FRAGMENTS = [
 
 
 def test_eight_wordings_single_source_no_reinline():
-    # 唯一真相源持有全八类措辞指纹。
+    # 唯一渲染源（render_event）持有全八类措辞指纹。
     canonical = _code_string_literals(inspect.getsource(event_wording_module))
     for frag in _WORDING_FRAGMENTS:
         assert frag in canonical, f"event_wording.py 缺措辞指纹 {frag!r}"
-    # 三处消费者（events + guild 近期动态在 query_service；today 在 report_service）只
-    # delegate event_wording，代码内绝不 re-inline 任一措辞。
+    # 措辞渲染下沉 presentation.render_event（消除 application→presentation 反向依赖）：
+    # query/report 不再产措辞、不 import 已废弃的 event_wording，只经 event_view 单一构造
+    # 入口产 EventView；代码内绝不 re-inline 任一措辞。
     for mod in (query_service, report_service):
         src = inspect.getsource(mod)
-        assert "event_wording(" in src, f"{mod.__name__} 未调用 event_wording 单一真相源"
+        assert "event_wording" not in src, f"{mod.__name__} 仍引用已废弃的 event_wording"
+        assert "event_view(" in src, f"{mod.__name__} 未经 event_view 单一构造入口"
         code_strings = _code_string_literals(src)
         for frag in _WORDING_FRAGMENTS:
             assert frag not in code_strings, (
                 f"{mod.__name__} 代码内 re-inline 措辞 {frag!r}——八类措辞应唯一源自 "
-                f"event_wording.py（改词即漂移）"
+                f"presentation.render_event（改词即漂移）"
             )
+    # render_event 是 formatters 唯一措辞源（消费者只 delegate，不 re-inline）。
+    assert "render_event(" in inspect.getsource(formatters_module)
 
 
 def test_formatters_delegate_textkit_no_hand_rolled_duration_or_date():

@@ -9,7 +9,7 @@ from ..config import AppConfig
 from ..domain.enums import EventType
 from ..domain.models import World, WorldEvent
 from ..infrastructure.clock import Clock
-from ..presentation.event_wording import event_wording
+from .dtos import EventView, event_view
 from .name_resolver import (
     keep_world_subject_under_strict,
     load_excluded_keys,
@@ -51,8 +51,8 @@ def day_bounds(
 
 @dataclass(slots=True)
 class DailyReport:
-    """今日日报结构化 DTO（spec §4.5）。三节措辞均由 event_wording 单一真相源渲染成串
-    （名字解析后，隐藏玩家已跳过）；formatter 只做版式。
+    """今日日报结构化 DTO（spec §4.5）。三节均由 event_view 构造 EventView（名字解析后，
+    隐藏玩家已跳过），措辞渲染下沉 presentation.render_event；formatter 只做版式。
 
     - records：今日纪录（里程碑/在线纪录/新玩家/新公会）。
     - growth：玩家成长（升级；显示名，隐藏玩家跳过）。
@@ -65,9 +65,9 @@ class DailyReport:
     active_players: int
     peak_online: int
     total_online_seconds: int
-    records: list[str]
-    growth: list[str]
-    base_changes: list[str]
+    records: list[EventView]
+    growth: list[EventView]
+    base_changes: list[EventView]
     summary: str
     is_empty: bool
 
@@ -114,20 +114,21 @@ class ReportService:
             world_day_start, world_day_end = day_range
 
         # 主体名批量解析（隐藏玩家跳过 / 据点·公会查无回退），与 events(T6) 共用同一
-        # resolver；措辞走 event_wording 单一真相源（spec §4.4/§4.5）。
+        # resolver；视图经 event_view 单一构造入口（措辞渲染下沉 presentation.render_event，
+        # spec §4.4/§4.5）。
         excluded = await load_excluded_keys(
             self._repo, world.world_id, self._cfg.players.exclude_names
         )
         names = await resolve_subjects(self._repo, world.world_id, events, excluded)
 
-        def _wording(evs: list[WorldEvent]) -> list[str]:
-            out: list[str] = []
+        def _views(evs: list[WorldEvent]) -> list[EventView]:
+            out: list[EventView] = []
             for e in evs:
                 # 玩家主体查无/隐藏（resolver 缺席）整条跳过——与 events 名字级收敛
                 # 同哲学，不泄漏隐藏玩家；据点/公会主体恒有名（含回退）。
                 if e.subject_type == "player" and e.subject_key not in names:
                     continue
-                out.append(event_wording(e, names.get(e.subject_key, "")))
+                out.append(event_view(e, names.get(e.subject_key, "")))
             return out
 
         by_type: dict[EventType, list[WorldEvent]] = {}
@@ -139,18 +140,18 @@ class ReportService:
 
         # 三节分派 + 去重（spec §4.5）：今日纪录只收里程碑/在线纪录/新玩家/新公会；
         # 据点类（新据点/消失/工作帕鲁）全归据点变化节，绝不重复进今日纪录。
-        new_player_lines = _wording(_of(EventType.NEW_PLAYER))
+        new_player_views = _views(_of(EventType.NEW_PLAYER))
         records = (
-            _wording(_of(EventType.WORLD_DAY_MILESTONE))
-            + _wording(_of(EventType.ONLINE_RECORD))
-            + new_player_lines
-            + _wording(_of(EventType.NEW_GUILD))
+            _views(_of(EventType.WORLD_DAY_MILESTONE))
+            + _views(_of(EventType.ONLINE_RECORD))
+            + new_player_views
+            + _views(_of(EventType.NEW_GUILD))
         )
-        growth = _wording(_of(EventType.PLAYER_LEVEL_UP))
+        growth = _views(_of(EventType.PLAYER_LEVEL_UP))
         base_changes = (
-            _wording(_of(EventType.NEW_BASE))
-            + _wording(_of(EventType.BASE_VANISHED))
-            + _wording(_of(EventType.WORKER_DELTA))
+            _views(_of(EventType.NEW_BASE))
+            + _views(_of(EventType.BASE_VANISHED))
+            + _views(_of(EventType.WORKER_DELTA))
         )
 
         # v0.1 近似：与当日窗口交叠的会话，其 observed_seconds 全额计入当日，
@@ -169,7 +170,7 @@ class ReportService:
         has_content = bool(records or growth or base_changes) or active_players > 0
         if has_content:
             summary = self._summary(
-                len(new_player_lines), len(growth), len(base_changes), active_players,
+                len(new_player_views), len(growth), len(base_changes), active_players,
             )
         else:
             summary = "平静的一天"

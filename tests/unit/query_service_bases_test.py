@@ -26,6 +26,7 @@ from palworld_terminal.infrastructure.cache import TTLCache
 from palworld_terminal.infrastructure.clock import FakeClock
 from palworld_terminal.infrastructure.database import Database
 from palworld_terminal.infrastructure.migrations import apply_migrations
+from palworld_terminal.presentation.event_wording import render_event
 
 WID = "alpha:guid-1:0"
 
@@ -92,7 +93,7 @@ async def test_guild_detail_found(qs):
 
 async def test_guild_recent_events_filled(qs):
     # §4.7 / §5#15：近期动态实填=list_events 过滤该公会据点的 NEW_BASE/WORKER_DELTA/BASE_VANISHED
-    # （措辞经 event_wording 单一真相源；他公会据点事件排除）。
+    # （经 event_view 构造 EventView，措辞下沉 render_event；他公会据点事件排除）。
     repo, q, _ = qs
     await repo.upsert_guild(Guild("g1", WID, "Matrix", 900, 1200, 4, 2, 28))
     await repo.upsert_base(Base("b1", WID, "pb1", "海岸木材场", "g1", Confidence.HIGH, False, False, 900, 1200))
@@ -101,7 +102,7 @@ async def test_guild_recent_events_filled(qs):
     await repo.insert_event(WorldEvent(None, WID, EventType.WORKER_DELTA, "base", "b1", 1100, 1100, {"prev": 12, "cur": 18}, "public", Confidence.HIGH, f"{WID}|WORKER_DELTA|b1"))
     await repo.insert_event(WorldEvent(None, WID, EventType.NEW_BASE, "base", "b2", 1150, 1150, {}, "public", Confidence.HIGH, f"{WID}|NEW_BASE|b2"))
     dto = await q.guild(_world(), "Matrix")
-    assert dto.recent_events == [
+    assert [render_event(e) for e in dto.recent_events] == [
         "新据点「海岸木材场」确认",
         "据点「海岸木材场」工作帕鲁 12→18",
     ]
@@ -231,12 +232,13 @@ async def test_events_today_only_filters(qs):
     assert len(all_events) == 2
     today = await q.events(_world(), today_only=True)
     assert len(today) == 1
-    assert today[0].event_type == "new_player"
-    assert today[0].summary == "新玩家 P-Two 加入世界"  # 措辞经 event_wording 单一真相源
+    assert today[0].event_type is EventType.NEW_PLAYER
+    assert render_event(today[0]) == "新玩家 P-Two 加入世界"  # 措辞经 render_event 唯一渲染源
 
 
 async def test_events_render_wording_via_single_source(qs):
-    # events() 消费 name_resolver + event_wording：subject_key 解析为显示名、措辞照八类表。
+    # events() 消费 name_resolver + event_view：subject_key 解析为显示名，EventView 经
+    # render_event 渲染照八类表。
     repo, q, _ = qs
     await repo.upsert_player(PlayerIdentity("pk1", WID, "Neo", 900, 1200, 22, None, IdConfidence.HIGH))
     await repo.insert_event(WorldEvent(
@@ -245,7 +247,7 @@ async def test_events_render_wording_via_single_source(qs):
     ))
     dtos = await q.events(_world(), today_only=False)
     assert len(dtos) == 1
-    assert dtos[0].summary == "Neo 升级 Lv21→Lv22"
+    assert render_event(dtos[0]) == "Neo 升级 Lv21→Lv22"
 
 
 async def test_events_skips_hidden_player_event(qs):
@@ -282,7 +284,7 @@ async def test_events_strict_keeps_only_world_subject(qs):
         clock=clock, settings_cache={},
     )
     strict = await q_strict.events(_world(), today_only=False)
-    summaries = [d.summary for d in strict]
+    summaries = [render_event(d) for d in strict]
     assert len(strict) == 2
     assert "世界迎来第 100 天" in summaries
     assert "在线人数新纪录 8 人" in summaries

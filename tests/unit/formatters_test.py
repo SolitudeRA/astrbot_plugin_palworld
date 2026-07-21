@@ -4,7 +4,7 @@ from zoneinfo import ZoneInfo
 from palworld_terminal.application.dtos import (
     BaseDetailDTO,
     BaseDTO,
-    EventDTO,
+    EventView,
     GuildDetailDTO,
     GuildDTO,
     OnlineDTO,
@@ -18,7 +18,7 @@ from palworld_terminal.application.dtos import (
     WorldSummaryDTO,
 )
 from palworld_terminal.config import SkippedServer
-from palworld_terminal.domain.enums import Confidence, PingBucket
+from palworld_terminal.domain.enums import Confidence, EventType, PingBucket
 from palworld_terminal.presentation.formatters import (
     format_base,
     format_bases,
@@ -228,7 +228,11 @@ def _guild_detail(**kw):
         last_seen_at=_g_ep(2026, 7, 17, 14, 30), observed_members=4,
         base_pals=28, base_count=2,
         bases=[("海岸木材场", Confidence.HIGH), ("河谷矿场", Confidence.MEDIUM)],
-        recent_events=["新据点「河谷矿场」确认", "据点「海岸木材场」工作帕鲁 12→18"],
+        recent_events=[
+            EventView(occurred_at=0, event_type=EventType.NEW_BASE, name="河谷矿场"),
+            EventView(occurred_at=0, event_type=EventType.WORKER_DELTA,
+                      name="海岸木材场", prev=12, cur=18),
+        ],
     )
     base.update(kw)
     return GuildDetailDTO(**base)
@@ -367,18 +371,23 @@ def _evt_ep(y, mo, d, h=0, mi=0):
     return int(datetime(y, mo, d, h, mi, tzinfo=ZoneInfo(_EVT_TZ)).timestamp())
 
 
-def _evt(occurred_at, summary, event_type="x"):
-    return EventDTO(occurred_at=occurred_at, event_type=event_type, summary=summary)
+def _evt(occurred_at, event_type, **fields):
+    """EventView 工厂：占位事件的措辞由 render_event 从 event_type + 字段派生
+    （不再直塞 summary 串）。"""
+    return EventView(
+        occurred_at=occurred_at, event_type=event_type,
+        name=fields.pop("name", ""), **fields,
+    )
 
 
 def test_format_events_by_day_grouping_spec_4_4():
     # spec §4.4：标题锚点 + 空行 + 日分组；仅今天条目带 HH:MM，过往日靠节头定位不带时刻。
     now = _evt_ep(2026, 7, 17, 15, 0)
     events = [
-        _evt(_evt_ep(2026, 7, 17, 14, 32), "Neo 升级 Lv21→Lv22"),
-        _evt(_evt_ep(2026, 7, 17, 9, 15), "在线人数新纪录 8 人"),
-        _evt(_evt_ep(2026, 7, 16, 20, 0), "新玩家 Trinity 加入世界"),
-        _evt(_evt_ep(2026, 7, 14, 10, 0), "新公会「Matrix」出现"),
+        _evt(_evt_ep(2026, 7, 17, 14, 32), EventType.PLAYER_LEVEL_UP, name="Neo", old=21, new=22),
+        _evt(_evt_ep(2026, 7, 17, 9, 15), EventType.ONLINE_RECORD, value=8),
+        _evt(_evt_ep(2026, 7, 16, 20, 0), EventType.NEW_PLAYER, name="Trinity"),
+        _evt(_evt_ep(2026, 7, 14, 10, 0), EventType.NEW_GUILD, name="Matrix"),
     ]
     assert format_events(
         events, "Palpagos", now=now, tz=_EVT_TZ, today_only=False, fold_limit=7,
@@ -401,8 +410,8 @@ def test_format_events_today_variant_no_day_headers():
     # spec §4.4 today 变体：标题「今日事件」，无节头，直列带 HH:MM。
     now = _evt_ep(2026, 7, 17, 15, 0)
     events = [
-        _evt(_evt_ep(2026, 7, 17, 14, 32), "Neo 升级 Lv21→Lv22"),
-        _evt(_evt_ep(2026, 7, 17, 9, 15), "在线人数新纪录 8 人"),
+        _evt(_evt_ep(2026, 7, 17, 14, 32), EventType.PLAYER_LEVEL_UP, name="Neo", old=21, new=22),
+        _evt(_evt_ep(2026, 7, 17, 9, 15), EventType.ONLINE_RECORD, value=8),
     ]
     text = format_events(
         events, "Palpagos", now=now, tz=_EVT_TZ, today_only=True, fold_limit=7,
@@ -419,8 +428,10 @@ def test_format_events_today_variant_no_day_headers():
 def test_format_events_message_level_fold_across_days():
     # spec §2.7：events 为消息级折叠特例——多日节合计 ≤ fold_limit，尾行「…等共 N 条」。
     now = _evt_ep(2026, 7, 17, 15, 0)
-    events = [_evt(_evt_ep(2026, 7, 17, 14, 0) - i * 60, f"今日{i}") for i in range(4)]
-    events += [_evt(_evt_ep(2026, 7, 16, 20, 0) - i * 60, f"昨日{i}") for i in range(5)]
+    events = [_evt(_evt_ep(2026, 7, 17, 14, 0) - i * 60, EventType.PLAYER_LEVEL_UP,
+                   name=f"今日{i}", old=1, new=2) for i in range(4)]
+    events += [_evt(_evt_ep(2026, 7, 16, 20, 0) - i * 60, EventType.PLAYER_LEVEL_UP,
+                    name=f"昨日{i}", old=1, new=2) for i in range(5)]
     text = format_events(
         events, "Palpagos", now=now, tz=_EVT_TZ, today_only=False, fold_limit=7,
     )
@@ -615,9 +626,16 @@ def test_format_help_filters_disabled_groups():
     assert "/pal guild info" not in on
 
 
+def _rec(text: str) -> EventView:
+    """today 三节占位视图：PLAYER_LEVEL_UP 渲染以 name 开头（`{name} 升级 …`），故版式
+    测试的 `· {text}` 前缀断言在 render_event 下仍成立（本组只测版式，不测措辞内容）。"""
+    return EventView(occurred_at=0, event_type=EventType.PLAYER_LEVEL_UP,
+                     name=text, old=1, new=2)
+
+
 class _TodayReport:
-    """format_today 输入桩：ReportService 已把三节措辞渲染成串（event_wording 单一
-    真相源），formatter 只做版式（标题锚点/节级折叠/累计时长 fmt_duration）。"""
+    """format_today 输入桩：ReportService 已把三节构造成 EventView 列（event_view 单一
+    构造入口），formatter 经 render_event 渲染 + 版式（标题锚点/节级折叠/累计时长 fmt_duration）。"""
 
     def __init__(self, **kw):
         self.day = kw.get("day", "2026-07-17")
@@ -634,12 +652,12 @@ class _TodayReport:
 
 
 def test_today_title_carries_server_and_date():
-    text = format_today(_TodayReport(records=["世界迎来第 100 天"]), "Palpagos")
+    text = format_today(_TodayReport(records=[_rec("世界迎来第 100 天")]), "Palpagos")
     assert text.startswith("📅 今日日报 · Palpagos · 2026-07-17")
 
 
 def test_today_accumulated_time_uses_fmt_duration():
-    text = format_today(_TodayReport(total_online_seconds=45600, records=["x"]), "Palpagos")
+    text = format_today(_TodayReport(total_online_seconds=45600, records=[_rec("x")]), "Palpagos")
     assert "累计在线 12时40分" in text
     assert "小时" not in text  # 废「N 小时」聚合式（spec §2.4）
 
@@ -647,7 +665,7 @@ def test_today_accumulated_time_uses_fmt_duration():
 def test_today_header_line_shape():
     text = format_today(
         _TodayReport(world_day_start=42, world_day_end=45, active_players=3,
-                     peak_online=7, total_online_seconds=45600, records=["x"]),
+                     peak_online=7, total_online_seconds=45600, records=[_rec("x")]),
         "Palpagos",
     )
     assert "第 42 → 45 天 · 活跃玩家 3 · 峰值在线 7 · 累计在线 12时40分" in text
@@ -660,7 +678,7 @@ def test_today_empty_state():
 
 def test_today_section_headers_plain_no_icons():
     text = format_today(
-        _TodayReport(records=["a"], growth=["b"], base_changes=["c"]), "Palpagos"
+        _TodayReport(records=[_rec("a")], growth=[_rec("b")], base_changes=[_rec("c")]), "Palpagos"
     )
     assert "\n今日纪录\n" in text
     assert "\n玩家成长\n" in text
@@ -672,7 +690,7 @@ def test_today_section_headers_plain_no_icons():
 
 def test_today_fold_per_section_at_7():
     # 节级折叠特例（spec §2.7）：每节独立折叠 7 条，尾行「…等共 N 条」。
-    recs = [f"事件{i}" for i in range(8)]
+    recs = [_rec(f"事件{i}") for i in range(8)]
     text = format_today(_TodayReport(records=recs), "Palpagos")
     assert "· 事件0" in text and "· 事件6" in text
     assert "· 事件7" not in text
@@ -680,7 +698,7 @@ def test_today_fold_per_section_at_7():
 
 
 def test_today_absent_section_omitted():
-    text = format_today(_TodayReport(records=["只有纪录"]), "Palpagos")
+    text = format_today(_TodayReport(records=[_rec("只有纪录")]), "Palpagos")
     assert "今日纪录" in text
     assert "玩家成长" not in text
     assert "据点变化" not in text
@@ -715,7 +733,7 @@ def test_formatters_honor_non_default_fold_limit():
 
     # today：今日纪录 5 条、limit=3 → 前 3 + 「…等共 5 条」（节级折叠）。
     today = format_today(
-        _TodayReport(records=[f"E{i}" for i in range(5)]), "S", fold_limit=3,
+        _TodayReport(records=[_rec(f"E{i}") for i in range(5)]), "S", fold_limit=3,
     )
     assert "…等共 5 条" in today
     assert "· E3" not in today

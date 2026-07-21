@@ -126,7 +126,8 @@ class GuildDTO:
 class GuildDetailDTO:
     """guild info 卡片（spec §4.7）。恒 0 占位（active_*/average_level）与 PalBox 砍位。
     bases=(display_name, confidence) 按 guild_key 过滤（含 low 序号空间）；recent_events=
-    list_events 过滤该公会据点的 NEW_BASE/WORKER_DELTA/BASE_VANISHED，措辞经 event_wording。"""
+    list_events 过滤该公会据点的 NEW_BASE/WORKER_DELTA/BASE_VANISHED，经 event_view 构造
+    EventView（措辞渲染下沉 presentation.render_event）。"""
     name: str
     first_seen_at: int
     last_seen_at: int
@@ -134,7 +135,7 @@ class GuildDetailDTO:
     base_pals: int
     base_count: int
     bases: list[tuple[str, Confidence]]
-    recent_events: list[str]
+    recent_events: list[EventView]
 
 
 @dataclass(slots=True)
@@ -160,13 +161,6 @@ class BaseDetailDTO:
     action_distribution: dict[str, int]
     health_score: float
     available: bool = True
-
-
-@dataclass(slots=True)
-class EventDTO:
-    occurred_at: int
-    event_type: str
-    summary: str
 
 
 @dataclass(slots=True)

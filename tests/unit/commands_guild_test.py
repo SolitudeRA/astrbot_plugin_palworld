@@ -14,10 +14,11 @@ from palworld_terminal.application.command_permissions import CommandOverride
 from palworld_terminal.application.dtos import (
     BaseDetailDTO,
     BaseDTO,
+    EventView,
     GuildDetailDTO,
     GuildDTO,
 )
-from palworld_terminal.domain.enums import Confidence
+from palworld_terminal.domain.enums import Confidence, EventType
 from palworld_terminal.presentation.commands import Commands
 from palworld_terminal.presentation.locale import L
 
@@ -94,8 +95,10 @@ async def test_guild_info_not_found_with_footnote():
 
 
 async def test_guild_info_strict_field_trim_not_refused():
-    dto = GuildDetailDTO("Matrix", 900, 1200, 4, 28, 2,
-                         [("海岸木材场", Confidence.HIGH)], ["新据点「河谷矿场」确认"])
+    dto = GuildDetailDTO(
+        "Matrix", 900, 1200, 4, 28, 2, [("海岸木材场", Confidence.HIGH)],
+        [EventView(occurred_at=0, event_type=EventType.NEW_BASE, name="河谷矿场")],
+    )
     out = await _cmds(_Query(guild=dto), mode="strict").guild("u", "Matrix", True)
     assert out.startswith("🏰 公会 · Matrix")  # 命令仍产出
     assert "据点 2" not in out
