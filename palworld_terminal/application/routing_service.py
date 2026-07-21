@@ -1,20 +1,38 @@
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from enum import Enum
 
 from ..adapters.sqlite_repository import Repository
 from ..config import AppConfig, ServerConfig
 from ..domain.enums import AccessMode
-from ..presentation.locale import L
 
 _log = logging.getLogger("palworld_terminal.routing")
+
+
+class RoutingError(Enum):
+    """resolve 失败原因（application 层不渲染文案，仅产枚举 + 参数）。
+
+    枚举值 = presentation locale key（渲染在 presentation 边界，见
+    commands._render_routing_error）。SERVER_UNKNOWN / NOT_AUTHORIZED 携
+    error_params={"server": ...} 供渲染填名。
+    """
+
+    NO_SERVER_CONFIGURED = "no_server_configured"
+    SINGLE_NOT_AUTHORIZED = "single_not_authorized"
+    PRIVATE_RESTRICTED = "private_restricted"
+    SERVER_UNKNOWN = "server_unknown"
+    NOT_AUTHORIZED = "not_authorized"
+    ACTIVE_SERVER_STALE = "active_server_stale"
+    NO_SERVER_RESOLVED = "no_server_resolved"
 
 
 @dataclass(slots=True)
 class Resolution:
     server: ServerConfig | None
-    error: str | None
+    error: RoutingError | None
+    error_params: dict = field(default_factory=dict)
 
 
 @dataclass(slots=True)
@@ -71,11 +89,11 @@ class RoutingService:
         if self._cfg.routing.world_mode == "single":
             ready = self._ready_servers()
             if not ready:
-                return Resolution(None, L("no_server_configured"))
+                return Resolution(None, RoutingError.NO_SERVER_CONFIGURED)
             if self._cfg.routing.access_mode is AccessMode.RESTRICTED and not for_write:
                 allowed = {e.umo for e in self._cfg.routing.single_allowed_groups}
                 if umo not in allowed:
-                    return Resolution(None, L("single_not_authorized"))
+                    return Resolution(None, RoutingError.SINGLE_NOT_AUTHORIZED)
             if len(ready) > 1 and not self._single_multi_warned:
                 self._single_multi_warned = True
                 _log.warning(
@@ -86,19 +104,21 @@ class RoutingService:
             return Resolution(ready[0], None)
 
         if not self._ready_servers():
-            return Resolution(None, L("no_server_configured"))
+            return Resolution(None, RoutingError.NO_SERVER_CONFIGURED)
 
         # private chat under restricted: no allowed records possible
         if self._cfg.routing.access_mode is AccessMode.RESTRICTED and not is_group:
-            return Resolution(None, L("private_restricted"))
+            return Resolution(None, RoutingError.PRIVATE_RESTRICTED)
 
         # Step 1: explicit @server override
         if override:
             srv = self._ready_by_name(override)
             if srv is None:
-                return Resolution(None, L("server_unknown", server=override))
+                return Resolution(None, RoutingError.SERVER_UNKNOWN, {"server": override})
             if not await self._authorized(umo, srv.server_id, is_group):
-                return Resolution(None, L("not_authorized", server=srv.server_id))
+                return Resolution(
+                    None, RoutingError.NOT_AUTHORIZED, {"server": srv.server_id}
+                )
             return Resolution(srv, None)
 
         # Step 2: group active binding
@@ -107,7 +127,7 @@ class RoutingService:
             if active:
                 srv = self._ready_by_name(active)
                 if srv is None:
-                    return Resolution(None, L("active_server_stale"))
+                    return Resolution(None, RoutingError.ACTIVE_SERVER_STALE)
                 if await self._authorized(umo, srv.server_id, is_group):
                     return Resolution(srv, None)
 
@@ -124,7 +144,7 @@ class RoutingService:
             return Resolution(ready[0], None)
 
         # Step 5: friendly prompt
-        return Resolution(None, L("no_server_resolved"))
+        return Resolution(None, RoutingError.NO_SERVER_RESOLVED)
 
     async def use(self, umo: str, name: str) -> UseResult:
         """授权本群使用某服务器并设为当前活动（spec §5#8：结构化返回，渲染上提）。"""

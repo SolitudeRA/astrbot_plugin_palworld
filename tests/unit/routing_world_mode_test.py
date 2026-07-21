@@ -4,7 +4,7 @@ from pathlib import Path
 import pytest
 
 from palworld_terminal.adapters.sqlite_repository import Repository
-from palworld_terminal.application.routing_service import RoutingService
+from palworld_terminal.application.routing_service import RoutingError, RoutingService
 from palworld_terminal.config import (
     AllowedGroupEntry,
     AppConfig,
@@ -64,7 +64,7 @@ async def test_multi_private_restricted_still_rejected(repo):
     svc = RoutingService(repo, _cfg([_server("alpha")], world_mode="multi"))
     res = await svc.resolve("umo1", override=None, is_group=False)
     assert res.server is None
-    assert "私聊" in res.error
+    assert res.error is RoutingError.PRIVATE_RESTRICTED
 
 
 # ---- single mode: always resolves the unique ready server ----
@@ -75,7 +75,7 @@ async def test_single_private_chat_restricted_not_in_allowlist_denied(repo):
         repo, _cfg([_server("alpha")], access=AccessMode.RESTRICTED, world_mode="single"))
     res = await svc.resolve("umo1", override=None, is_group=False)
     assert res.server is None
-    assert res.error
+    assert res.error is RoutingError.SINGLE_NOT_AUTHORIZED
 
 
 async def test_single_ignores_override(repo):
@@ -102,7 +102,7 @@ async def test_single_no_server_errors(repo):
     svc = RoutingService(repo, _cfg([], world_mode="single"))
     res = await svc.resolve("umo1", override=None, is_group=True)
     assert res.server is None
-    assert "尚未配置" in res.error
+    assert res.error is RoutingError.NO_SERVER_CONFIGURED
 
 
 async def test_single_multiple_ready_uses_first_and_warns(repo, caplog):
@@ -132,7 +132,7 @@ async def test_single_restricted_umo_not_in_allowlist_denied(repo):
         repo, _cfg([_server("alpha")], access=AccessMode.RESTRICTED, world_mode="single",
                    single_allowed_groups=[AllowedGroupEntry("g1", "")]))
     res = await svc.resolve("g2", None, True)
-    assert res.server is None and res.error  # single_not_authorized
+    assert res.server is None and res.error is RoutingError.SINGLE_NOT_AUTHORIZED
 
 
 async def test_single_restricted_empty_allowlist_denies_all(repo):
@@ -162,4 +162,4 @@ async def test_single_restricted_for_write_bypasses_allowlist(repo):
     assert w.server is not None and w.error is None
     assert w.server.server_id == "alpha"  # ready[0]
     r = await svc.resolve("g1", None, True, for_write=False)
-    assert r.server is None and r.error  # single_not_authorized
+    assert r.server is None and r.error is RoutingError.SINGLE_NOT_AUTHORIZED

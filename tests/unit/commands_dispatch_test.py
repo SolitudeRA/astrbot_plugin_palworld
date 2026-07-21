@@ -15,6 +15,7 @@ from types import SimpleNamespace
 from palworld_terminal.application.command_permissions import CommandOverride
 from palworld_terminal.application.routing_service import (
     Resolution,
+    RoutingError,
     UnbindResult,
     UseResult,
 )
@@ -41,10 +42,16 @@ class _BoomRepo:
 
 
 class _ErrRouting:
-    """resolve 恒回路由错误串——证明「过了门、触达实现」而不必备齐深层 fake。"""
+    """resolve 恒回路由错误枚举——证明「过了门、触达实现」而不必备齐深层 fake。
+
+    渲染串（presentation 边界）即 L("no_server_resolved")，_ROUTING_ERR_TEXT 供断言。
+    """
 
     async def resolve(self, umo, override, is_group):
-        return Resolution(None, "ROUTING_ERR")
+        return Resolution(None, RoutingError.NO_SERVER_RESOLVED)
+
+
+_ROUTING_ERR_TEXT = L("no_server_resolved")
 
 
 class _WorldRouting:
@@ -136,7 +143,7 @@ async def test_world_per_subaction_feature_gate():
     c = _mk(_ErrRouting(), _BoomQuery(), _BoomRepo(),
             _cfg(feats={"events": False, "report": False}))
     # status(core) 过功能门 → 触达实现 → 回路由错误串（证明未被门拦）
-    assert await c.world_grp("u", "/pal world status", True, "s", False) == "ROUTING_ERR"
+    assert await c.world_grp("u", "/pal world status", True, "s", False) == _ROUTING_ERR_TEXT
     # events(events 组关) → feature_disabled，不触达实现（非上游不可用 → 带引导脚注）
     assert await c.world_grp("u", "/pal world events", True, "s", False) \
         == feature_disabled_text("world events")
@@ -182,21 +189,21 @@ async def test_admin_denied_downshift_full_path():
     assert out == L("admin_required")  # 锁生效，query Boom 未炸 = 未触达底层
     # 管理员放行 → 过锁 → 触达实现（resolve 回错误串证明过锁）
     out2 = await c.player_grp("u", "/pal player info Alice", True, "admin", True)
-    assert out2 == "ROUTING_ERR"
+    assert out2 == _ROUTING_ERR_TEXT
 
 
 async def test_admin_lock_is_leaf_isolated():
     # 锁一个兄弟叶子 "player bind" 绝不波及 "player info"（完整路径叶子隔离语义）。
     c = _mk(_ErrRouting(), _BoomQuery(), _BoomRepo(), _cfg(locked=["player bind"]))
     out = await c.player_grp("u", "/pal player info Alice", True, "nonadmin", False)
-    assert out == "ROUTING_ERR"  # 未被锁 → 触达实现
+    assert out == _ROUTING_ERR_TEXT  # 未被锁 → 触达实现
 
 
 async def test_world_status_lock_downshift():
     # 完整路径 "world status" 锁：非管理员 → admin_required，管理员放行。
     c = _mk(_ErrRouting(), _BoomQuery(), _BoomRepo(), _cfg(locked=["world status"]))
     assert await c.world_grp("u", "/pal world status", True, "nonadmin", False) == L("admin_required")
-    assert await c.world_grp("u", "/pal world status", True, "admin", True) == "ROUTING_ERR"
+    assert await c.world_grp("u", "/pal world status", True, "admin", True) == _ROUTING_ERR_TEXT
 
 
 # ============================================================================

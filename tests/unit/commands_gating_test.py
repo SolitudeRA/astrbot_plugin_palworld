@@ -50,14 +50,14 @@ async def test_events_and_today_gated():
 async def test_enabled_group_not_gated():
     # 启用的可配组（report/today 默认开）过 gate → 进入路由解析 → 返回路由错误文案
     # （证明未被 gating 拦截；示范载体从 guild 迁到 today，guild 已 force-off 恒被拦）。
-    from palworld_terminal.application.routing_service import Resolution
+    from palworld_terminal.application.routing_service import Resolution, RoutingError
 
     class _Routing:
         async def resolve(self, umo, override, is_group):
-            return Resolution(None, "ROUTING_ERR")
+            return Resolution(None, RoutingError.NO_SERVER_RESOLVED)
 
     cmds = Commands(_Routing(), _BoomQuery(), _Repo(), cfg=_cfg(guilds_bases=True), clock=None)
-    assert await cmds.today("u", "", True) == "ROUTING_ERR"
+    assert await cmds.today("u", "", True) == L("no_server_resolved")
 
 
 async def test_guilds_force_off_even_when_group_enabled():

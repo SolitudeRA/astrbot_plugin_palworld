@@ -72,7 +72,12 @@ class AdminService:
             return AdminResult(
                 ok=False,
                 message_key="admin_resolve_failed",
-                params={"reason": resolution.error or ""},
+                # application 层不渲染：透传 RoutingError 枚举 + 参数，渲染在 presentation
+                # 边界（commands._render_result）。
+                params={
+                    "error": resolution.error,
+                    "error_params": resolution.error_params,
+                },
             )
         server = resolution.server
 
@@ -231,7 +236,12 @@ class AdminService:
             return AdminResult(
                 ok=False,
                 message_key="admin_resolve_failed",
-                params={"reason": resolution.error or ""},
+                # application 层不渲染：透传 RoutingError 枚举 + 参数，渲染在 presentation
+                # 边界（commands._render_result）。
+                params={
+                    "error": resolution.error,
+                    "error_params": resolution.error_params,
+                },
             )
         target = await self.resolve_target(resolution.server.server_id, token)
         if target.kind == "unreachable":
