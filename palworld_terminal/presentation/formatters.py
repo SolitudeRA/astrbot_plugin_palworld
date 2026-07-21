@@ -1,10 +1,7 @@
 from __future__ import annotations
 
 from ..application.command_permissions import effective_enabled
-from ..application.query_service import PlayerProfileDTO, RankBoardsDTO
-from ..config import SkippedServer
-from ..domain.enums import ActionCategory, Confidence, PingBucket
-from ..presentation.dtos import (
+from ..application.dtos import (
     BaseDetailDTO,
     BaseDTO,
     EventDTO,
@@ -16,6 +13,9 @@ from ..presentation.dtos import (
     StatusDTO,
     WorldSummaryDTO,
 )
+from ..application.query_service import PlayerProfileDTO, RankBoardsDTO
+from ..config import SkippedServer
+from ..domain.enums import ActionCategory, Confidence, PingBucket
 from ..presentation.locale import L
 from ..presentation.textkit import (
     abs_date,

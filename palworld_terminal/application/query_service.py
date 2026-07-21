@@ -8,7 +8,8 @@ from ..domain.enums import EventType
 from ..domain.models import Base, BaseObservation, PlayerIdentity, World, WorldEvent
 from ..infrastructure.cache import TTLCache
 from ..infrastructure.clock import Clock
-from ..presentation.dtos import (
+from ..presentation.event_wording import event_wording
+from .dtos import (
     BaseDetailDTO,
     BaseDTO,
     EventDTO,
@@ -23,7 +24,6 @@ from ..presentation.dtos import (
     WildTopRow,
     WorldSummaryDTO,
 )
-from ..presentation.event_wording import event_wording
 from .name_resolver import keep_world_subject_under_strict, resolve_subjects
 from .name_resolver import load_excluded_keys as _load_excluded_keys
 from .report_service import day_bounds

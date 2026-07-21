@@ -10,11 +10,11 @@ from ..application.command_permissions import (
     effective_enabled,
     upstream_unavailable,
 )
+from ..application.dtos import ServerStatusRow
 from ..application.query_service import metric_stale
 from ..application.report_service import server_timezone
 from ..domain.enums import AccessMode, EndpointName
 from ..presentation.confirmation import PendingAction
-from ..presentation.dtos import ServerStatusRow
 from ..presentation.formatters import (
     format_base,
     format_bases,

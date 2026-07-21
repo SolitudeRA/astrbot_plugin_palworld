@@ -1,5 +1,5 @@
 from palworld_terminal.domain.enums import Confidence, PingBucket
-from palworld_terminal.presentation.dtos import (
+from palworld_terminal.application.dtos import (
     BaseDetailDTO,
     BaseDTO,
     EventDTO,

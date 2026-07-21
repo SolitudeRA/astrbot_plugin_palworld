@@ -1,7 +1,7 @@
 from pathlib import Path
 
 from palworld_terminal.domain.enums import PingBucket
-from palworld_terminal.presentation.dtos import (
+from palworld_terminal.application.dtos import (
     OnlineDTO,
     OnlinePlayerRow,
     RulesDTO,
