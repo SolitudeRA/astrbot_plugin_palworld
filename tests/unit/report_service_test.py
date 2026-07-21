@@ -108,7 +108,8 @@ async def test_daily_splits_events_and_orders(tmp_path):
         assert rep.world_day_start == 105
         assert rep.world_day_end == 105
         assert rep.peak_online == 6
-        # 成长节名字解析 + 措辞走 event_wording 单一真相源（spec §4.4/§4.5）。
+        # 成长节名字解析 + 措辞走 render_event 渲染（application 只产 EventView，
+        # 措辞在 presentation 层，spec §4.4/§4.5）。
         assert [render_event(v) for v in rep.growth] == ["Neo 升级 Lv9→Lv12"]
         # 今日纪录收里程碑 + 在线纪录 + 新玩家（三节分派）。
         assert any("100" in render_event(r) for r in rep.records)
