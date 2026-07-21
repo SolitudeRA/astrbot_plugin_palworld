@@ -12,8 +12,8 @@ from __future__ import annotations
 
 from collections.abc import Iterable
 
-from ..adapters.sqlite_repository import Repository
 from ..domain.models import WorldEvent
+from .ports import ReadRepositoryPort
 
 # 查无回退占位（绝不回落内部 subject_key，否则重现 §6#7 丑键泄漏）。
 BASE_FALLBACK = "据点"
@@ -34,7 +34,7 @@ def keep_world_subject_under_strict(
 
 
 async def load_excluded_keys(
-    repo: Repository, world_id: str, exclude_names: Iterable[str]
+    repo: ReadRepositoryPort, world_id: str, exclude_names: Iterable[str]
 ) -> set[str]:
     """被排除/隐藏玩家 key 全集：exclude_names 配置展开为该名下所有 player_key +
     自助隐藏 hidden_players。与 rank/status 隐私收敛同一真相源（QueryService
@@ -48,7 +48,7 @@ async def load_excluded_keys(
 
 
 async def resolve_subjects(
-    repo: Repository,
+    repo: ReadRepositoryPort,
     world_id: str,
     events: Iterable[WorldEvent],
     excluded_keys: set[str],

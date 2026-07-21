@@ -7,6 +7,7 @@ from typing import Any
 from ..domain.enums import ADMIN_ACTIONS, EndpointName
 from ..domain.privacy import hash_user_id
 from ..shared.rest import RestResponse
+from .ports import AuditRepositoryPort
 
 _NETWORK_ERROR = "network error"
 
@@ -44,7 +45,7 @@ class AdminService:
         routing,
         fetch: FetchFn,
         post: PostFn,
-        repo,
+        repo: AuditRepositoryPort,
         salt: bytes,
         clock,
         normalize_players,
@@ -52,7 +53,7 @@ class AdminService:
         self._routing = routing
         self._fetch = fetch
         self._post = post
-        self._repo = repo
+        self._repo: AuditRepositoryPort = repo
         self._salt = salt
         self._clock = clock
         self._normalize_players = normalize_players

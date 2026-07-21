@@ -4,7 +4,6 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
-from ..adapters.sqlite_repository import Repository
 from ..config import AppConfig
 from ..domain.enums import EventType
 from ..domain.models import World, WorldEvent
@@ -15,6 +14,7 @@ from .name_resolver import (
     load_excluded_keys,
     resolve_subjects,
 )
+from .ports import ReadRepositoryPort
 
 _ACTIVE_SECONDS = 600  # spec §12: 活跃日 >= 10 分钟
 
@@ -73,7 +73,7 @@ class DailyReport:
 
 
 class ReportService:
-    def __init__(self, repo: Repository, cfg: AppConfig, clock: Clock) -> None:
+    def __init__(self, repo: ReadRepositoryPort, cfg: AppConfig, clock: Clock) -> None:
         self._repo = repo
         self._cfg = cfg
         self._clock = clock
