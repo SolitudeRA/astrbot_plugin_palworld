@@ -6,8 +6,8 @@
 import re
 from pathlib import Path
 
-from palworld_terminal.application.query_service import _STATUS_RULE_FIELDS
 from palworld_terminal.application.dtos import StatusDetailDTO
+from palworld_terminal.application.query_service import _STATUS_RULE_FIELDS
 
 _VUE = (
     Path(__file__).resolve().parents[2]

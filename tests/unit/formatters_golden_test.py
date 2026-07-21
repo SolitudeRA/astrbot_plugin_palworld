@@ -1,6 +1,5 @@
 from pathlib import Path
 
-from palworld_terminal.domain.enums import PingBucket
 from palworld_terminal.application.dtos import (
     OnlineDTO,
     OnlinePlayerRow,
@@ -11,6 +10,7 @@ from palworld_terminal.application.dtos import (
     WildTopRow,
     WorldSummaryDTO,
 )
+from palworld_terminal.domain.enums import PingBucket
 from palworld_terminal.presentation.formatters import (
     format_online,
     format_rules,

@@ -1,4 +1,3 @@
-from palworld_terminal.domain.enums import Confidence, PingBucket
 from palworld_terminal.application.dtos import (
     BaseDetailDTO,
     BaseDTO,
@@ -14,6 +13,7 @@ from palworld_terminal.application.dtos import (
     WildTopRow,
     WorldSummaryDTO,
 )
+from palworld_terminal.domain.enums import Confidence, PingBucket
 
 
 def test_status_dto_fields():

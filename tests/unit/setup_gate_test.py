@@ -1,8 +1,8 @@
 from types import SimpleNamespace
 
 import main
-from palworld_terminal.shared.command_registry import FLAT_ACTIONS, PAL_REGISTERED
 from palworld_terminal.presentation.locale import L
+from palworld_terminal.shared.command_registry import FLAT_ACTIONS, PAL_REGISTERED
 
 
 def _plugin(setup_confirmed: bool):
