@@ -2,7 +2,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from ..domain.enums import Confidence, PingBucket
+from ..domain.enums import Confidence, EventType, PingBucket
+from ..domain.models import WorldEvent
 
 
 @dataclass(slots=True)
@@ -166,6 +167,37 @@ class EventDTO:
     occurred_at: int
     event_type: str
     summary: str
+
+
+@dataclass(slots=True)
+class EventView:
+    occurred_at: int
+    event_type: EventType
+    name: str
+    old: int | None = None
+    new: int | None = None
+    prev: int | None = None
+    cur: int | None = None
+    milestone: int | None = None
+    value: int | None = None
+
+
+def event_view(e: WorldEvent, name: str) -> EventView:
+    """WorldEvent → EventView：EventView 唯一构造入口（spec §6.1a）。
+    只抽 render_event 需要的具名字段；内部键（guild_key/day/worker_count/
+    confidence/first_missing_day）不被读取、绝不进 EventView（§6.1 隐私加固）。"""
+    p = e.payload or {}
+    return EventView(
+        occurred_at=e.occurred_at,
+        event_type=e.event_type,
+        name=name,
+        old=p.get("old"),
+        new=p.get("new"),
+        prev=p.get("prev"),
+        cur=p.get("cur"),
+        milestone=p.get("milestone"),
+        value=p.get("value"),
+    )
 
 
 @dataclass(slots=True)
