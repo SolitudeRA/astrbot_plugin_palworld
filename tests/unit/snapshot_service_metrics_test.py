@@ -1,7 +1,6 @@
 import pytest
 
 from palworld_terminal.adapters import normalizer as normalizer_mod
-from palworld_terminal.adapters import privacy_filter as privacy_mod
 from palworld_terminal.adapters.palworld_rest import RestResponse
 from palworld_terminal.adapters.sqlite_repository import Repository
 from palworld_terminal.application.snapshot_service import SnapshotService
@@ -14,6 +13,7 @@ from palworld_terminal.config import (
     RoutingConfig,
     WorldConfig,
 )
+from palworld_terminal.domain import privacy as privacy_mod
 from palworld_terminal.domain.enums import AccessMode
 from palworld_terminal.domain.models import World
 from palworld_terminal.infrastructure.clock import FakeClock

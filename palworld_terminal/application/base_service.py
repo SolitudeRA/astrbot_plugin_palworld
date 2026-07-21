@@ -3,9 +3,9 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass
 
-from ..adapters.privacy_filter import hash_user_id, quantize_cell
 from ..domain.enums import Confidence
 from ..domain.models import GameDataSnapshot, PalBox, World
+from ..domain.privacy import hash_user_id, quantize_cell
 
 
 @dataclass(slots=True)

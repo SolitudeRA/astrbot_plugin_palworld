@@ -1,4 +1,3 @@
-from palworld_terminal.adapters.privacy_filter import hash_user_id, redact_game_data
 from palworld_terminal.config import PrivacyConfig
 from palworld_terminal.domain.enums import ActionCategory, UnitType
 from palworld_terminal.domain.models import (
@@ -6,6 +5,7 @@ from palworld_terminal.domain.models import (
     GameDataSnapshot,
     PalBoxActor,
 )
+from palworld_terminal.domain.privacy import hash_user_id, redact_game_data
 
 
 def _cfg(mode="balanced") -> PrivacyConfig:

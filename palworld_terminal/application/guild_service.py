@@ -2,9 +2,9 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from ..adapters.privacy_filter import hash_user_id
 from ..domain.enums import UnitType
 from ..domain.models import GameDataSnapshot, Guild, World
+from ..domain.privacy import hash_user_id
 
 if TYPE_CHECKING:
     from ..application.event_service import EventService

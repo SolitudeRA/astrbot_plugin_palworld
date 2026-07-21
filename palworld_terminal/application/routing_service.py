@@ -4,9 +4,9 @@ import logging
 from dataclasses import dataclass, field
 from enum import Enum
 
-from ..adapters.sqlite_repository import Repository
 from ..config import AppConfig, ServerConfig
 from ..domain.enums import AccessMode
+from .ports import RoutingRepositoryPort
 
 _log = logging.getLogger("palworld_terminal.routing")
 
@@ -60,7 +60,7 @@ class UnbindResult:
 
 
 class RoutingService:
-    def __init__(self, repo: Repository, cfg: AppConfig) -> None:
+    def __init__(self, repo: RoutingRepositoryPort, cfg: AppConfig) -> None:
         self._repo = repo
         self._cfg = cfg
         self._single_multi_warned = False

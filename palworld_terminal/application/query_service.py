@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from ..adapters.sqlite_repository import Repository
 from ..config import AppConfig
 from ..domain.enums import EventType
 from ..domain.models import Base, BaseObservation, PlayerIdentity, World, WorldEvent
@@ -26,6 +25,7 @@ from .dtos import (
 )
 from .name_resolver import keep_world_subject_under_strict, resolve_subjects
 from .name_resolver import load_excluded_keys as _load_excluded_keys
+from .ports import ReadRepositoryPort
 from .report_service import day_bounds
 
 _STATUS_TTL = 15
@@ -132,7 +132,7 @@ class QueryService:
     _EVENTS_TTL = 15
 
     def __init__(
-        self, repo: Repository, cache: TTLCache, cfg: AppConfig, meta, clock: Clock,
+        self, repo: ReadRepositoryPort, cache: TTLCache, cfg: AppConfig, meta, clock: Clock,
         settings_cache, world_cache=None, report=None, info_cache=None,
     ) -> None:
         self._repo = repo

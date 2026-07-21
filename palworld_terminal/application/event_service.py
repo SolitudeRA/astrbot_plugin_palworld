@@ -2,11 +2,11 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from ..adapters.sqlite_repository import Repository
 from ..domain.enums import Confidence, EventType
 from ..domain.events import make_dedup_key
 from ..domain.models import World, WorldEvent
 from ..infrastructure.clock import Clock
+from .ports import WriteRepositoryPort
 
 if TYPE_CHECKING:
     from ..application.base_service import BaseUpdate
@@ -15,7 +15,7 @@ if TYPE_CHECKING:
 class EventService:
     MILESTONES: tuple[int, ...] = (100, 200, 365, 500, 1000, 2000)
 
-    def __init__(self, repo: Repository, clock: Clock) -> None:
+    def __init__(self, repo: WriteRepositoryPort, clock: Clock) -> None:
         self._repo = repo
         self._clock = clock
 

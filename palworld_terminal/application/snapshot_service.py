@@ -4,10 +4,10 @@ import asyncio
 import logging
 from collections.abc import Mapping
 
-from ..adapters.palworld_rest import RestResponse
 from ..config import AppConfig, ServerConfig
 from ..domain.models import GameDataSnapshot, World, WorldMetric
 from ..infrastructure.clock import Clock
+from ..shared.rest import RestResponse
 
 _log = logging.getLogger("palworld_terminal.snapshot")
 

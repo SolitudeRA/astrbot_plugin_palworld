@@ -1,5 +1,5 @@
-from palworld_terminal.adapters.privacy_filter import hash_user_id, redact_players
 from palworld_terminal.config import PrivacyConfig
+from palworld_terminal.domain.privacy import hash_user_id, redact_players
 
 
 def _cfg() -> PrivacyConfig:

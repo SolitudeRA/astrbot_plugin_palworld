@@ -82,3 +82,9 @@ class EndpointName(StrEnum):
 class IdConfidence(StrEnum):
     HIGH = "high"
     LOW = "low"
+
+
+# 合法 admin 写动作集（域概念）：写端点路径白名单，杜绝拼错端点静默打偏。
+ADMIN_ACTIONS: frozenset[str] = frozenset(
+    {"announce", "save", "kick", "unban", "ban", "shutdown", "stop"}
+)

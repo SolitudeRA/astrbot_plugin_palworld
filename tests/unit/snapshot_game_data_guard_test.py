@@ -1,8 +1,8 @@
 """guilds_bases 禁用时 guilds/bases 为 None → ingest_game_data 首行短路（spec §4.2）。"""
 from palworld_terminal.adapters import normalizer as _norm
-from palworld_terminal.adapters import privacy_filter as _priv
 from palworld_terminal.adapters.palworld_rest import RestResponse
 from palworld_terminal.application.snapshot_service import SnapshotService
+from palworld_terminal.domain import privacy as _priv
 from palworld_terminal.domain.models import World
 from palworld_terminal.infrastructure.clock import FakeClock
 

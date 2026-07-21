@@ -1,7 +1,6 @@
 from pathlib import Path
 
 from palworld_terminal.adapters import normalizer as normalizer_mod
-from palworld_terminal.adapters import privacy_filter as privacy_mod
 from palworld_terminal.adapters.palworld_rest import RestResponse
 from palworld_terminal.application.snapshot_service import SnapshotService
 from palworld_terminal.config import (
@@ -16,6 +15,7 @@ from palworld_terminal.config import (
     WorldConfig,
 )
 from palworld_terminal.container import Container
+from palworld_terminal.domain import privacy as privacy_mod
 from palworld_terminal.domain.enums import AccessMode
 from palworld_terminal.domain.models import World
 from palworld_terminal.infrastructure.clock import FakeClock

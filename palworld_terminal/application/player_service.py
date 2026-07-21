@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from ..adapters.privacy_filter import bucketize_ping, hash_user_id
 from ..domain.enums import IdConfidence, LeaveReason, SessionStatus, UnitType
 from ..domain.models import (
     PlayerIdentity,
@@ -12,6 +11,7 @@ from ..domain.models import (
     PlayersSnapshot,
     World,
 )
+from ..domain.privacy import bucketize_ping, hash_user_id
 
 if TYPE_CHECKING:
     from ..application.event_service import EventService

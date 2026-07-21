@@ -4,10 +4,10 @@ from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from typing import Any
 
-from ..adapters.normalizer import normalize_players
-from ..adapters.palworld_rest import _ADMIN_PATH, RestResponse
-from ..adapters.privacy_filter import hash_user_id
-from ..domain.enums import EndpointName
+from ..domain.enums import ADMIN_ACTIONS, EndpointName
+from ..domain.privacy import hash_user_id
+from ..shared.rest import RestResponse
+from .ports import AuditRepositoryPort
 
 _NETWORK_ERROR = "network error"
 
@@ -40,13 +40,23 @@ class AdminService:
     ``target_name``/``target_userid`` 通道（target_hash 用 world_id 命名空间）。
     """
 
-    def __init__(self, routing, fetch: FetchFn, post: PostFn, repo, salt: bytes, clock):
+    def __init__(
+        self,
+        routing,
+        fetch: FetchFn,
+        post: PostFn,
+        repo: AuditRepositoryPort,
+        salt: bytes,
+        clock,
+        normalize_players,
+    ):
         self._routing = routing
         self._fetch = fetch
         self._post = post
-        self._repo = repo
+        self._repo: AuditRepositoryPort = repo
         self._salt = salt
         self._clock = clock
+        self._normalize_players = normalize_players
 
     async def _execute(
         self,
@@ -62,8 +72,8 @@ class AdminService:
         detail: str = "",
         initiated_ok_on_disconnect: bool = False,
     ) -> AdminResult:
-        # path 必须是已知写端点：消费 _ADMIN_PATH，杜绝拼错端点静默打偏。
-        if path not in _ADMIN_PATH:
+        # path 必须是已知写端点：消费 ADMIN_ACTIONS，杜绝拼错端点静默打偏。
+        if path not in ADMIN_ACTIONS:
             raise ValueError(f"unknown admin path: {path!r}")
 
         # 写路径：for_write=True → 单模式绕过读授权名单（admin 硬门已在上游把守）。
@@ -200,7 +210,7 @@ class AdminService:
             # 拉取在线列表失败：无法判定玩家是否存在，绝不落到 none（会误报「无此玩家」）。
             return TargetResult(kind="unreachable", name=token)
         rows = (
-            normalize_players(resp.data, self._clock.now())
+            self._normalize_players(resp.data, self._clock.now())
             if resp.data is not None
             else []
         )

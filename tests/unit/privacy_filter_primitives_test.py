@@ -1,10 +1,10 @@
-from palworld_terminal.adapters.privacy_filter import (
+from palworld_terminal.config import PrivacyConfig
+from palworld_terminal.domain.enums import PingBucket
+from palworld_terminal.domain.privacy import (
     bucketize_ping,
     hash_user_id,
     quantize_cell,
 )
-from palworld_terminal.config import PrivacyConfig
-from palworld_terminal.domain.enums import PingBucket
 
 
 def _cfg(good=60, ok=120) -> PrivacyConfig:

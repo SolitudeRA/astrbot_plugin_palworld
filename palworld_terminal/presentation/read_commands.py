@@ -2,10 +2,10 @@ from __future__ import annotations
 
 from collections.abc import Awaitable, Callable
 
-from ..adapters.privacy_filter import hash_user_id
 from ..application.command_permissions import active_endpoints
 from ..application.report_service import server_timezone
 from ..domain.enums import EndpointName
+from ..domain.privacy import hash_user_id
 from ..presentation.formatters import (
     format_base,
     format_bases,

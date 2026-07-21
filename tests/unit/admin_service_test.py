@@ -2,6 +2,7 @@ from types import SimpleNamespace
 
 import pytest
 
+from palworld_terminal.adapters.normalizer import normalize_players
 from palworld_terminal.application.admin_service import AdminService
 from palworld_terminal.application.routing_service import RoutingError
 
@@ -64,6 +65,7 @@ def _svc(post_result):
         repo=_FakeRepo(),
         salt=b"salt",
         clock=SimpleNamespace(now=lambda: 1000),
+        normalize_players=normalize_players,
     )
 
 
@@ -97,6 +99,7 @@ async def test_shutdown_sends_waittime_and_message():
         repo=_FakeRepo(),
         salt=b"salt",
         clock=SimpleNamespace(now=lambda: 1000),
+        normalize_players=normalize_players,
     )
     res = await svc.shutdown("p:1", "umo", True, 60, "维护")
     assert res.ok
@@ -147,6 +150,7 @@ def _svc_players(players):
         repo=_FakeRepo(),
         salt=b"s",
         clock=SimpleNamespace(now=lambda: 1),
+        normalize_players=normalize_players,
     )
 
 
@@ -196,6 +200,7 @@ def _svc_fetch_fail():
         repo=repo,
         salt=b"s",
         clock=SimpleNamespace(now=lambda: 1),
+        normalize_players=normalize_players,
     )
     return svc
 
@@ -267,6 +272,7 @@ def _svc_single_restricted(routing, players=None):
         repo=_FakeRepo(),
         salt=b"s",
         clock=SimpleNamespace(now=lambda: 1),
+        normalize_players=normalize_players,
     )
 
 

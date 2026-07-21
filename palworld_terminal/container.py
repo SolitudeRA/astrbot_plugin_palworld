@@ -7,9 +7,8 @@ from pathlib import Path
 from typing import cast
 
 from .adapters import normalizer as _normalizer_mod
-from .adapters import privacy_filter as _privacy_mod
 from .adapters.metadata_repository import MetadataRepository
-from .adapters.palworld_rest import PalworldRestClient, RestResponse
+from .adapters.palworld_rest import PalworldRestClient
 from .adapters.sqlite_repository import Repository
 from .application.admin_service import AdminService
 from .application.base_service import BaseService
@@ -22,6 +21,7 @@ from .application.report_service import ReportService
 from .application.routing_service import RoutingService
 from .application.snapshot_service import SnapshotService
 from .config import AppConfig, ServerConfig
+from .domain import privacy as _privacy_mod
 from .domain.enums import EndpointName
 from .infrastructure.cache import TTLCache
 from .infrastructure.clock import Clock
@@ -32,6 +32,7 @@ from .infrastructure.salt import load_or_create_salt
 from .infrastructure.scheduler import Scheduler
 from .presentation.commands import Commands
 from .presentation.confirmation import ConfirmationStore
+from .shared.rest import RestResponse
 
 _log = logging.getLogger("palworld_terminal.container")
 
@@ -139,7 +140,8 @@ class Container:
             info_cache=self._info_cache,
         )
         admin = AdminService(
-            self.routing, self._fetch, self._post, repo, salt, self._clock
+            self.routing, self._fetch, self._post, repo, salt, self._clock,
+            normalize_players=_normalizer_mod.normalize_players,
         )
         confirmations = ConfirmationStore(self._clock)
         self.commands = Commands(
