@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import functools
 from collections.abc import Awaitable, Callable
 
 from ..adapters.privacy_filter import hash_user_id
@@ -8,12 +7,10 @@ from ..application.command_permissions import (
     active_endpoints,
     effective_admin_only,
     effective_enabled,
-    upstream_unavailable,
 )
 from ..application.dtos import ServerStatusRow
 from ..application.query_service import metric_stale
 from ..application.report_service import server_timezone
-from ..application.routing_service import RoutingError
 from ..domain.enums import AccessMode, EndpointName
 from ..presentation.confirmation import PendingAction
 from ..presentation.formatters import (
@@ -36,32 +33,18 @@ from ..presentation.formatters import (
 )
 from ..presentation.locale import L
 from ..presentation.server_arg import ArgError, parse_arg, parse_group
-from ..shared.command_registry import DISPATCH, METHOD_PATH
+from ..shared.command_registry import DISPATCH
+from .command_support import (
+    _SENDER_METHODS,
+    _fold_limit,
+    _gated,
+    _render_routing_error,
+    _world_mode,
+    feature_disabled_text,
+)
 
 # shutdown 倒计时秒数上界（spec §3：正整数、1–86400）。
 _SHUTDOWN_MAX_SECONDS = 86400
-
-
-def feature_disabled_text(path: str) -> str:
-    """feature_disabled 回执（spec §3 横切决策表）：主句恒戴 ⚠️（配置停用类）。
-
-    普通 enable off 追加「设置页开启」引导脚注；upstream_unavailable(path)（gamedata
-    上游锁定期）省略脚注——设置页开不了该功能，脚注是假承诺（维持锁定 spec「无专属聊天
-    文案」：锁定家族与普通 off 同回主句，差异仅在脚注省略）。全部 feature_disabled 落点
-    （_gated / _dispatch_read / link / admin_write）经此渲染，条件脚注收于单一真相源。
-    """
-    if upstream_unavailable(path):
-        return L("feature_disabled")
-    return f"{L('feature_disabled')}\n{L('feature_disabled_hint')}"
-
-
-def _render_routing_error(err: RoutingError | None, params: dict | None) -> str:
-    """RoutingError → 本地化串（presentation 边界；err=None → 空串）。
-
-    逐字复现原 routing 内联 L(key, **params) 输出：枚举值即 locale key，
-    error_params 即模板填充参数。
-    """
-    return L(err.value, **(params or {})) if err is not None else ""
 
 
 def _parse_shutdown_seconds(token: str) -> int | None:
@@ -94,25 +77,6 @@ def _target_phrase(name: str | None, userid: str | None) -> str:
     if tail:
         return f"…{tail}"
     return ""
-
-
-def _gated(fn):
-    """命令 gating：按方法名查 METHOD_PATH 得完整路径，查该路径生效值（组键/叶子/默认
-    三级继承），未启用则回 feature_disabled、不触达底层（spec §5）。
-    METHOD_PATH 须覆盖全部 @_gated 方法，否则此处 KeyError（meta 测试防回归）。
-    """
-    @functools.wraps(fn)
-    async def wrapper(self, *args, **kwargs):
-        path = METHOD_PATH[fn.__name__]
-        if not effective_enabled(self._cfg.permissions.command_overrides, path):
-            return feature_disabled_text(path)
-        return await fn(self, *args, **kwargs)
-    return wrapper
-
-
-# 分发到需 sender_id 的实现方法（组内仅 player 用 bind/unbind_self）——分发器据此
-# 决定传参形态。其余读实现签名为 (umo, message_str, is_group)。
-_SENDER_METHODS = frozenset({"bind", "me", "unbind_self"})
 
 
 class Commands:
@@ -177,14 +141,6 @@ class Commands:
             return False
         return getattr(getattr(cfg, "privacy", None), "mode", "") == "strict"
 
-    def _fold_limit(self) -> int:
-        """列表折叠上限（spec §2.7）：全部列表 formatter 共用 cfg.players.list_fold_limit
-        单一真相源；测试替身缺 cfg/players 时回默认 7。"""
-        cfg = self._cfg
-        if cfg is None:
-            return 7
-        return getattr(getattr(cfg, "players", None), "list_fold_limit", 7)
-
     async def status(self, umo, message_str, is_group) -> str:
         world, _arg, err, server_name = await self._resolve_world(
             umo, message_str, "status", is_group
@@ -194,7 +150,7 @@ class Commands:
         dto = await self._query.status(world)
         return format_status(
             dto, server_name, show_bases=self._guilds_bases_on(),
-            fold_limit=self._fold_limit(),
+            fold_limit=_fold_limit(self._cfg),
         )
 
     async def online(self, umo, message_str, is_group) -> str:
@@ -207,7 +163,7 @@ class Commands:
             return err
         dto = await self._query.online(world)
         return format_online(
-            dto, server_name, strict=self._is_strict(), fold_limit=self._fold_limit(),
+            dto, server_name, strict=self._is_strict(), fold_limit=_fold_limit(self._cfg),
         )
 
     async def world(self, umo, message_str, is_group) -> str:
@@ -218,7 +174,7 @@ class Commands:
             return err
         dto = await self._query.world_summary(world)
         return format_world(
-            dto, server_name, strict=self._is_strict(), fold_limit=self._fold_limit(),
+            dto, server_name, strict=self._is_strict(), fold_limit=_fold_limit(self._cfg),
         )
 
     async def rules(self, umo, message_str, is_group) -> str:
@@ -241,7 +197,7 @@ class Commands:
             return err
         dto = await self._query.guilds(world)
         return format_guilds(
-            dto, server_name, strict=self._is_strict(), fold_limit=self._fold_limit(),
+            dto, server_name, strict=self._is_strict(), fold_limit=_fold_limit(self._cfg),
         )
 
     @_gated
@@ -259,7 +215,7 @@ class Commands:
         return format_guild(
             dto, strict=self._is_strict(),
             now=self._clock.now(), tz=server_timezone(self._cfg, world),
-            fold_limit=self._fold_limit(),
+            fold_limit=_fold_limit(self._cfg),
         )
 
     @_gated
@@ -274,7 +230,7 @@ class Commands:
         if err is not None:
             return err
         dto = await self._query.bases(world)
-        return format_bases(dto, server_name, fold_limit=self._fold_limit())
+        return format_bases(dto, server_name, fold_limit=_fold_limit(self._cfg))
 
     @_gated
     async def base(self, umo, message_str, is_group) -> str:
@@ -305,7 +261,7 @@ class Commands:
             now=self._clock.now(),
             tz=server_timezone(self._cfg, world),
             today_only=today_only,
-            fold_limit=self._fold_limit(),
+            fold_limit=_fold_limit(self._cfg),
         )
 
     @_gated
@@ -316,7 +272,7 @@ class Commands:
         if err is not None:
             return err
         return format_today(
-            await self._query.today(world), server_name, fold_limit=self._fold_limit(),
+            await self._query.today(world), server_name, fold_limit=_fold_limit(self._cfg),
         )
 
     @_gated
@@ -350,14 +306,14 @@ class Commands:
             return L("player_not_found", name=arg.name)
         return format_player(
             dto, strict=self._cfg.privacy.mode == "strict",
-            server_name=server_name, world_mode=self._world_mode(),
+            server_name=server_name, world_mode=_world_mode(self._cfg),
             tz=server_timezone(self._cfg, world), now=self._clock.now(),
         )
 
     def _server_anchor(self, server_name: str) -> str:
         """账号状态族尾锚（spec §3）：多模式 ` · {srv}`，单模式空串（world_mode 判定
         与 help 尾注同源）。bind/unbind 成功回执的尾部服务器锚共用。"""
-        return f" · {server_name}" if self._world_mode() != "single" else ""
+        return f" · {server_name}" if _world_mode(self._cfg) != "single" else ""
 
     @_gated
     async def bind(self, umo, message_str, is_group, sender_id) -> str:
@@ -394,7 +350,7 @@ class Commands:
         )
         if err is not None:
             return err
-        scoped = self._world_mode() != "single"   # 多模式句内带服 / 尾锚（§3 账号状态族）
+        scoped = _world_mode(self._cfg) != "single"   # 多模式句内带服 / 尾锚（§3 账号状态族）
         phash = hash_user_id(self._salt, world.world_id, sender_id)
         player_key = await self._repo.get_binding(phash, world.world_id)
         if player_key is None:
@@ -411,7 +367,7 @@ class Commands:
             return L("me_unbound_scoped", server=server_name) if scoped else L("me_unbound")
         return format_player(
             dto, strict=self._cfg.privacy.mode == "strict",
-            server_name=server_name, world_mode=self._world_mode(),
+            server_name=server_name, world_mode=_world_mode(self._cfg),
             tz=server_timezone(self._cfg, world), now=self._clock.now(), is_me=True,
         )
 
@@ -422,7 +378,7 @@ class Commands:
         )
         if err is not None:
             return err
-        scoped = self._world_mode() != "single"
+        scoped = _world_mode(self._cfg) != "single"
         phash = hash_user_id(self._salt, world.world_id, sender_id)
         player_key = await self._repo.get_binding(phash, world.world_id)
         if player_key is None:
@@ -452,16 +408,12 @@ class Commands:
             and not is_admin
         )
 
-    def _world_mode(self) -> str:
-        """真实 AppConfig 恒有 routing.world_mode；默认 multi 兼容不完整测试替身。"""
-        return getattr(getattr(self._cfg, "routing", None), "world_mode", "multi")
-
     def _group_help(self, group: str, is_admin: bool) -> str:
         """裸组 / 未知子动作迷你帮助——**复用 format_help 同一 visible_actions 谓词**
         （单一真相源，绝不另写过滤）：guest 绝不见管理员写动作（kick/ban/stop）。
         """
         vis = visible_actions(
-            group, is_admin, self._cfg.permissions.command_overrides, self._world_mode(),
+            group, is_admin, self._cfg.permissions.command_overrides, _world_mode(self._cfg),
         )
         if not vis:
             return L("group_no_actions")
@@ -593,7 +545,7 @@ class Commands:
             ))
         skipped = self._cfg.skipped if self._cfg else []
         return format_servers(
-            rows, skipped, is_admin, is_group=is_group, fold_limit=self._fold_limit(),
+            rows, skipped, is_admin, is_group=is_group, fold_limit=_fold_limit(self._cfg),
         )
 
     async def link_add(self, umo, name, is_group) -> str:
@@ -628,7 +580,7 @@ class Commands:
         del message_str
         return format_help(
             None, is_admin,
-            self._cfg.permissions.command_overrides, self._world_mode(),
+            self._cfg.permissions.command_overrides, _world_mode(self._cfg),
         )
 
     async def whoami(self, sender_id: str) -> str:
@@ -651,7 +603,7 @@ class Commands:
         head = L("whereami_head", umo=umo)
         if self._cfg.routing.access_mode is not AccessMode.RESTRICTED:
             return f"{head}\n{L('whereami_open')}"
-        if self._world_mode() == "single":
+        if _world_mode(self._cfg) == "single":
             allowed = {e.umo for e in self._cfg.routing.single_allowed_groups}
             if umo in allowed:
                 ready = self._routing.ready_servers()
