@@ -14,7 +14,7 @@
 
 - **逐字搬（字节级）**：方法体（含 docstring、方法内注释、空行）从 `sqlite_repository.py` 对应行号逐字复制，不改一字。**不要在本 plan 里重抄方法体**——照源文件行号复制，避免转写引入偏差。
 - **按方法名清单抽取，不按连续源码范围切**：源码方法**物理交错**——`_PURGE_WORLD_TABLES`+`purge_server_data`（行 149-185，留主体）夹在 routing 方法之间；`insert_audit`/`list_audit`/`prune_audit`+`prune`（行 331-395）夹在 world 簇与 metrics 簇之间。**逐个方法按名字抽取**，绝不能剪一段连续行。
-- **行尾（CRLF 陷阱）**：`sqlite_repository.py` 是 **CRLF**（仓库 `.gitattributes` 不管 `.py`）。改主体用 Edit 工具**字节保真保 CRLF**，绝不能用会翻 LF 的写法（三部曲版本升级曾踩此坑致整文件 churn）。新建 7 个 mixin 文件用 **CRLF**（与源同源，逐字搬的方法体本就 CRLF）。守卫测试 `repository_split_guard_test.py` 用 **LF**（与 `tests/unit/` 其余文件一致，如 `adapter_layering_guard_test.py`）。
+- **行尾（CRLF 陷阱）**：`sqlite_repository.py` 是 **CRLF**（仓库 `.gitattributes` 不管 `.py`）。改主体（Task 8）用 Edit 工具**字节保真保 CRLF**，绝不能用会翻 LF 的写法（三部曲版本升级曾踩此坑致整文件 churn）。新建的 7 个 mixin 文件与守卫测试用 **LF**（新文件无保真义务，LF 更简单、与 `normalizer.py`/`tests/` 一致；"逐字搬"指方法体内容[缩进/SQL/注释]字节一致，行尾 LF 非实质）。
 - **零行为变化**：现有全库 **1195 passed / 1 skipped** 不变。任何搬移漂移都会在现有真-sqlite 测试转红。
 - **验收命令**：`ruff check .`（全仓，含 tests）+ `python -m mypy palworld_terminal/`（Success）+ `python -m pytest -q`（1195 passed/1 skipped + 新守卫）全绿。
 - **TDD 偏离**：本重构无新行为，搬迁任务（Task 1-8）的 test cycle = **全库回归**（现有测试即等价性安全网）；仅 Task 9 守卫是新测试、走 TDD。
@@ -23,7 +23,7 @@
 
 ## File Structure
 
-- Create（CRLF）：`adapters/repo_routing.py` · `repo_player_binding.py` · `repo_world.py` · `repo_player_profile.py` · `repo_guild_base.py` · `repo_event.py` · `repo_audit.py`——各承载一个实体表族的 mixin。
+- Create（LF）：`adapters/repo_routing.py` · `repo_player_binding.py` · `repo_world.py` · `repo_player_profile.py` · `repo_guild_base.py` · `repo_event.py` · `repo_audit.py`——各承载一个实体表族的 mixin。
 - Modify（CRLF，保真）：`adapters/sqlite_repository.py`——900 行 god 类 → ~130 行组合主体。
 - Create（LF）：`tests/unit/repository_split_guard_test.py`——结构守卫。
 
@@ -32,7 +32,7 @@
 ## Task 1: `_ServerRoutingRepo` → `repo_routing.py`（12 方法）
 
 **Files:**
-- Create: `palworld_terminal/adapters/repo_routing.py`（CRLF）
+- Create: `palworld_terminal/adapters/repo_routing.py`（LF）
 
 **Interfaces:**
 - Produces: `class _ServerRoutingRepo`（供 Task 8 主体继承）——含 `sync_servers`/`seed_bindings`/`cleanup_orphan_bindings`/`list_allowed_bindings`/`list_orphan_server_ids`/`bind_umos_to_server`/`clear_all_group_servers`/`get_binding_active`/`get_allowed`/`list_group_servers`/`set_active`/`revoke`。
@@ -98,7 +98,7 @@ git commit -m "refactor: 抽出 _ServerRoutingRepo mixin（repo_routing.py）"
 ## Task 2: `_PlayerBindingRepo` → `repo_player_binding.py`（6 方法）
 
 **Files:**
-- Create: `palworld_terminal/adapters/repo_player_binding.py`（CRLF）
+- Create: `palworld_terminal/adapters/repo_player_binding.py`（LF）
 
 **Interfaces:**
 - Produces: `class _PlayerBindingRepo`——含 `upsert_binding`/`get_binding`/`set_hidden`/`unset_hidden`/`delete_binding`/`get_hidden_keys`。
@@ -156,7 +156,7 @@ git commit -m "refactor: 抽出 _PlayerBindingRepo mixin（repo_player_binding.p
 ## Task 3: `_WorldMetricRepo` → `repo_world.py`（8 方法）
 
 **Files:**
-- Create: `palworld_terminal/adapters/repo_world.py`（CRLF）
+- Create: `palworld_terminal/adapters/repo_world.py`（LF）
 
 **Interfaces:**
 - Produces: `class _WorldMetricRepo`——含 `upsert_world`/`get_current_world`/`list_worlds_with_open_sessions`/`insert_metric`/`latest_metric`/`world_day_bounds`/`peak_online`/`upsert_unknown_classes`。
@@ -217,7 +217,7 @@ git commit -m "refactor: 抽出 _WorldMetricRepo mixin（repo_world.py）"
 ## Task 4: `_PlayerProfileRepo` → `repo_player_profile.py`（14 方法）
 
 **Files:**
-- Create: `palworld_terminal/adapters/repo_player_profile.py`（CRLF）
+- Create: `palworld_terminal/adapters/repo_player_profile.py`（LF）
 
 **Interfaces:**
 - Produces: `class _PlayerProfileRepo`——含 `upsert_player`/`get_player`/`get_player_by_name`/`list_players_by_name`/`list_players_by_level`/`_row_to_session`（@staticmethod）/`insert_session`/`update_session`/`get_open_session`/`list_open_sessions`/`sessions_in_day`/`total_durations`/`insert_observation`/`latest_observation`。
@@ -285,7 +285,7 @@ git commit -m "refactor: 抽出 _PlayerProfileRepo mixin（repo_player_profile.p
 ## Task 5: `_GuildBaseRepo` → `repo_guild_base.py`（8 方法）
 
 **Files:**
-- Create: `palworld_terminal/adapters/repo_guild_base.py`（CRLF）
+- Create: `palworld_terminal/adapters/repo_guild_base.py`（LF）
 
 **Interfaces:**
 - Produces: `class _GuildBaseRepo`——含 `upsert_guild`/`list_guilds`/`upsert_palbox`/`list_palboxes`/`upsert_base`/`list_bases`/`insert_base_observation`/`latest_base_observation`。
@@ -347,7 +347,7 @@ git commit -m "refactor: 抽出 _GuildBaseRepo mixin（repo_guild_base.py）"
 ## Task 6: `_EventRepo` → `repo_event.py`（4 方法）
 
 **Files:**
-- Create: `palworld_terminal/adapters/repo_event.py`（CRLF）
+- Create: `palworld_terminal/adapters/repo_event.py`（LF）
 
 **Interfaces:**
 - Produces: `class _EventRepo`——含 `insert_event`/`list_events`/`upsert_daily_aggregate`/`get_daily_aggregate`。
@@ -407,7 +407,7 @@ git commit -m "refactor: 抽出 _EventRepo mixin（repo_event.py）"
 ## Task 7: `_AuditRepo` → `repo_audit.py`（3 方法）
 
 **Files:**
-- Create: `palworld_terminal/adapters/repo_audit.py`（CRLF）
+- Create: `palworld_terminal/adapters/repo_audit.py`（LF）
 
 **Interfaces:**
 - Produces: `class _AuditRepo`——含 `insert_audit`/`list_audit`/`prune_audit`。
