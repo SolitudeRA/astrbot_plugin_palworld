@@ -42,6 +42,8 @@
 
 **"零跨 mixin 调用"是 mixin 方案成立的硬前提**：`_row_to_session`（staticmethod）只被同组 session 方法调用；`_PURGE_WORLD_TABLES` 只被主体 `purge` 用。拆分后每个 mixin 完全自足。
 
+**导出路径不变量**：`Repository` 类名、所在模块 `sqlite_repository.py`、构造签名 `(db, clock)` 全部不变，故 `from .sqlite_repository import Repository`（container.py:12 与约 50 个测试文件的 import 路径）保持有效。这些测试文件构造**真实 Repository 实例**并 `repo.x()` 调用——既是"全站零改动"的一部分，也是本次拆分等价性的主要安全网（覆盖 CRUD/事务/迁移）。
+
 ---
 
 ## 3. 拆分方案：Mixin 组合
@@ -96,7 +98,7 @@ class Repository(
 ```
 
 - MRO 干净：7 mixin 均直接继承 `object`，无钻石继承。`Repository.__init__` 唯一设 `self._db`/`self._clock`。
-- mixin 不定义 `__init__`（它们是纯行为混入）。
+- mixin 不定义 `__init__`（纯行为混入、无自身状态）；`Repository.__init__` 无需调用 `super().__init__()`（仅跳过 `object.__init__` 这一 no-op；原 `__init__` 逐字搬模板本就未调 `super()`）。
 - `_PURGE_WORLD_TABLES` 与 `_SECONDS_PER_DAY` 留主体（`purge`/`prune` 的私有依赖）。
 
 ### 3.2 mixin 自类型声明（mypy 惯用法）
@@ -104,7 +106,7 @@ class Repository(
 每个 mixin 引用 `self._db`（全部）与 `self._clock`（部分），但这两个属性由主类 `__init__` 提供、mixin 自己不赋值。用**纯类型注解**告诉 mypy 属性存在（零运行时开销）：
 
 ```python
-class _WorldMetricRepo:
+class _WorldMetricRepo:            # 文件完整 import 头见 §5
     _db: Database
     _clock: Clock       # 仅当该 mixin 有方法调 self._clock.now() 才声明
     ...
@@ -138,7 +140,7 @@ class _WorldMetricRepo:
 `upsert_world` · `get_current_world` · `list_worlds_with_open_sessions` · `insert_metric` · `latest_metric` · `world_day_bounds` · `peak_online` · `upsert_unknown_classes`
 
 ### 4.4 `_PlayerProfileRepo` → `repo_player_profile.py`（14 方法）
-`upsert_player` · `get_player` · `get_player_by_name` · `list_players_by_name` · `list_players_by_level` · `_row_to_session`（`@staticmethod`）· `insert_session` · `update_session` · `get_open_session` · `list_open_sessions` · `sessions_in_day` · `total_durations` · `insert_observation` · `latest_observation`
+`upsert_player` · `get_player` · `get_player_by_name` · `list_players_by_name` · `list_players_by_level` · `_row_to_session`（保持 `@staticmethod`；迁后 `self._row_to_session(...)` 经 MRO 解析不变）· `insert_session` · `update_session` · `get_open_session` · `list_open_sessions` · `sessions_in_day` · `total_durations` · `insert_observation` · `latest_observation`
 
 ### 4.5 `_GuildBaseRepo` → `repo_guild_base.py`（8 方法）
 `upsert_guild` · `list_guilds` · `upsert_palbox` · `list_palboxes` · `upsert_base` · `list_bases` · `insert_base_observation` · `latest_base_observation`
@@ -238,21 +240,29 @@ from ..infrastructure.database import Database
 
 ## 6. 硬约束
 
-1. **逐字搬**：每个方法体（含 docstring、注释、空行）从原文件字节级复制到 mixin，不改一字。方法**顺序**在 mixin 内保持原文件相对顺序（便于 diff 审阅"搬移=纯移动"）。
+1. **逐字搬（方法体）**：每个方法体（含 docstring、方法内注释、空行）从原文件字节级复制到目标文件，不改一字。方法在目标文件内保持原文件相对顺序（便于 diff 审阅"搬移=纯移动"）。段头注释与 docstring 的处置见下第 6、7 条。
 2. **零行为变化**：现有全部 repository 测试（`repository_sessions_test` / `repository_mode_transfer_test` / 及所有经 Repository 的集成测试）保持全绿。全库 1195 passed / 1 skipped 不变。
 3. **mypy 不增违规**：`python -m mypy palworld_terminal/` 仍 `Success`，文件数增至 ~58（+7 mixin）。
 4. **ruff 全绿**：`ruff check .`（全仓，含 tests）通过——imports 精确、无 F401、isort 有序。
 5. **golden 间接锚定**：Repository 不直接进 golden .txt，但所有经它的读命令 golden 全过 = 行为等价的端到端证据。
+6. **按 §4 名字清单抽取，不按连续源码范围切**：真码方法**物理交错**——`purge_server_data`（留主体）夹在 `clear_all_group_servers` 与 `get_binding_active`（均 routing）之间、audit 三方法夹在 world 簇与 metrics 簇之间。实现须按 §4 方法名逐个抽取，**绝不能剪一段连续源码搬**，否则会误把 `purge`/`prune`/`_PURGE_WORLD_TABLES` 拖进 mixin。
+7. **段头注释与 docstring**：原文件 `# ---- servers ----` 等段头注释随其方法簇迁入对应 mixin；每个 mixin 与主体写**新的**模块/类 docstring 说明其表族职责；原文件顶部过时的 "Phase 1…" 模块 docstring 丢弃（不搬）。
 
 ---
 
 ## 7. 新增守卫：`repository_split_guard_test`
 
-`tests/unit/repository_split_guard_test.py`，锚定拆分完整性与 mixin 隔离：
+`tests/unit/repository_split_guard_test.py`，锚定拆分完整性与 mixin 隔离。三条断言，配方钉死到实现者可照抄：
 
-1. **方法集完整性**：`Repository` 实例暴露的全部方法名集合 == 一份显式的 57 方法完整清单（§4 全表，含 55 迁 mixin + 主体 `purge_server_data`/`prune`）。防"搬 mixin 时漏搬/重复定义某方法"。断言集合相等（缺 → 搬漏，多 → 意外新增）。
-2. **mixin 互不 import**：7 个 `repo_*.py` 文件源码中不出现 `from .repo_` / `import ...adapters.repo_`（mixin 之间零耦合，任何跨 mixin 依赖都是设计违规）。
-3. **端口结构化满足（运行时兜底）**：断言组合后的 `Repository` 仍具备 4 端口全部方法（`hasattr` 遍历 `ReadRepositoryPort`/`WriteRepositoryPort`/`RoutingRepositoryPort`/`AuditRepositoryPort` 的方法名）——mypy 静态已校验，此为运行时冗余防线。
+1. **方法集完整性（57 一个不多不少）**：用**类级**内省取实际方法集，避免实例内省把非方法属性算进来（`dir(instance)` 会带进 `_db`/`_clock`/`_PURGE_WORLD_TABLES`；`iscoroutinefunction` 又会漏掉同步 staticmethod `_row_to_session`）：
+   ```python
+   import inspect
+   actual = {n for n, _ in inspect.getmembers(Repository, inspect.isfunction)
+             if not n.startswith("__")}
+   ```
+   `inspect.isfunction` 在**类**上取：实例属性 `_db`/`_clock`（Database/Clock 实例）与 `_PURGE_WORLD_TABLES`（tuple）天然不在其中；staticmethod `_row_to_session` 是 `isfunction` → **正确纳入**。期望集 = §4 全表 57 个方法名的字面量集合（**含单下划线的 `_row_to_session`**，排除 `_db`/`_clock`/`_PURGE_WORLD_TABLES`），在测试里硬编码为唯一真相源。断言 `actual == expected`（缺 → 搬漏，多 → 意外新增/重复）。**切勿用 `not n.startswith("_")` 过滤**——会连带砍掉 `_row_to_session` 得 56≠57 假红。
+2. **mixin 互不 import**：glob `adapters/repo_*.py`（**天然排除主体 `sqlite_repository.py` 与既有 `metadata_repository.py`**——二者文件名不匹配 `repo_*.py`）逐文件读源码，断言不出现子串 `from .repo_` / `import palworld_terminal.adapters.repo_`。主体 `sqlite_repository.py` 合法 import 全部 7 mixin，但不在此 glob 内，不被误判。
+3. **端口结构化满足（运行时兜底）**：断言组合后的 `Repository` 具备 4 端口全部方法。**硬编码**各端口方法名清单（`typing.Protocol` 的成员内省需私有 API `__protocol_attrs__`、跨版本不稳，故不 introspect）：Read 17 / Write 2 / Routing 5 / Audit 2（全部列于 `application/ports.py`），逐个 `hasattr(repo, m)`。注意**端口分组 ≠ mixin 分组**：如 `AuditRepositoryPort` 的 `get_current_world` 落在 `_WorldMetricRepo`、`insert_audit` 落在 `_AuditRepo`——两者经继承都在 `Repository` 上，这正是"结构化满足与表族拆分无关"的具体证据。mypy 静态已校验，此为运行时冗余防线。
 
 ---
 
@@ -276,6 +286,7 @@ from ..infrastructure.database import Database
 | MRO 顺序影响方法解析 | 零跨 mixin 同名方法（§2 核查）→ MRO 顺序不影响任何解析；顺序仅为可读性 |
 | 跨表原子事务被拆散 | `purge`/`prune` 留主体、直接 `self._db.write_tx()`，单事务原子性不受影响 |
 | ruff isort 排序错误 | §5 已预排；`ruff check .` 兜底 |
+| 触发现有 layering 守卫回归 | `layering_guard_test`/`adapter_layering_guard_test` 仅扫 `application/*.py`，新增 `adapters/repo_*.py` 在扫描范围外，不回归 |
 
 ---
 
