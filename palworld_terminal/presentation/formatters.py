@@ -6,6 +6,7 @@ from ..application.dtos import (
     EventView,
     GuildDetailDTO,
     GuildDTO,
+    MeCardDTO,
     OnlineDTO,
     RankClimbDTO,
     RulesDTO,
@@ -51,6 +52,17 @@ _ACTION_CAT_LABEL = {
 
 # 性能流畅度档位 → 状态色点（spec §2.2/§4.1）：流畅🟢 / 一般🟡 / 卡顿·严重卡顿🔴。
 _SMOOTH_DOT = {"流畅": "🟢", "一般": "🟡", "卡顿": "🔴", "严重卡顿": "🔴"}
+
+# 元素英文键 → 中文（spec §5 名片随身高光）：与 domain.Element 九元素对齐；
+# unknown（未收录/无属性降级）→「未知」，理论外的键回落原键（不炸/不臆造）。
+_ELEMENT_LABEL = {
+    "fire": "火", "water": "水", "grass": "草", "electric": "电", "ice": "冰",
+    "dragon": "龙", "dark": "暗", "ground": "地", "neutral": "无", "unknown": "未知",
+}
+
+# 随身行为标签：CompanionView.action_label 为 ActionCategory.value 稳定键（working/…），
+# 复用 _ACTION_CAT_LABEL 的中文（按值索引）；未知值回落原键。
+_ACTION_BY_VALUE = {cat.value: label for cat, label in _ACTION_CAT_LABEL.items()}
 
 
 def format_degraded(last_ok: int | None, now: int, server_name: str) -> str:
@@ -541,6 +553,70 @@ def format_player(
     block.append(first_seen)
 
     return "\n".join([title, " · ".join(status), "", *block])
+
+
+def _days_ago_label(days: int) -> str:
+    """距今天数（MeCardDTO.last_seen_at/first_seen_at 已预粗化为 int，0=今天）→ 词形
+    「今天」/「N天前」（spec §5·隐私 P1）。**绝不 fromtimestamp**——入参是天数差非 epoch，
+    当时间戳会显 1970 乱数据 + 泄漏绝对登录时刻（作息）。负值防御归 0（今天）。"""
+    n = max(int(days), 0)
+    return "今天" if n == 0 else f"{n}天前"
+
+
+def format_me(dto: MeCardDTO) -> str:
+    """/pal me 文字版名片（spec §5·功能①）：消费 MeCardDTO，四状态文字渲染。
+
+    状态优先级：online==False → 离线卡（无实时血量/随身，最近上线走距今天数、累计在线）；
+    否则在线卡（等级/公会/百分位「超越有记录玩家 X%」/本次·今日·累计时长）+ 随身三态——
+    companion_status: shown → 随身高光行（物种（元素）Lv/HP%/状态）；none_out →「此刻未带出
+    随身帕鲁」；no_data →「随身数据暂不可用（需启用 guilds_bases）」（**绝不谎称没带**，C2）。
+
+    时间字段（last_seen_at/first_seen_at）是**距今天数 int**（T6 已预粗化），经 _days_ago_label
+    渲染，绝不当 epoch（隐私 P1，无绝对时间戳）。签名仅收 dto——百分位/时长/天数皆自足，
+    无需 now/tz/server_name（同图片版 build_me_card_html 的 DTO 自足边界）。
+    """
+    title = f"🎴 我的名片 · {dto.name}"
+
+    if not dto.online:
+        # 离线卡：无实时状态点、无随身/血量；最近上线走距今天数（非绝对时刻）+ 累计在线。
+        lines = [
+            title,
+            f"Lv{dto.level} · {L('me_card_offline')}",
+            "",
+            f"最近上线 {_days_ago_label(dto.last_seen_at)} · 累计在线 {fmt_duration(dto.total_seconds)}",
+        ]
+        if dto.guild_name:
+            lines.append(f"公会「{dto.guild_name}」")
+        if dto.hidden:
+            lines.append(L("me_card_hidden"))
+        return "\n".join(lines)
+
+    # 在线卡：状态点 🟢 + 本次在线 + 百分位（hero）+ 今日/累计 + 公会 + 随身三态。
+    lines = [
+        title,
+        f"Lv{dto.level} · 🟢 在线 · 本次 {fmt_duration(dto.online_seconds)}",
+        "",
+        L("me_card_percentile", pct=f"{dto.percentile:.0f}"),
+        f"今日在线 {fmt_duration(dto.today_seconds)} · 累计 {fmt_duration(dto.total_seconds)}",
+    ]
+    if dto.guild_name:
+        lines.append(f"公会「{dto.guild_name}」")
+
+    if dto.companion_status == "shown" and dto.companion is not None:
+        c = dto.companion
+        element = _ELEMENT_LABEL.get(c.element, c.element)
+        action = _ACTION_BY_VALUE.get(c.action_label, c.action_label)
+        lines.append(
+            f"随身 {c.species_name}（{element}）Lv{c.level} · HP {c.hp_ratio:.0%} · {action}"
+        )
+    elif dto.companion_status == "none_out":
+        lines.append(L("me_card_none_out"))
+    else:  # no_data（无快照/本人不在快照/game-data 未轮询）——绝不谎称没带
+        lines.append(L("me_card_no_data"))
+
+    if dto.hidden:
+        lines.append(L("me_card_hidden"))
+    return "\n".join(lines)
 
 
 # rank 三变体榜名（spec §4.23）。which=time 为 today 别名；未识别值回落 today

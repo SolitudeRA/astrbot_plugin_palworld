@@ -75,6 +75,14 @@ MESSAGES: dict[str, str] = {
     # me 未绑定（spec §4.25）：多模式句内带服 / 单模式去锚；脚注两态皆带。
     "me_unbound": "你还没有绑定玩家\n└ 用 /pal player bind <玩家名> 绑定",
     "me_unbound_scoped": "你在「{server}」还没有绑定玩家\n└ 用 /pal player bind <玩家名> 绑定",
+    # me 名片文字版（spec §5·T7）：百分位口径「超越有记录玩家」（非「全服」，C2）；随身三态
+    # none_out/no_data 措辞如实——no_data 绝不谎称「没带」；离线徽章。结构标签内联在 formatter
+    # （同 format_player 惯例），仅口径敏感/notice 句入 locale。
+    "me_card_percentile": "超越有记录玩家 {pct}%",
+    "me_card_none_out": "此刻未带出随身帕鲁",
+    "me_card_no_data": "随身数据暂不可用（需启用 guilds_bases）",
+    "me_card_offline": "此刻不在线",
+    "me_card_hidden": "└ 你已从排行与查询中隐藏（仅自己可见）",
     # me hide/show（spec §4.25）：多模式带服务器锚 / 单模式去服名。
     "me_hidden": "✅ 已将你从排行与查询中隐藏\n└ /pal me show 恢复",
     "me_hidden_scoped": "✅ 已将你从「{server}」的排行与查询中隐藏\n└ /pal me show 恢复",
