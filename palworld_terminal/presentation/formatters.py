@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from ..application.command_permissions import effective_enabled
 from ..application.dtos import (
     BaseDetailDTO,
     BaseDTO,
@@ -26,6 +25,7 @@ from ..presentation.textkit import (
     rel_datetime,
     time_of_day,
 )
+from ..shared.command_permissions import effective_enabled
 from ..shared.command_registry import (
     DISPATCH,
     FLAT_ACTIONS,

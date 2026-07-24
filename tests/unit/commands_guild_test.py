@@ -9,8 +9,6 @@ from types import SimpleNamespace
 
 import pytest
 
-from palworld_terminal.application import command_permissions
-from palworld_terminal.application.command_permissions import CommandOverride
 from palworld_terminal.application.dtos import (
     BaseDetailDTO,
     BaseDTO,
@@ -21,6 +19,8 @@ from palworld_terminal.application.dtos import (
 from palworld_terminal.domain.enums import Confidence, EventType
 from palworld_terminal.presentation.commands import Commands
 from palworld_terminal.presentation.locale import L
+from palworld_terminal.shared import command_permissions
+from palworld_terminal.shared.command_permissions import CommandOverride
 
 
 @pytest.fixture(autouse=True)

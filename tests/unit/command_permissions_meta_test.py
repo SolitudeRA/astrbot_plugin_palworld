@@ -1,4 +1,4 @@
-from palworld_terminal.application import command_permissions as cp
+from palworld_terminal.shared import command_permissions as cp
 from palworld_terminal.shared.command_registry import (
     _NON_LOCKABLE,
     DISPATCH,

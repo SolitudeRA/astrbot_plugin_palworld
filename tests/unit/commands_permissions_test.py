@@ -1,9 +1,9 @@
 from types import SimpleNamespace
 
-from palworld_terminal.application.command_permissions import CommandOverride
 from palworld_terminal.config import AdminEntry, PermissionsConfig
 from palworld_terminal.domain.enums import AccessMode
 from palworld_terminal.presentation.commands import Commands
+from palworld_terminal.shared.command_permissions import CommandOverride
 
 
 def _cmds(admins=(), overrides=None):

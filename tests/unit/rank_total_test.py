@@ -118,7 +118,7 @@ class _StubQuery:
 
 
 def _cmds(mode="strict"):
-    from palworld_terminal.application.command_permissions import CommandOverride
+    from palworld_terminal.shared.command_permissions import CommandOverride
     cfg = SimpleNamespace(
         permissions=SimpleNamespace(
             command_overrides={"rank": CommandOverride(enabled=True)}),

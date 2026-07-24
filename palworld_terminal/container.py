@@ -12,7 +12,6 @@ from .adapters.palworld_rest import PalworldRestClient
 from .adapters.sqlite_repository import Repository
 from .application.admin_service import AdminService
 from .application.base_service import BaseService
-from .application.command_permissions import active_endpoints, effective_enabled
 from .application.event_service import EventService
 from .application.guild_service import GuildService
 from .application.player_service import PlayerService
@@ -32,6 +31,7 @@ from .infrastructure.salt import load_or_create_salt
 from .infrastructure.scheduler import Scheduler
 from .presentation.commands import Commands
 from .presentation.confirmation import ConfirmationStore
+from .shared.command_permissions import active_endpoints, effective_enabled
 from .shared.rest import RestResponse
 
 _log = logging.getLogger("palworld_terminal.container")

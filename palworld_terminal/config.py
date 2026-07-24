@@ -5,7 +5,9 @@ import re
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 
-from .application.command_permissions import (
+from .domain.enums import AccessMode
+from .domain.privacy import PrivacyConfig
+from .shared.command_permissions import (
     COMMAND_META,
     CommandOverride,
     admin_configurable,
@@ -14,8 +16,6 @@ from .application.command_permissions import (
     upstream_unavailable,
     upstream_unavailable_group,
 )
-from .domain.enums import AccessMode
-from .domain.privacy import PrivacyConfig
 from .shared.command_registry import DISPATCH
 
 _ILLEGAL = (":", "@")

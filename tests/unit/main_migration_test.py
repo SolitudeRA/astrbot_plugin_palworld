@@ -46,8 +46,8 @@ def test_load_migration_persists_and_no_lock_loss(fake_astrbot_config):
     assert "admin_only_commands" not in cfg.data and "features" not in cfg.data
     assert cfg.saved is True
     # GET 读路径（redact_config(cfg.data)）现含 command_permissions → 保存不丢锁
-    from palworld_terminal.application.command_permissions import effective_admin_only
     from palworld_terminal.config import parse_config
+    from palworld_terminal.shared.command_permissions import effective_admin_only
     ov = parse_config(cfg.data, {}).permissions.command_overrides
     assert effective_admin_only(ov, "guild list") is True
 
@@ -70,8 +70,8 @@ async def test_initialize_wires_migration(tmp_path, monkeypatch, fake_astrbot_co
     """端到端锚定装载钩子确实接入 initialize()（在建容器前）：legacy 配置经
     initialize() 后落库、旧键清除，且新建容器的解析配置仍保留旧锁（F1/B2 不丢锁）。"""
     import main as main_mod
-    from palworld_terminal.application.command_permissions import effective_admin_only
     from palworld_terminal.container import Container
+    from palworld_terminal.shared.command_permissions import effective_admin_only
 
     class _FakeRest:
         async def close(self):

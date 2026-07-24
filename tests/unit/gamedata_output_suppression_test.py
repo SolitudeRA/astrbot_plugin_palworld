@@ -16,12 +16,12 @@
 from pathlib import Path
 
 from palworld_terminal.adapters.palworld_rest import RestResponse
-from palworld_terminal.application.command_permissions import CommandOverride as CO
 from palworld_terminal.config import parse_config
 from palworld_terminal.container import Container
 from palworld_terminal.domain.enums import EventType
 from palworld_terminal.infrastructure.clock import FakeClock
 from palworld_terminal.presentation.event_wording import render_event
+from palworld_terminal.shared.command_permissions import CommandOverride as CO
 from tests.fixtures.loader import load_fixture
 
 # game-data 唯一产生的事件家族（spec §3.6 四枚举）

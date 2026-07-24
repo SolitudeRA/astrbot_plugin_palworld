@@ -1,11 +1,11 @@
 """容器按生效值条件装配：禁用组不构造服务、scheduler 端点随 command_overrides 开关。"""
 from pathlib import Path
 
-from palworld_terminal.application.command_permissions import CommandOverride as CO
 from palworld_terminal.config import parse_config
 from palworld_terminal.container import Container
 from palworld_terminal.domain.enums import EndpointName
 from palworld_terminal.infrastructure.clock import FakeClock
+from palworld_terminal.shared.command_permissions import CommandOverride as CO
 
 
 def _cfg(overrides: dict[str, CO]):

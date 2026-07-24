@@ -2,10 +2,6 @@ from __future__ import annotations
 
 from collections.abc import Awaitable, Callable
 
-from ..application.command_permissions import (
-    effective_admin_only,
-    effective_enabled,
-)
 from ..application.dtos import ServerStatusRow
 from ..application.query_service import metric_stale
 from ..domain.enums import AccessMode
@@ -16,6 +12,10 @@ from ..presentation.formatters import (
 )
 from ..presentation.locale import L
 from ..presentation.server_arg import ArgError, parse_group
+from ..shared.command_permissions import (
+    effective_admin_only,
+    effective_enabled,
+)
 from ..shared.command_registry import DISPATCH
 from .admin_write_flow import AdminWriteFlow
 from .command_support import (

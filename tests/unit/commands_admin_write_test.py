@@ -21,11 +21,11 @@ from palworld_terminal.application.admin_service import (
     AdminService,
     TargetResult,
 )
-from palworld_terminal.application.command_permissions import CommandOverride
 from palworld_terminal.application.routing_service import Resolution, RoutingError
 from palworld_terminal.presentation.commands import Commands, feature_disabled_text
 from palworld_terminal.presentation.confirmation import ConfirmationStore
 from palworld_terminal.presentation.locale import L
+from palworld_terminal.shared.command_permissions import CommandOverride
 
 _SERVER_WRITES = ("announce", "save", "kick", "unban", "ban", "shutdown", "stop")
 _UID = "steam_76561198000003210"  # 尾4 = 3210

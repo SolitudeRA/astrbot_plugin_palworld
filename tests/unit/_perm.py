@@ -3,7 +3,7 @@
 旧测试基座用 features/_Features(**groups) 表达功能门开关；门控切到 command_overrides
 后，用本助手把「功能组开关」翻译成等价的 CommandOverride 生效值（镜像旧默认全开）。
 """
-from palworld_terminal.application.command_permissions import (
+from palworld_terminal.shared.command_permissions import (
     COMMAND_META,
     CommandOverride,
     enable_configurable,

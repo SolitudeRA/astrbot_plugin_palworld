@@ -1,8 +1,8 @@
 from types import SimpleNamespace
 
-from palworld_terminal.application.command_permissions import CommandOverride
 from palworld_terminal.application.query_service import RankBoardsDTO
 from palworld_terminal.presentation.commands import Commands, feature_disabled_text
+from palworld_terminal.shared.command_permissions import CommandOverride
 
 
 class _Query:

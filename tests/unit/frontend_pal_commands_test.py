@@ -2,7 +2,7 @@ import json
 import re
 from pathlib import Path
 
-from palworld_terminal.application.command_permissions import (
+from palworld_terminal.shared.command_permissions import (
     COMMAND_META,
     DANGER_COMMANDS,
     admin_configurable,
