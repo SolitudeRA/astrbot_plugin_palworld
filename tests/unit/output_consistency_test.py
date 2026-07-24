@@ -10,11 +10,23 @@
 from __future__ import annotations
 
 import ast
+import importlib
 import inspect
+import pkgutil
 
-from palworld_terminal.application import query_service, report_service
+from palworld_terminal import application as _application_pkg
+from palworld_terminal.application import report_service
 from palworld_terminal.presentation import event_wording as event_wording_module
 from palworld_terminal.presentation import formatters as formatters_module
+
+
+def _query_modules():
+    """application 包内所有 query_* 模块（含未来新增，防漂移自动覆盖）。"""
+    mods = []
+    for info in pkgutil.iter_modules(_application_pkg.__path__):
+        if info.name.startswith("query_"):
+            mods.append(importlib.import_module(f"{_application_pkg.__name__}.{info.name}"))
+    return mods
 
 
 def _code_string_literals(source: str) -> str:
@@ -60,16 +72,29 @@ def test_eight_wordings_single_source_no_reinline():
     # 措辞渲染下沉 presentation.render_event（消除 application→presentation 反向依赖）：
     # query/report 不再产措辞、不 import 已废弃的 event_wording，只经 event_view 单一构造
     # 入口产 EventView；代码内绝不 re-inline 任一措辞。
-    for mod in (query_service, report_service):
-        src = inspect.getsource(mod)
-        assert "event_wording" not in src, f"{mod.__name__} 仍引用已废弃的 event_wording"
-        assert "event_view(" in src, f"{mod.__name__} 未经 event_view 单一构造入口"
+    query_mods = _query_modules()
+    assert query_mods, "未发现任何 query_* 模块——discovery 失效将使护栏假绿"
+    query_sources = {m.__name__: inspect.getsource(m) for m in query_mods}
+
+    # (a) 每个 query_* + report_service：绝不引用 event_wording、绝不 re-inline 措辞（∀）。
+    for name, src in {
+        **query_sources,
+        report_service.__name__: inspect.getsource(report_service),
+    }.items():
+        assert "event_wording" not in src, f"{name} 仍引用已废弃的 event_wording"
         code_strings = _code_string_literals(src)
         for frag in _WORDING_FRAGMENTS:
             assert frag not in code_strings, (
-                f"{mod.__name__} 代码内 re-inline 措辞 {frag!r}——八类措辞应唯一源自 "
+                f"{name} 代码内 re-inline 措辞 {frag!r}——八类措辞应唯一源自 "
                 f"presentation.render_event（改词即漂移）"
             )
+
+    # (b) event_view 单一构造入口在 query_* 全体中确被使用（∃，跨拆分模块）。
+    assert any("event_view(" in src for src in query_sources.values()), (
+        "query_* 全体未经 event_view 单一构造入口——措辞构造被绕过"
+    )
+    # report_service 未拆分，独立保留其自身 present-check（恒含 event_view）。
+    assert "event_view(" in inspect.getsource(report_service)
     # render_event 是 formatters 唯一措辞源（消费者只 delegate，不 re-inline）。
     assert "render_event(" in inspect.getsource(formatters_module)
 
