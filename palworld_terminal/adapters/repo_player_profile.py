@@ -198,6 +198,46 @@ class _PlayerProfileRepo:
              o.building_count, o.guild_key, o.companion_class, o.position_cell),
         )
 
+    async def climb_levels(
+        self, world_id: str, window_start: int
+    ) -> list[tuple[str, int, int, bool]]:
+        """飞升榜数据源（spec §7）：每个有等级观测的玩家一行
+        (player_key, baseline_level, current_level, has_pre_window_baseline)。
+
+        current = 最新观测 level；baseline = observed_at <= window_start 的最新观测 level，
+        无窗前观测则取该玩家最早观测 level（新玩家 fallback）。has_pre_window_baseline 供
+        application 判定「历史深度不足」（全体皆 False → bot 记录不足一窗）。level 为 NULL 的
+        观测（未采到等级）忽略；gain=max(0,…) / 名字级收敛 / 排名均在 application 层。"""
+        rows = await self._db.query(
+            """
+            SELECT cur.player_key AS player_key, cur.level AS current_level,
+                   (SELECT b.level FROM player_observations b
+                     WHERE b.world_id = cur.world_id AND b.player_key = cur.player_key
+                       AND b.level IS NOT NULL AND b.observed_at <= ?
+                     ORDER BY b.observed_at DESC LIMIT 1) AS pre_level,
+                   (SELECT e.level FROM player_observations e
+                     WHERE e.world_id = cur.world_id AND e.player_key = cur.player_key
+                       AND e.level IS NOT NULL
+                     ORDER BY e.observed_at ASC LIMIT 1) AS earliest_level
+            FROM player_observations cur
+            WHERE cur.world_id = ? AND cur.level IS NOT NULL
+              AND cur.observed_at = (SELECT MAX(o.observed_at) FROM player_observations o
+                                      WHERE o.world_id = cur.world_id
+                                        AND o.player_key = cur.player_key
+                                        AND o.level IS NOT NULL)
+            """,
+            (window_start, world_id),
+        )
+        out: dict[str, tuple[str, int, int, bool]] = {}
+        for r in rows:
+            pre = r["pre_level"]
+            baseline = pre if pre is not None else r["earliest_level"]
+            # observed_at 并列理论可致同玩家多行——dict 去重（同刻 level 一致，任取其一）。
+            out[r["player_key"]] = (
+                r["player_key"], baseline, r["current_level"], pre is not None,
+            )
+        return list(out.values())
+
     async def latest_observation(self, world_id: str, player_key: str) -> PlayerObservation | None:
         rows = await self._db.query(
             """

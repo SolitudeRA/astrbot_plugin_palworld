@@ -1,5 +1,6 @@
 from types import SimpleNamespace
 
+from palworld_terminal.application.dtos import RankClimbDTO, RankClimbEntry
 from palworld_terminal.application.query_service import RankBoardsDTO
 from palworld_terminal.presentation.commands import Commands, feature_disabled_text
 from palworld_terminal.shared.command_permissions import CommandOverride
@@ -9,6 +10,9 @@ class _Query:
     async def rank(self, world, mode="both"):
         return RankBoardsDTO(time_rows=[("A", 60)], level_rows=[("A", 9)],
                              total_rows=[("A", 120)])
+
+    async def rank_climb(self, world, viewer_key=None):
+        return RankClimbDTO(rows=[RankClimbEntry("A", 15)], shallow=False)
 
 
 def _cmds(mode="balanced", players_on=True):
@@ -51,3 +55,10 @@ async def test_rank_default_is_today_board():
     # 未识别首词回落 today（spec §4.23）；标题锚点带配置名；名次序号纯渲染。
     assert out.splitlines()[0] == "🏆 今日在线时长榜 · srv" and "等级榜" not in out
     assert "1. A 1分" in out
+
+
+async def test_rank_climb_mode_renders_climb_board():
+    # climb 是等级涨幅榜（非时长榜）——strict 下不砍，走 rank_climb。
+    out = await _cmds(mode="strict").rank("u", "climb", True)
+    assert out.splitlines()[0] == "🚀 飞升榜 · srv"
+    assert "1. A +15 级" in out

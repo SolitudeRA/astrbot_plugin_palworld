@@ -84,8 +84,8 @@ class Commands:
     async def today(self, umo, message_str, is_group) -> str:
         return await self._reads.today(umo, message_str, is_group)
 
-    async def rank(self, umo, message_str, is_group) -> str:
-        return await self._reads.rank(umo, message_str, is_group)
+    async def rank(self, umo, message_str, is_group, sender_id=None) -> str:
+        return await self._reads.rank(umo, message_str, is_group, sender_id)
 
     async def player(self, umo, message_str, is_group) -> str:
         return await self._reads.player(umo, message_str, is_group)

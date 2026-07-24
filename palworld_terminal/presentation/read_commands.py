@@ -15,6 +15,7 @@ from ..presentation.formatters import (
     format_online,
     format_player,
     format_rank,
+    format_rank_climb,
     format_rules,
     format_status,
     format_today,
@@ -220,7 +221,7 @@ class ReadCommands:
         )
 
     @_gated
-    async def rank(self, umo, message_str, is_group) -> str:
+    async def rank(self, umo, message_str, is_group, sender_id=None) -> str:
         world, arg, err, server_name = await self._resolve_world(
             umo, message_str, "rank", is_group
         )
@@ -228,11 +229,20 @@ class ReadCommands:
             return err
         strict = self._cfg.privacy.mode == "strict"
         which = arg.name.strip().lower()
-        if which not in ("today", "total", "level"):
+        if which not in ("today", "total", "level", "climb"):
             which = "today"  # 缺省 today（spec §4.23：未识别首词回落 today）
-        # strict 双砍：today 与 total 同为时长榜(≈作息)均回 notice；level 不受影响。
+        # strict 双砍：today 与 total 同为时长榜(≈作息)均回 notice；level/climb 不受影响
+        # （climb 是等级涨幅榜，非作息，与 level 同不砍）。
         if which in ("today", "total") and strict:
             return L("rank_duration_strict")
+        if which == "climb":
+            # 本人「你第 N」需绑定：sender_id → phash → player_key（未绑定→无本人榜位）。
+            viewer_key = None
+            if sender_id is not None:
+                phash = hash_user_id(self._salt, world.world_id, sender_id)
+                viewer_key = await self._repo.get_binding(phash, world.world_id)
+            dto = await self._query.rank_climb(world, viewer_key=viewer_key)
+            return format_rank_climb(dto, server_name=server_name)
         dto = await self._query.rank(world, which)
         return format_rank(dto, which=which, server_name=server_name)
 

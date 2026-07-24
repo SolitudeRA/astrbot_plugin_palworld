@@ -62,6 +62,8 @@ MESSAGES: dict[str, str] = {
     "feature_disabled_hint": "└ 管理员可在插件设置页「权限」章开启",
     # rank 空榜（spec §4.23）：标题锚点由 formatter 供，此处只存素文空句。
     "rank_empty": "暂无排行数据",
+    # rank climb 空榜（spec §7）：本周无玩家等级提升；标题锚点由 formatter 供。
+    "rank_climb_empty": "本周暂无玩家等级提升",
     # rank strict 停用（spec §3/§4.23）：配置停用类统一 ⚠️ + 等级榜不受影响引导脚注。
     "rank_duration_strict": "⚠️ 时长榜在 strict 隐私模式下停用\n└ 等级榜不受影响：/pal rank level",
     # online 空态（spec §4.24）：标题锚点由 formatter 供，此处只存素文空句（收编硬编码）。

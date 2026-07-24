@@ -126,7 +126,7 @@ HELP_TEXT: dict[str, str] = {
     "link list": "服务器列表",
     "link add": "授权本群并设为活动服务器（<名称>）",
     "link remove": "撤销本群授权（<名称>）",
-    "rank": "排行榜（[today|total|level]）",
+    "rank": "排行榜（[today|total|level|climb]）",
     "online": "当前在线",
     "me": "我的信息（[hide|show]）",
     "help": "帮助",

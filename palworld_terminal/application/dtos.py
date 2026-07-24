@@ -201,3 +201,25 @@ class ServerStatusRow:
     online: bool
     allowed: bool
     active: bool
+
+
+@dataclass(slots=True)
+class RankClimbEntry:
+    name: str
+    gain: int          # 周窗 level 涨幅（max(0, current − baseline)，恒 > 0 才上榜）
+
+
+@dataclass(slots=True)
+class RankClimbDTO:
+    """rank climb 飞升榜（spec §7）：周窗 level 涨幅，gain > 0 才上榜。
+
+    rows 已按 gain 降序取 Top-N（名字级收敛，被排除/隐藏整组剔除）。
+    shallow=True 表示无任一窗前观测（bot 记录不足 7 天）→ formatter 措辞「自 bot 记录以来」。
+    viewer_* = 调用方（已绑定）本人在全体涨幅玩家中的榜位（非仅 Top-N）；未绑定/本人无涨幅→None。
+    viewer_gap = 距前一位的 gain 差；viewer_rank==1（榜首）时为 None。
+    """
+    rows: list[RankClimbEntry]
+    shallow: bool = False
+    viewer_rank: int | None = None
+    viewer_gain: int | None = None
+    viewer_gap: int | None = None

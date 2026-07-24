@@ -11,7 +11,7 @@ APP_DIR = pathlib.Path(__file__).resolve().parents[2] / "palworld_terminal" / "a
 
 SPINE = {"load_excluded_keys", "name_banned", "resolve_event_subjects"}
 
-# §4 全 30 方法完整清单（唯一真相源；含全部单下划线 helper）
+# §4 全 31 方法完整清单（唯一真相源；含全部单下划线 helper）
 EXPECTED_METHODS = {
     # privacy 脊柱 (3)
     "load_excluded_keys", "resolve_event_subjects", "name_banned",
@@ -23,13 +23,13 @@ EXPECTED_METHODS = {
     "_guild_recent_events", "_bases_indexed", "bases", "base",
     # events (5)
     "events", "_render_rule_value", "rules", "world_summary", "today",
-    # players (6)
-    "_converge_by_name", "rank", "_profile_extras", "_build_profile",
-    "player_profile", "profile_for_key",
+    # players (7)
+    "_converge_by_name", "rank", "rank_climb", "_profile_extras",
+    "_build_profile", "player_profile", "profile_for_key",
 }
 
 
-def test_query_service_exposes_exactly_30_methods():
+def test_query_service_exposes_exactly_31_methods():
     # 类级内省：int 类常量 _GUILDS_TTL/_BASES_TTL/_EVENTS_TTL 与 tuple _GUILD_BASE_EVENTS
     # 非 function、天然不在其中；async/sync/staticmethod 全纳。仅排除 dunder __init__。
     actual = {
@@ -37,7 +37,7 @@ def test_query_service_exposes_exactly_30_methods():
         if not n.startswith("__")
     }
     assert actual == EXPECTED_METHODS
-    assert len(EXPECTED_METHODS) == 30
+    assert len(EXPECTED_METHODS) == 31
 
 
 def _self_call_names(class_node: ast.ClassDef) -> set[str]:

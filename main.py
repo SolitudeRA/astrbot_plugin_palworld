@@ -553,7 +553,8 @@ class PalWorldTerminal(Star):
     async def rank(self, event):
         yield event.plain_result(
             await self._guarded_cmd(event, "rank", lambda c: c.commands.rank(
-                self._umo(event), self._msg(event), self._is_group(event)))
+                self._umo(event), self._msg(event), self._is_group(event),
+                self._sender_id(event)))
         )
 
     @pal.command("online")

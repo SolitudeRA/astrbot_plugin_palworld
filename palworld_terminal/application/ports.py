@@ -27,6 +27,10 @@ from ..domain.models import (
 class ReadRepositoryPort(Protocol):
     """读端口：query_service / report_service / name_resolver 消费。"""
 
+    async def climb_levels(
+        self, world_id: str, window_start: int
+    ) -> list[tuple[str, int, int, bool]]: ...
+
     async def get_hidden_keys(self, world_id: str) -> set[str]: ...
 
     async def get_open_session(

@@ -7,6 +7,7 @@ from ..application.dtos import (
     GuildDetailDTO,
     GuildDTO,
     OnlineDTO,
+    RankClimbDTO,
     RulesDTO,
     ServerStatusRow,
     StatusDTO,
@@ -572,4 +573,27 @@ def format_rank(dto: RankBoardsDTO, *, which: str, server_name: str) -> str:
     lines = [title, *rows]
     if board == "total":
         lines.append("└ 统计范围为数据留存期")
+    return "\n".join(lines)
+
+
+def format_rank_climb(dto: RankClimbDTO, *, server_name: str) -> str:
+    """rank climb 飞升榜（spec §7）：周窗 level 涨幅榜，标题锚点 server_name。
+
+    行 `1. {name} +{gain} 级`；口径脚注随 shallow 分叉（历史不足 7 天时诚实标「自 bot
+    记录以来」）；末尾「你第 N，离前一位差 X 级」为调用方本人榜位（榜首无差）。空榜=标题 +
+    素文（无脚注、无本人榜位）。gain 恒 > 0（query 层已剔零/负增量），此处纯渲染。"""
+    title = f"🚀 飞升榜 · {server_name}"
+    if not dto.rows:
+        return f"{title}\n{L('rank_climb_empty')}"
+    rows = [f"{i}. {e.name} +{e.gain} 级" for i, e in enumerate(dto.rows, 1)]
+    lines = [title, *rows]
+    lines.append(
+        "└ 涨幅自 bot 开始记录以来（历史不足 7 天）" if dto.shallow
+        else "└ 统计近 7 天等级涨幅"
+    )
+    if dto.viewer_rank is not None:
+        if dto.viewer_gap is None:
+            lines.append(f"你第 {dto.viewer_rank}，已登顶飞升榜 🎉")
+        else:
+            lines.append(f"你第 {dto.viewer_rank}，离前一位差 {dto.viewer_gap} 级")
     return "\n".join(lines)

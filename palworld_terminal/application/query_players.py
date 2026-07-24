@@ -2,13 +2,17 @@ from __future__ import annotations
 
 from ..domain.models import PlayerIdentity, World
 from ..infrastructure.clock import Clock
+from .dtos import RankClimbDTO, RankClimbEntry
 from .query_privacy import _PrivacyBase
 from .query_support import PlayerProfileDTO, RankBoardsDTO
 from .report_service import day_bounds
 
+# 飞升榜周窗（spec §7）：now−7d 起算，直算 player_observations 跨周 level 差。
+_CLIMB_WINDOW_SECONDS = 7 * 86400
+
 
 class _RankProfileQueries(_PrivacyBase):
-    """排行榜 / 玩家档案查询（rank、player_profile、profile_for_key）。"""
+    """排行榜 / 玩家档案查询（rank、rank_climb、player_profile、profile_for_key）。"""
 
     _clock: Clock
 
@@ -84,6 +88,56 @@ class _RankProfileQueries(_PrivacyBase):
                     break
 
         return RankBoardsDTO(time_rows=time_rows, level_rows=level_rows, total_rows=total_rows)
+
+    async def rank_climb(
+        self, world: World, viewer_key: str | None = None
+    ) -> RankClimbDTO:
+        """飞升榜（spec §7）：周窗 [now−7d, now] 内每个有记录玩家的 level 涨幅。
+
+        baseline=窗前最新观测（无则窗内最早）、current=最新观测、gain=max(0, current−baseline)
+        （负增量归零：LOW 置信按名 hash 玩家同名换人/存档重置会掉级）。gain==0 不上榜。
+        名字级收敛与两时长榜同语义（被排除/隐藏 key 整组剔除，同名多 key 取最高 gain）。
+        shallow=全无窗前观测→措辞诚实；viewer_key 命中给「你第 N，离前一位差 X」榜位。
+        口径：仅统计有快照记录的玩家。"""
+        excluded = await self.load_excluded_keys(world)
+        n = self._cfg.players.rank_top_n
+        window_start = self._clock.now() - _CLIMB_WINDOW_SECONDS
+        raw = await self._repo.climb_levels(world.world_id, window_start)
+        shallow = bool(raw) and not any(pre for (_k, _b, _c, pre) in raw)
+
+        banned_names: set[str] = set()
+        best: dict[str, int] = {}   # 同名多 key 取最高 gain（名字级去重）
+        for player_key, baseline, current, _pre in raw:
+            ident = await self._repo.get_player(world.world_id, player_key)
+            name = ident.latest_name if ident is not None else player_key[:8]
+            if player_key in excluded:
+                banned_names.add(name)
+                continue
+            gain = max(0, current - baseline)
+            if gain == 0:
+                continue
+            if name not in best or gain > best[name]:
+                best[name] = gain
+        for name in banned_names:
+            best.pop(name, None)
+
+        ordered = sorted(best.items(), key=lambda kv: (-kv[1], kv[0]))
+        rows = [RankClimbEntry(name=nm, gain=g) for nm, g in ordered[:n]]
+
+        viewer_rank = viewer_gain = viewer_gap = None
+        if viewer_key is not None and viewer_key not in excluded:
+            vident = await self._repo.get_player(world.world_id, viewer_key)
+            vname = vident.latest_name if vident is not None else None
+            if vname is not None and vname in best:
+                for i, (nm, g) in enumerate(ordered, 1):
+                    if nm == vname:
+                        viewer_rank, viewer_gain = i, g
+                        viewer_gap = ordered[i - 2][1] - g if i > 1 else None
+                        break
+        return RankClimbDTO(
+            rows=rows, shallow=shallow, viewer_rank=viewer_rank,
+            viewer_gain=viewer_gain, viewer_gap=viewer_gap,
+        )
 
     async def _profile_extras(
         self, world: World, ident: PlayerIdentity

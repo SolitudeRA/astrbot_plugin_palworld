@@ -1,5 +1,6 @@
+from palworld_terminal.application.dtos import RankClimbDTO, RankClimbEntry
 from palworld_terminal.application.query_service import RankBoardsDTO
-from palworld_terminal.presentation.formatters import format_rank
+from palworld_terminal.presentation.formatters import format_rank, format_rank_climb
 
 
 def _dto():
@@ -47,3 +48,42 @@ def test_empty_board_plain_state():
 def test_empty_total_board_no_footnote():
     out = format_rank(RankBoardsDTO([], []), which="total", server_name="Palpagos")
     assert out == "🏆 累计在线时长榜 · Palpagos\n暂无排行数据"
+
+
+# ---- climb 飞升榜（spec §7）----
+
+def _climb(**kw):
+    kw.setdefault("rows", [RankClimbEntry("Alice", 15), RankClimbEntry("Bob", 8)])
+    kw.setdefault("shallow", False)
+    return RankClimbDTO(**kw)
+
+
+def test_climb_board_title_rows_and_scope():
+    out = format_rank_climb(_climb(), server_name="Palpagos")
+    assert out.splitlines()[0] == "🚀 飞升榜 · Palpagos"
+    assert "1. Alice +15 级" in out and "2. Bob +8 级" in out
+    assert "近 7 天" in out
+
+
+def test_climb_shallow_scope_wording():
+    out = format_rank_climb(_climb(rows=[RankClimbEntry("Eve", 7)], shallow=True),
+                            server_name="P")
+    assert "记录以来" in out and "近 7 天" not in out
+
+
+def test_climb_viewer_footer_with_gap():
+    out = format_rank_climb(_climb(viewer_rank=2, viewer_gain=8, viewer_gap=7),
+                            server_name="P")
+    assert "你第 2" in out and "差 7" in out
+
+
+def test_climb_viewer_footer_top_no_gap():
+    out = format_rank_climb(_climb(viewer_rank=1, viewer_gain=15, viewer_gap=None),
+                            server_name="P")
+    assert "你第 1" in out and "差" not in out.splitlines()[-1]
+
+
+def test_climb_empty_board():
+    out = format_rank_climb(_climb(rows=[]), server_name="P")
+    assert out.splitlines()[0] == "🚀 飞升榜 · P"
+    assert "你第" not in out and "近 7 天" not in out
