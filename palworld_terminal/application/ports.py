@@ -14,6 +14,7 @@ from ..domain.models import (
     Base,
     BaseObservation,
     Guild,
+    ObservedSpecies,
     PlayerIdentity,
     PlayerObservation,
     PlayerSession,
@@ -68,6 +69,8 @@ class ReadRepositoryPort(Protocol):
 
     async def list_players_by_name(self, world_id: str, name: str) -> list[str]: ...
 
+    async def observed_species(self) -> list[ObservedSpecies]: ...
+
     async def peak_online(self, world_id: str, since: int | None = None) -> int: ...
 
     async def sessions_in_day(
@@ -87,6 +90,11 @@ class WriteRepositoryPort(Protocol):
     async def insert_event(self, e: WorldEvent) -> bool: ...
 
     async def peak_online(self, world_id: str, since: int | None = None) -> int: ...
+
+    async def upsert_observed_species(
+        self, species_class: str, species_name: str, element: str,
+        now: int, first_seen_name: str | None,
+    ) -> None: ...
 
 
 class RoutingRepositoryPort(Protocol):

@@ -262,11 +262,33 @@ async def migration_0004(conn: aiosqlite.Connection) -> None:
         await conn.execute(stmt)
 
 
+_MIGRATION_0005_SQL = [
+    # 服务器图鉴地基（spec §4.4）：永久累积「曾被观测到」的帕鲁物种。
+    # 无 world_id、永久累积——不 prune、不随 purge_server_data 清（口径：曾观测过即点亮）。
+    """
+    CREATE TABLE IF NOT EXISTS observed_species (
+        species_class   TEXT PRIMARY KEY,
+        species_name    TEXT,
+        element         TEXT,
+        first_seen_at   INTEGER,
+        first_seen_name TEXT,
+        observe_count   INTEGER NOT NULL DEFAULT 0
+    )
+    """,
+]
+
+
+async def migration_0005(conn: aiosqlite.Connection) -> None:
+    for stmt in _MIGRATION_0005_SQL:
+        await conn.execute(stmt)
+
+
 MIGRATIONS: list[Callable[[aiosqlite.Connection], Awaitable[None]]] = [
     migration_0001,
     migration_0002,
     migration_0003,
     migration_0004,
+    migration_0005,
 ]
 
 

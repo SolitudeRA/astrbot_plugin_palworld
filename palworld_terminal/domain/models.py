@@ -190,6 +190,19 @@ class GameDataSnapshot:
 
 
 @dataclass(slots=True)
+class ObservedSpecies:
+    """服务器图鉴累积条目（observed_species 表）：曾被观测到的帕鲁物种。
+    first_seen_name 只承载明文名（NickName/TrainerNickName），取不到为 None——
+    永不承载 id（该表不 prune，回退 id = 永久泄漏 GUID/steamid）。"""
+    species_class: str
+    species_name: str
+    element: str
+    first_seen_at: int
+    first_seen_name: str | None
+    observe_count: int
+
+
+@dataclass(slots=True)
 class PlayerRow:
     userid: str | None
     player_id: str | None
