@@ -127,6 +127,15 @@ def _default_players() -> PlayersConfig:
 
 
 @dataclass(slots=True)
+class PresentationConfig:
+    me_card_theme: str = "light"  # {light, dark, auto}；auto 按服务器本地时钟昼夜
+
+
+def _default_presentation() -> PresentationConfig:
+    return PresentationConfig(me_card_theme="light")
+
+
+@dataclass(slots=True)
 class AdminEntry:
     id: str
     note: str
@@ -207,6 +216,7 @@ class AppConfig:
     history: HistoryConfig
     skipped_headers: list[SkippedHeader] = field(default_factory=list)
     players: PlayersConfig = field(default_factory=_default_players)
+    presentation: PresentationConfig = field(default_factory=_default_presentation)
     permissions: PermissionsConfig = field(default_factory=_default_permissions)
     server_admin: ServerAdminConfig = field(default_factory=_default_server_admin)
 
@@ -438,6 +448,7 @@ def parse_config(raw: Mapping, env: Mapping[str, str]) -> AppConfig:
     pv = _obj(raw, "privacy")
     h = _obj(raw, "history")
     pl = _obj(raw, "players")
+    pr = _obj(raw, "presentation")
     permissions = _parse_permissions(raw)
     return AppConfig(
         servers=servers,
@@ -494,6 +505,11 @@ def parse_config(raw: Mapping, env: Mapping[str, str]) -> AppConfig:
             exclude_names=[s.strip() for s in str(pl.get("exclude_names", "")).split(",") if s.strip()],
             # 折叠上限：clamp ≥1，畸形回默认 7（spec §2.7 / §5#10）。
             list_fold_limit=max(1, _as_int(pl.get("list_fold_limit", 7), 7)),
+        ),
+        presentation=PresentationConfig(
+            me_card_theme=_one_of(
+                pr.get("me_card_theme", "light"),
+                frozenset({"light", "dark", "auto"}), "light"),
         ),
         permissions=permissions,
         server_admin=_parse_server_admin(raw),

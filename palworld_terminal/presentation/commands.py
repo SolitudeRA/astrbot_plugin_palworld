@@ -31,6 +31,7 @@ class Commands:
     def __init__(
         self, routing, query, repo, cfg, clock, salt: bytes = b"",
         admin_service=None, confirmations=None,
+        icons: dict[str, str] | None = None,
     ) -> None:
         self._routing = routing
         self._query = query
@@ -40,6 +41,8 @@ class Commands:
         self._salt = salt
         self._admin = admin_service
         self._confirmations = confirmations
+        # element → SVG 串（container 注入；T9 图片名片消费，缺则 fallback emoji）
+        self._icons = icons or {}
         self._reads = ReadCommands(routing, query, repo, cfg, clock, salt)
         self._writes = AdminWriteFlow(admin_service, routing, confirmations, cfg, clock)
 

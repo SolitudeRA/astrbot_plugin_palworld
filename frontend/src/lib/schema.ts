@@ -82,6 +82,9 @@ export const OBJECT_SECTIONS: ObjectSection[] = [
     { key: 'list_fold_limit', type: 'int', label: '列表折叠上限', default: 7, hint: '单个列表超过此条数则折叠为「前 N 条 + 汇总」（最小 1）' },
     { key: 'exclude_names', type: 'string', label: '排除名单', default: '', hint: '逗号分隔；名单内玩家不进榜单、不可查询' },
   ]},
+  { key: 'presentation', title: '展示与卡片', subtitle: '个人名片图片版外观', fields: [
+    { key: 'me_card_theme', type: 'enum', label: '名片主题', default: 'light', options: ['light', 'dark', 'auto'], optionLabels: { light: '浅色', dark: '暗色', auto: '跟随昼夜' }, hint: '个人名片图片版配色；「跟随昼夜」按服务器本地时钟（6:00–18:00 浅色，其余暗色）' },
+  ]},
   { key: 'server_admin', title: '服务器管控', subtitle: '「服务器管控」任一组启用时生效；写操作仅授权管理员可用', fields: [
     { key: 'require_confirmation', type: 'bool', label: '危险命令二次确认', default: false, hint: '开启后关服 / 封禁等危险命令须在有效期内 /pal confirm 再确认' },
     { key: 'confirmation_timeout', type: 'int', label: '确认有效期（秒）', default: 30, hint: '二次确认的有效时长，超时作废（范围 5-600）' },

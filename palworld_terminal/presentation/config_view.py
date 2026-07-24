@@ -42,7 +42,7 @@ _SECTION_KEYS = {
 _TOP_KEYS = {
     "servers", "routing", "group_bindings", "custom_headers",
     "polling", "world", "bases", "privacy", "history", "players",
-    "permission_admins", "command_permissions", "server_admin",
+    "presentation", "permission_admins", "command_permissions", "server_admin",
     "single_allowed_groups",
 }
 
@@ -62,6 +62,7 @@ _ENUMS = {
     "routing.world_mode": {"multi", "single"},
     "privacy.mode": {"strict", "balanced", "advanced"},
     "world.locale": {"zh-CN"},
+    "presentation.me_card_theme": {"light", "dark", "auto"},
 }
 # (section, field) -> "int" | "float"；section=None 表示顶层 object 节
 _NUM_FIELDS = {
@@ -167,7 +168,7 @@ def validate_and_backfill(body, old_raw, env):
                 if isinstance(v, str) and len(v) > _MAX_STR:
                     return _err("too_large")
     for section in ("routing", "polling", "world", "bases", "privacy", "history",
-                    "players", "server_admin"):
+                    "players", "presentation", "server_admin"):
         if section in body and not isinstance(body[section], Mapping):
             return _err("invalid_shape")
 

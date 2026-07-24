@@ -155,6 +155,13 @@
       "exclude_names": { "type": "string", "description": "排除出榜/查询的玩家名（逗号分隔）", "default": "" }
     }
   },
+  "presentation": {
+    "type": "object",
+    "description": "展示与卡片外观",
+    "items": {
+      "me_card_theme": { "type": "string", "description": "个人名片图片版配色主题：light 浅色 / dark 暗色 / auto 按服务器本地时钟昼夜（6:00-18:00 用 light，其余用 dark）", "default": "light", "options": ["light", "dark", "auto"] }
+    }
+  },
   "world": {
     "type": "object",
     "description": "世界与展示",
