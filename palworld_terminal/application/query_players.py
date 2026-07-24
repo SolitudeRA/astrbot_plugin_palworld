@@ -1,8 +1,12 @@
 from __future__ import annotations
 
-from ..domain.models import PlayerIdentity, World
+from typing import Any
+
+from ..domain.enums import ActionCategory, UnitType
+from ..domain.models import CharacterActor, PlayerIdentity, World
 from ..infrastructure.clock import Clock
-from .dtos import RankClimbDTO, RankClimbEntry
+from .dtos import CompanionView, MeCardDTO, RankClimbDTO, RankClimbEntry
+from .player_service import PlayerService
 from .query_privacy import _PrivacyBase
 from .query_support import PlayerProfileDTO, RankBoardsDTO
 from .report_service import day_bounds
@@ -11,10 +15,33 @@ from .report_service import day_bounds
 _CLIMB_WINDOW_SECONDS = 7 * 86400
 
 
+def _days_ago(now: int, ts: int) -> int:
+    """绝对时刻 → 距今整天数（预粗化，隐私 P1）：剥离时刻精度，绝不外泄 epoch。"""
+    return max(0, (now - ts) // 86400)
+
+
+def _companion_view(meta: Any, otomo: CharacterActor | None, pal_class: str) -> CompanionView:
+    """OtomoPal actor → CompanionView：物种/元素经 meta 解析（缺 meta 优雅降级），
+    等级/血比/动作取自 actor。element/action_label 落稳定键，中文/图标映射归 presentation。"""
+    species = meta.pal_name(pal_class) if meta is not None else pal_class
+    element = meta.element(pal_class) if meta is not None else "unknown"
+    level = otomo.level if (otomo is not None and otomo.level is not None) else 0
+    action = otomo.action.value if otomo is not None else ActionCategory.UNKNOWN.value
+    hp_ratio = 0.0
+    if otomo is not None and otomo.hp is not None and otomo.max_hp:
+        hp_ratio = min(1.0, max(0.0, otomo.hp / otomo.max_hp))
+    return CompanionView(
+        species_name=species, element=element, level=level,
+        action_label=action, hp_ratio=hp_ratio,
+    )
+
+
 class _RankProfileQueries(_PrivacyBase):
-    """排行榜 / 玩家档案查询（rank、rank_climb、player_profile、profile_for_key）。"""
+    """排行榜 / 玩家档案查询（rank、rank_climb、player_profile、profile_for_key、me_card）。"""
 
     _clock: Clock
+    _meta: Any          # 随身物种/元素解析（me_card）；隐式 Any，见 query_service 拆分契约
+    _world_cache: Any   # 脱敏 game-data 快照（me_card 读随身）；防 mypy attr-defined（复核 SD6）
 
     def _converge_by_name(
         self, pairs: list[tuple[str, int]], excluded_names: set[str], n: int,
@@ -199,3 +226,63 @@ class _RankProfileQueries(_PrivacyBase):
             return None
         hidden = player_key in await self._repo.get_hidden_keys(world.world_id)
         return await self._build_profile(world, ident, hidden=hidden)
+
+    async def me_card(self, world: World, player_key: str) -> MeCardDTO | None:
+        """/pal me 名片数据层（spec §5）：百分位 + 随身高光三态 + 离线预粗化字段。
+
+        百分位（复核 SD4）：复用 list_players_by_level 等级分布算「超越有记录玩家」比例（C2）。
+        随身 join（复核 SD1）：快照已脱敏，Player.player_userid 与 player_key 同为
+        hash_user_id 产物、**二者已相等 → 直比命中，绝不再套 hash**（否则 hash(hash)≠key、
+        随身恒空）；命中本人 actor 取 instance_id（redact 透传未 hash），经
+        link_companions(owner_instance→pal_class) 判随身。
+        三态（复核 SD2）：默认部署下 game-data 不轮询 → 在线玩家快照恒空 → no_data，
+        **绝不谎称没带**；仅在线 + 有快照 + 本人 actor 在 + 无匹配 OtomoPal → none_out。
+        离线时间字段预粗化为距今天数（隐私 P1，无绝对时间戳）。悬空绑定→None。"""
+        ident = await self._repo.get_player(world.world_id, player_key)
+        if ident is None:
+            return None
+        now = self._clock.now()
+        session = await self._repo.get_open_session(world.world_id, player_key)
+        online = session is not None
+        today, total, guild_name = await self._profile_extras(world, ident)
+        hidden = player_key in await self._repo.get_hidden_keys(world.world_id)
+
+        # 百分位：超越「有记录玩家」的比例（等级严格低于本人者占比）。
+        players = await self._repo.list_players_by_level(world.world_id)
+        below = sum(1 for p in players if p.latest_level < ident.latest_level)
+        percentile = (below / len(players) * 100.0) if players else 0.0
+
+        # 随身三态：默认无快照/本人不在快照/离线 → no_data（不谎称没带）。
+        companion: CompanionView | None = None
+        companion_status = "no_data"
+        gd = self._world_cache.get(world.server_id) if online else None
+        if gd is not None:
+            actor = next(
+                (a for a in gd.characters
+                 if a.unit_type == UnitType.PLAYER and a.player_userid == player_key),
+                None,
+            )
+            if actor is not None and actor.instance_id:
+                pal_class = PlayerService.link_companions(gd).get(actor.instance_id)
+                if pal_class is not None:
+                    otomo = next(
+                        (a for a in gd.characters
+                         if a.unit_type == UnitType.OTOMO
+                         and a.trainer_instance_id == actor.instance_id
+                         and a.pal_class == pal_class),
+                        None,
+                    )
+                    companion = _companion_view(self._meta, otomo, pal_class)
+                    companion_status = "shown"
+                else:
+                    companion_status = "none_out"
+
+        return MeCardDTO(
+            name=ident.latest_name, level=ident.latest_level, online=online,
+            online_seconds=session.observed_seconds if session is not None else 0,
+            guild_name=guild_name, hidden=hidden,
+            today_seconds=today, total_seconds=total, percentile=percentile,
+            last_seen_at=_days_ago(now, ident.last_seen_at),
+            first_seen_at=_days_ago(now, ident.first_seen_at),
+            companion=companion, companion_status=companion_status,
+        )

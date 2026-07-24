@@ -204,6 +204,50 @@ class ServerStatusRow:
 
 
 @dataclass(slots=True)
+class CompanionView:
+    """随身帕鲁高光（spec §5）：从 game-data OtomoPal actor 投影而来。
+
+    element/action_label 为**稳定键**（meta.element 输出 / ActionCategory.value），中文措辞与
+    图标映射下沉 presentation（T7 文字 / T9 图片）——不在数据层预渲染。
+    instance_id/trainer_instance_id/坐标绝不进本视图（内存 join 用途，DTO 边界闭合，§9 P6）。
+    """
+    species_name: str    # meta.pal_name(pal_class)（未收录→安全缩写）
+    element: str         # meta.element(pal_class)：fire/…/neutral，未收录/无 → "unknown"（降级）
+    level: int           # OtomoPal.level（缺→0）
+    action_label: str    # ActionCategory.value（working/slacking/…）；presentation 映中文
+    hp_ratio: float      # hp/max_hp ∈ [0,1]（缺/除零→0.0）
+
+
+@dataclass(slots=True)
+class MeCardDTO:
+    """我的名片数据层（spec §5）：/pal me 文字版（T7）/ 图片版（T9）共用数据投影。
+
+    percentile：等级**超越有记录玩家**的比例 ∈ [0,100]（复用 list_players_by_level 分布，
+    C2 口径——非「全服」）。
+    companion_status ∈ {shown, none_out, no_data}（复用 world_summary 的 available 范式）：
+      · shown    —— 在线且快照见其带出的 OtomoPal（companion 非空）；
+      · none_out —— 在线 + 快照有 + 找到本人 actor 但无匹配随身（「此刻未带出随身帕鲁」）；
+      · no_data  —— 无快照 / 本人不在快照 / 离线（随身数据不可用，**绝不谎称没带**）。
+    last_seen_at/first_seen_at：**在 application 层预粗化为距今整天数**（非绝对 epoch；0=今天）
+    ——隐私 P1：绝对登录/登出时刻=作息，绝不出绝对时间戳。online_seconds/today_seconds/
+    total_seconds 是**时长**（秒），非时刻，无隐私粗化需求。
+    """
+    name: str
+    level: int
+    online: bool
+    online_seconds: int
+    guild_name: str | None
+    hidden: bool
+    today_seconds: int
+    total_seconds: int
+    percentile: float
+    last_seen_at: int    # 预粗化：距今整天数（days ago），非 epoch
+    first_seen_at: int   # 预粗化：距今整天数（days ago），非 epoch
+    companion: CompanionView | None
+    companion_status: str
+
+
+@dataclass(slots=True)
 class RankClimbEntry:
     name: str
     gain: int          # 周窗 level 涨幅（max(0, current − baseline)，恒 > 0 才上榜）
