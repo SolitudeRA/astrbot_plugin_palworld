@@ -257,15 +257,15 @@ class ReadCommands:
     @_gated
     async def dex(self, umo, message_str, is_group) -> str:
         # 服务器图鉴（spec §8）：扁平命令，无子参数（本轮仅进度总览）。数据跨插件全局
-        # （observed_species 无 world_id）——resolve_world 仅取 server_name 标题锚点 + 路由校验，
-        # dex_progress() 不吃 world。无坐标/id 派生，strict 不拦（口径见 format_dex 脚注）。
-        world, _arg, err, server_name = await self._resolve_world(
+        # （observed_species 无 world_id）——resolve_world 仅做路由校验（标题不带服名，跨插件
+        # 全局口径），dex_progress() 不吃 world。无坐标/id 派生，strict 不拦（口径见 format_dex 脚注）。
+        _world, _arg, err, _server_name = await self._resolve_world(
             umo, message_str, "dex", is_group
         )
         if err is not None:
             return err
         dto = await self._query.dex_progress()
-        return format_dex(dto, server_name=server_name)
+        return format_dex(dto)
 
     @_gated
     async def player(self, umo, message_str, is_group) -> str:

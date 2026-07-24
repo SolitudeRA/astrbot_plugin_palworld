@@ -6,7 +6,7 @@ from __future__ import annotations
 # 门控（commands._gated 经 METHOD_PATH）与 help（format_help 经 HELP_TEXT）均按
 # 完整路径消费下方真相源。
 # 两种粒度分家（spec §8）：
-#   - 注册身份 = 12 首词（PAL_REGISTERED），AstrBot 只认首词，供 @pal.command 锚定。
+#   - 注册身份 = 13 首词（PAL_REGISTERED），AstrBot 只认首词，供 @pal.command 锚定。
 #   - 门控/help/锁身份 = 完整路径（PAL_COMMAND_STRINGS：`world status`/`server kick`/
 #     `rank`），功能门/管理员门/可锁性都按完整路径判定。
 # ============================================================================
@@ -86,7 +86,7 @@ METHOD_PATH.update({
 PAL_REGISTERED: list[str] = [*DISPATCH.keys(), *FLAT_ACTIONS.keys()]
 
 # 门控/help/锁身份：完整路径集（`world status` … + 扁平命令名）。
-# astrbot 命令串真相源现为完整路径；由 command_names_test 锚定到 main.py 的 12 注册。
+# astrbot 命令串真相源现为完整路径；由 command_names_test 锚定到 main.py 的 13 注册。
 PAL_COMMAND_STRINGS: frozenset[str] = frozenset(
     [f"{group} {sub}" for group, actions in DISPATCH.items() for sub in actions]
     + list(FLAT_ACTIONS)

@@ -243,7 +243,9 @@ def format_base(dto: BaseDetailDTO) -> str:
         lines.append("· " + " · ".join(dist))
     if dto.species_top:
         lines.append("")
-        lines.append("热门物种")
+        # C2 作用域披露：species_top 按公会名聚合（含本公会全部据点），非本据点独有——
+        # 表头显式标「本公会此刻可见」，与上方本据点「此刻可见 N 只」区分，杜绝多据点合计 > N 的自相矛盾。
+        lines.append("热门物种（本公会此刻可见）")
         lines.append("· " + " · ".join(f"{name} ×{count}" for name, count in dto.species_top))
     lines.append("└ 据点为插件观察推导 · 仅统计此刻可见帕鲁")
     return "\n".join(lines)
@@ -701,15 +703,16 @@ def format_rank_climb(dto: RankClimbDTO, *, server_name: str) -> str:
     return "\n".join(lines)
 
 
-def format_dex(dto: DexProgressDTO, *, server_name: str) -> str:
+def format_dex(dto: DexProgressDTO) -> str:
     """服务器图鉴进度（spec §8·功能④）：本插件曾观测到的**去重**物种进度，按元素分桶。
 
     口径「本插件已观测」（observed_species 跨插件全局累积、无 world_id，非本服/全服全部物种，
     C2）；「曾被观测到」≠「服上存在全物种」（末尾脚注钉死）。分母已知 → 「已观测 N/总数 种」
     + 每元素缺失清单（「尚未被观测」）；分母未知（roster 不完整）→ 降级为「已观测 N 种」+ 仅
     已点亮列表，**不显分母、不出缺失**（SD5：分母与缺失绑同一前置一起降级）。空图鉴 → 素文。
-    元素中文复用 _ELEMENT_LABEL（unknown/理论外键优雅回落原键，不炸）。"""
-    title = f"📖 服务器图鉴 · {server_name}"
+    元素中文复用 _ELEMENT_LABEL（unknown/理论外键优雅回落原键，不炸）。
+    标题**不带服名**：observed_species 无 world_id、跨插件全局累积，per-server 锚点会误导口径。"""
+    title = "📖 服务器图鉴"
     if not dto.buckets:
         return f"{title}\n{L('dex_empty')}"
     head = (

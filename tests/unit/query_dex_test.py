@@ -139,8 +139,9 @@ def test_format_dex_degraded_no_denominator_no_missing():
         DexElementBucket("fire", ["火绒狐"], []),
         DexElementBucket("neutral", ["皮皮鸡"], []),
     ])
-    out = format_dex(dto, server_name="Palpagos")
-    assert "服务器图鉴" in out and "Palpagos" in out
+    out = format_dex(dto)
+    assert "服务器图鉴" in out
+    assert "Palpagos" not in out          # 跨插件全局：标题不带服名（口径锚）
     assert "已观测 2" in out
     assert "总数" not in out and "尚未被观测" not in out   # 降级不出分母/缺失
     assert "火" in out and "火绒狐" in out
@@ -154,7 +155,7 @@ def test_format_dex_known_shows_denominator_and_missing():
         DexElementBucket("fire", [], ["火绒狐"]),
         DexElementBucket("neutral", ["皮皮鸡"], []),
     ])
-    out = format_dex(dto, server_name="Palpagos")
+    out = format_dex(dto)
     assert "1/3" in out
     assert "尚未被观测" in out and "火绒狐" in out
 
@@ -163,5 +164,5 @@ def test_format_dex_known_shows_denominator_and_missing():
 
 def test_format_dex_empty():
     dto = DexProgressDTO(observed_count=0, total=None, buckets=[])
-    out = format_dex(dto, server_name="Palpagos")
-    assert "服务器图鉴" in out and "Palpagos" in out
+    out = format_dex(dto)
+    assert "服务器图鉴" in out

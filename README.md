@@ -154,7 +154,7 @@ curl -u admin http://PALWORLD_HOST:8212/v1/api/info
 /pal online
 ```
 
-公会与据点受当前服务端能力限制，不纳入首次验收。
+公会与据点默认关闭，可在设置页「权限」章开启后一并验收。
 
 ## 常用指令
 
@@ -165,8 +165,8 @@ curl -u admin http://PALWORLD_HOST:8212/v1/api/info
 | `/pal online` | 开 | 当前在线玩家名单 |
 | `/pal world today` | 开 | 按需生成今日日报与在线统计 |
 | `/pal world events` | 开 | 世界天数里程碑、在线纪录、新玩家与升级事件 |
-| `/pal rank [today\|total\|level]` | 关 | 今日/当前已存历史在线时长榜与等级榜 |
-| `/pal me [hide\|show]` | 关 | 个人档案及自助隐藏 |
+| `/pal rank [today\|total\|level\|climb]` | 关 | 今日/累计在线时长榜、等级榜与飞升榜（近 7 天等级涨幅） |
+| `/pal me [hide\|show\|card\|卡\|图]` | 关 | 个人名片（等级/公会/百分位/随身高光）及自助隐藏；`card`/`卡`/`图` 出图片版 |
 | `/pal server ...` | 关 | 广播、存档、玩家处置与停服管控 |
 
 多服模式使用 `/pal link list/add/remove` 管理本群服务器授权；查询命令可在末尾添加 `@<服务器名>`，例如 `/pal world status @alpha`。管控命令使用本群当前活动服务器，切换目标后再执行。完整参数、关闭行为和权限矩阵见[完整指令文档](https://github.com/SolitudeRA/astrbot_plugin_palworld/blob/main/docs/commands.md)。

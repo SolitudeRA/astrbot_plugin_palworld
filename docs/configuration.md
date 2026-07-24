@@ -172,7 +172,7 @@ v0.9.5 及更早用 `features` 布尔功能开关 + `admin_only_commands` 名单
 | `report` | 开 | `/pal world today` | 日报/在线统计 |
 | `events` | 开 | `/pal world events` | 世界事件记录(关闭后不生成事件) |
 | `players` | **默认关** | `/pal player info` `/pal player bind` `/pal player unbind` `/pal rank` `/pal me` | 玩家个体查询(隐私考量默认关) |
-| `guilds_bases` | **默认关** | `/pal world overview` `/pal guild list` `/pal guild info` `/pal guild bases` `/pal guild base` | 公会与据点及世界概览,依赖 `game-data`(PalGameDataBridge)派生数据,默认关、由服主按需开启 |
+| `guilds_bases` | **默认关** | `/pal world overview` `/pal guild list` `/pal guild info` `/pal guild bases` `/pal guild base` `/pal dex` | 公会与据点、世界概览及服务器图鉴,依赖 `game-data`(PalGameDataBridge)派生数据,默认关、由服主按需开启 |
 | `server_admin_basic` | **默认关** | `/pal server announce` `/pal server save` `/pal server kick` `/pal server unban` | 服务器管控(基础写):受控写,仅授权管理员可用,详见 [server_admin](#server_admin服务器管控) |
 | `server_admin_danger` | **默认关** | `/pal server ban` `/pal server shutdown` `/pal server stop` | 服务器管控(高危写):停服/封禁等,建议配合二次确认,详见 [server_admin](#server_admin服务器管控) |
 

@@ -109,6 +109,15 @@ def test_readme_documents_players_group():
         assert phrase in DOCS, f"文档缺少 players 组说明: {phrase}"
 
 
+def test_readme_documents_gamedata_live_features():
+    # game-data 娱乐向四功能随上线,外部文档须与运行时 HELP_TEXT/locale 同步——
+    # 锚点锁回归,防命令表缺口再度逃过 CI(飞升榜 climb / 图片名片 card / 车间现场 / 服务器图鉴 dex)。
+    for phrase in ("/pal dex", "图鉴", "climb", "飞升榜",   # rank 飞升榜 + dex 图鉴
+                   "card", "卡",                            # me 图片名片变体
+                   "车间现场", "摸鱼率"):                    # guild base 富化
+        assert phrase in DOCS, f"文档缺少 game-data 新功能锚点: {phrase}"
+
+
 def test_readme_documents_world_mode_and_link():
     # 单/多世界模式 + link 组(服务器选择,仅多世界)
     for phrase in ("world_mode", "single", "multi", "单世界", "多世界",
