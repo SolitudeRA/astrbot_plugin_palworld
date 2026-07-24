@@ -30,6 +30,12 @@ MESSAGES: dict[str, str] = {
     "bases_empty": "暂无可展示的据点",
     "base_no_observation": "⚠️ 该据点尚无观测数据",
     "bases_disabled_strict": "⚠️ 据点模块在 strict 隐私模式下停用",
+    # 据点车间现场氛围徽章 + 吐槽（spec §6）：mood 稳定键（fired_up/slacking_off）→ 徽章/吐槽。
+    # 徽章 emoji+词与吐槽措辞全落 locale（结构标签仍在 formatter），mood 阈值判定归 query 层。
+    "base_badge_fired_up": "🔥 热火朝天",
+    "base_badge_slacking_off": "😴 集体摆烂",
+    "base_snark_fired_up": "帕鲁们干劲十足，火力全开！",
+    "base_snark_slacking_off": "没有一只帕鲁想好好上班……",
     # 场景/环境不符类拦截统一 ⚠️（spec §3；link add/remove 共用同键同待遇）。
     "use_only_group": "⚠️ 该命令仅可在群聊中使用",
     # 配置停用类拦截（spec §3）：整命令被拒执行的停用主句统一戴 ⚠️。
@@ -57,15 +63,23 @@ MESSAGES: dict[str, str] = {
     "events_empty": "最近还没有新事件",
     "events_empty_today": "今天还没有新事件",
     # feature_disabled 主句戴 ⚠️（配置停用类，spec §3）；引导脚注为独立键，由 commands 渲染层
-    # 条件拼接——upstream_unavailable(path)（gamedata 锁定期）时省略（设置页开不了，假承诺）。
+    # 条件拼接——upstream_unavailable(path) 时省略（设置页开不了，假承诺；当前空集，休眠）。
     "feature_disabled": "⚠️ 该功能未开启",
     "feature_disabled_hint": "└ 管理员可在插件设置页「权限」章开启",
     # rank 空榜（spec §4.23）：标题锚点由 formatter 供，此处只存素文空句。
     "rank_empty": "暂无排行数据",
+    # rank climb 空榜（spec §7）：本周无玩家等级提升；标题锚点由 formatter 供。
+    "rank_climb_empty": "本周暂无玩家等级提升",
     # rank strict 停用（spec §3/§4.23）：配置停用类统一 ⚠️ + 等级榜不受影响引导脚注。
     "rank_duration_strict": "⚠️ 时长榜在 strict 隐私模式下停用\n└ 等级榜不受影响：/pal rank level",
     # online 空态（spec §4.24）：标题锚点由 formatter 供，此处只存素文空句（收编硬编码）。
     "online_empty": "当前无玩家在线",
+    # dex 图鉴进度（spec §8·功能④）：口径「本插件已观测」（observed_species 跨插件全局累积、
+    # 无 world_id，非本服/全服全部物种，C2）。分母已知 → N/总数；未知 → 降级只出 N（SD5）。
+    "dex_progress": "本插件已观测 {observed}/{total} 种",
+    "dex_progress_degraded": "本插件已观测 {observed} 种",
+    "dex_empty": "图鉴还是空的——曾被观测到的帕鲁会陆续点亮",
+    "dex_note": "└ 仅记录曾被观测到的物种（跨插件全局累积）",
     # player info / bind / me not-found 脚注共用（spec §4.10/§4.11）。
     "player_not_found": (
         "❌ 未找到玩家「{name}」\n└ 名字须与游戏内完全一致，可用 /pal online 查在线玩家"
@@ -73,11 +87,21 @@ MESSAGES: dict[str, str] = {
     # me 未绑定（spec §4.25）：多模式句内带服 / 单模式去锚；脚注两态皆带。
     "me_unbound": "你还没有绑定玩家\n└ 用 /pal player bind <玩家名> 绑定",
     "me_unbound_scoped": "你在「{server}」还没有绑定玩家\n└ 用 /pal player bind <玩家名> 绑定",
+    # me 名片文字版（spec §5·T7）：百分位口径「超越有记录玩家」（非「全服」，C2）；随身三态
+    # none_out/no_data 措辞如实——no_data 绝不谎称「没带」；离线徽章。结构标签内联在 formatter
+    # （同 format_player 惯例），仅口径敏感/notice 句入 locale。
+    "me_card_percentile": "超越有记录玩家 {pct}%",
+    "me_card_none_out": "此刻未带出随身帕鲁",
+    "me_card_no_data": "随身数据暂不可用（需启用 guilds_bases）",
+    "me_card_offline": "此刻不在线",
+    "me_card_hidden": "└ 你已从排行与查询中隐藏（仅自己可见）",
     # me hide/show（spec §4.25）：多模式带服务器锚 / 单模式去服名。
     "me_hidden": "✅ 已将你从排行与查询中隐藏\n└ /pal me show 恢复",
     "me_hidden_scoped": "✅ 已将你从「{server}」的排行与查询中隐藏\n└ /pal me show 恢复",
     "me_shown": "✅ 已恢复你的可见性",
     "me_shown_scoped": "✅ 已恢复你在「{server}」的可见性",
+    # me 用法（spec §5·CT6）：单 token 互斥；多 token/未知 → 提示而非静默退化。
+    "me_usage": "用法：/pal me [hide|show|card|卡|图]\n· card/卡/图 出图片名片 · hide/show 切换可见性",
     # bind（spec §4.11）：{anchor} 由 commands 层按模式给（多模式 ` · {srv}` / 单模式 ""）。
     "bind_ok": "✅ 已绑定玩家「{name}」{anchor}\n└ 现在可以用 /pal me 查看自己的状态了",
     "bind_rebind": "✅ 已改绑到玩家「{name}」（原绑定「{old}」）{anchor}",

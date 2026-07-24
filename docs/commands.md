@@ -1,6 +1,6 @@
 # 完整指令与功能开关
 
-自 v0.9.5 起指令改为**分级结构**:`/pal <组> <动作> [参数]`。5 个命令组(`world`/`guild`/`player`/`server`/`link`)+ 7 个扁平命令(`rank`/`online`/`me`/`help`/`whoami`/`whereami`/`confirm`)。所有指令以 `/pal` 前缀触发、返回纯文本。查询指令只读;**服务器管控为受控写**(默认全关、仅授权管理员、执行阶段写请求留痕,见[服务器管控](#服务器管控受控写))。带「功能组」的指令仅在对应组开启时可用(见下方矩阵);`core` 组指令恒可用。
+自 v0.9.5 起指令改为**分级结构**:`/pal <组> <动作> [参数]`。5 个命令组(`world`/`guild`/`player`/`server`/`link`)+ 8 个扁平命令(`rank`/`online`/`me`/`dex`/`help`/`whoami`/`whereami`/`confirm`)。所有指令以 `/pal` 前缀触发、返回纯文本。查询指令只读;**服务器管控为受控写**(默认全关、仅授权管理员、执行阶段写请求留痕,见[服务器管控](#服务器管控受控写))。带「功能组」的指令仅在对应组开启时可用(见下方矩阵);`core` 组指令恒可用。
 
 > **裸组 = 迷你帮助**:只发组名(如 `/pal world`、`/pal server`)返回该组可用子动作的迷你帮助(按当前功能开关与你的角色过滤——访客不会看到管控写子动作)。
 
@@ -21,21 +21,21 @@
 | 指令 | 参数 | 功能组 | 说明 |
 |------|------|--------|------|
 | `/pal world status` | — | `core` | 世界状态(在线数、FPS 流畅度、世界天数等) |
-| `/pal world overview` | — | `guilds_bases` · 暂不可用 | 世界概览(上游未开放,暂不可用) |
+| `/pal world overview` | — | `guilds_bases` | 世界概览(公会/据点世界快照;归 `guilds_bases` 组,默认关) |
 | `/pal world rules` | — | `core` | 世界规则(倍率等) |
 | `/pal world today` | — | `report` | 今日日报 / 在线统计 |
 | `/pal world events` | — | `events` | 世界事件记录 |
 
 ### `guild` 组 —— 公会与据点(查询)
 
-> ⚠️ **暂不可用**:本组依赖上游 `game-data`(PalGameDataBridge),官方暂未对专用服务器开放,整组命令(及归队至此的 `world overview`)恒回「未开启」、配置写启用也不生效;上游开放后随插件更新恢复。
+> 本组依赖 `game-data`(PalGameDataBridge)派生公会/据点数据,**默认关**,由服主在设置页「权限」章按需开启;启用任一命令后 `/game-data` 端点才轮询,归队至此的 `world overview` 同属本组。
 
 | 指令 | 参数 | 功能组 | 说明 |
 |------|------|--------|------|
 | `/pal guild list` | — | `guilds_bases` | 公会列表 |
 | `/pal guild info` | `<名称>` | `guilds_bases` | 公会详情 |
 | `/pal guild bases` | — | `guilds_bases` | 据点列表 |
-| `/pal guild base` | `<名称\|#序号>` | `guilds_bases` | 据点详情 |
+| `/pal guild base` | `<名称\|#序号>` | `guilds_bases` | 据点详情:车间现场——行为分布/摸鱼率/氛围徽章 |
 
 ### `player` 组 —— 玩家档案(查询)
 
@@ -49,15 +49,16 @@
 
 | 指令 | 参数 | 功能组 | 权限 / 场景 | 说明 |
 |------|------|--------|-------------|------|
-| `/pal rank` | `[today\|total\|level]` | `players` | 所有人 | 排行榜变体:`today` 今日在线时长榜(缺省)、`total` 累计在线时长榜(附注「统计范围为数据留存期」)、`level` 等级榜 |
+| `/pal rank` | `[today\|total\|level\|climb]` | `players` | 所有人 | 排行榜变体:`today` 今日在线时长榜(缺省)、`total` 累计在线时长榜(附注「统计范围为数据留存期」)、`level` 等级榜、`climb` 飞升榜(近 7 天等级涨幅) |
 | `/pal online` | — | `core` | 所有人 | 当前在线玩家名单 |
-| `/pal me` | `[hide\|show]` | `players` | 所有人 | 我的档案;`hide`/`show` 自助从排行/查询中隐藏或恢复 |
+| `/pal me` | `[hide\|show\|card\|卡\|图]` | `players` | 所有人 | 个人名片:等级/公会/百分位「超越有记录玩家」/随身帕鲁高光,`card`/`卡`/`图` 出图片版(**随身高光需启用 `guilds_bases` 组**);`hide`/`show` 自助从排行/查询中隐藏或恢复 |
+| `/pal dex` | — | `guilds_bases` | 所有人 | 服务器图鉴:已观测物种进度(按元素分桶,跨插件全局累积) |
 | `/pal whoami` | — | `core` | 所有人(**建议私聊**) | 查看我的账号标识 `平台:账号`(如 `aiocqhttp:12345`);报给超管加入管理员名单用 |
 | `/pal whereami` | — | `core` | 所有人 | 查看**当前群标识**(UMO,如 `aiocqhttp:GroupMessage:123456`);单世界 restricted 下报给管理员加入授权群名单用。两模式恒可用、只回显本会话标识、不接受任何目标参数 |
 | `/pal help` | — | `core` | 所有人 | 分级帮助(按当前启用的组 + 你的角色过滤指令) |
 | `/pal confirm` | — | `core` | **仅授权管理员** | 确认执行上一条待确认的高危操作;无待确认操作时回「无待确认操作或已超时」 |
 
-> **`rank` 变体与隐私**:`today` / `total` 均为**在线时长**榜,`strict` 隐私模式下**两者一并停用**(回提示);`total` 只累计**留存期内**(非全时段)且同样尊重排除名单与 `/pal me hide`——被隐藏玩家的整组名字从榜单消失,不泄露其存在。`level` 为等级榜。
+> **`rank` 变体与隐私**:`today` / `total` 均为**在线时长**榜,`strict` 隐私模式下**两者一并停用**(回提示);`total` 只累计**留存期内**(非全时段)且同样尊重排除名单与 `/pal me hide`——被隐藏玩家的整组名字从榜单消失,不泄露其存在。`level` 为等级榜;`climb` 为**飞升榜**——近 7 天等级涨幅(历史不足 7 天时脚注诚实标「自 bot 记录以来」)。
 
 ### `server` 组 —— 服务器管控(受控写)
 
@@ -73,14 +74,14 @@
 
 ## 功能开关 → 可用指令矩阵
 
-功能按组可插拔(v0.9.6 起由设置页「权限」章的命令树控制,落盘为 `command_permissions`;详见[配置项详解 · 命令树权限模型](configuration.md#features功能开关))。**关闭某命令/组:其指令回「未开启」、`/pal help` 里不再列出**(可配置组代码保留、改开即恢复);`guild` 组因上游 `game-data`(PalGameDataBridge)未开放当前**暂不可用**,配置写启用也不生效、`/game-data` 端点不轮询(观测只读端点恒采集)。
+功能按组可插拔(v0.9.6 起由设置页「权限」章的命令树控制,落盘为 `command_permissions`;详见[配置项详解 · 命令树权限模型](configuration.md#features功能开关))。**关闭某命令/组:其指令回「未开启」、`/pal help` 里不再列出**(可配置组代码保留、改开即恢复);`guild` 组与归队至此的 `world overview` 属 `guilds_bases` 组、**默认关**,启用任一 `guilds_bases` 命令后 `/game-data` 端点才轮询(观测只读端点恒采集)。
 
 | 功能组 | 默认 | 对应指令(完整路径) | 开启时 | 关闭时指令行为 |
 |--------|------|----------|--------|----------------|
 | `core`(不可关闭) | 恒开 | `world status` `world rules` `online` `server`(裸) `link`(裸) `whoami` `whereami` `help` `confirm` | ✅ 可用 | —(无法关闭) |
 | `report` | 开 | `world today` | ✅ 可用 | ❌ 回「未开启」、help 隐藏 |
 | `events` | 开 | `world events` | ✅ 可用(并记录世界事件) | ❌ 回「未开启」、不生成事件 |
-| `guilds_bases` | **暂不可用**(上游未开放) | `world overview` `guild list` `guild info` `guild bases` `guild base` | —(上游未开放,配置写启用也不生效) | ❌ 恒回「未开启」、help 隐藏 |
+| `guilds_bases` | **关** | `world overview` `guild list` `guild info` `guild bases` `guild base` `dex` | ✅ 可用(启用后 `/game-data` 端点才轮询) | ❌ 回「未开启」、help 隐藏 |
 | `players` | **关** | `player info` `player bind` `player unbind` `rank` `me` | ✅ 可用 | ❌ 回「未开启」、help 隐藏 |
 | `server_admin_basic` | **关** | `server announce` `server save` `server kick` `server unban` | ✅ 仅授权管理员可用 | ❌ 管理员回「未开启」、help 隐藏;非管理员一律「需要管理员权限」 |
 | `server_admin_danger` | **关** | `server ban` `server shutdown` `server stop` | ✅ 仅授权管理员可用(可选二次确认) | ❌ 管理员回「未开启」、help 隐藏;非管理员一律「需要管理员权限」 |
@@ -89,7 +90,7 @@
 
 > `players` 默认关闭:玩家个体查询含隐私考量。时长榜仅统计**今日/留存期内**在线时长、等级榜含离线全体;`strict` 隐私模式下更保守(时长榜停用、玩家档案隐藏坐标等)。支持管理员排除名单与玩家自助 `/pal me hide`——被排除或隐藏者不出现在排行/查询中,且不泄露其存在。
 
-> `guilds_bases` 暂不可用:依赖服务器开放 `/game-data`,而 Palworld 1.0 专用服务器上游未开放 `PalGameDataBridge`(官方暂未对专用服务器开放),故公会/据点/PalBox 整组(含归队至此的 `world overview`)**暂不可用**——配置写 `enabled=on` 也不生效、`/game-data` 端点亦不轮询;待上游开放后随插件更新恢复,详见[配置项详解](configuration.md#features功能开关)。
+> `guilds_bases` 默认关:公会/据点/PalBox 及归队至此的 `world overview` 依赖 `game-data`(PalGameDataBridge)派生数据,**默认关**,由服主按需开启;仅当某条 `guilds_bases` 命令生效启用时 `/game-data` 端点才轮询,详见[配置项详解](configuration.md#features功能开关)。
 
 ## 运行模式:单世界 / 多世界
 

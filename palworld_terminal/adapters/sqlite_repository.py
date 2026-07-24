@@ -6,6 +6,7 @@ from ..config import HistoryConfig
 from ..infrastructure.clock import Clock
 from ..infrastructure.database import Database
 from .repo_audit import _AuditRepo
+from .repo_dex import _DexRepo
 from .repo_event import _EventRepo
 from .repo_guild_base import _GuildBaseRepo
 from .repo_player_binding import _PlayerBindingRepo
@@ -24,8 +25,9 @@ class Repository(
     _GuildBaseRepo,
     _EventRepo,
     _AuditRepo,
+    _DexRepo,
 ):
-    """所有表读写。实现按实体表族拆入 7 个 mixin（repo_*.py）继承组合；
+    """所有表读写。实现按实体表族拆入 8 个 mixin（repo_*.py）继承组合；
     跨表原子事务（purge/prune）留主体，直接持 self._db.write_tx 保单事务原子性。"""
 
     def __init__(self, db: Database, clock: Clock) -> None:

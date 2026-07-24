@@ -89,7 +89,7 @@ v0.9.5 及更早用 `features` 布尔功能开关 + `admin_only_commands` 名单
 | `players_seconds` | 30 | `/players` 轮询间隔(秒),驱动在线名单与上下线会话 |
 | `info_seconds` | 600 | `/info` 轮询间隔(秒),服务器版本/名称等基本信息(启动时立即拉取一次) |
 | `settings_seconds` | 1800 | `/settings` 轮询间隔(秒),世界规则(倍率等)变化很慢,无需频繁 |
-| `game_data_seconds` | 120 | `/game-data` 轮询间隔(秒),公会/据点等世界数据;上游暂未开放(PalGameDataBridge),guild 组暂不可用、当前不轮询该端点 |
+| `game_data_seconds` | 120 | `/game-data` 轮询间隔(秒),公会/据点等世界数据(PalGameDataBridge);仅当某条 `guilds_bases` 命令生效启用时才轮询该端点 |
 | `jitter_ratio` | 0.10 | 间隔随机抖动比例,避免各端点整齐同时请求 |
 | `max_concurrency` | 6 | 全局在途 HTTP 请求上限,保护游戏服务器不被并发压垮 |
 
@@ -104,6 +104,12 @@ v0.9.5 及更早用 `features` 布尔功能开关 + `admin_only_commands` 名单
 | `fps_smooth` | 50 | FPS ≥ 此值展示为「流畅」 |
 | `fps_moderate` | 35 | FPS ≥ 此值(且 < `fps_smooth`)展示为「一般」 |
 | `fps_laggy` | 20 | FPS ≥ 此值(且 < `fps_moderate`)展示为「卡顿」;FPS < 此值展示为「严重卡顿」 |
+
+## presentation(展示与卡片外观)
+
+| 配置项 | 默认 | 含义 |
+| --- | --- | --- |
+| `me_card_theme` | `light` | 个人名片图片版(`/pal me 卡`)配色主题:`light` 浅色 / `dark` 暗色 / `auto` 按**服务器本地时钟**昼夜自动(当地 6:00–18:00 用 light,其余用 dark;用真实时钟而非游戏内昼夜,避免游戏昼夜加速导致频繁翻转)。仅影响图片版外观,文字版不受影响 |
 
 ## bases(据点推导,隐私 strict 模式下整体停用)
 
@@ -166,13 +172,13 @@ v0.9.5 及更早用 `features` 布尔功能开关 + `admin_only_commands` 名单
 | `report` | 开 | `/pal world today` | 日报/在线统计 |
 | `events` | 开 | `/pal world events` | 世界事件记录(关闭后不生成事件) |
 | `players` | **默认关** | `/pal player info` `/pal player bind` `/pal player unbind` `/pal rank` `/pal me` | 玩家个体查询(隐私考量默认关) |
-| `guilds_bases` | **暂不可用**(上游未开放) | `/pal world overview` `/pal guild list` `/pal guild info` `/pal guild bases` `/pal guild base` | 公会与据点及世界概览,依赖上游 `game-data`(PalGameDataBridge),官方暂未对专用服务器开放 |
+| `guilds_bases` | **默认关** | `/pal world overview` `/pal guild list` `/pal guild info` `/pal guild bases` `/pal guild base` `/pal dex` | 公会与据点、世界概览及服务器图鉴,依赖 `game-data`(PalGameDataBridge)派生数据,默认关、由服主按需开启 |
 | `server_admin_basic` | **默认关** | `/pal server announce` `/pal server save` `/pal server kick` `/pal server unban` | 服务器管控(基础写):受控写,仅授权管理员可用,详见 [server_admin](#server_admin服务器管控) |
 | `server_admin_danger` | **默认关** | `/pal server ban` `/pal server shutdown` `/pal server stop` | 服务器管控(高危写):停服/封禁等,建议配合二次确认,详见 [server_admin](#server_admin服务器管控) |
 
-关闭的命令指令回「未开启」、`/pal help` 里不再列出。**采集派生自启用状态**:观测只读端点(`/info` `/metrics` `/players` `/settings`)**恒采集**,与命令启停无关;`/game-data` 端点仅当 `guild` 组有命令生效启用时才轮询(`bases.*` 与 `game_data_seconds` 亦随之生效)。
+关闭的命令指令回「未开启」、`/pal help` 里不再列出。**采集派生自启用状态**:观测只读端点(`/info` `/metrics` `/players` `/settings`)**恒采集**,与命令启停无关;`/game-data` 端点仅当 `guilds_bases` 组有命令生效启用时才轮询(`bases.*` 与 `game_data_seconds` 亦随之生效)。
 
-**关于 `guilds_bases` 暂不可用**:Palworld 1.0 的专用服务器虽提供 `/v1/api/game-data` 端点,但未开放启用 `PalGameDataBridge` 的任何 INI 字段或启动参数(上游限制),该端点无真实数据。故公会/据点/PalBox 命令与归队至此的 `world overview` **暂不可用**——即使在 `command_permissions` 写 `enabled=on` 也**不生效**(手写启用会被后端强制关闭并在启动日志告警),`/game-data` 端点亦不轮询。待官方对专用服务器**开放上游后随插件更新恢复**(恢复需插件更新,非设置页可自行启用)。
+**关于 `guilds_bases`(默认关)**:公会/据点/PalBox 命令与归队至此的 `world overview` 依赖 `/v1/api/game-data`(PalGameDataBridge)派生数据,与 `players` 同为**默认关**,由服主在 `command_permissions` 命令树按需为对应命令启用。启用任一 `guilds_bases` 命令后,`/game-data` 端点方随之轮询、`bases.*` 据点推导参数亦生效。
 
 ## server_admin(服务器管控)
 

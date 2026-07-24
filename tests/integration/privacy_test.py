@@ -9,7 +9,7 @@ IPV4 = re.compile(r"\b(?:\d{1,3}\.){3}\d{1,3}\b")
 IPV6 = re.compile(r"\b(?:[0-9a-fA-F]{1,4}:){2,7}[0-9a-fA-F]{1,4}\b")
 RAW_IDS = ("steam_00001", "steam_00002", "PID-1", "PID-2", "acct_akari", "acct_borel")
 RAW_PING_CELLS = {"44", "130", "44.0", "130.0"}
-RAW_PLAYER_IPS = ("10.0.0.11", "10.0.0.12")
+RAW_PLAYER_IPS = ("10.0.0.11", "10.0.0.12", "203.0.113.7")
 
 # 仅 IPv4/IPv6 正则扫描排除以下列（其余断言仍全表全列扫描）：
 # - servers.host 是运营者配置的 REST 端点(规格允许持久化), 非玩家数据; 其余列照扫
@@ -84,6 +84,26 @@ async def test_db_has_no_ip_no_raw_id_no_password_no_raw_ping(harness):
     assert "ping" not in col_names
     # 单元格精确匹配：避免 HMAC 十六进制串误伤子串扫描（controller 裁定 1）
     assert not any(c in RAW_PING_CELLS for c in cells), "DB 含原始 ping 值"
+
+
+async def test_actordata_player_ip_never_persisted(harness):
+    """真实 ActorData 契约下 Player 携 ip（RFC5737 假值）——normalizer 绝不读入模型，
+    故经完整 ingest 管线后 DB 全表无该 ip（红线：ip 永不入库）。"""
+    container, server, clock, snap = harness
+    world = await snap.ingest_info(server, ok(load_fixture("normal_world", "info")))
+    for _ in range(2):
+        clock.advance(30)
+        await snap.ingest_game_data(world, ok(load_fixture("live_actordata", "game-data")))
+
+    cells = await _dump_all_cells(container)
+    blob = "\n".join(cells)
+    # fixture 里显式带假 ip 203.0.113.7 → 全表精确匹配必须无
+    assert "203.0.113.7" not in blob, "DB 含 ActorData Player 的 ip"
+
+    # 通用 IP 正则兜底（排除运营者端点/网格键列）
+    ip_blob = "\n".join(await _dump_all_cells(container, exclude=_IP_SCAN_EXCLUDE))
+    assert not IPV4.search(ip_blob), "DB 含 IPv4"
+    assert not IPV6.search(ip_blob), "DB 含 IPv6"
 
 
 async def test_strict_mode_persists_no_bases_no_palboxes(harness_strict):

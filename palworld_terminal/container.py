@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import cast
 
 from .adapters import normalizer as _normalizer_mod
+from .adapters.icon_repository import IconRepository
 from .adapters.metadata_repository import MetadataRepository
 from .adapters.palworld_rest import PalworldRestClient
 from .adapters.sqlite_repository import Repository
@@ -114,6 +115,15 @@ class Container:
             meta.load()
         except Exception as exc:  # metadata 缺失时降级为占位渲染，但必须留痕
             _log.warning("metadata load failed dir=%s error=%s", metadata_dir, exc)
+
+        # 元素图标 assets 与 metadata 同源、按包位置解析（非 data_dir/CWD）；
+        # load() 缺文件自身降级，整体异常也留痕降级（图片名片 fallback emoji）。
+        icon_dir = Path(__file__).resolve().parent.parent / "assets" / "element-icons"
+        icons = IconRepository(icon_dir)
+        try:
+            icons.load()
+        except Exception as exc:
+            _log.warning("element icons load failed dir=%s error=%s", icon_dir, exc)
         cache = TTLCache(self._clock)
 
         ov = self._cfg.permissions.command_overrides
@@ -147,6 +157,7 @@ class Container:
         self.commands = Commands(
             self.routing, self.query, repo, self._cfg, self._clock, salt,
             admin_service=admin, confirmations=confirmations,
+            icons=icons.icons(),
         )
 
         for s in self._cfg.servers:

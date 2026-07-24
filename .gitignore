@@ -92,6 +92,9 @@ frontend/node_modules/
 # README 截图专用本地入口（不进正式构建 / Git）
 /frontend/dev-shot.html
 
+# 元素图标预览（dev 产物，IconRepository allowlist 不读，勿入库）
+/assets/element-icons/elements-preview.*
+
 # 本地代理调度状态
 **/.claude/scheduled_tasks.lock
 

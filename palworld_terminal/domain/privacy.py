@@ -113,4 +113,7 @@ def redact_game_data(
         characters=characters,
         palboxes=palboxes,
         unknown_classes=list(snap.unknown_classes),
+        # 逐字段重建须补拷游戏内时钟——否则到消费方前被静默重置为默认值。
+        in_game_days=snap.in_game_days,
+        in_game_time=snap.in_game_time,
     )

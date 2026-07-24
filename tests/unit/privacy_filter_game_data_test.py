@@ -68,3 +68,15 @@ def test_redact_game_data_no_raw_userid_in_repr():
     salt = b"\x09" * 32
     out = redact_game_data(_snap(), "w", salt, _cfg("balanced"))
     assert "raw-uid" not in repr(out)
+
+
+def test_redact_game_data_preserves_in_game_clock_fields():
+    # 逐字段重建须补拷游戏内时钟；否则到消费方前被静默重置为默认值。
+    salt = b"\x09" * 32
+    snap = _snap()
+    snap.in_game_days = 590
+    snap.in_game_time = "17:44"
+    for mode in ("balanced", "strict"):
+        out = redact_game_data(snap, "w", salt, _cfg(mode))
+        assert out.in_game_days == 590
+        assert out.in_game_time == "17:44"

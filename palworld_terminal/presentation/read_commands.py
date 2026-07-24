@@ -9,12 +9,15 @@ from ..presentation.formatters import (
     format_base,
     format_bases,
     format_degraded,
+    format_dex,
     format_events,
     format_guild,
     format_guilds,
+    format_me,
     format_online,
     format_player,
     format_rank,
+    format_rank_climb,
     format_rules,
     format_status,
     format_today,
@@ -23,7 +26,13 @@ from ..presentation.formatters import (
 from ..presentation.locale import L
 from ..presentation.server_arg import ArgError, parse_arg
 from ..shared.command_permissions import active_endpoints
-from .command_support import _fold_limit, _gated, _render_routing_error, _world_mode
+from .command_support import (
+    _ME_CARD_TOKENS,
+    _fold_limit,
+    _gated,
+    _render_routing_error,
+    _world_mode,
+)
 
 
 class ReadCommands:
@@ -220,7 +229,7 @@ class ReadCommands:
         )
 
     @_gated
-    async def rank(self, umo, message_str, is_group) -> str:
+    async def rank(self, umo, message_str, is_group, sender_id=None) -> str:
         world, arg, err, server_name = await self._resolve_world(
             umo, message_str, "rank", is_group
         )
@@ -228,13 +237,35 @@ class ReadCommands:
             return err
         strict = self._cfg.privacy.mode == "strict"
         which = arg.name.strip().lower()
-        if which not in ("today", "total", "level"):
+        if which not in ("today", "total", "level", "climb"):
             which = "today"  # 缺省 today（spec §4.23：未识别首词回落 today）
-        # strict 双砍：today 与 total 同为时长榜(≈作息)均回 notice；level 不受影响。
+        # strict 双砍：today 与 total 同为时长榜(≈作息)均回 notice；level/climb 不受影响
+        # （climb 是等级涨幅榜，非作息，与 level 同不砍）。
         if which in ("today", "total") and strict:
             return L("rank_duration_strict")
+        if which == "climb":
+            # 本人「你第 N」需绑定：sender_id → phash → player_key（未绑定→无本人榜位）。
+            viewer_key = None
+            if sender_id is not None:
+                phash = hash_user_id(self._salt, world.world_id, sender_id)
+                viewer_key = await self._repo.get_binding(phash, world.world_id)
+            dto = await self._query.rank_climb(world, viewer_key=viewer_key)
+            return format_rank_climb(dto, server_name=server_name)
         dto = await self._query.rank(world, which)
         return format_rank(dto, which=which, server_name=server_name)
+
+    @_gated
+    async def dex(self, umo, message_str, is_group) -> str:
+        # 服务器图鉴（spec §8）：扁平命令，无子参数（本轮仅进度总览）。数据跨插件全局
+        # （observed_species 无 world_id）——resolve_world 仅做路由校验（标题不带服名，跨插件
+        # 全局口径），dex_progress() 不吃 world。无坐标/id 派生，strict 不拦（口径见 format_dex 脚注）。
+        _world, _arg, err, _server_name = await self._resolve_world(
+            umo, message_str, "dex", is_group
+        )
+        if err is not None:
+            return err
+        dto = await self._query.dex_progress()
+        return format_dex(dto)
 
     @_gated
     async def player(self, umo, message_str, is_group) -> str:
@@ -306,14 +337,15 @@ class ReadCommands:
         if sub == "show":
             await self._repo.unset_hidden(world.world_id, player_key)
             return L("me_shown_scoped", server=server_name) if scoped else L("me_shown")
-        dto = await self._query.profile_for_key(world, player_key)
+        # 单 token 互斥（spec §5·CT6）：无参 / card|卡|图 → 名片（card 别名亦是图片路降级
+        # 到文字卡的落点）；其余（多 token 如「hide card」/ 未知单 token）→ 用法提示，
+        # 绝不静默退化（否则 arg.name="hide card" 既非 hide 也非 card，hide 被吞）。
+        if sub != "" and sub not in _ME_CARD_TOKENS:
+            return L("me_usage")
+        dto = await self._query.me_card(world, player_key)
         if dto is None:   # 悬空绑定（玩家行不存在）：回未绑定态，不冒空卡片
             return L("me_unbound_scoped", server=server_name) if scoped else L("me_unbound")
-        return format_player(
-            dto, strict=self._cfg.privacy.mode == "strict",
-            server_name=server_name, world_mode=_world_mode(self._cfg),
-            tz=server_timezone(self._cfg, world), now=self._clock.now(), is_me=True,
-        )
+        return format_me(dto)
 
     @_gated
     async def unbind_self(self, umo, message_str, is_group, sender_id) -> str:

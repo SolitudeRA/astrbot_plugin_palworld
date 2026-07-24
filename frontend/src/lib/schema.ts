@@ -82,6 +82,9 @@ export const OBJECT_SECTIONS: ObjectSection[] = [
     { key: 'list_fold_limit', type: 'int', label: '列表折叠上限', default: 7, hint: '单个列表超过此条数则折叠为「前 N 条 + 汇总」（最小 1）' },
     { key: 'exclude_names', type: 'string', label: '排除名单', default: '', hint: '逗号分隔；名单内玩家不进榜单、不可查询' },
   ]},
+  { key: 'presentation', title: '展示与卡片', subtitle: '个人名片图片版外观', fields: [
+    { key: 'me_card_theme', type: 'enum', label: '名片主题', default: 'light', options: ['light', 'dark', 'auto'], optionLabels: { light: '浅色', dark: '暗色', auto: '跟随昼夜' }, hint: '个人名片图片版配色；「跟随昼夜」按服务器本地时钟（6:00–18:00 浅色，其余暗色）' },
+  ]},
   { key: 'server_admin', title: '服务器管控', subtitle: '「服务器管控」任一组启用时生效；写操作仅授权管理员可用', fields: [
     { key: 'require_confirmation', type: 'bool', label: '危险命令二次确认', default: false, hint: '开启后关服 / 封禁等危险命令须在有效期内 /pal confirm 再确认' },
     { key: 'confirmation_timeout', type: 'int', label: '确认有效期（秒）', default: 30, hint: '二次确认的有效时长，超时作废（范围 5-600）' },
@@ -108,7 +111,6 @@ export interface PalTreeNode {
   adminForced: boolean // 强制仅管理员（gate ∈ admin/admin_write）
   danger: boolean // 危险写命令（path ∈ DANGER_COMMANDS）
   defaultEnabled: boolean // 内置启用默认（= 后端 default_enabled(path)：core/events/report→true，其余→false）
-  unavailable?: boolean // 上游接口未开放（= 后端 upstream_unavailable(path)）；缺省 false。恒禁用且不可配置
 }
 
 // 完整命令树描述：覆盖全部命令（COMMAND_META 全集，非仅可锁 15），供权限章树 UI 渲染。
@@ -119,14 +121,14 @@ export interface PalTreeNode {
 // 便于 Python 端抽出数组文本直接 json.loads；改动请保持此形态。
 export const PAL_TREE: PalTreeNode[] = [
   {"group": "world", "path": "world status", "label": "世界状态", "enableConfigurable": false, "adminConfigurable": true, "adminForced": false, "danger": false, "defaultEnabled": true},
-  {"group": "world", "path": "world overview", "label": "世界概览", "enableConfigurable": false, "adminConfigurable": true, "adminForced": false, "danger": false, "defaultEnabled": false, "unavailable": true},
+  {"group": "world", "path": "world overview", "label": "世界概览", "enableConfigurable": true, "adminConfigurable": true, "adminForced": false, "danger": false, "defaultEnabled": false},
   {"group": "world", "path": "world rules", "label": "世界规则", "enableConfigurable": false, "adminConfigurable": true, "adminForced": false, "danger": false, "defaultEnabled": true},
   {"group": "world", "path": "world events", "label": "世界事件", "enableConfigurable": true, "adminConfigurable": true, "adminForced": false, "danger": false, "defaultEnabled": true},
   {"group": "world", "path": "world today", "label": "今日日报", "enableConfigurable": true, "adminConfigurable": true, "adminForced": false, "danger": false, "defaultEnabled": true},
-  {"group": "guild", "path": "guild list", "label": "公会列表", "enableConfigurable": false, "adminConfigurable": true, "adminForced": false, "danger": false, "defaultEnabled": false, "unavailable": true},
-  {"group": "guild", "path": "guild info", "label": "公会详情", "enableConfigurable": false, "adminConfigurable": true, "adminForced": false, "danger": false, "defaultEnabled": false, "unavailable": true},
-  {"group": "guild", "path": "guild bases", "label": "据点列表", "enableConfigurable": false, "adminConfigurable": true, "adminForced": false, "danger": false, "defaultEnabled": false, "unavailable": true},
-  {"group": "guild", "path": "guild base", "label": "据点详情", "enableConfigurable": false, "adminConfigurable": true, "adminForced": false, "danger": false, "defaultEnabled": false, "unavailable": true},
+  {"group": "guild", "path": "guild list", "label": "公会列表", "enableConfigurable": true, "adminConfigurable": true, "adminForced": false, "danger": false, "defaultEnabled": false},
+  {"group": "guild", "path": "guild info", "label": "公会详情", "enableConfigurable": true, "adminConfigurable": true, "adminForced": false, "danger": false, "defaultEnabled": false},
+  {"group": "guild", "path": "guild bases", "label": "据点列表", "enableConfigurable": true, "adminConfigurable": true, "adminForced": false, "danger": false, "defaultEnabled": false},
+  {"group": "guild", "path": "guild base", "label": "据点详情", "enableConfigurable": true, "adminConfigurable": true, "adminForced": false, "danger": false, "defaultEnabled": false},
   {"group": "player", "path": "player info", "label": "玩家查询", "enableConfigurable": true, "adminConfigurable": true, "adminForced": false, "danger": false, "defaultEnabled": false},
   {"group": "player", "path": "player bind", "label": "绑定玩家", "enableConfigurable": true, "adminConfigurable": true, "adminForced": false, "danger": false, "defaultEnabled": false},
   {"group": "player", "path": "player unbind", "label": "解绑玩家", "enableConfigurable": true, "adminConfigurable": true, "adminForced": false, "danger": false, "defaultEnabled": false},
@@ -143,6 +145,7 @@ export const PAL_TREE: PalTreeNode[] = [
   {"group": null, "path": "rank", "label": "排行榜", "enableConfigurable": true, "adminConfigurable": true, "adminForced": false, "danger": false, "defaultEnabled": false},
   {"group": null, "path": "online", "label": "当前在线", "enableConfigurable": false, "adminConfigurable": true, "adminForced": false, "danger": false, "defaultEnabled": true},
   {"group": null, "path": "me", "label": "我的信息", "enableConfigurable": true, "adminConfigurable": true, "adminForced": false, "danger": false, "defaultEnabled": false},
+  {"group": null, "path": "dex", "label": "服务器图鉴", "enableConfigurable": true, "adminConfigurable": true, "adminForced": false, "danger": false, "defaultEnabled": false},
   {"group": null, "path": "help", "label": "帮助", "enableConfigurable": false, "adminConfigurable": false, "adminForced": false, "danger": false, "defaultEnabled": true},
   {"group": null, "path": "whoami", "label": "我的账号标识", "enableConfigurable": false, "adminConfigurable": false, "adminForced": false, "danger": false, "defaultEnabled": true},
   {"group": null, "path": "whereami", "label": "本群标识", "enableConfigurable": false, "adminConfigurable": false, "adminForced": false, "danger": false, "defaultEnabled": true},

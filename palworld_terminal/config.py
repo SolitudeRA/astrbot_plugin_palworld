@@ -13,8 +13,6 @@ from .shared.command_permissions import (
     admin_configurable,
     admin_forced_true,
     enable_configurable,
-    upstream_unavailable,
-    upstream_unavailable_group,
 )
 from .shared.command_registry import DISPATCH
 
@@ -129,6 +127,15 @@ def _default_players() -> PlayersConfig:
 
 
 @dataclass(slots=True)
+class PresentationConfig:
+    me_card_theme: str = "light"  # {light, dark, auto}；auto 按服务器本地时钟昼夜
+
+
+def _default_presentation() -> PresentationConfig:
+    return PresentationConfig(me_card_theme="light")
+
+
+@dataclass(slots=True)
 class AdminEntry:
     id: str
     note: str
@@ -146,9 +153,6 @@ class PermissionsConfig:
     command_overrides: dict[str, CommandOverride]
     # command_permissions 三态行清洗时的非法登记（未知命令 / 轴违规），供启动告警。
     invalid_command_keys: list[str] = field(default_factory=list)
-    # 上游不可用命令（game-data 依赖）配置了 enabled=on 但恒不生效的键，供专属启动
-    # 告警；不落 invalid_command_keys 轴违规路径（spec §3.5）。
-    upstream_ineffective_keys: tuple[str, ...] = ()
 
 
 def _default_permissions() -> PermissionsConfig:
@@ -212,6 +216,7 @@ class AppConfig:
     history: HistoryConfig
     skipped_headers: list[SkippedHeader] = field(default_factory=list)
     players: PlayersConfig = field(default_factory=_default_players)
+    presentation: PresentationConfig = field(default_factory=_default_presentation)
     permissions: PermissionsConfig = field(default_factory=_default_permissions)
     server_admin: ServerAdminConfig = field(default_factory=_default_server_admin)
 
@@ -340,7 +345,6 @@ def _parse_permissions(raw: Mapping) -> PermissionsConfig:
     valid_group_keys = set(DISPATCH.keys())
     overrides: dict[str, dict] = {}
     invalid: list[str] = []
-    upstream_ineffective: list[str] = []
     for row in raw.get("command_permissions", []) or []:
         if not isinstance(row, Mapping):
             continue
@@ -356,15 +360,7 @@ def _parse_permissions(raw: Mapping) -> PermissionsConfig:
         ao = _TRISTATE.get(str(row.get("admin_only", "inherit")), None)
         rec = overrides.setdefault(cmd, {})
         if en is not None:
-            # 上游不可用（game-data）分流：须先于下方轴校验截获——enable_configurable
-            # 翻 False 后叶子完整路径行会误落 invalid、组名行则被 is_group 短路静默漏
-            # 收集（spec §3.5）。分流对 on/off 一并接管（绝不进 invalid 轴违规路径），
-            # 仅 enabled=on 记专属告警；off/inherit 用户预期即关闭，不告警。
-            if upstream_unavailable(cmd) or (is_group and upstream_unavailable_group(cmd)):
-                if en is True:
-                    upstream_ineffective.append(f"{cmd}:enabled")
-                rec["enabled"] = en                    # override 照常记录（force-off 恒不生效；恢复即回归）
-            elif is_group or enable_configurable(cmd):
+            if is_group or enable_configurable(cmd):
                 rec["enabled"] = en
             else:
                 invalid.append(f"{cmd}:enabled")       # 轴违规登记（F3）
@@ -380,7 +376,6 @@ def _parse_permissions(raw: Mapping) -> PermissionsConfig:
 
     return PermissionsConfig(
         admins=admins, command_overrides=frozen, invalid_command_keys=invalid,
-        upstream_ineffective_keys=tuple(upstream_ineffective),
     )
 
 
@@ -453,6 +448,7 @@ def parse_config(raw: Mapping, env: Mapping[str, str]) -> AppConfig:
     pv = _obj(raw, "privacy")
     h = _obj(raw, "history")
     pl = _obj(raw, "players")
+    pr = _obj(raw, "presentation")
     permissions = _parse_permissions(raw)
     return AppConfig(
         servers=servers,
@@ -509,6 +505,11 @@ def parse_config(raw: Mapping, env: Mapping[str, str]) -> AppConfig:
             exclude_names=[s.strip() for s in str(pl.get("exclude_names", "")).split(",") if s.strip()],
             # 折叠上限：clamp ≥1，畸形回默认 7（spec §2.7 / §5#10）。
             list_fold_limit=max(1, _as_int(pl.get("list_fold_limit", 7), 7)),
+        ),
+        presentation=PresentationConfig(
+            me_card_theme=_one_of(
+                pr.get("me_card_theme", "light"),
+                frozenset({"light", "dark", "auto"}), "light"),
         ),
         permissions=permissions,
         server_admin=_parse_server_admin(raw),

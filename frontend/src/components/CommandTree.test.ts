@@ -13,11 +13,11 @@ const groupHead = (w: W, label: string) => w.findAll('.ct-grouphead').find((r) =
 const openGroup = (w: W, label: string) => groupHead(w, label).find('.ct-gname').trigger('click')
 
 describe('enabled 轴（功能页实例）', () => {
-  it('行集：完整命令树 29 条（enabled 轴全展开）；hidePaths 拆去危险区 5 条；核心命令显示锁定「恒开·内置」', () => {
+  it('行集：完整命令树 30 条（enabled 轴全展开）；hidePaths 拆去危险区 5 条；核心命令显示锁定「恒开·内置」', () => {
     const w = mountTree('enabled')
-    expect(w.findAll('.ct-leaf')).toHaveLength(29) // enabled 轴全展开（危险命令由页面危险区承载时才隐藏）
+    expect(w.findAll('.ct-leaf')).toHaveLength(30) // enabled 轴全展开（含扁平 dex；危险命令由页面危险区承载时才隐藏）
     const wh = mount(CommandTree, { props: { modelValue: {}, axis: 'enabled' as Axis, hidePaths: ['server kick', 'server unban', 'server ban', 'server shutdown', 'server stop'] } })
-    expect(wh.findAll('.ct-leaf')).toHaveLength(24) // 危险区承载的 5 条不渲染
+    expect(wh.findAll('.ct-leaf')).toHaveLength(25) // 危险区承载的 5 条不渲染
     const status = leaf(w, 'world status')
     expect(status.find('.ct-lock').exists()).toBe(true)
     expect(status.text()).toContain('恒开')
@@ -39,16 +39,15 @@ describe('enabled 轴（功能页实例）', () => {
     expect(row.text()).toContain('危险')
   })
   it('组头开关写组键 enabled、不逐叶展开；切回默认清键', async () => {
-    // 组头开关示范载体迁 player（可配组）：guild 上游不可用无可配叶子、组头无开关。
     const w = mountTree('enabled')
-    await groupHead(w, '玩家').find('.pw-switch').trigger('click') // 组默认关 → 开
+    await groupHead(w, '公会').find('.pw-switch').trigger('click') // 组默认关 → 开
     let emitted = w.emitted('update:modelValue')!.at(-1)![0] as Record<string, CmdPerm>
-    expect(emitted['player']).toEqual({ enabled: 'on', admin_only: 'inherit' })
-    expect('player info' in emitted).toBe(false)
-    const w2 = mountTree('enabled', { player: { enabled: 'on', admin_only: 'inherit' } })
-    await groupHead(w2, '玩家').find('.pw-switch').trigger('click') // 开 → 关 == 默认 → 清
+    expect(emitted['guild']).toEqual({ enabled: 'on', admin_only: 'inherit' })
+    expect('guild list' in emitted).toBe(false)
+    const w2 = mountTree('enabled', { guild: { enabled: 'on', admin_only: 'inherit' } })
+    await groupHead(w2, '公会').find('.pw-switch').trigger('click') // 开 → 关 == 默认 → 清
     emitted = w2.emitted('update:modelValue')!.at(-1)![0] as Record<string, CmdPerm>
-    expect('player' in emitted).toBe(false)
+    expect('guild' in emitted).toBe(false)
   })
   it('enabled 轴组头开关收编例外但保留 danger 自设（F2 不归组管）', async () => {
     const w = mountTree('enabled', {
@@ -66,24 +65,6 @@ describe('enabled 轴（功能页实例）', () => {
     expect(leaf(w, 'rank').find('.ov-dot').exists()).toBe(false)
     expect(leaf(w, 'rank').find('.ct-reset').exists()).toBe(false)
   })
-  it('上游不可用叶行显「暂不可用」锁定 + 徽标「上游」非「内置」（无开关）', () => {
-    const w = mountTree('enabled')
-    const row = leaf(w, 'guild list')
-    expect(row.find('.ct-lock').exists()).toBe(true)
-    expect(row.text()).toContain('暂不可用')
-    expect(row.text()).not.toContain('恒开')
-    expect(row.find('.ct-lock small').text()).toBe('上游')
-    expect(row.text()).not.toContain('内置')
-    expect(row.findAll('.pw-switch')).toHaveLength(0) // 不可配无开关
-  })
-  it('存量 guild 组行不亮受管：不可配组头无 managed 类、无「整组」标', () => {
-    // §3.5 容忍的存量 {"command":"guild","enabled":"on"} 组行不该让不可配组头误亮整组标
-    const w = mountTree('enabled', { guild: { enabled: 'on', admin_only: 'inherit' } })
-    const head = groupHead(w, '公会')
-    expect(head.classes()).not.toContain('managed')
-    expect(head.text()).not.toContain('整组')
-    expect(head.find('.grp-tag').exists()).toBe(false)
-  })
   it('可配组（player）组覆盖仍亮受管高亮 + 整组标（受管抑制不误伤可配组）', () => {
     const w = mountTree('enabled', { player: { enabled: 'on', admin_only: 'inherit' } })
     const head = groupHead(w, '玩家')
@@ -95,8 +76,8 @@ describe('enabled 轴（功能页实例）', () => {
 describe('admin_only 轴（权限章实例）', () => {
   it('行集：只列当前启用的命令（默认=恒开核心+events/today）；开功能后对应组出现', async () => {
     const w = mountTree('admin_only')
-    expect(w.findAll('.ct-leaf')).toHaveLength(12) // 恒开核心 10（world2+link3+扁平5）+ events/today（overview force-off 不列）
-    expect(w.findAll('.ct-leaf').some((r) => r.text().includes('guild list'))).toBe(false) // 上游不可用不列
+    expect(w.findAll('.ct-leaf')).toHaveLength(12) // 恒开核心 10（world2+link3+扁平5）+ events/today（overview/guild 默认关不列）
+    expect(w.findAll('.ct-leaf').some((r) => r.text().includes('guild list'))).toBe(false) // 默认关不列
     const help = leaf(w, '/pal help')
     expect(help.find('.ct-lock').exists()).toBe(true)
     expect(help.text()).toContain('所有人')

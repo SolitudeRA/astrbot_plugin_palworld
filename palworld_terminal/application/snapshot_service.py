@@ -5,11 +5,16 @@ import logging
 from collections.abc import Mapping
 
 from ..config import AppConfig, ServerConfig
+from ..domain.enums import UnitType
 from ..domain.models import GameDataSnapshot, World, WorldMetric
 from ..infrastructure.clock import Clock
 from ..shared.rest import RestResponse
 
 _log = logging.getLogger("palworld_terminal.snapshot")
+
+# 图鉴只收真帕鲁物种：排除 Player(BP_Player_*)/NPC/PalBox(BP_BuildObject_*)——
+# 否则虚增物种数、污染元素分桶（spec §4.4）。
+_DEX_UNIT_TYPES = frozenset({UnitType.OTOMO, UnitType.BASE_CAMP, UnitType.WILD})
 
 
 class SnapshotService:
@@ -256,6 +261,21 @@ class SnapshotService:
             self._shared_world[world.server_id] = gd
         if gd.unknown_classes:
             await self._repo.upsert_unknown_classes(gd.unknown_classes)
+        # 图鉴地基（spec §4.4）：消费已脱敏 gd（不读 raw resp.data），仅真帕鲁物种入库
+        # （排除 Player/NPC/PalBox，否则虚增物种、污染元素分桶）。first_seen_name 只取
+        # 明文名（NickName 优先、TrainerNickName 兜底），取不到存 NULL——严禁回退 id/GUID/
+        # userid（该表不 prune，回退 = 永久泄漏）。
+        for c in gd.characters:
+            if c.unit_type not in _DEX_UNIT_TYPES or not c.pal_class:
+                continue
+            first_seen_name = c.nickname or c.trainer_nickname or None
+            await self._repo.upsert_observed_species(
+                c.pal_class,
+                self._meta.pal_name(c.pal_class),
+                self._meta.element(c.pal_class),
+                now,
+                first_seen_name,
+            )
         await self._guilds.apply(world, gd)
         updates = await self._bases.apply(world, gd)
         if self._events is not None:

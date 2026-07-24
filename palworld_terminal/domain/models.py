@@ -183,6 +183,23 @@ class GameDataSnapshot:
     characters: list[CharacterActor] = field(default_factory=list)
     palboxes: list[PalBoxActor] = field(default_factory=list)
     unknown_classes: list[str] = field(default_factory=list)
+    # 游戏内时钟（顶层 InGameDays/InGameTime 直取）——参考/氛围文案用，
+    # world_day 权威真源仍是 metrics.days，不一致不告警、不覆盖。
+    in_game_days: int = 0
+    in_game_time: str = ""
+
+
+@dataclass(slots=True)
+class ObservedSpecies:
+    """服务器图鉴累积条目（observed_species 表）：曾被观测到的帕鲁物种。
+    first_seen_name 只承载明文名（NickName/TrainerNickName），取不到为 None——
+    永不承载 id（该表不 prune，回退 id = 永久泄漏 GUID/steamid）。"""
+    species_class: str
+    species_name: str
+    element: str
+    first_seen_at: int
+    first_seen_name: str | None
+    observe_count: int
 
 
 @dataclass(slots=True)

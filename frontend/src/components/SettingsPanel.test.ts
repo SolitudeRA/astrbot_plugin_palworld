@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { mount, flushPromises } from '@vue/test-utils'
 import SettingsPanel from './SettingsPanel.vue'
 import ServerCard from './ServerCard.vue'
@@ -155,19 +155,15 @@ describe('SettingsPanel', () => {
   it('权限章：applyConfig 从 command_permissions 行还原树 state（hydrate 往返）', async () => {
     const c = cfg()
     c.config.command_permissions = [
-      // 存量 guild 覆盖行：上游不可用 force-off 后渲染不列，但 state 须原样往返不丢。
-      { command: 'guild', enabled: 'on', admin_only: 'inherit' },
+      { command: 'guild', enabled: 'on', admin_only: 'inherit' }, // 开公会功能，行才在权限页列出
       { command: 'guild list', enabled: 'inherit', admin_only: 'on' },
-      // 渲染断言载体迁 player（可配组，行才在权限页列出）。
-      { command: 'player', enabled: 'on', admin_only: 'inherit' },
-      { command: 'player info', enabled: 'inherit', admin_only: 'on' },
     ];
     (window.AstrBotPluginPage!.apiGet as any).mockResolvedValue(c)
     const w = mountAt('permissions'); await flushPromises()
-    // 树 state 读回存量 guild 覆盖行（force-off 渲染不列，但往返不丢 → 锁「过滤不丢数据」不变量）
+    // 树 state 读回该覆盖行
     expect((w.vm as any).state.command_perms['guild list']).toEqual({ enabled: 'inherit', admin_only: 'on' })
-    // CommandTree 的 player 叶子 admin 开关显示覆盖生效值（checked）+ amber 覆盖环（ovr）
-    const row = w.findAll('.ct-leaf').find((r) => r.text().includes('player info'))!
+    // CommandTree 该叶子 admin 开关显示覆盖生效值（checked）+ amber 覆盖环（ovr）
+    const row = w.findAll('.ct-leaf').find((r) => r.text().includes('guild list'))!
     const adminSwitch = row.find('.pw-switch')
     expect(adminSwitch.attributes('data-state')).toBe('checked')
     expect(adminSwitch.classes()).toContain('ovr')
@@ -321,53 +317,5 @@ describe('SettingsPanel', () => {
     expect(w.findComponent({ name: 'ModeOnboarding' }).exists()).toBe(true)
     expect((w.vm as any).state.sections.routing.setup_confirmed).toBe(false)
     expect(w.text()).not.toContain('保存设置')
-  })
-
-  describe('game-data 不可用说明横幅（原因说明唯一载体，可永久关闭）', () => {
-    const GD_KEY = 'palworld-terminal-gd-banner-dismissed'
-    // vitest.setup 的 in-memory Storage 是模块级共享 Map，不自动重置：
-    // 逐用例清 dismissed 键，杜绝跨用例顺序依赖 flake。
-    beforeEach(() => { localStorage.removeItem(GD_KEY) })
-    afterEach(() => { localStorage.removeItem(GD_KEY) })
-
-    it('默认（未 dismiss）显示横幅：含「暂不可用」与「PalGameDataBridge」原因说明', async () => {
-      const w = await mountAccess()
-      expect(w.find('.gd-banner').exists()).toBe(true)
-      expect(w.text()).toContain('暂不可用')
-      expect(w.text()).toContain('PalGameDataBridge')
-    })
-
-    it('点「不再提醒」→ 横幅消失且 localStorage 置 1（永久关闭）', async () => {
-      const w = await mountAccess()
-      expect(w.find('.gd-banner').exists()).toBe(true)
-      await w.get('.gd-banner button').trigger('click')
-      expect(w.find('.gd-banner').exists()).toBe(false)
-      expect(localStorage.getItem(GD_KEY)).toBe('1')
-    })
-
-    it('预置 dismissed=1 → 挂载即不渲染横幅', async () => {
-      localStorage.setItem(GD_KEY, '1')
-      const w = await mountAccess()
-      expect(w.find('.gd-banner').exists()).toBe(false)
-      expect(w.text()).not.toContain('PalGameDataBridge')
-    })
-
-    it('localStorage.getItem 抛错（受限 iframe）→ 不白屏、横幅仍显示（会话内兜底）', async () => {
-      const spy = vi.spyOn(localStorage, 'getItem').mockImplementation(() => { throw new Error('blocked') })
-      try {
-        const w = await mountAccess()
-        expect(w.text()).toContain('保存设置') // 正常章节照常渲染，未白屏
-        expect(w.find('.gd-banner').exists()).toBe(true) // 读失败兜底为显示
-      } finally {
-        spy.mockRestore() // 用后恢复，防泄漏污染后续用例
-      }
-    })
-
-    it('首次引导（needsOnboarding）态不渲染横幅（避免与引导屏叠加）', async () => {
-      const w = await mountAccess({ routing: { access_mode: 'restricted', default_server: '', setup_confirmed: false } })
-      expect(w.findComponent({ name: 'ModeOnboarding' }).exists()).toBe(true)
-      expect(w.find('.gd-banner').exists()).toBe(false)
-      expect(w.text()).not.toContain('PalGameDataBridge')
-    })
   })
 })

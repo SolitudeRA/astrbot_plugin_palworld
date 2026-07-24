@@ -277,5 +277,16 @@
   "Cattiva": {"pal_number": 2, "name_zh": "捣蛋猫", "name_en": "Cattiva", "element_types": ["neutral"], "rarity": 1, "metadata_version": "0.1"},
   "Chikipi": {"pal_number": 3, "name_zh": "皮皮鸡", "name_en": "Chikipi", "element_types": ["neutral"], "rarity": 1, "metadata_version": "0.1"},
   "Foxparks": {"pal_number": 5, "name_zh": "火绒狐", "name_en": "Foxparks", "element_types": ["fire"], "rarity": 1, "metadata_version": "0.1"},
-  "Pengullet": {"pal_number": 10, "name_zh": "企丸丸", "name_en": "Pengullet", "element_types": ["water", "ice"], "rarity": 1, "metadata_version": "0.1"}
+  "Pengullet": {"pal_number": 10, "name_zh": "企丸丸", "name_en": "Pengullet", "element_types": ["water", "ice"], "rarity": 1, "metadata_version": "0.1"},
+  "LotusDragon": {"pal_number": 64, "name_zh": "花冠龙", "name_en": "Dinossom", "element_types": ["grass", "dragon"], "rarity": 6, "metadata_version": "0.2"},
+  "BlueSkyDragon": {"pal_number": 0, "name_zh": "苍空龙", "name_en": "BlueSkyDragon", "element_types": ["dragon"], "rarity": 0, "metadata_version": "0.2"},
+  "GhostDragon_Fire": {"pal_number": 0, "name_zh": "焰魂龙", "name_en": "GhostDragon Ignis", "element_types": ["fire", "dragon"], "rarity": 0, "metadata_version": "0.2"},
+  "LegendDeer": {"pal_number": 0, "name_zh": "传说角鹿", "name_en": "LegendDeer", "element_types": [], "rarity": 0, "metadata_version": "0.2"},
+  "ClownRabbit": {"pal_number": 0, "name_zh": "小丑兔", "name_en": "ClownRabbit", "element_types": [], "rarity": 0, "metadata_version": "0.2"},
+  "SnowTigerBeastman": {"pal_number": 0, "name_zh": "雪虎兽人", "name_en": "SnowTigerBeastman", "element_types": ["ice"], "rarity": 0, "metadata_version": "0.2"},
+  "KabukiMan": {"pal_number": 0, "name_zh": "歌舞伎武者", "name_en": "KabukiMan", "element_types": [], "rarity": 0, "metadata_version": "0.2"},
+  "DomeArmorDragon": {"pal_number": 0, "name_zh": "铠甲穹龙", "name_en": "DomeArmorDragon", "element_types": ["dragon"], "rarity": 0, "metadata_version": "0.2"},
+  "ThunderFluffyBird": {"pal_number": 0, "name_zh": "雷绒鸟", "name_en": "ThunderFluffyBird", "element_types": ["electric"], "rarity": 0, "metadata_version": "0.2"},
+  "MonochromeQueen": {"pal_number": 0, "name_zh": "黑白女王", "name_en": "MonochromeQueen", "element_types": [], "rarity": 0, "metadata_version": "0.2"},
+  "IceNarwhal_BOSS": {"pal_number": 0, "name_zh": "冰角鲸首领", "name_en": "IceNarwhal (Boss)", "element_types": ["ice", "water"], "rarity": 0, "metadata_version": "0.2"}
 }

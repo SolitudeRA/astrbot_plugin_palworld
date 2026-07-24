@@ -63,7 +63,8 @@ async def test_bind_then_me_shows_self(cmds_env):
     c = build(_cfg())
     assert "已绑定" in await c.bind("u", "bind Alice", True, "aiocqhttp:1")
     out = await c.me("u", "me", True, "aiocqhttp:1")
-    assert "👤 我的玩家 · Alice" in out and "Lv12" in out
+    # 原子切换（T9）：me 由旧 format_player（👤 我的玩家）切到新名片 format_me（🎴 我的名片）
+    assert "🎴 我的名片 · Alice" in out and "Lv12" in out
 
 
 async def test_me_unbound_multi_scoped(cmds_env):
@@ -89,7 +90,7 @@ async def test_me_hidden_badge(cmds_env):
     await c.bind("u", "bind Alice", True, "aiocqhttp:1")
     await c.me("u", "me hide", True, "aiocqhttp:1")
     out = await c.me("u", "me", True, "aiocqhttp:1")
-    assert "已隐藏" in out
+    assert "你已从排行与查询中隐藏" in out    # T9：format_me 隐藏角标（me_card_hidden）
 
 
 async def test_me_hide_show_multi_anchor(cmds_env):

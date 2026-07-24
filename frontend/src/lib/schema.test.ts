@@ -31,11 +31,25 @@ describe('schema 完整性（对齐 _conf_schema.json，缺一即失败）', () 
   it('HEADER_FIELDS 覆盖 custom_headers 模板全字段', () => {
     expect(HEADER_FIELDS.map((f) => f.key).sort()).toEqual(keysOfTemplateList('custom_headers', 'header'))
   })
-  it('OBJECT_SECTIONS 恰为 8 个 object 节（不含 features/servers/custom_headers/group_bindings/permission_admins/command_permissions）', () => {
-    // Phase 2：features 已被 command_permissions（命令树）取代，前端不再声明 features object 节
+  it('OBJECT_SECTIONS 恰为 9 个 object 节（不含 features/servers/custom_headers/group_bindings/permission_admins/command_permissions）', () => {
+    // Phase 2：features 已被 command_permissions（命令树）取代，前端不再声明 features object 节。
+    // presentation 节（me_card_theme）随图片名片主题贯通新增（8→9）。
     expect(OBJECT_SECTIONS.map((s) => s.key)).toEqual(
-      ['routing', 'polling', 'world', 'bases', 'privacy', 'history', 'players', 'server_admin'])
+      ['routing', 'polling', 'world', 'bases', 'privacy', 'history', 'players', 'presentation', 'server_admin'])
     expect(OBJECT_SECTIONS.some((s) => s.key === 'features')).toBe(false)
+  })
+})
+
+describe('presentation 配置节', () => {
+  it('存在 presentation 配置节（me_card_theme 对齐 _conf_schema.json）', () => {
+    const pr = OBJECT_SECTIONS.find((s) => s.key === 'presentation')
+    expect(pr, '缺 presentation 节').toBeTruthy()
+    expect(pr!.fields.map((f) => f.key).sort()).toEqual(['me_card_theme'])
+    expect(pr!.fields.map((f) => f.key).sort()).toEqual(keysOfObject('presentation'))
+    const theme = pr!.fields.find((f) => f.key === 'me_card_theme')!
+    expect(theme.type).toBe('enum')
+    expect(theme.default).toBe('light')
+    expect(theme.options).toEqual(['light', 'dark', 'auto'])
   })
 })
 

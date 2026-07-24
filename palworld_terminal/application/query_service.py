@@ -4,6 +4,7 @@ from ..config import AppConfig
 from ..infrastructure.cache import TTLCache
 from ..infrastructure.clock import Clock
 from .ports import ReadRepositoryPort
+from .query_dex import _DexQueries
 from .query_events import _EventSummaryQueries
 from .query_guild import _GuildBaseQueries
 from .query_players import _RankProfileQueries
@@ -21,11 +22,12 @@ class QueryService(
     _GuildBaseQueries,
     _EventSummaryQueries,
     _RankProfileQueries,
+    _DexQueries,
 ):
-    """读查询门面。实现按查询关注点拆入 5 个 mixin（query_*.py）；隐私三方法
+    """读查询门面。实现按查询关注点拆入 5 个查询 mixin（query_*.py）；隐私三方法
     （load_excluded_keys/name_banned/resolve_event_subjects）为跨组共享脊柱，
-    落 _PrivacyBase，**四查询 mixin 均继承 _PrivacyBase**，跨组调用经 self/MRO
-    解析到脊柱（门面只列四 mixin，_PrivacyBase 由它们传递继承）。模块级
+    落 _PrivacyBase，**五查询 mixin 均继承 _PrivacyBase**，跨组调用经 self/MRO
+    解析到脊柱（门面只列五 mixin，_PrivacyBase 由它们传递继承）。模块级
     helper/DTO/常量迁中立 query_support.py。"""
 
     _GUILDS_TTL = 90

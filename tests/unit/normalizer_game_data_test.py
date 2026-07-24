@@ -1,3 +1,6 @@
+"""旧顶层 characters[]/palboxes[] 结构（真实响应无此二键）——normalizer 现以此为
+**防御回退**路径解析（追加不删）。真实 ActorData 契约锚点见 normalizer_actordata_test。
+这些断言守住回退路径不回归。"""
 from pathlib import Path
 
 from palworld_terminal.adapters.metadata_repository import MetadataRepository

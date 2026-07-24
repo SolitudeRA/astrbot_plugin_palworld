@@ -87,6 +87,29 @@ def _resolve_data_dir() -> Path:
         return Path(os.getcwd())
 
 
+async def _me_reply(commands, html_render, umo, msg, is_group, sender):
+    """/pal me 回复决策（spec §5·M7·原子切换点）。
+
+    无 card token → 文字卡（commands.me→format_me）。card|卡|图 → 图片卡：
+    commands.me_card_html 产纯 HTML → html_render(html, {})（第二参**恒 {}**，不透传 raw）→
+    图片。**降级（不止兜异常）**：html_render 抛异常 或 返回 None/空串，或 me_card_html 无法
+    产 HTML（未绑定/悬空/feature 关/world err）→ 文字卡（commands.me 复算同路径出对应文案）。
+    返回 ("image", url) 或 ("text", str)；gating 短路在 _guarded_cmd 上游（返回纯 str）不进此。
+    """
+    if not commands.is_me_card(msg):
+        return ("text", await commands.me(umo, msg, is_group, sender))
+    html = await commands.me_card_html(umo, msg, is_group, sender)
+    if html and html_render is not None:
+        try:
+            img = await html_render(html, {})
+        except Exception:  # noqa: BLE001 — 任何渲染异常均降级文字卡，不吞成空回复
+            _log.warning("/pal me 图片卡 html_render 失败，降级文字卡", exc_info=True)
+            img = None
+        if img:
+            return ("image", img)
+    return ("text", await commands.me(umo, msg, is_group, sender))
+
+
 def _migrate_permissions_config(config) -> None:
     """装载时一次性把 legacy 权限配置迁移成 command_permissions 行并落库（复核 F1/B2）。
 
@@ -165,12 +188,6 @@ class PalWorldTerminal(Star):
             _log.warning(
                 "以下 command_permissions 配置项非法（未知命令或轴违规）、未生效：%s",
                 "、".join(invalid),
-            )
-        upstream_ineffective = c.config.permissions.upstream_ineffective_keys
-        if upstream_ineffective:
-            _log.warning(
-                "以下命令依赖的 game-data 接口上游未开放，配置的启用未生效：%s",
-                "、".join(upstream_ineffective),
             )
 
     async def terminate(self) -> None:
@@ -510,8 +527,8 @@ class PalWorldTerminal(Star):
     def pal(self):
         pass
 
-    # ---- 分级命令：5 组 handler（world/guild/player/server/link）+ 7 扁平
-    # （rank/online/me/whoami/whereami/help/confirm）= 12 注册。AstrBot 只认首词,子动作
+    # ---- 分级命令：5 组 handler（world/guild/player/server/link）+ 8 扁平
+    # （rank/online/me/dex/whoami/whereami/help/confirm）= 13 注册。AstrBot 只认首词,子动作
     # (world status …) 由 Commands 层分发器自解析。门控下沉进分发（功能门 per-子动作、
     # admin_denied 完整路径、server 写走 admin_write）;main 层只施 busy/inflight 门闩。----
 
@@ -559,7 +576,8 @@ class PalWorldTerminal(Star):
     async def rank(self, event):
         yield event.plain_result(
             await self._guarded_cmd(event, "rank", lambda c: c.commands.rank(
-                self._umo(event), self._msg(event), self._is_group(event)))
+                self._umo(event), self._msg(event), self._is_group(event),
+                self._sender_id(event)))
         )
 
     @pal.command("online")
@@ -569,12 +587,26 @@ class PalWorldTerminal(Star):
                 self._umo(event), self._msg(event), self._is_group(event)))
         )
 
+    @pal.command("dex")
+    async def dex(self, event):
+        yield event.plain_result(
+            await self._guarded_cmd(event, "dex", lambda c: c.commands.dex(
+                self._umo(event), self._msg(event), self._is_group(event)))
+        )
+
     @pal.command("me")
     async def me(self, event):
-        yield event.plain_result(
-            await self._guarded_cmd(event, "me", lambda c: c.commands.me(
-                self._umo(event), self._msg(event), self._is_group(event), self._sender_id(event)))
-        )
+        # 原子切换点（spec §5）：无参→文字卡；card|卡|图→图片卡（降级文字）。gating 短路
+        # 走 _guarded_cmd 上游（返回纯 str）；成功决策返回 ("image"|"text", payload) 元组。
+        res = await self._guarded_cmd(event, "me", lambda c: _me_reply(
+            c.commands, getattr(self, "html_render", None),
+            self._umo(event), self._msg(event), self._is_group(event), self._sender_id(event)))
+        if isinstance(res, tuple) and res[0] == "image":
+            yield event.image_result(res[1])
+        elif isinstance(res, tuple):
+            yield event.plain_result(res[1])
+        else:  # gating 短路（busy/setup_required/admin_denied）返回纯文本
+            yield event.plain_result(res)
 
     @pal.command("whoami")
     async def whoami(self, event):

@@ -3,10 +3,13 @@ from __future__ import annotations
 from ..application.dtos import (
     BaseDetailDTO,
     BaseDTO,
+    DexProgressDTO,
     EventView,
     GuildDetailDTO,
     GuildDTO,
+    MeCardDTO,
     OnlineDTO,
+    RankClimbDTO,
     RulesDTO,
     ServerStatusRow,
     StatusDTO,
@@ -42,13 +45,37 @@ _CONF_LABEL = {Confidence.HIGH: "高", Confidence.MEDIUM: "中", Confidence.LOW:
 # 行为分布类目（spec §4.9）：ActionCategory 8 档中文（细分工种数据面不存在，不臆造「伐木/搬运」）。
 _ACTION_CAT_LABEL = {
     ActionCategory.WORKING: "工作中", ActionCategory.MOVING: "移动",
-    ActionCategory.IDLE: "闲置", ActionCategory.COMBAT: "战斗",
+    ActionCategory.IDLE: "闲置", ActionCategory.SLACKING: "摸鱼",
+    ActionCategory.COMBAT: "战斗",
     ActionCategory.SLEEPING: "睡觉", ActionCategory.EATING: "进食",
     ActionCategory.INCAPACITATED: "濒死", ActionCategory.UNKNOWN: "未知",
 }
 
+# 车间现场行为 emoji（spec §6）：与 _ACTION_CAT_LABEL 同键、按枚举定序渲染（⛏工作/🚬摸鱼…）。
+_ACTION_CAT_EMOJI = {
+    ActionCategory.WORKING: "⛏", ActionCategory.MOVING: "🚶",
+    ActionCategory.IDLE: "💤", ActionCategory.SLACKING: "🚬",
+    ActionCategory.COMBAT: "⚔️",
+    ActionCategory.SLEEPING: "🛌", ActionCategory.EATING: "🍖",
+    ActionCategory.INCAPACITATED: "💫", ActionCategory.UNKNOWN: "❓",
+}
+
+# 车间氛围（spec §6）：mood 稳定键白名单（越界值防御回落 fired_up）；徽章/吐槽措辞在 locale。
+_MOODS = ("fired_up", "slacking_off")
+
 # 性能流畅度档位 → 状态色点（spec §2.2/§4.1）：流畅🟢 / 一般🟡 / 卡顿·严重卡顿🔴。
 _SMOOTH_DOT = {"流畅": "🟢", "一般": "🟡", "卡顿": "🔴", "严重卡顿": "🔴"}
+
+# 元素英文键 → 中文（spec §5 名片随身高光）：与 domain.Element 九元素对齐；
+# unknown（未收录/无属性降级）→「未知」，理论外的键回落原键（不炸/不臆造）。
+_ELEMENT_LABEL = {
+    "fire": "火", "water": "水", "grass": "草", "electric": "电", "ice": "冰",
+    "dragon": "龙", "dark": "暗", "ground": "地", "neutral": "无", "unknown": "未知",
+}
+
+# 随身行为标签：CompanionView.action_label 为 ActionCategory.value 稳定键（working/…），
+# 复用 _ACTION_CAT_LABEL 的中文（按值索引）；未知值回落原键。
+_ACTION_BY_VALUE = {cat.value: label for cat, label in _ACTION_CAT_LABEL.items()}
 
 
 def format_degraded(last_ok: int | None, now: int, server_name: str) -> str:
@@ -181,24 +208,32 @@ def _health_status(score: float) -> tuple[str, str]:
 
 
 def format_base(dto: BaseDetailDTO) -> str:
-    """guild base（spec §4.9）。标题锚点=据点名 dto.display_name。健康度→状态点+词；行为分布=
-    ActionCategory 8 档中文（有计数者按枚举定序渲染）。activity_score 裸数与 palbox_count 砍位。
-    available=False（无观测）→ ⚠️ 取数失败态（不再全 0 假数据，§6#8）。"""
+    """guild base 车间现场（spec §4.9 / §6）。标题锚点=据点名 dto.display_name。
+
+    健康度→状态点+词；**氛围徽章**（🔥热火朝天/😴集体摆烂，按 dto.mood 稳定键取 locale 模板）
+    + 一句吐槽；**摸鱼行**（🚬 摸鱼率 N%，dto.slacker_rate 派生）；行为分布以 emoji 呈现
+    （⛏工作中/🚬摸鱼…，有计数者按枚举定序）；物种 Top（就近可见快照聚合）。
+    C2 口径：只报「此刻可见 N 只」（非「共有」）；脚注标观察推导（C4）。activity_score 裸数与
+    palbox_count 砍位。available=False（无观测）→ ⚠️ 取数失败态（不再全 0 假数据，§6#8）。"""
     title = f"🏕️ 据点 · {dto.display_name}"
     guild = f"公会「{dto.guild_name}」" if dto.guild_name else "未确定公会"
     ident = f"{guild} · 置信度{_CONF_LABEL[dto.confidence]}"
     if not dto.available:
         return f"{title}\n{ident}\n{L('base_no_observation')}"
     dot, word = _health_status(dto.health_score)
+    mood = dto.mood if dto.mood in _MOODS else "fired_up"  # 越界值防御回落
     lines = [
         title,
         ident,
+        f"{L(f'base_badge_{mood}')} · {L(f'base_snark_{mood}')}",
         "",
-        f"工作帕鲁 {dto.worker_count} · 活跃 {dto.active_count} · 平均 Lv{dto.average_level:.1f}",
+        # C2：只报此刻可见（就近可见快照），不吹「共有」。
+        f"此刻可见 {dto.worker_count} 只 · 活跃 {dto.active_count} · 平均 Lv{dto.average_level:.1f}",
         f"状态 {dot} {word} · 平均HP {dto.average_hp_ratio:.0%}",
+        f"🚬 摸鱼率 {dto.slacker_rate:.0%}",
     ]
     dist = [
-        f"{_ACTION_CAT_LABEL[cat]} {dto.action_distribution[cat.value]}"
+        f"{_ACTION_CAT_EMOJI[cat]}{dto.action_distribution[cat.value]} {_ACTION_CAT_LABEL[cat]}"
         for cat in ActionCategory
         if dto.action_distribution.get(cat.value, 0) > 0
     ]
@@ -206,6 +241,13 @@ def format_base(dto: BaseDetailDTO) -> str:
         lines.append("")
         lines.append("行为分布")
         lines.append("· " + " · ".join(dist))
+    if dto.species_top:
+        lines.append("")
+        # C2 作用域披露：species_top 按公会名聚合（含本公会全部据点），非本据点独有——
+        # 表头显式标「本公会此刻可见」，与上方本据点「此刻可见 N 只」区分，杜绝多据点合计 > N 的自相矛盾。
+        lines.append("热门物种（本公会此刻可见）")
+        lines.append("· " + " · ".join(f"{name} ×{count}" for name, count in dto.species_top))
+    lines.append("└ 据点为插件观察推导 · 仅统计此刻可见帕鲁")
     return "\n".join(lines)
 
 
@@ -541,6 +583,70 @@ def format_player(
     return "\n".join([title, " · ".join(status), "", *block])
 
 
+def _days_ago_label(days: int) -> str:
+    """距今天数（MeCardDTO.last_seen_at/first_seen_at 已预粗化为 int，0=今天）→ 词形
+    「今天」/「N天前」（spec §5·隐私 P1）。**绝不 fromtimestamp**——入参是天数差非 epoch，
+    当时间戳会显 1970 乱数据 + 泄漏绝对登录时刻（作息）。负值防御归 0（今天）。"""
+    n = max(int(days), 0)
+    return "今天" if n == 0 else f"{n}天前"
+
+
+def format_me(dto: MeCardDTO) -> str:
+    """/pal me 文字版名片（spec §5·功能①）：消费 MeCardDTO，四状态文字渲染。
+
+    状态优先级：online==False → 离线卡（无实时血量/随身，最近上线走距今天数、累计在线）；
+    否则在线卡（等级/公会/百分位「超越有记录玩家 X%」/本次·今日·累计时长）+ 随身三态——
+    companion_status: shown → 随身高光行（物种（元素）Lv/HP%/状态）；none_out →「此刻未带出
+    随身帕鲁」；no_data →「随身数据暂不可用（需启用 guilds_bases）」（**绝不谎称没带**，C2）。
+
+    时间字段（last_seen_at/first_seen_at）是**距今天数 int**（T6 已预粗化），经 _days_ago_label
+    渲染，绝不当 epoch（隐私 P1，无绝对时间戳）。签名仅收 dto——百分位/时长/天数皆自足，
+    无需 now/tz/server_name（同图片版 build_me_card_html 的 DTO 自足边界）。
+    """
+    title = f"🎴 我的名片 · {dto.name}"
+
+    if not dto.online:
+        # 离线卡：无实时状态点、无随身/血量；最近上线走距今天数（非绝对时刻）+ 累计在线。
+        lines = [
+            title,
+            f"Lv{dto.level} · {L('me_card_offline')}",
+            "",
+            f"最近上线 {_days_ago_label(dto.last_seen_at)} · 累计在线 {fmt_duration(dto.total_seconds)}",
+        ]
+        if dto.guild_name:
+            lines.append(f"公会「{dto.guild_name}」")
+        if dto.hidden:
+            lines.append(L("me_card_hidden"))
+        return "\n".join(lines)
+
+    # 在线卡：状态点 🟢 + 本次在线 + 百分位（hero）+ 今日/累计 + 公会 + 随身三态。
+    lines = [
+        title,
+        f"Lv{dto.level} · 🟢 在线 · 本次 {fmt_duration(dto.online_seconds)}",
+        "",
+        L("me_card_percentile", pct=f"{dto.percentile:.0f}"),
+        f"今日在线 {fmt_duration(dto.today_seconds)} · 累计 {fmt_duration(dto.total_seconds)}",
+    ]
+    if dto.guild_name:
+        lines.append(f"公会「{dto.guild_name}」")
+
+    if dto.companion_status == "shown" and dto.companion is not None:
+        c = dto.companion
+        element = _ELEMENT_LABEL.get(c.element, c.element)
+        action = _ACTION_BY_VALUE.get(c.action_label, c.action_label)
+        lines.append(
+            f"随身 {c.species_name}（{element}）Lv{c.level} · HP {c.hp_ratio:.0%} · {action}"
+        )
+    elif dto.companion_status == "none_out":
+        lines.append(L("me_card_none_out"))
+    else:  # no_data（无快照/本人不在快照/game-data 未轮询）——绝不谎称没带
+        lines.append(L("me_card_no_data"))
+
+    if dto.hidden:
+        lines.append(L("me_card_hidden"))
+    return "\n".join(lines)
+
+
 # rank 三变体榜名（spec §4.23）。which=time 为 today 别名；未识别值回落 today
 # （命令层已把非法首词归 today，此处 mapping 兜底防越界）。
 _RANK_TITLE = {
@@ -571,4 +677,55 @@ def format_rank(dto: RankBoardsDTO, *, which: str, server_name: str) -> str:
     lines = [title, *rows]
     if board == "total":
         lines.append("└ 统计范围为数据留存期")
+    return "\n".join(lines)
+
+
+def format_rank_climb(dto: RankClimbDTO, *, server_name: str) -> str:
+    """rank climb 飞升榜（spec §7）：周窗 level 涨幅榜，标题锚点 server_name。
+
+    行 `1. {name} +{gain} 级`；口径脚注随 shallow 分叉（历史不足 7 天时诚实标「自 bot
+    记录以来」）；末尾「你第 N，离前一位差 X 级」为调用方本人榜位（榜首无差）。空榜=标题 +
+    素文（无脚注、无本人榜位）。gain 恒 > 0（query 层已剔零/负增量），此处纯渲染。"""
+    title = f"🚀 飞升榜 · {server_name}"
+    if not dto.rows:
+        return f"{title}\n{L('rank_climb_empty')}"
+    rows = [f"{i}. {e.name} +{e.gain} 级" for i, e in enumerate(dto.rows, 1)]
+    lines = [title, *rows]
+    lines.append(
+        "└ 涨幅自 bot 开始记录以来（历史不足 7 天）" if dto.shallow
+        else "└ 统计近 7 天等级涨幅"
+    )
+    if dto.viewer_rank is not None:
+        if dto.viewer_gap is None:
+            lines.append(f"你第 {dto.viewer_rank}，已登顶飞升榜 🎉")
+        else:
+            lines.append(f"你第 {dto.viewer_rank}，离前一位差 {dto.viewer_gap} 级")
+    return "\n".join(lines)
+
+
+def format_dex(dto: DexProgressDTO) -> str:
+    """服务器图鉴进度（spec §8·功能④）：本插件曾观测到的**去重**物种进度，按元素分桶。
+
+    口径「本插件已观测」（observed_species 跨插件全局累积、无 world_id，非本服/全服全部物种，
+    C2）；「曾被观测到」≠「服上存在全物种」（末尾脚注钉死）。分母已知 → 「已观测 N/总数 种」
+    + 每元素缺失清单（「尚未被观测」）；分母未知（roster 不完整）→ 降级为「已观测 N 种」+ 仅
+    已点亮列表，**不显分母、不出缺失**（SD5：分母与缺失绑同一前置一起降级）。空图鉴 → 素文。
+    元素中文复用 _ELEMENT_LABEL（unknown/理论外键优雅回落原键，不炸）。
+    标题**不带服名**：observed_species 无 world_id、跨插件全局累积，per-server 锚点会误导口径。"""
+    title = "📖 服务器图鉴"
+    if not dto.buckets:
+        return f"{title}\n{L('dex_empty')}"
+    head = (
+        L("dex_progress", observed=dto.observed_count, total=dto.total)
+        if dto.total is not None
+        else L("dex_progress_degraded", observed=dto.observed_count)
+    )
+    lines = [title, head, ""]
+    for b in dto.buckets:
+        elem = _ELEMENT_LABEL.get(b.element, b.element)
+        lit = "、".join(b.observed) if b.observed else "—"
+        lines.append(f"{elem} {len(b.observed)}：{lit}")
+        if b.missing:   # 缺失仅分母已知时非空（降级恒空）
+            lines.append(f"　└ 尚未被观测：{'、'.join(b.missing)}")
+    lines.append(L("dex_note"))
     return "\n".join(lines)

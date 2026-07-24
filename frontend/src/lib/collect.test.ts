@@ -33,7 +33,7 @@ function makeTreeState(overrides: Record<string, Partial<CmdPerm>>): SettingsSta
 
 // 后端 config_view._TOP_KEYS（Phase 2：无 features/admin_only_commands，含 command_permissions）
 const TOP_KEYS = ['servers', 'routing', 'group_bindings', 'custom_headers',
-  'polling', 'world', 'bases', 'privacy', 'history', 'players',
+  'polling', 'world', 'bases', 'privacy', 'history', 'players', 'presentation',
   'server_admin', 'permission_admins', 'command_permissions', 'single_allowed_groups']
 
 describe('collectBody', () => {

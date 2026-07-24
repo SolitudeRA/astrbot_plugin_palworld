@@ -284,3 +284,40 @@ def test_routing_setup_confirmed_non_bool_rejected():
     ok, err = validate_and_backfill(body, _old(), {})
     assert ok is False and err["error"] == "invalid_shape"
     assert err["detail"]["path"] == "routing.setup_confirmed"
+
+
+# --- presentation.me_card_theme 配置贯通（spec §5 主题·CT1 三白名单）---
+
+def test_presentation_section_accepted_not_invalid_shape():
+    # CT1：前端 collectBody 无条件回传 presentation 节；_TOP_KEYS 加了 presentation
+    # 后须被接受（否则整页保存被 invalid_shape 拒，所有配置都存不进）。
+    body = _body()
+    body["presentation"] = {"me_card_theme": "dark"}
+    ok, cand = validate_and_backfill(body, _old(), {})
+    assert ok is True
+    assert cand["presentation"] == {"me_card_theme": "dark"}
+
+
+def test_presentation_me_card_theme_all_valid_enums_accepted():
+    for theme in ("light", "dark", "auto"):
+        body = _body()
+        body["presentation"] = {"me_card_theme": theme}
+        ok, cand = validate_and_backfill(body, _old(), {})
+        assert ok is True, theme
+        assert cand["presentation"]["me_card_theme"] == theme
+
+
+def test_presentation_me_card_theme_invalid_enum_rejected_path_only():
+    body = _body()
+    body["presentation"] = {"me_card_theme": "rainbow"}
+    ok, err = validate_and_backfill(body, _old(), {})
+    assert ok is False and err["error"] == "invalid_field"
+    assert err["detail"]["path"] == "presentation.me_card_theme"
+    assert "rainbow" not in str(err)   # 非法值绝不出现在错误里
+
+
+def test_presentation_non_object_rejected():
+    body = _body()
+    body["presentation"] = ["not", "a", "map"]
+    ok, err = validate_and_backfill(body, _old(), {})
+    assert ok is False and err["error"] == "invalid_shape"

@@ -94,6 +94,19 @@ def test_bindings_parsed_from_top_level():
     assert cfg.group_bindings[0].active is True
 
 
+def test_presentation_me_card_theme_default_and_enum():
+    # 缺省 → light
+    cfg = parse_config({"servers": []}, env={})
+    assert cfg.presentation.me_card_theme == "light"
+    # 合法枚举原样保留
+    for theme in ("light", "dark", "auto"):
+        cfg = parse_config({"presentation": {"me_card_theme": theme}}, env={})
+        assert cfg.presentation.me_card_theme == theme
+    # 非法 → 回落 light
+    cfg = parse_config({"presentation": {"me_card_theme": "rainbow"}}, env={})
+    assert cfg.presentation.me_card_theme == "light"
+
+
 def test_malformed_numeric_values_degrade_to_defaults():
     # 手改配置文件留下畸形数值:降级为默认,不炸插件启动
     raw = {

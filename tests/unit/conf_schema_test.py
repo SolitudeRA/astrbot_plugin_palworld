@@ -122,6 +122,17 @@ def test_players_list_fold_limit_present():
     assert items["list_fold_limit"]["default"] == 7
 
 
+def test_presentation_me_card_theme_schema_present():
+    # spec §5 主题贯通链 Step 1：presentation object 节含 me_card_theme
+    # （enum light/dark/auto、default light）。
+    s = load_schema()
+    assert s["presentation"]["type"] == "object"
+    item = s["presentation"]["items"]["me_card_theme"]
+    assert item["type"] == "string"
+    assert item["default"] == "light"
+    assert item["options"] == ["light", "dark", "auto"]
+
+
 def test_server_admin_schema_present():
     s = load_schema()
     assert s["server_admin"]["type"] == "object"

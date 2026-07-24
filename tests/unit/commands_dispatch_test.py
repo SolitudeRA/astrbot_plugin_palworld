@@ -152,30 +152,18 @@ async def test_world_per_subaction_feature_gate():
         == feature_disabled_text("world today")
 
 
-async def test_world_overview_force_off_feature_disabled():
-    # overview 归队 guilds_bases + 上游不可用 force-off：恒短路 feature_disabled，不触达实现
-    # （原「非递归路由到 world 实现」护栏在 force-off 期间死于门后，恢复上游后反转即回归）。
+async def test_world_overview_routes_to_world_impl():
+    # overview 子动作（解禁后 all_on 启用）→ 实现方法 world（非 world_grp 分发器，无递归）。
     c = _mk(_ErrRouting(), _BoomQuery(), _BoomRepo(), _cfg())
-    assert await c.world_grp("u", "/pal world overview", True, "s", False) == L("feature_disabled")
+    assert await c.world_grp("u", "/pal world overview", True, "s", False) == _ROUTING_ERR_TEXT
 
 
 async def test_guild_per_subaction_feature_gate():
+    # guilds_bases 关（普通可配 off）→ feature_disabled 主句 + 「设置页开启」引导脚注。
     c = _mk(_ErrRouting(), _BoomQuery(), _BoomRepo(), _cfg(feats={"guilds_bases": False}))
-    assert await c.guild_grp("u", "/pal guild list", True, "s", False) == L("feature_disabled")
-    assert await c.guild_grp("u", "/pal guild info X", True, "s", False) == L("feature_disabled")
-    assert await c.guild_grp("u", "/pal guild bases", True, "s", False) == L("feature_disabled")
-
-
-async def test_guild_and_overview_force_off_even_when_configured_on():
-    # §5B②：guilds_bases 上游不可用——即便配置 guild 组 on / world overview 叶 on，
-    # commands 层仍收既有 feature_disabled（force-off 先于门，不触达实现；防实现时另加新文案）。
-    cfg = _cfg()
-    cfg.permissions.command_overrides["guild"] = CommandOverride(enabled=True)
-    cfg.permissions.command_overrides["guild list"] = CommandOverride(enabled=True)
-    cfg.permissions.command_overrides["world overview"] = CommandOverride(enabled=True)
-    c = _mk(_ErrRouting(), _BoomQuery(), _BoomRepo(), cfg)
-    assert await c.guild_grp("u", "/pal guild list", True, "s", False) == L("feature_disabled")
-    assert await c.world_grp("u", "/pal world overview", True, "s", False) == L("feature_disabled")
+    assert await c.guild_grp("u", "/pal guild list", True, "s", False) == feature_disabled_text("guild list")
+    assert await c.guild_grp("u", "/pal guild info X", True, "s", False) == feature_disabled_text("guild info")
+    assert await c.guild_grp("u", "/pal guild bases", True, "s", False) == feature_disabled_text("guild bases")
 
 
 # ============================================================================
@@ -261,8 +249,8 @@ async def test_unknown_subaction_returns_group_help():
 async def test_bare_group_returns_group_help():
     c = _mk(None, None, None, _cfg())
     out = await c.world_grp("u", "/pal world", True, "s", False)
-    assert "status" in out          # 仍列可见子动作
-    assert "overview" not in out    # overview force-off：裸组 help 不列
+    assert "status" in out
+    assert "overview" in out    # overview 解禁后 all_on 启用 → 裸组 help 列出
 
 
 async def test_player_info_missing_name_returns_usage():

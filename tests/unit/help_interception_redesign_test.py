@@ -126,13 +126,6 @@ def test_feature_disabled_main_clause_warning():
 
 
 def test_feature_disabled_footnote_for_normal_off():
-    # 普通 enable off（非上游锁定）：主句 + 「设置页开启」引导脚注。
-    text = feature_disabled_text("world events")   # events 组，非上游不可用
-    assert text == "⚠️ 该功能未开启\n└ 管理员可在插件设置页「权限」章开启"
-
-
-def test_feature_disabled_no_footnote_when_upstream_unavailable():
-    # gamedata 锁定期（guilds_bases 上游不可用）：省略脚注——设置页开不了，脚注是假承诺。
-    for path in ("guild list", "guild info", "guild bases", "world overview"):
-        assert feature_disabled_text(path) == "⚠️ 该功能未开启", path
-        assert "设置页" not in feature_disabled_text(path), path
+    # 普通 enable off：主句 + 「设置页开启」引导脚注（含解禁后的 guilds_bases）。
+    for path in ("world events", "guild list", "world overview"):
+        assert feature_disabled_text(path) == "⚠️ 该功能未开启\n└ 管理员可在插件设置页「权限」章开启", path

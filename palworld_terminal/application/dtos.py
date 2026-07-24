@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from ..domain.enums import Confidence, EventType, PingBucket
 from ..domain.models import WorldEvent
@@ -149,8 +149,16 @@ class BaseDTO:
 
 @dataclass(slots=True)
 class BaseDetailDTO:
-    """guild base 详情（spec §4.9）。palbox_count（硬编码 1）与 activity_score 裸数砍位。
-    available=False（latest_base_observation 缺失）→ formatter 走 ⚠️ 无观测态（不再全 0 假数据）。"""
+    """guild base 详情（spec §4.9）+ 车间现场富化（spec §6）。palbox_count（硬编码 1）与
+    activity_score 裸数砍位。available=False（latest_base_observation 缺失）→ formatter 走
+    ⚠️ 无观测态（不再全 0 假数据）。
+
+    车间现场（§6）三派生字段：
+      · slacker_rate —— slacking 计数占 action_distribution 总数比例 ∈ [0,1]（空/零→0.0）；
+      · mood —— **由 slacker_rate 阈值派生**的稳定键（fired_up / slacking_off）；中文/徽章/
+        吐槽映射下沉 presentation（locale 模板），不在数据层预渲染；
+      · species_top —— 就近可见快照按公会名聚合的 BaseCampPal 物种 (name, count) 降序 Top-N
+        （Class→meta.pal_name）；无快照/无公会名→空（C2 只报此刻可见，不臆造）。"""
     display_name: str
     guild_name: str | None
     confidence: Confidence
@@ -161,6 +169,9 @@ class BaseDetailDTO:
     action_distribution: dict[str, int]
     health_score: float
     available: bool = True
+    mood: str = "fired_up"
+    slacker_rate: float = 0.0
+    species_top: list[tuple[str, int]] = field(default_factory=list)
 
 
 @dataclass(slots=True)
@@ -201,3 +212,97 @@ class ServerStatusRow:
     online: bool
     allowed: bool
     active: bool
+
+
+@dataclass(slots=True)
+class CompanionView:
+    """随身帕鲁高光（spec §5）：从 game-data OtomoPal actor 投影而来。
+
+    element/action_label 为**稳定键**（meta.element 输出 / ActionCategory.value），中文措辞与
+    图标映射下沉 presentation（T7 文字 / T9 图片）——不在数据层预渲染。
+    instance_id/trainer_instance_id/坐标绝不进本视图（内存 join 用途，DTO 边界闭合，§9 P6）。
+    """
+    species_name: str    # meta.pal_name(pal_class)（未收录→安全缩写）
+    element: str         # meta.element(pal_class)：fire/…/neutral，未收录/无 → "unknown"（降级）
+    level: int           # OtomoPal.level（缺→0）
+    action_label: str    # ActionCategory.value（working/slacking/…）；presentation 映中文
+    hp_ratio: float      # hp/max_hp ∈ [0,1]（缺/除零→0.0）
+
+
+@dataclass(slots=True)
+class MeCardDTO:
+    """我的名片数据层（spec §5）：/pal me 文字版（T7）/ 图片版（T9）共用数据投影。
+
+    percentile：等级**超越有记录玩家**的比例 ∈ [0,100]（复用 list_players_by_level 分布，
+    C2 口径——非「全服」）。
+    companion_status ∈ {shown, none_out, no_data}（复用 world_summary 的 available 范式）：
+      · shown    —— 在线且快照见其带出的 OtomoPal（companion 非空）；
+      · none_out —— 在线 + 快照有 + 找到本人 actor 但无匹配随身（「此刻未带出随身帕鲁」）；
+      · no_data  —— 无快照 / 本人不在快照 / 离线（随身数据不可用，**绝不谎称没带**）。
+    last_seen_at/first_seen_at：**在 application 层预粗化为距今整天数**（非绝对 epoch；0=今天）
+    ——隐私 P1：绝对登录/登出时刻=作息，绝不出绝对时间戳。online_seconds/today_seconds/
+    total_seconds 是**时长**（秒），非时刻，无隐私粗化需求。
+    """
+    name: str
+    level: int
+    online: bool
+    online_seconds: int
+    guild_name: str | None
+    hidden: bool
+    today_seconds: int
+    total_seconds: int
+    percentile: float
+    last_seen_at: int    # 预粗化：距今整天数（days ago），非 epoch
+    first_seen_at: int   # 预粗化：距今整天数（days ago），非 epoch
+    companion: CompanionView | None
+    companion_status: str
+
+
+@dataclass(slots=True)
+class DexElementBucket:
+    """图鉴单元素分桶（spec §8·功能④）：该元素下已点亮 + （分母已知时）缺失物种名。
+
+    element 为稳定键（Element.value / "unknown"）；中文映射下沉 presentation（不预渲染）。
+    observed/missing 均按名排序。missing 仅**分母已知**（完整 roster 在手）时非空——降级
+    （roster 不完整/总数未知）时恒空（SD5：分母与缺失绑同一前置一起降级，不出「缺失」）。
+    """
+    element: str
+    observed: list[str]
+    missing: list[str]
+
+
+@dataclass(slots=True)
+class DexProgressDTO:
+    """服务器图鉴进度（spec §8·功能④）：本插件曾观测到的**去重**物种进度总览，按元素分桶。
+
+    observed_count = observed_species **去重物种行数**（PK=species_class）——**非 observe_count
+    之和**（observe_count 按 actor 计，同种 N 只 +N；物种数只数行）。total = 物种总数（分母）；
+    roster 不完整 / 官方总数未知 → None（降级，SD5）。observed_species 跨插件全局累积（无
+    world_id，spec §4.4）→ 口径「本插件已观测」（非本服/全服全部物种，C2）；「曾被观测到」
+    ≠「服上存在全物种」。buckets 按 Element 枚举定序 + 末尾未收录元素桶，空桶不产出。
+    """
+    observed_count: int
+    total: int | None
+    buckets: list[DexElementBucket]
+
+
+@dataclass(slots=True)
+class RankClimbEntry:
+    name: str
+    gain: int          # 周窗 level 涨幅（max(0, current − baseline)，恒 > 0 才上榜）
+
+
+@dataclass(slots=True)
+class RankClimbDTO:
+    """rank climb 飞升榜（spec §7）：周窗 level 涨幅，gain > 0 才上榜。
+
+    rows 已按 gain 降序取 Top-N（名字级收敛，被排除/隐藏整组剔除）。
+    shallow=True 表示无任一窗前观测（bot 记录不足 7 天）→ formatter 措辞「自 bot 记录以来」。
+    viewer_* = 调用方（已绑定）本人在全体涨幅玩家中的榜位（非仅 Top-N）；未绑定/本人无涨幅→None。
+    viewer_gap = 距前一位的 gain 差；viewer_rank==1（榜首）时为 None。
+    """
+    rows: list[RankClimbEntry]
+    shallow: bool = False
+    viewer_rank: int | None = None
+    viewer_gain: int | None = None
+    viewer_gap: int | None = None
