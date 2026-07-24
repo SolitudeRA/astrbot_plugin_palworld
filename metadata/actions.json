@@ -41,5 +41,38 @@
   "Eat": "eating",
   "Eating": "eating",
   "Incapacitated": "incapacitated",
-  "Downed": "incapacitated"
+  "Downed": "incapacitated",
+
+  "BP_ActionMining": "working",
+  "BP_ActionHarvesting": "working",
+  "BP_ActionDeforest": "working",
+  "BP_ActionFeeding": "working",
+  "BP_ActionGenerateEnergy_Electric": "working",
+  "BP_ActionCool": "working",
+  "BP_AIAction_Worker_Working": "working",
+
+  "BP_ActionIdleInSpa": "slacking",
+  "BP_AIActionBaseCamp_InSpa": "slacking",
+  "InSpa": "slacking",
+  "BP_AIAction_BaseCamp_DodgeWork": "slacking",
+  "DodgeWork": "slacking",
+
+  "BP_ActionDefenseWait_Wait": "idle",
+  "BP_ActionRandomRest_BaseCamp": "idle",
+  "BP_ActionDiscoveryLookat": "idle",
+  "BP_ActionDefault": "idle",
+  "BP_AIAction_BaseCampWorker_Wait": "idle",
+  "BP_AIAction_BaseCampSpawningForWorker": "idle",
+  "BP_AIAction_Work_WaitForWorkable": "idle",
+  "BP_AIAction_WildLife": "idle",
+
+  "BP_AIAction_BaseCampWorker_Approach": "moving",
+  "PalAIActionBaseCampReturnBack": "moving",
+  "BP_AIAction_WanderingCage": "moving",
+  "BP_AIAction_WildLife_Wandering": "moving",
+  "BP_AIAction_TurnAndEscape": "moving",
+
+  "BP_Action_NPC_GroundSit": "idle",
+  "BP_Action_NPC_Montage_AM_NPC_Female_Listen": "idle",
+  "BP_AIAction_NPC_Wait": "idle"
 }

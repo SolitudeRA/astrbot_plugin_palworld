@@ -4,6 +4,7 @@ from palworld_terminal.domain.enums import (
     AccessMode,
     ActionCategory,
     Confidence,
+    Element,
     EndpointName,
     EventType,
     IdConfidence,
@@ -35,11 +36,25 @@ def test_action_category_values():
     assert ActionCategory.WORKING == "working"
     assert ActionCategory.MOVING == "moving"
     assert ActionCategory.IDLE == "idle"
+    assert ActionCategory.SLACKING == "slacking"
     assert ActionCategory.COMBAT == "combat"
     assert ActionCategory.SLEEPING == "sleeping"
     assert ActionCategory.EATING == "eating"
     assert ActionCategory.INCAPACITATED == "incapacitated"
     assert ActionCategory.UNKNOWN == "unknown"
+
+
+def test_element_values():
+    assert Element.FIRE == "fire"
+    assert Element.WATER == "water"
+    assert Element.GRASS == "grass"
+    assert Element.ELECTRIC == "electric"
+    assert Element.ICE == "ice"
+    assert Element.DRAGON == "dragon"
+    assert Element.DARK == "dark"
+    assert Element.GROUND == "ground"
+    assert Element.NEUTRAL == "neutral"
+    assert issubclass(Element, StrEnum)
 
 
 def test_event_type_values_are_lowercase_names():

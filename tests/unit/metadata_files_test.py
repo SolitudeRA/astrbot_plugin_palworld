@@ -4,7 +4,7 @@ from pathlib import Path
 METADATA_DIR = Path(__file__).resolve().parents[2] / "metadata"
 
 VALID_CATEGORIES = {
-    "working", "moving", "idle", "combat", "sleeping", "eating",
+    "working", "moving", "idle", "slacking", "combat", "sleeping", "eating",
     "incapacitated", "unknown",
 }
 

@@ -25,11 +25,47 @@ class MetadataRepository:
         return json.loads(path.read_text(encoding="utf-8"))
 
     def pal_name(self, internal_class: str) -> str:
-        entry = self._pals.get(internal_class)
+        entry = self._lookup_pal(internal_class)
         if entry is not None:
             return entry["name_zh"]
         self._register_unknown(internal_class)
         return self._safe_abbrev(internal_class)
+
+    def element(self, internal_class: str | None) -> str:
+        """帕鲁 Class → 首要元素英文键（fire/water/…/neutral）。
+
+        复用 pals.zh-CN.json 的 element_types；真实 Class 为 BP_<Name>_C，查找前做
+        与 pal_name 一致的 strip 规范化。未收录/无元素 → "unknown" 优雅降级（不报错、
+        不 register，供展示层安全消费）。"""
+        if not internal_class:
+            return "unknown"
+        entry = self._lookup_pal(internal_class)
+        if entry is None:
+            return "unknown"
+        types = entry.get("element_types") or []
+        if not types:
+            return "unknown"
+        return str(types[0])
+
+    def _lookup_pal(self, internal_class: str) -> dict | None:
+        """帕鲁条目查找：先精确命中（含旧 PalDataParameter/ 与裸键），未命中再对真实
+        BP_<Name>_C 形做 strip 规范化重试（BP_ChickenPal_C → ChickenPal）。"""
+        entry = self._pals.get(internal_class)
+        if entry is not None:
+            return entry
+        normalized = self._normalize_pal_class(internal_class)
+        if normalized != internal_class:
+            return self._pals.get(normalized)
+        return None
+
+    @staticmethod
+    def _normalize_pal_class(internal_class: str) -> str:
+        s = internal_class
+        if s.startswith("BP_"):
+            s = s[3:]
+        if s.endswith("_C"):
+            s = s[:-2]
+        return s
 
     def action_category(self, raw_action: str | None) -> ActionCategory:
         if not raw_action:

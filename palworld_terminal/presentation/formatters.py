@@ -42,7 +42,8 @@ _CONF_LABEL = {Confidence.HIGH: "高", Confidence.MEDIUM: "中", Confidence.LOW:
 # 行为分布类目（spec §4.9）：ActionCategory 8 档中文（细分工种数据面不存在，不臆造「伐木/搬运」）。
 _ACTION_CAT_LABEL = {
     ActionCategory.WORKING: "工作中", ActionCategory.MOVING: "移动",
-    ActionCategory.IDLE: "闲置", ActionCategory.COMBAT: "战斗",
+    ActionCategory.IDLE: "闲置", ActionCategory.SLACKING: "摸鱼",
+    ActionCategory.COMBAT: "战斗",
     ActionCategory.SLEEPING: "睡觉", ActionCategory.EATING: "进食",
     ActionCategory.INCAPACITATED: "濒死", ActionCategory.UNKNOWN: "未知",
 }

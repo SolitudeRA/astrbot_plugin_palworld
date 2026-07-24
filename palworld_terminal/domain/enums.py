@@ -23,11 +23,25 @@ class ActionCategory(StrEnum):
     WORKING = "working"
     MOVING = "moving"
     IDLE = "idle"
+    SLACKING = "slacking"  # 摸鱼（泡温泉 InSpa / 逃避工作 DodgeWork）——区别于 idle 待命
     COMBAT = "combat"
     SLEEPING = "sleeping"
     EATING = "eating"
     INCAPACITATED = "incapacitated"
     UNKNOWN = "unknown"
+
+
+class Element(StrEnum):
+    """帕鲁属性元素（值即英文键，与 pals.zh-CN.json 的 element_types 对齐）。"""
+    FIRE = "fire"        # 火
+    WATER = "water"      # 水
+    GRASS = "grass"      # 草
+    ELECTRIC = "electric"  # 电
+    ICE = "ice"          # 冰
+    DRAGON = "dragon"    # 龙
+    DARK = "dark"        # 暗
+    GROUND = "ground"    # 地
+    NEUTRAL = "neutral"  # 无
 
 
 class EventType(_LowerNameEnum):
