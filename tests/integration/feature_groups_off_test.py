@@ -4,7 +4,7 @@ from pathlib import Path
 from palworld_terminal.config import parse_config
 from palworld_terminal.container import Container
 from palworld_terminal.infrastructure.clock import FakeClock
-from palworld_terminal.presentation.locale import L
+from palworld_terminal.presentation.command_support import feature_disabled_text
 
 
 def _cfg(guilds_bases=False, events=True, bases_enabled=True):
@@ -46,7 +46,7 @@ async def test_guilds_command_disabled_end_to_end(tmp_path: Path):
     c = await _container(_cfg(guilds_bases=False), tmp_path)
     try:
         out = await c.commands.guilds("umo", "@alpha", True)
-        assert out == L("feature_disabled")
+        assert out == feature_disabled_text("guild list")
     finally:
         await c.stop()
 

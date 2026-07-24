@@ -24,12 +24,14 @@ DANGER_COMMANDS: frozenset[str] = frozenset({
     "server ban", "server shutdown", "server stop",
 })
 
-# 上游不可用 feature 集：/game-data（PalGameDataBridge）对专用服务器未开放
-# （2026-07-12 实测定论：404 "GameData API is not enabled"，无任何参数可开启）。
-# 集内 feature 的命令恒禁用且不可配置；上游开放后的恢复操作：从本集合删除该
-# feature + 同步前端 PAL_TREE（schema.ts 的 unavailable/enableConfigurable/
-# defaultEnabled）——跨端锚定测试红→绿即恢复护栏。详见 spec §7。
-UPSTREAM_UNAVAILABLE_FEATURES: frozenset[str] = frozenset({"guilds_bases"})
+# 上游不可用 feature 集：留作单点门闸的休眠机件（清空即解禁；恒 False 无害）。
+# 历史：/game-data（PalGameDataBridge）曾对专用服务器未开放（2026-07-12 404
+# "GameData API is not enabled"），故一度 = {"guilds_bases"} 硬锁 5 条命令。
+# 2026-07-24 上游确认上线后**清空为空集**解禁（lock spec §7 恢复路径的镜像）——
+# 常量/upstream_unavailable()/force-off 行/enable_configurable 的 not-in 子句均保留
+# 休眠（被 enable_configurable 与跨端锚定测试引用）。若未来再有上游不可用 feature，
+# 加回集合 + 同步前端 PAL_TREE 即重新上锁。
+UPSTREAM_UNAVAILABLE_FEATURES: frozenset[str] = frozenset()
 
 
 @dataclass(frozen=True, slots=True)

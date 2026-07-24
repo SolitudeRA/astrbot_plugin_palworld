@@ -11,10 +11,11 @@ from ..shared.command_registry import METHOD_PATH
 def feature_disabled_text(path: str) -> str:
     """feature_disabled 回执（spec §3 横切决策表）：主句恒戴 ⚠️（配置停用类）。
 
-    普通 enable off 追加「设置页开启」引导脚注；upstream_unavailable(path)（gamedata
-    上游锁定期）省略脚注——设置页开不了该功能，脚注是假承诺（维持锁定 spec「无专属聊天
-    文案」：锁定家族与普通 off 同回主句，差异仅在脚注省略）。全部 feature_disabled 落点
-    （_gated / _dispatch_read / link / admin_write）经此渲染，条件脚注收于单一真相源。
+    普通 enable off 追加「设置页开启」引导脚注；upstream_unavailable(path) 时省略脚注
+    ——设置页开不了该上游不可用功能，脚注是假承诺。当前 UPSTREAM_UNAVAILABLE_FEATURES
+    为空集（game-data 已解禁），该分支休眠恒不触发；若未来再锁某 feature 即自动恢复
+    省略。全部 feature_disabled 落点（_gated / _dispatch_read / link / admin_write）经此
+    渲染，条件脚注收于单一真相源。
     """
     if upstream_unavailable(path):
         return L("feature_disabled")

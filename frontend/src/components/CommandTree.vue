@@ -25,7 +25,6 @@ const configurable = (n: PalTreeNode) =>
   props.axis === 'enabled' ? n.enableConfigurable : (n.adminConfigurable && !n.adminForced)
 // 本轴锁定文本：enabled 恒开；admin forced 仅管理员、不可锁所有人
 function lockedLabel(n: PalTreeNode): string | null {
-  if (props.axis === 'enabled' && n.unavailable) return '暂不可用' // 上游未开放（优先于恒开判定）
   if (configurable(n)) return null
   if (props.axis === 'enabled') return '恒开'
   return n.adminForced ? '仅管理员' : '所有人'
@@ -77,8 +76,8 @@ const groupEff = (g: Grp): boolean => {
   const v = axisCell(g.key)
   return v === 'inherit' ? groupDefault(g) : v === 'on'
 }
-// 不可配组（无本轴可配叶子，如上游不可用的 guild / 恒开的 link）即便存量组行有覆盖也不亮受管——
-// 组头无开关谈不上「整组管控」，避免存量 {"command":"guild","enabled":"on"} 误亮整组标（§4.3 受管抑制）
+// 不可配组（无本轴可配叶子，如恒开的 link）即便存量组行有覆盖也不亮受管——组头无开关
+// 谈不上「整组管控」，避免存量 {"command":"link","enabled":"on"} 误亮整组标（受管抑制）
 const groupManaged = (g: Grp) => !g.isFlat && groupConfigurable(g) && hasAxisOverride(g.key)
 // 组内本轴被单独设置的叶子数——「整组」标的诚实后缀 / 组未管时的弱化计数
 const overriddenLeaves = (g: Grp) =>
@@ -151,7 +150,7 @@ const colHead = computed(() => (isEnabledAxis.value ? '启用' : '仅管理员')
               <span class="path mono">/pal {{ n.path }}</span>
             </div>
             <div class="ct-cell">
-              <span v-if="lockedLabel(n)" class="ct-lock">{{ lockedLabel(n) }}<small>{{ n.unavailable ? '上游' : '内置' }}</small></span>
+              <span v-if="lockedLabel(n)" class="ct-lock">{{ lockedLabel(n) }}<small>内置</small></span>
               <SwitchRoot v-else class="pw-switch sm" :class="{ ovr: hasAxisOverride(n.path) }"
                 :model-value="effOf(n)" :aria-label="n.label + ' ' + colHead"
                 @update:model-value="(v: boolean) => onLeafToggle(n, v)">

@@ -13,8 +13,6 @@ from .shared.command_permissions import (
     admin_configurable,
     admin_forced_true,
     enable_configurable,
-    upstream_unavailable,
-    upstream_unavailable_group,
 )
 from .shared.command_registry import DISPATCH
 
@@ -146,9 +144,6 @@ class PermissionsConfig:
     command_overrides: dict[str, CommandOverride]
     # command_permissions 三态行清洗时的非法登记（未知命令 / 轴违规），供启动告警。
     invalid_command_keys: list[str] = field(default_factory=list)
-    # 上游不可用命令（game-data 依赖）配置了 enabled=on 但恒不生效的键，供专属启动
-    # 告警；不落 invalid_command_keys 轴违规路径（spec §3.5）。
-    upstream_ineffective_keys: tuple[str, ...] = ()
 
 
 def _default_permissions() -> PermissionsConfig:
@@ -340,7 +335,6 @@ def _parse_permissions(raw: Mapping) -> PermissionsConfig:
     valid_group_keys = set(DISPATCH.keys())
     overrides: dict[str, dict] = {}
     invalid: list[str] = []
-    upstream_ineffective: list[str] = []
     for row in raw.get("command_permissions", []) or []:
         if not isinstance(row, Mapping):
             continue
@@ -356,15 +350,7 @@ def _parse_permissions(raw: Mapping) -> PermissionsConfig:
         ao = _TRISTATE.get(str(row.get("admin_only", "inherit")), None)
         rec = overrides.setdefault(cmd, {})
         if en is not None:
-            # 上游不可用（game-data）分流：须先于下方轴校验截获——enable_configurable
-            # 翻 False 后叶子完整路径行会误落 invalid、组名行则被 is_group 短路静默漏
-            # 收集（spec §3.5）。分流对 on/off 一并接管（绝不进 invalid 轴违规路径），
-            # 仅 enabled=on 记专属告警；off/inherit 用户预期即关闭，不告警。
-            if upstream_unavailable(cmd) or (is_group and upstream_unavailable_group(cmd)):
-                if en is True:
-                    upstream_ineffective.append(f"{cmd}:enabled")
-                rec["enabled"] = en                    # override 照常记录（force-off 恒不生效；恢复即回归）
-            elif is_group or enable_configurable(cmd):
+            if is_group or enable_configurable(cmd):
                 rec["enabled"] = en
             else:
                 invalid.append(f"{cmd}:enabled")       # 轴违规登记（F3）
@@ -380,7 +366,6 @@ def _parse_permissions(raw: Mapping) -> PermissionsConfig:
 
     return PermissionsConfig(
         admins=admins, command_overrides=frozen, invalid_command_keys=invalid,
-        upstream_ineffective_keys=tuple(upstream_ineffective),
     )
 
 

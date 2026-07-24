@@ -108,7 +108,6 @@ export interface PalTreeNode {
   adminForced: boolean // 强制仅管理员（gate ∈ admin/admin_write）
   danger: boolean // 危险写命令（path ∈ DANGER_COMMANDS）
   defaultEnabled: boolean // 内置启用默认（= 后端 default_enabled(path)：core/events/report→true，其余→false）
-  unavailable?: boolean // 上游接口未开放（= 后端 upstream_unavailable(path)）；缺省 false。恒禁用且不可配置
 }
 
 // 完整命令树描述：覆盖全部命令（COMMAND_META 全集，非仅可锁 15），供权限章树 UI 渲染。
@@ -119,14 +118,14 @@ export interface PalTreeNode {
 // 便于 Python 端抽出数组文本直接 json.loads；改动请保持此形态。
 export const PAL_TREE: PalTreeNode[] = [
   {"group": "world", "path": "world status", "label": "世界状态", "enableConfigurable": false, "adminConfigurable": true, "adminForced": false, "danger": false, "defaultEnabled": true},
-  {"group": "world", "path": "world overview", "label": "世界概览", "enableConfigurable": false, "adminConfigurable": true, "adminForced": false, "danger": false, "defaultEnabled": false, "unavailable": true},
+  {"group": "world", "path": "world overview", "label": "世界概览", "enableConfigurable": true, "adminConfigurable": true, "adminForced": false, "danger": false, "defaultEnabled": false},
   {"group": "world", "path": "world rules", "label": "世界规则", "enableConfigurable": false, "adminConfigurable": true, "adminForced": false, "danger": false, "defaultEnabled": true},
   {"group": "world", "path": "world events", "label": "世界事件", "enableConfigurable": true, "adminConfigurable": true, "adminForced": false, "danger": false, "defaultEnabled": true},
   {"group": "world", "path": "world today", "label": "今日日报", "enableConfigurable": true, "adminConfigurable": true, "adminForced": false, "danger": false, "defaultEnabled": true},
-  {"group": "guild", "path": "guild list", "label": "公会列表", "enableConfigurable": false, "adminConfigurable": true, "adminForced": false, "danger": false, "defaultEnabled": false, "unavailable": true},
-  {"group": "guild", "path": "guild info", "label": "公会详情", "enableConfigurable": false, "adminConfigurable": true, "adminForced": false, "danger": false, "defaultEnabled": false, "unavailable": true},
-  {"group": "guild", "path": "guild bases", "label": "据点列表", "enableConfigurable": false, "adminConfigurable": true, "adminForced": false, "danger": false, "defaultEnabled": false, "unavailable": true},
-  {"group": "guild", "path": "guild base", "label": "据点详情", "enableConfigurable": false, "adminConfigurable": true, "adminForced": false, "danger": false, "defaultEnabled": false, "unavailable": true},
+  {"group": "guild", "path": "guild list", "label": "公会列表", "enableConfigurable": true, "adminConfigurable": true, "adminForced": false, "danger": false, "defaultEnabled": false},
+  {"group": "guild", "path": "guild info", "label": "公会详情", "enableConfigurable": true, "adminConfigurable": true, "adminForced": false, "danger": false, "defaultEnabled": false},
+  {"group": "guild", "path": "guild bases", "label": "据点列表", "enableConfigurable": true, "adminConfigurable": true, "adminForced": false, "danger": false, "defaultEnabled": false},
+  {"group": "guild", "path": "guild base", "label": "据点详情", "enableConfigurable": true, "adminConfigurable": true, "adminForced": false, "danger": false, "defaultEnabled": false},
   {"group": "player", "path": "player info", "label": "玩家查询", "enableConfigurable": true, "adminConfigurable": true, "adminForced": false, "danger": false, "defaultEnabled": false},
   {"group": "player", "path": "player bind", "label": "绑定玩家", "enableConfigurable": true, "adminConfigurable": true, "adminForced": false, "danger": false, "defaultEnabled": false},
   {"group": "player", "path": "player unbind", "label": "解绑玩家", "enableConfigurable": true, "adminConfigurable": true, "adminForced": false, "danger": false, "defaultEnabled": false},

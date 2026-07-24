@@ -14,16 +14,18 @@ export const DEFAULT_ENABLED: Record<string, boolean> = Object.fromEntries(
   PAL_TREE.map((n) => [n.path, n.defaultEnabled]),
 )
 
-// 组的内置默认：组内**可配（enableConfigurable）**叶子的 defaultEnabled。组内值须一致
-// （不一致直接抛错，绝不静默取首个）；无可配叶子的组（如 link）不产键——消费方按 `?? false`。
+// 组的内置默认：组内**可配（enableConfigurable）**叶子的 defaultEnabled。仅当组内可配
+// 叶子的 defaultEnabled 全一致才产键（绝不静默取首个）；不一致（如 world 组解禁后
+// events/today 默认开、overview 默认关并存）或无可配叶子（如 link）→ 不产键，无单一组
+// 默认——组头开关经消费方 `?? false` 取「默认不施加整组强制」。
 function deriveGroupDefaults(): Record<string, boolean> {
   const out: Record<string, boolean> = {}
+  const conflicted = new Set<string>()
   for (const n of PAL_TREE) {
-    if (n.group === null || !n.enableConfigurable) continue
+    if (n.group === null || !n.enableConfigurable || conflicted.has(n.group)) continue
     const prev = out[n.group]
     if (prev === undefined) out[n.group] = n.defaultEnabled
-    else if (prev !== n.defaultEnabled)
-      throw new Error(`组 ${n.group} 可配叶子 defaultEnabled 不一致：${prev} vs ${n.defaultEnabled}`)
+    else if (prev !== n.defaultEnabled) { delete out[n.group]; conflicted.add(n.group) } // 混合默认 → 无单一组默认
   }
   return out
 }
@@ -36,7 +38,6 @@ export const hasOverride = (map: PermMap, command: string): boolean =>
 
 // enabled 生效：叶子覆盖 → （danger 不随组，F2）→ 组覆盖 → 内置默认
 export function inheritEnabled(map: PermMap, n: PalTreeNode): boolean {
-  if (n.unavailable) return false // 上游不可用硬锁——必须先于 !enableConfigurable 的恒开(fail-open)分支
   const dflt = DEFAULT_ENABLED[n.path] ?? false
   if (n.danger) return dflt
   if (n.group) {
@@ -46,7 +47,6 @@ export function inheritEnabled(map: PermMap, n: PalTreeNode): boolean {
   return dflt
 }
 export function effEnabled(map: PermMap, n: PalTreeNode): boolean {
-  if (n.unavailable) return false // 上游不可用硬锁——必须先于 !enableConfigurable 的恒开(fail-open)分支
   if (!n.enableConfigurable) return true // core 恒开
   const leaf = cellOf(map, n.path, 'enabled')
   if (leaf !== 'inherit') return leaf === 'on'

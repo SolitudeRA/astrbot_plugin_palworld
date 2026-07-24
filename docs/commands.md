@@ -21,14 +21,14 @@
 | 指令 | 参数 | 功能组 | 说明 |
 |------|------|--------|------|
 | `/pal world status` | — | `core` | 世界状态(在线数、FPS 流畅度、世界天数等) |
-| `/pal world overview` | — | `guilds_bases` · 暂不可用 | 世界概览(上游未开放,暂不可用) |
+| `/pal world overview` | — | `guilds_bases` | 世界概览(公会/据点世界快照;归 `guilds_bases` 组,默认关) |
 | `/pal world rules` | — | `core` | 世界规则(倍率等) |
 | `/pal world today` | — | `report` | 今日日报 / 在线统计 |
 | `/pal world events` | — | `events` | 世界事件记录 |
 
 ### `guild` 组 —— 公会与据点(查询)
 
-> ⚠️ **暂不可用**:本组依赖上游 `game-data`(PalGameDataBridge),官方暂未对专用服务器开放,整组命令(及归队至此的 `world overview`)恒回「未开启」、配置写启用也不生效;上游开放后随插件更新恢复。
+> 本组依赖 `game-data`(PalGameDataBridge)派生公会/据点数据,**默认关**,由服主在设置页「权限」章按需开启;启用任一命令后 `/game-data` 端点才轮询,归队至此的 `world overview` 同属本组。
 
 | 指令 | 参数 | 功能组 | 说明 |
 |------|------|--------|------|
@@ -73,14 +73,14 @@
 
 ## 功能开关 → 可用指令矩阵
 
-功能按组可插拔(v0.9.6 起由设置页「权限」章的命令树控制,落盘为 `command_permissions`;详见[配置项详解 · 命令树权限模型](configuration.md#features功能开关))。**关闭某命令/组:其指令回「未开启」、`/pal help` 里不再列出**(可配置组代码保留、改开即恢复);`guild` 组因上游 `game-data`(PalGameDataBridge)未开放当前**暂不可用**,配置写启用也不生效、`/game-data` 端点不轮询(观测只读端点恒采集)。
+功能按组可插拔(v0.9.6 起由设置页「权限」章的命令树控制,落盘为 `command_permissions`;详见[配置项详解 · 命令树权限模型](configuration.md#features功能开关))。**关闭某命令/组:其指令回「未开启」、`/pal help` 里不再列出**(可配置组代码保留、改开即恢复);`guild` 组与归队至此的 `world overview` 属 `guilds_bases` 组、**默认关**,启用任一 `guilds_bases` 命令后 `/game-data` 端点才轮询(观测只读端点恒采集)。
 
 | 功能组 | 默认 | 对应指令(完整路径) | 开启时 | 关闭时指令行为 |
 |--------|------|----------|--------|----------------|
 | `core`(不可关闭) | 恒开 | `world status` `world rules` `online` `server`(裸) `link`(裸) `whoami` `whereami` `help` `confirm` | ✅ 可用 | —(无法关闭) |
 | `report` | 开 | `world today` | ✅ 可用 | ❌ 回「未开启」、help 隐藏 |
 | `events` | 开 | `world events` | ✅ 可用(并记录世界事件) | ❌ 回「未开启」、不生成事件 |
-| `guilds_bases` | **暂不可用**(上游未开放) | `world overview` `guild list` `guild info` `guild bases` `guild base` | —(上游未开放,配置写启用也不生效) | ❌ 恒回「未开启」、help 隐藏 |
+| `guilds_bases` | **关** | `world overview` `guild list` `guild info` `guild bases` `guild base` | ✅ 可用(启用后 `/game-data` 端点才轮询) | ❌ 回「未开启」、help 隐藏 |
 | `players` | **关** | `player info` `player bind` `player unbind` `rank` `me` | ✅ 可用 | ❌ 回「未开启」、help 隐藏 |
 | `server_admin_basic` | **关** | `server announce` `server save` `server kick` `server unban` | ✅ 仅授权管理员可用 | ❌ 管理员回「未开启」、help 隐藏;非管理员一律「需要管理员权限」 |
 | `server_admin_danger` | **关** | `server ban` `server shutdown` `server stop` | ✅ 仅授权管理员可用(可选二次确认) | ❌ 管理员回「未开启」、help 隐藏;非管理员一律「需要管理员权限」 |
@@ -89,7 +89,7 @@
 
 > `players` 默认关闭:玩家个体查询含隐私考量。时长榜仅统计**今日/留存期内**在线时长、等级榜含离线全体;`strict` 隐私模式下更保守(时长榜停用、玩家档案隐藏坐标等)。支持管理员排除名单与玩家自助 `/pal me hide`——被排除或隐藏者不出现在排行/查询中,且不泄露其存在。
 
-> `guilds_bases` 暂不可用:依赖服务器开放 `/game-data`,而 Palworld 1.0 专用服务器上游未开放 `PalGameDataBridge`(官方暂未对专用服务器开放),故公会/据点/PalBox 整组(含归队至此的 `world overview`)**暂不可用**——配置写 `enabled=on` 也不生效、`/game-data` 端点亦不轮询;待上游开放后随插件更新恢复,详见[配置项详解](configuration.md#features功能开关)。
+> `guilds_bases` 默认关:公会/据点/PalBox 及归队至此的 `world overview` 依赖 `game-data`(PalGameDataBridge)派生数据,**默认关**,由服主按需开启;仅当某条 `guilds_bases` 命令生效启用时 `/game-data` 端点才轮询,详见[配置项详解](configuration.md#features功能开关)。
 
 ## 运行模式:单世界 / 多世界
 

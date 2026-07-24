@@ -97,9 +97,9 @@
 | 玩家档案 | **关** | 玩家查询、绑定、排行榜和个人档案由服主按需开启 |
 | 基础管控 | **关** | 广播、存档、踢人、解封；始终仅插件管理员可用 |
 | 危险管控 | **关** | 封禁、倒计时关服、强制停服必须逐条开启；可选二次确认 |
-| 公会与据点 | **不可用** | 当前被插件硬锁，配置无法绕过 |
+| 公会与据点 | **关** | 公会、据点与世界概览，依赖 `game-data`（PalGameDataBridge）派生，由服主按需开启 |
 
-> **公会与据点暂不可用**：Palworld 1.0 [官方文档](https://docs.palworldgame.com/api/rest-api/game-data/)已经列出 `/game-data`，但当前专用服务器仍返回 `404 PalGameDataBridge GameData API is not enabled`，[官方配置表](https://docs.palworldgame.com/settings-and-operation/configuration/)也没有提供启用方式。因此 v1.1.0 暂时关闭相关命令和派生功能；这不是权限或插件配置问题，需要等待服务端开放并由插件适配后才能使用。
+> **公会与据点默认关闭**：公会、据点与 `world overview` 依赖 Palworld 官方 [`/game-data`](https://docs.palworldgame.com/api/rest-api/game-data/)（PalGameDataBridge）派生数据，与玩家档案一样默认关闭，由服主在设置页「权限」章按需开启；启用任一相关命令后，插件才会轮询 `/game-data` 端点。
 
 ## 快速开始
 

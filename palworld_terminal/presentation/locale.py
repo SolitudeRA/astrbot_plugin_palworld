@@ -57,7 +57,7 @@ MESSAGES: dict[str, str] = {
     "events_empty": "最近还没有新事件",
     "events_empty_today": "今天还没有新事件",
     # feature_disabled 主句戴 ⚠️（配置停用类，spec §3）；引导脚注为独立键，由 commands 渲染层
-    # 条件拼接——upstream_unavailable(path)（gamedata 锁定期）时省略（设置页开不了，假承诺）。
+    # 条件拼接——upstream_unavailable(path) 时省略（设置页开不了，假承诺；当前空集，休眠）。
     "feature_disabled": "⚠️ 该功能未开启",
     "feature_disabled_hint": "└ 管理员可在插件设置页「权限」章开启",
     # rank 空榜（spec §4.23）：标题锚点由 formatter 供，此处只存素文空句。

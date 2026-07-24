@@ -300,8 +300,6 @@ function scenarioMulti(): Db {
       { id: 'aiocqhttp:10002', note: '副管理员' },
     ],
     command_permissions: [
-      // 存量 guild 覆盖行（上游不可用后被容忍不生效）：组行展示「不亮整组受管标」、叶行在 admin 轴被过滤
-      { command: 'guild', enabled: 'on', admin_only: 'inherit' },
       { command: 'guild list', enabled: 'inherit', admin_only: 'on' },
       { command: 'world today', enabled: 'off', admin_only: 'inherit' },
       { command: 'rank', enabled: 'on', admin_only: 'inherit' },

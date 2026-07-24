@@ -31,12 +31,14 @@ class _Repo:
 
 
 async def test_guilds_disabled_returns_feature_disabled():
+    # guilds_bases 关（普通可配 off）→ feature_disabled 主句 + 「设置页开启」引导脚注。
     cmds = Commands(routing=None, query=_BoomQuery(), repo=_Repo(),
                     cfg=_cfg(guilds_bases=False), clock=None)
-    assert await cmds.guilds("u", "", True) == L("feature_disabled")
-    assert await cmds.bases("u", "", True) == L("feature_disabled")
-    assert await cmds.guild("u", "x", True) == L("feature_disabled")
-    assert await cmds.base("u", "x", True) == L("feature_disabled")
+    fd = feature_disabled_text("guild list")
+    assert await cmds.guilds("u", "", True) == fd
+    assert await cmds.bases("u", "", True) == fd
+    assert await cmds.guild("u", "x", True) == fd
+    assert await cmds.base("u", "x", True) == fd
 
 
 async def test_events_and_today_gated():
@@ -48,8 +50,7 @@ async def test_events_and_today_gated():
 
 
 async def test_enabled_group_not_gated():
-    # 启用的可配组（report/today 默认开）过 gate → 进入路由解析 → 返回路由错误文案
-    # （证明未被 gating 拦截；示范载体从 guild 迁到 today，guild 已 force-off 恒被拦）。
+    # guilds_bases 开启 → gate 放行 → 进入路由解析 → 返回路由错误文案（证明未被 gating 拦截）。
     from palworld_terminal.application.routing_service import Resolution, RoutingError
 
     class _Routing:
@@ -57,15 +58,7 @@ async def test_enabled_group_not_gated():
             return Resolution(None, RoutingError.NO_SERVER_RESOLVED)
 
     cmds = Commands(_Routing(), _BoomQuery(), _Repo(), cfg=_cfg(guilds_bases=True), clock=None)
-    assert await cmds.today("u", "", True) == L("no_server_resolved")
-
-
-async def test_guilds_force_off_even_when_group_enabled():
-    # guilds_bases 上游不可用 force-off：即便配置 guild 组 on，guilds 命令恒 feature_disabled、
-    # 不触达底层（拦截保持既有文案，不新增专属文案）。
-    cmds = Commands(None, _BoomQuery(), _Repo(), cfg=_cfg(guilds_bases=True), clock=None)
-    assert await cmds.guilds("u", "", True) == L("feature_disabled")
-    assert await cmds.bases("u", "", True) == L("feature_disabled")
+    assert await cmds.guilds("u", "", True) == L("no_server_resolved")
 
 
 # ---- 继承感知门控：组键 disable 波及叶子；叶子 admin_only 锁非管理员 ----
@@ -78,17 +71,16 @@ def _mk(overrides_map):
 
 @pytest.mark.asyncio
 async def test_group_disable_blocks_leaf():
-    # 组键 guild.enabled=False → 叶子 guild list 继承为关 → feature_disabled，不触达底层。
+    # 组键 guild.enabled=False → 叶子 guild list 继承为关 → feature_disabled（含引导脚注），不触达底层。
     cmds = _mk({"guild": CO(enabled=False)})
     out = await cmds.guild_grp("umo", "list", True, "u1", False)
-    assert out == L("feature_disabled")
+    assert out == feature_disabled_text("guild list")
 
 
 @pytest.mark.asyncio
 async def test_leaf_admin_lock_denies_guest():
-    # 门序（功能门先于 admin 锁）示范载体换 player（可启用组，锁分支可达）：
-    # player 开 + 叶子 player info 锁 admin_only → 非管理员回 admin_required。
-    # （旧 guild 载体 force-off 后功能门恒短路 feature_disabled，admin 锁分支不可达。）
+    # 门序（功能门先于 admin 锁）：player 开 + 叶子 player info 锁 admin_only →
+    # 非管理员回 admin_required（功能门放行后 admin 锁分支可达）。
     cmds = _mk({"player": CO(enabled=True), "player info": CO(admin_only=True)})
     out = await cmds.player_grp("umo", "info", True, "guest", False)
     assert out == L("admin_required")

@@ -19,7 +19,7 @@ from palworld_terminal.domain import privacy as privacy_mod
 from palworld_terminal.domain.enums import AccessMode
 from palworld_terminal.domain.models import World
 from palworld_terminal.infrastructure.clock import FakeClock
-from tests.integration.conftest import _wire_game_data
+from palworld_terminal.shared.command_permissions import CommandOverride
 
 
 def _server() -> ServerConfig:
@@ -36,9 +36,10 @@ def _cfg() -> AppConfig:
         bases=BasesConfig(True, 5000, 0.2, 3, 2000, 0.5),
         privacy=PrivacyConfig("balanced", False, False, 60, 120, 900),
         history=HistoryConfig(7, 90, 365, 180),
-        # 注(2026-07-16)：guild 组已 force-off，配置无法再接线 game-data；据点/世界概览
-        # 端到端管道保留待恢复，本夹具用 _wire_game_data 测试专用装配驱动（见 spec §2）。
-        permissions=PermissionsConfig(admins=[], command_overrides={}),
+        # 容器装配门读 command_overrides：guild 组开 → game-data 接线 + Guild/BaseService 构造。
+        permissions=PermissionsConfig(
+            admins=[], command_overrides={"guild": CommandOverride(enabled=True)},
+        ),
     )
 
 
@@ -65,7 +66,6 @@ async def _container(tmp_path: Path):
                   rest_factory=lambda s, clk: _FakeRest(),
                   scheduler_factory=lambda **k: _FakeSched())
     await c.start()
-    _wire_game_data(c)  # 测试专用：绕过 force-off 门装配 guilds/bases（据点管道保留待恢复）
     await c.routing._repo.upsert_world(_world())
     return c
 

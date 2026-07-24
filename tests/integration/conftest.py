@@ -35,29 +35,10 @@ def make_config(mode: str = "balanced", access_mode: str = "restricted") -> dict
         "privacy": {"mode": mode, "public_exact_ping": False, "public_positions": False,
                     "ping_good_ms": 60, "ping_ok_ms": 120, "uncertain_timeout": 900},
         "history": {"raw_metrics_days": 7, "aggregate_days": 90, "session_days": 365, "observation_days": 180},
-        # 注(2026-07-16 game-data 上游不可用锁定)：guild 组已 force-off，配置无法再接线
-        # game-data（容器装配门读生效值恒 False）。据点推导端到端管道保留待恢复，集成夹具
-        # 用 _wire_game_data 测试专用装配（绕过生产 force-off 门）驱动之，见 spec §2。
-        "command_permissions": [],
+        # guild 组开 → game-data 端点接线 + GuildService/BaseService 装配（容器装配门读生效值；
+        # 命令层 features 由派生桥复算，两端一致）——据点推导端到端管道由此驱动。
+        "command_permissions": [{"command": "guild", "enabled": "on"}],
     }
-
-
-def _wire_game_data(container) -> None:
-    """测试专用：绕过 game-data 上游不可用 force-off 门，为 snapshot 直接装配
-    GuildService/BaseService，使据点推导端到端管道在集成测试中仍可驱动。
-
-    生产恒 force-off（容器装配门读生效值）——本函数不改动生产装配门，仅补齐 snapshot
-    的 guilds/bases 引用，让保留待恢复的推导代码继续被集成测试覆盖（spec §2）。
-    """
-    from palworld_terminal.application.base_service import BaseService
-    from palworld_terminal.application.guild_service import GuildService
-
-    snap = container.snapshot_service()
-    guilds = GuildService(container.repo, snap._salt, snap._clock)
-    bases = BaseService(container.repo, container.config.bases, snap._clock, snap._salt)
-    guilds.events = snap._events
-    snap._guilds = guilds
-    snap._bases = bases
 
 
 def make_config_two() -> dict:
@@ -94,7 +75,6 @@ async def harness(tmp_path):
         scheduler_factory=lambda **k: _FakeSched(),
     )
     await container.start()
-    _wire_game_data(container)
     server = cfg.servers[0]
     snap = container.snapshot_service()
     try:
@@ -118,7 +98,6 @@ async def harness_strict(tmp_path):
         scheduler_factory=lambda **k: _FakeSched(),
     )
     await container.start()
-    _wire_game_data(container)
     server = cfg.servers[0]
     snap = container.snapshot_service()
     try:
