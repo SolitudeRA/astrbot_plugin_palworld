@@ -45,6 +45,10 @@ def _gated(fn):
     return wrapper
 
 
+# `me` 后触发图片卡的单 token（与 hide/show 互斥）；多 token/未知 → 文字路帮助
+# （commands.is_me_card 与 read_commands.me 共用，置此避免二者循环导入）。
+_ME_CARD_TOKENS = frozenset({"card", "卡", "图"})
+
 # 分发到需 sender_id 的实现方法（组内仅 player 用 bind/unbind_self）——分发器据此
 # 决定传参形态。其余读实现签名为 (umo, message_str, is_group)。
 _SENDER_METHODS = frozenset({"bind", "me", "unbind_self"})

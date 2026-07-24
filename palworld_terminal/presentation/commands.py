@@ -1,24 +1,30 @@
 from __future__ import annotations
 
 from collections.abc import Awaitable, Callable
+from datetime import datetime
+from zoneinfo import ZoneInfo
 
 from ..application.dtos import ServerStatusRow
 from ..application.query_service import metric_stale
+from ..application.report_service import server_timezone
 from ..domain.enums import AccessMode
+from ..domain.privacy import hash_user_id
 from ..presentation.formatters import (
     format_help,
     format_servers,
     visible_actions,
 )
 from ..presentation.locale import L
-from ..presentation.server_arg import ArgError, parse_group
+from ..presentation.server_arg import ArgError, parse_arg, parse_group
 from ..shared.command_permissions import (
     effective_admin_only,
     effective_enabled,
 )
 from ..shared.command_registry import DISPATCH
 from .admin_write_flow import AdminWriteFlow
+from .card_render import build_me_card_html
 from .command_support import (
+    _ME_CARD_TOKENS,
     _SENDER_METHODS,
     _fold_limit,
     _world_mode,
@@ -98,6 +104,54 @@ class Commands:
 
     async def me(self, umo, message_str, is_group, sender_id) -> str:
         return await self._reads.me(umo, message_str, is_group, sender_id)
+
+    def is_me_card(self, message_str: str) -> bool:
+        """`me` 后单 token ∈ {card,卡,图} → 图片卡请求（main handler 据此分流）。
+        多 token（如「hide card」）不算——落文字路由帮助（不静默退化）。"""
+        try:
+            arg = parse_arg(message_str, "me")
+        except ArgError:
+            return False
+        return arg.name.strip().lower() in _ME_CARD_TOKENS
+
+    async def me_card_html(self, umo, message_str, is_group, sender_id) -> str | None:
+        """/pal me 图片卡 HTML（spec §5·图片路）：world/binding → me_card DTO → 主题
+        （auto→light/dark 按服务器本地小时）→ build_me_card_html（注入 self._icons）。
+
+        任何不可产 HTML 情形（feature 关 / 未绑定 / 悬空 / world err）→ None，main handler
+        据此降级到文字卡（commands.me 复算同路径、出对应文案）。theme 在此解析（已注入
+        self._clock + self._cfg）后**只把已解析 light/dark 传纯函数**（card_render 无 auto/无时钟）。
+        """
+        # feature 门（与 @_gated me 同路径 "me"）：关则 None → 文字路出 feature_disabled。
+        if not effective_enabled(self._cfg.permissions.command_overrides, "me"):
+            return None
+        world, _arg, err, _server_name = await self._resolve_world(
+            umo, message_str, "me", is_group
+        )
+        if err is not None:
+            return None
+        phash = hash_user_id(self._salt, world.world_id, sender_id)
+        player_key = await self._repo.get_binding(phash, world.world_id)
+        if player_key is None:
+            return None
+        dto = await self._query.me_card(world, player_key)
+        if dto is None:   # 悬空绑定
+            return None
+        theme = self._resolve_me_card_theme(world)
+        return build_me_card_html(dto, self._icons, theme)
+
+    def _resolve_me_card_theme(self, world) -> str:
+        """me_card_theme 配置 → 已解析主题。auto 按**服务器本地时钟**昼夜：
+        `datetime.fromtimestamp(clock.now(), ZoneInfo(server_tz)).hour`、`6<=hour<18→light`
+        否则 dark。禁用宿主墙钟/UTC 小时（Clock.now() 是 UTC epoch 无时区）。"""
+        theme = getattr(
+            getattr(self._cfg, "presentation", None), "me_card_theme", "light"
+        )
+        if theme in ("light", "dark"):
+            return theme
+        tz = ZoneInfo(server_timezone(self._cfg, world))
+        hour = datetime.fromtimestamp(self._clock.now(), tz).hour
+        return "light" if 6 <= hour < 18 else "dark"
 
     async def unbind_self(self, umo, message_str, is_group, sender_id) -> str:
         return await self._reads.unbind_self(umo, message_str, is_group, sender_id)

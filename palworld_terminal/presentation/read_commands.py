@@ -12,6 +12,7 @@ from ..presentation.formatters import (
     format_events,
     format_guild,
     format_guilds,
+    format_me,
     format_online,
     format_player,
     format_rank,
@@ -24,7 +25,13 @@ from ..presentation.formatters import (
 from ..presentation.locale import L
 from ..presentation.server_arg import ArgError, parse_arg
 from ..shared.command_permissions import active_endpoints
-from .command_support import _fold_limit, _gated, _render_routing_error, _world_mode
+from .command_support import (
+    _ME_CARD_TOKENS,
+    _fold_limit,
+    _gated,
+    _render_routing_error,
+    _world_mode,
+)
 
 
 class ReadCommands:
@@ -316,14 +323,15 @@ class ReadCommands:
         if sub == "show":
             await self._repo.unset_hidden(world.world_id, player_key)
             return L("me_shown_scoped", server=server_name) if scoped else L("me_shown")
-        dto = await self._query.profile_for_key(world, player_key)
+        # 单 token 互斥（spec §5·CT6）：无参 / card|卡|图 → 名片（card 别名亦是图片路降级
+        # 到文字卡的落点）；其余（多 token 如「hide card」/ 未知单 token）→ 用法提示，
+        # 绝不静默退化（否则 arg.name="hide card" 既非 hide 也非 card，hide 被吞）。
+        if sub != "" and sub not in _ME_CARD_TOKENS:
+            return L("me_usage")
+        dto = await self._query.me_card(world, player_key)
         if dto is None:   # 悬空绑定（玩家行不存在）：回未绑定态，不冒空卡片
             return L("me_unbound_scoped", server=server_name) if scoped else L("me_unbound")
-        return format_player(
-            dto, strict=self._cfg.privacy.mode == "strict",
-            server_name=server_name, world_mode=_world_mode(self._cfg),
-            tz=server_timezone(self._cfg, world), now=self._clock.now(), is_me=True,
-        )
+        return format_me(dto)
 
     @_gated
     async def unbind_self(self, umo, message_str, is_group, sender_id) -> str:

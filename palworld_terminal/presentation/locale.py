@@ -88,6 +88,8 @@ MESSAGES: dict[str, str] = {
     "me_hidden_scoped": "✅ 已将你从「{server}」的排行与查询中隐藏\n└ /pal me show 恢复",
     "me_shown": "✅ 已恢复你的可见性",
     "me_shown_scoped": "✅ 已恢复你在「{server}」的可见性",
+    # me 用法（spec §5·CT6）：单 token 互斥；多 token/未知 → 提示而非静默退化。
+    "me_usage": "用法：/pal me [hide|show|card|卡|图]\n· card/卡/图 出图片名片 · hide/show 切换可见性",
     # bind（spec §4.11）：{anchor} 由 commands 层按模式给（多模式 ` · {srv}` / 单模式 ""）。
     "bind_ok": "✅ 已绑定玩家「{name}」{anchor}\n└ 现在可以用 /pal me 查看自己的状态了",
     "bind_rebind": "✅ 已改绑到玩家「{name}」（原绑定「{old}」）{anchor}",

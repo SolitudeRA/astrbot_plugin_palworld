@@ -128,7 +128,7 @@ HELP_TEXT: dict[str, str] = {
     "link remove": "撤销本群授权（<名称>）",
     "rank": "排行榜（[today|total|level|climb]）",
     "online": "当前在线",
-    "me": "我的信息（[hide|show]）",
+    "me": "我的名片（[hide|show|card|卡|图]）",
     "help": "帮助",
     "whoami": "查看我的账号标识（建议私聊使用）",
     "whereami": "查看当前群标识（UMO）",
