@@ -25,3 +25,24 @@ select = [
 python_version = "3.11"
 files = ["palworld_terminal"]
 ignore_missing_imports = true
+
+[tool.importlinter]
+root_package = "palworld_terminal"
+
+[[tool.importlinter.contracts]]
+name = "Hexagonal layered architecture"
+type = "layers"
+containers = ["palworld_terminal"]
+layers = [
+    "presentation",
+    "application | adapters",
+    "infrastructure",
+    "shared",
+    "domain",
+]
+
+[[tool.importlinter.contracts]]
+name = "presentation must not import adapters directly"
+type = "forbidden"
+source_modules = ["palworld_terminal.presentation"]
+forbidden_modules = ["palworld_terminal.adapters"]
