@@ -44,7 +44,7 @@
 **功能开关：决定哪些命令可用**
 
 <p align="center">
-  <img src="./docs/images/settings-features.png" alt="功能启停树，按命令组或单条命令控制可用状态，并标出当前不可用能力" width="100%">
+  <img src="./docs/images/settings-features.png" alt="功能启停树，按命令组或单条命令控制可用状态" width="100%">
 </p>
 
 **管理员权限：决定已开放的命令由谁使用**
@@ -191,7 +191,7 @@ curl -u admin http://PALWORLD_HOST:8212/v1/api/info
 | `401 Unauthorized` | 是否把 `ServerPassword` 误当成 `AdminPassword`，或环境变量没有注入 AstrBot 进程 |
 | 超时 / 拒绝连接 | REST 是否启用并重启、`8212/TCP`、防火墙、容器网络及 `base_url` |
 | “无可用服务器” | 服务器是否启用、地址与密码是否完整；配置就绪不代表网络一定在线 |
-| 公会 / 据点不可用 | 当前专用服务器 `/game-data` 的运行时限制，不是权限配置错误 |
+| 公会 / 据点数据为空 | 公会与据点（`guilds_bases`）默认关闭，需由服主在设置页按需开启；启用后插件才会轮询 `/game-data` 端点派生这些数据 |
 
 ## 文档与贡献
 
