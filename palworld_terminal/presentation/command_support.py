@@ -2,9 +2,9 @@ from __future__ import annotations
 
 import functools
 
-from ..application.command_permissions import effective_enabled, upstream_unavailable
 from ..application.routing_service import RoutingError
 from ..presentation.locale import L
+from ..shared.command_permissions import effective_enabled, upstream_unavailable
 from ..shared.command_registry import METHOD_PATH
 
 

@@ -6,9 +6,9 @@ from types import SimpleNamespace
 
 import pytest
 
-from palworld_terminal.application.command_permissions import CommandOverride as CO
 from palworld_terminal.presentation.commands import Commands, feature_disabled_text
 from palworld_terminal.presentation.locale import L
+from palworld_terminal.shared.command_permissions import CommandOverride as CO
 from tests.unit._perm import overrides
 
 

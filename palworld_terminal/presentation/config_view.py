@@ -11,7 +11,7 @@ from collections.abc import Mapping
 from datetime import UTC, datetime
 from urllib.parse import urlsplit
 
-from ..application.command_permissions import COMMAND_META
+from ..shared.command_permissions import COMMAND_META
 from ..shared.command_registry import DISPATCH
 
 _LIST_SECTIONS = ("servers", "custom_headers", "group_bindings", "permission_admins",

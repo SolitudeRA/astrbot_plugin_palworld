@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from collections.abc import Awaitable, Callable
 
-from ..application.command_permissions import active_endpoints
 from ..application.report_service import server_timezone
 from ..domain.enums import EndpointName
 from ..domain.privacy import hash_user_id
@@ -23,6 +22,7 @@ from ..presentation.formatters import (
 )
 from ..presentation.locale import L
 from ..presentation.server_arg import ArgError, parse_arg
+from ..shared.command_permissions import active_endpoints
 from .command_support import _fold_limit, _gated, _render_routing_error, _world_mode
 
 

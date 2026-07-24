@@ -12,7 +12,6 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
-from palworld_terminal.application.command_permissions import CommandOverride
 from palworld_terminal.application.routing_service import (
     Resolution,
     RoutingError,
@@ -21,6 +20,7 @@ from palworld_terminal.application.routing_service import (
 )
 from palworld_terminal.presentation.commands import Commands, feature_disabled_text
 from palworld_terminal.presentation.locale import L
+from palworld_terminal.shared.command_permissions import CommandOverride
 from tests.unit._perm import overrides
 
 

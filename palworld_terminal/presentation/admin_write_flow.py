@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-from ..application.command_permissions import effective_enabled
 from ..presentation.confirmation import PendingAction
 from ..presentation.locale import L
 from ..presentation.server_arg import ArgError, parse_arg
+from ..shared.command_permissions import effective_enabled
 from .command_support import _render_routing_error, feature_disabled_text
 
 # shutdown 倒计时秒数上界（spec §3：正整数、1–86400）。

@@ -1,11 +1,11 @@
-from palworld_terminal.application.command_permissions import (
+from palworld_terminal.domain.enums import EndpointName as E
+from palworld_terminal.shared.command_permissions import (
     OBSERVATION_FLOOR,
     active_endpoints,
 )
-from palworld_terminal.application.command_permissions import (
+from palworld_terminal.shared.command_permissions import (
     CommandOverride as CO,
 )
-from palworld_terminal.domain.enums import EndpointName as E
 
 
 def test_floor_always_present_even_when_all_disabled():

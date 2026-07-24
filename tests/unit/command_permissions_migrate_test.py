@@ -1,4 +1,4 @@
-from palworld_terminal.application.command_permissions import migrate_legacy_to_rows
+from palworld_terminal.shared.command_permissions import migrate_legacy_to_rows
 
 
 def _rows_map(rows):

@@ -25,6 +25,8 @@ jobs:
         run: ruff check .
       - name: Mypy
         run: python -m mypy palworld_terminal/
+      - name: Import contracts
+        run: lint-imports
 
   test:
     strategy:

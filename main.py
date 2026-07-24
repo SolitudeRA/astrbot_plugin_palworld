@@ -56,21 +56,21 @@ except Exception:  # test / standalone environment: lightweight stubs
     filter = _Filter()  # type: ignore
 
 try:  # AstrBot 以 data.plugins.<目录>.main 命名空间加载，插件目录不在 sys.path
-    from .palworld_terminal.application.command_permissions import migrate_legacy_to_rows
     from .palworld_terminal.config import parse_config
     from .palworld_terminal.container import Container
     from .palworld_terminal.domain.enums import AccessMode
     from .palworld_terminal.infrastructure.clock import SystemClock
     from .palworld_terminal.presentation import web_api
     from .palworld_terminal.presentation.locale import L
+    from .palworld_terminal.shared.command_permissions import migrate_legacy_to_rows
 except ImportError:  # 测试/独立环境从仓库根以顶级模块导入
-    from palworld_terminal.application.command_permissions import migrate_legacy_to_rows
     from palworld_terminal.config import parse_config
     from palworld_terminal.container import Container
     from palworld_terminal.domain.enums import AccessMode
     from palworld_terminal.infrastructure.clock import SystemClock
     from palworld_terminal.presentation import web_api
     from palworld_terminal.presentation.locale import L
+    from palworld_terminal.shared.command_permissions import migrate_legacy_to_rows
 
 
 _log = logging.getLogger("palworld_terminal.main")

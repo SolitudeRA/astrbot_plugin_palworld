@@ -1,8 +1,8 @@
 from types import SimpleNamespace
 
-from palworld_terminal.application.command_permissions import CommandOverride
 from palworld_terminal.application.query_service import PlayerProfileDTO
 from palworld_terminal.presentation.commands import Commands
+from palworld_terminal.shared.command_permissions import CommandOverride
 
 _FULL = PlayerProfileDTO(
     name="Alice", level=12, online=True, online_seconds=900,

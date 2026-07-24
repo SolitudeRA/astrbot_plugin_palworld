@@ -1,10 +1,10 @@
-from palworld_terminal.application.command_permissions import (
+from palworld_terminal.shared.command_permissions import (
     CommandOverride as CO,
 )
-from palworld_terminal.application.command_permissions import (
+from palworld_terminal.shared.command_permissions import (
     effective_admin_only as eao,
 )
-from palworld_terminal.application.command_permissions import (
+from palworld_terminal.shared.command_permissions import (
     effective_enabled as ee,
 )
 
