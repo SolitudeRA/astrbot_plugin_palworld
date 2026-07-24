@@ -3,6 +3,7 @@ from __future__ import annotations
 from ..application.dtos import (
     BaseDetailDTO,
     BaseDTO,
+    DexProgressDTO,
     EventView,
     GuildDetailDTO,
     GuildDTO,
@@ -697,4 +698,31 @@ def format_rank_climb(dto: RankClimbDTO, *, server_name: str) -> str:
             lines.append(f"你第 {dto.viewer_rank}，已登顶飞升榜 🎉")
         else:
             lines.append(f"你第 {dto.viewer_rank}，离前一位差 {dto.viewer_gap} 级")
+    return "\n".join(lines)
+
+
+def format_dex(dto: DexProgressDTO, *, server_name: str) -> str:
+    """服务器图鉴进度（spec §8·功能④）：本插件曾观测到的**去重**物种进度，按元素分桶。
+
+    口径「本插件已观测」（observed_species 跨插件全局累积、无 world_id，非本服/全服全部物种，
+    C2）；「曾被观测到」≠「服上存在全物种」（末尾脚注钉死）。分母已知 → 「已观测 N/总数 种」
+    + 每元素缺失清单（「尚未被观测」）；分母未知（roster 不完整）→ 降级为「已观测 N 种」+ 仅
+    已点亮列表，**不显分母、不出缺失**（SD5：分母与缺失绑同一前置一起降级）。空图鉴 → 素文。
+    元素中文复用 _ELEMENT_LABEL（unknown/理论外键优雅回落原键，不炸）。"""
+    title = f"📖 服务器图鉴 · {server_name}"
+    if not dto.buckets:
+        return f"{title}\n{L('dex_empty')}"
+    head = (
+        L("dex_progress", observed=dto.observed_count, total=dto.total)
+        if dto.total is not None
+        else L("dex_progress_degraded", observed=dto.observed_count)
+    )
+    lines = [title, head, ""]
+    for b in dto.buckets:
+        elem = _ELEMENT_LABEL.get(b.element, b.element)
+        lit = "、".join(b.observed) if b.observed else "—"
+        lines.append(f"{elem} {len(b.observed)}：{lit}")
+        if b.missing:   # 缺失仅分母已知时非空（降级恒空）
+            lines.append(f"　└ 尚未被观测：{'、'.join(b.missing)}")
+    lines.append(L("dex_note"))
     return "\n".join(lines)

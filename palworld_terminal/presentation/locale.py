@@ -74,6 +74,12 @@ MESSAGES: dict[str, str] = {
     "rank_duration_strict": "⚠️ 时长榜在 strict 隐私模式下停用\n└ 等级榜不受影响：/pal rank level",
     # online 空态（spec §4.24）：标题锚点由 formatter 供，此处只存素文空句（收编硬编码）。
     "online_empty": "当前无玩家在线",
+    # dex 图鉴进度（spec §8·功能④）：口径「本插件已观测」（observed_species 跨插件全局累积、
+    # 无 world_id，非本服/全服全部物种，C2）。分母已知 → N/总数；未知 → 降级只出 N（SD5）。
+    "dex_progress": "本插件已观测 {observed}/{total} 种",
+    "dex_progress_degraded": "本插件已观测 {observed} 种",
+    "dex_empty": "图鉴还是空的——曾被观测到的帕鲁会陆续点亮",
+    "dex_note": "└ 仅记录曾被观测到的物种（跨插件全局累积）",
     # player info / bind / me not-found 脚注共用（spec §4.10/§4.11）。
     "player_not_found": (
         "❌ 未找到玩家「{name}」\n└ 名字须与游戏内完全一致，可用 /pal online 查在线玩家"

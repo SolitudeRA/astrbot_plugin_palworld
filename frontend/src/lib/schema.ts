@@ -145,6 +145,7 @@ export const PAL_TREE: PalTreeNode[] = [
   {"group": null, "path": "rank", "label": "排行榜", "enableConfigurable": true, "adminConfigurable": true, "adminForced": false, "danger": false, "defaultEnabled": false},
   {"group": null, "path": "online", "label": "当前在线", "enableConfigurable": false, "adminConfigurable": true, "adminForced": false, "danger": false, "defaultEnabled": true},
   {"group": null, "path": "me", "label": "我的信息", "enableConfigurable": true, "adminConfigurable": true, "adminForced": false, "danger": false, "defaultEnabled": false},
+  {"group": null, "path": "dex", "label": "服务器图鉴", "enableConfigurable": true, "adminConfigurable": true, "adminForced": false, "danger": false, "defaultEnabled": false},
   {"group": null, "path": "help", "label": "帮助", "enableConfigurable": false, "adminConfigurable": false, "adminForced": false, "danger": false, "defaultEnabled": true},
   {"group": null, "path": "whoami", "label": "我的账号标识", "enableConfigurable": false, "adminConfigurable": false, "adminForced": false, "danger": false, "defaultEnabled": true},
   {"group": null, "path": "whereami", "label": "本群标识", "enableConfigurable": false, "adminConfigurable": false, "adminForced": false, "danger": false, "defaultEnabled": true},

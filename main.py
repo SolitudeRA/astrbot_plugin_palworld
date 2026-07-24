@@ -527,8 +527,8 @@ class PalWorldTerminal(Star):
     def pal(self):
         pass
 
-    # ---- 分级命令：5 组 handler（world/guild/player/server/link）+ 7 扁平
-    # （rank/online/me/whoami/whereami/help/confirm）= 12 注册。AstrBot 只认首词,子动作
+    # ---- 分级命令：5 组 handler（world/guild/player/server/link）+ 8 扁平
+    # （rank/online/me/dex/whoami/whereami/help/confirm）= 13 注册。AstrBot 只认首词,子动作
     # (world status …) 由 Commands 层分发器自解析。门控下沉进分发（功能门 per-子动作、
     # admin_denied 完整路径、server 写走 admin_write）;main 层只施 busy/inflight 门闩。----
 
@@ -584,6 +584,13 @@ class PalWorldTerminal(Star):
     async def online(self, event):
         yield event.plain_result(
             await self._guarded_cmd(event, "online", lambda c: c.commands.online(
+                self._umo(event), self._msg(event), self._is_group(event)))
+        )
+
+    @pal.command("dex")
+    async def dex(self, event):
+        yield event.plain_result(
+            await self._guarded_cmd(event, "dex", lambda c: c.commands.dex(
                 self._umo(event), self._msg(event), self._is_group(event)))
         )
 

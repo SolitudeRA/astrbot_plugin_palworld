@@ -23,14 +23,14 @@ _NON_LOCKABLE_PATHS = frozenset({
 
 
 def test_registrations_match_pal_registered():
-    # main.py 实际 @pal.command("X") 注册串 == PAL_REGISTERED(12 首词:5 组 + 7 扁平)。
+    # main.py 实际 @pal.command("X") 注册串 == PAL_REGISTERED(13 首词:5 组 + 8 扁平)。
     # AstrBot 只认首词;子动作(world status …)由 Commands 层自解析,不在注册面。
     registered = set(re.findall(r'@pal\.command\("([^"]+)"\)', _MAIN))
     assert registered == set(PAL_REGISTERED), (
         f"注册串与 PAL_REGISTERED 不一致：仅注册 {registered - set(PAL_REGISTERED)}，"
         f"仅表内 {set(PAL_REGISTERED) - registered}"
     )
-    assert len(registered) == 12
+    assert len(registered) == 13
 
 
 def test_lockable_excludes_non_lockable():

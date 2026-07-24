@@ -259,6 +259,34 @@ class MeCardDTO:
 
 
 @dataclass(slots=True)
+class DexElementBucket:
+    """图鉴单元素分桶（spec §8·功能④）：该元素下已点亮 + （分母已知时）缺失物种名。
+
+    element 为稳定键（Element.value / "unknown"）；中文映射下沉 presentation（不预渲染）。
+    observed/missing 均按名排序。missing 仅**分母已知**（完整 roster 在手）时非空——降级
+    （roster 不完整/总数未知）时恒空（SD5：分母与缺失绑同一前置一起降级，不出「缺失」）。
+    """
+    element: str
+    observed: list[str]
+    missing: list[str]
+
+
+@dataclass(slots=True)
+class DexProgressDTO:
+    """服务器图鉴进度（spec §8·功能④）：本插件曾观测到的**去重**物种进度总览，按元素分桶。
+
+    observed_count = observed_species **去重物种行数**（PK=species_class）——**非 observe_count
+    之和**（observe_count 按 actor 计，同种 N 只 +N；物种数只数行）。total = 物种总数（分母）；
+    roster 不完整 / 官方总数未知 → None（降级，SD5）。observed_species 跨插件全局累积（无
+    world_id，spec §4.4）→ 口径「本插件已观测」（非本服/全服全部物种，C2）；「曾被观测到」
+    ≠「服上存在全物种」。buckets 按 Element 枚举定序 + 末尾未收录元素桶，空桶不产出。
+    """
+    observed_count: int
+    total: int | None
+    buckets: list[DexElementBucket]
+
+
+@dataclass(slots=True)
 class RankClimbEntry:
     name: str
     gain: int          # 周窗 level 涨幅（max(0, current − baseline)，恒 > 0 才上榜）

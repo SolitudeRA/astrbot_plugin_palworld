@@ -9,6 +9,7 @@ from ..presentation.formatters import (
     format_base,
     format_bases,
     format_degraded,
+    format_dex,
     format_events,
     format_guild,
     format_guilds,
@@ -252,6 +253,19 @@ class ReadCommands:
             return format_rank_climb(dto, server_name=server_name)
         dto = await self._query.rank(world, which)
         return format_rank(dto, which=which, server_name=server_name)
+
+    @_gated
+    async def dex(self, umo, message_str, is_group) -> str:
+        # 服务器图鉴（spec §8）：扁平命令，无子参数（本轮仅进度总览）。数据跨插件全局
+        # （observed_species 无 world_id）——resolve_world 仅取 server_name 标题锚点 + 路由校验，
+        # dex_progress() 不吃 world。无坐标/id 派生，strict 不拦（口径见 format_dex 脚注）。
+        world, _arg, err, server_name = await self._resolve_world(
+            umo, message_str, "dex", is_group
+        )
+        if err is not None:
+            return err
+        dto = await self._query.dex_progress()
+        return format_dex(dto, server_name=server_name)
 
     @_gated
     async def player(self, umo, message_str, is_group) -> str:

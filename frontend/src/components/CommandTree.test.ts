@@ -13,11 +13,11 @@ const groupHead = (w: W, label: string) => w.findAll('.ct-grouphead').find((r) =
 const openGroup = (w: W, label: string) => groupHead(w, label).find('.ct-gname').trigger('click')
 
 describe('enabled 轴（功能页实例）', () => {
-  it('行集：完整命令树 29 条（enabled 轴全展开）；hidePaths 拆去危险区 5 条；核心命令显示锁定「恒开·内置」', () => {
+  it('行集：完整命令树 30 条（enabled 轴全展开）；hidePaths 拆去危险区 5 条；核心命令显示锁定「恒开·内置」', () => {
     const w = mountTree('enabled')
-    expect(w.findAll('.ct-leaf')).toHaveLength(29) // enabled 轴全展开（危险命令由页面危险区承载时才隐藏）
+    expect(w.findAll('.ct-leaf')).toHaveLength(30) // enabled 轴全展开（含扁平 dex；危险命令由页面危险区承载时才隐藏）
     const wh = mount(CommandTree, { props: { modelValue: {}, axis: 'enabled' as Axis, hidePaths: ['server kick', 'server unban', 'server ban', 'server shutdown', 'server stop'] } })
-    expect(wh.findAll('.ct-leaf')).toHaveLength(24) // 危险区承载的 5 条不渲染
+    expect(wh.findAll('.ct-leaf')).toHaveLength(25) // 危险区承载的 5 条不渲染
     const status = leaf(w, 'world status')
     expect(status.find('.ct-lock').exists()).toBe(true)
     expect(status.text()).toContain('恒开')

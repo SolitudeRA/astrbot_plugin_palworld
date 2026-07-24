@@ -96,6 +96,9 @@ class Commands:
     async def rank(self, umo, message_str, is_group, sender_id=None) -> str:
         return await self._reads.rank(umo, message_str, is_group, sender_id)
 
+    async def dex(self, umo, message_str, is_group) -> str:
+        return await self._reads.dex(umo, message_str, is_group)
+
     async def player(self, umo, message_str, is_group) -> str:
         return await self._reads.player(umo, message_str, is_group)
 

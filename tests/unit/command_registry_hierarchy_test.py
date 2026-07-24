@@ -16,12 +16,12 @@ from palworld_terminal.shared.command_registry import (
 
 
 def test_pal_registered_is_eleven_first_words():
-    # 注册身份 = 12 首词（5 组 + 7 扁平）；AstrBot 只认首词，子动作 Commands 自解析。
+    # 注册身份 = 13 首词（5 组 + 8 扁平）；AstrBot 只认首词，子动作 Commands 自解析。
     assert set(PAL_REGISTERED) == {
         "world", "guild", "player", "server", "link",
-        "rank", "online", "me", "help", "whoami", "whereami", "confirm",
+        "rank", "online", "me", "dex", "help", "whoami", "whereami", "confirm",
     }
-    assert len(PAL_REGISTERED) == 12
+    assert len(PAL_REGISTERED) == 13
 
 
 def test_dispatch_groups_have_all_subactions():
