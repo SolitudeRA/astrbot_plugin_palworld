@@ -183,6 +183,10 @@ class GameDataSnapshot:
     characters: list[CharacterActor] = field(default_factory=list)
     palboxes: list[PalBoxActor] = field(default_factory=list)
     unknown_classes: list[str] = field(default_factory=list)
+    # 游戏内时钟（顶层 InGameDays/InGameTime 直取）——参考/氛围文案用，
+    # world_day 权威真源仍是 metrics.days，不一致不告警、不覆盖。
+    in_game_days: int = 0
+    in_game_time: str = ""
 
 
 @dataclass(slots=True)

@@ -45,13 +45,16 @@ def test_palbox_actor_fields():
 def test_game_data_snapshot_fields():
     assert _field_names(GameDataSnapshot) == [
         "observed_at", "fps", "average_fps", "characters", "palboxes",
-        "unknown_classes",
+        "unknown_classes", "in_game_days", "in_game_time",
     ]
     gd = GameDataSnapshot(
         observed_at=1, fps=60.0, average_fps=58.0, characters=[],
         palboxes=[], unknown_classes=[],
     )
     assert gd.characters == []
+    # 游戏内时钟新字段默认值（顶层缺省时的兜底）
+    assert gd.in_game_days == 0
+    assert gd.in_game_time == ""
 
 
 def test_player_row_fields():

@@ -1,0 +1,72 @@
+{
+  "Time": "2026-07-24T17:44:02Z",
+  "FPS": 58,
+  "AverageFPS": 55.5,
+  "InGameTime": "17:44",
+  "InGameDays": 590,
+  "ActorData": [
+    {
+      "Type": "Character", "UnitType": "Player",
+      "InstanceID": "a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1 : b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2",
+      "NickName": "Akari", "TrainerInstanceID": "", "TrainerNickName": "", "TrainerClass": "",
+      "userid": "steam_00001", "ip": "203.0.113.7",
+      "level": 21, "HP": 500, "MaxHP": 500, "GuildID": "G-1", "GuildName": "Noema",
+      "Class": "BP_Player_Female_C", "Action": "BP_ActionDefault", "AI_Action": "",
+      "LocationX": 100.0, "LocationY": 200.0, "LocationZ": 0.0,
+      "RotationX": 0.0, "RotationY": 0.0, "RotationZ": 90.0,
+      "Stage": "MainWorld", "IsActive": "true"
+    },
+    {
+      "Type": "Character", "UnitType": "BaseCampPal",
+      "InstanceID": "c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3 : d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4",
+      "NickName": "", "TrainerInstanceID": "", "TrainerNickName": "", "TrainerClass": "",
+      "level": 8, "HP": 180, "MaxHP": 200, "GuildID": "G-1", "GuildName": "Noema",
+      "Class": "BP_ChickenPal_C", "Action": "BP_ActionMining", "AI_Action": "BP_AIAction_Worker_Working",
+      "LocationX": 120.0, "LocationY": 210.0, "LocationZ": 0.0,
+      "RotationX": 0.0, "RotationY": 0.0, "RotationZ": 45.0,
+      "Stage": "MainWorld", "IsActive": "true"
+    },
+    {
+      "Type": "Character", "UnitType": "BaseCampPal",
+      "InstanceID": "e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5 : f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6",
+      "NickName": "", "TrainerInstanceID": "", "TrainerNickName": "", "TrainerClass": "",
+      "level": 10, "HP": 150, "MaxHP": 150, "GuildID": "G-1", "GuildName": "Noema",
+      "Class": "BP_PinkCat_C", "Action": "InSpa", "AI_Action": "DodgeWork",
+      "LocationX": 118.0, "LocationY": 205.0, "LocationZ": 0.0,
+      "RotationX": 0.0, "RotationY": 0.0, "RotationZ": 0.0,
+      "Stage": "MainWorld", "IsActive": "false"
+    },
+    {
+      "Type": "Character", "UnitType": "WildPal",
+      "InstanceID": "1717171717171717171717171717171a : 2828282828282828282828282828282b",
+      "NickName": "", "TrainerInstanceID": "", "TrainerNickName": "", "TrainerClass": "",
+      "level": 3, "HP": 60, "MaxHP": 60, "GuildID": "", "GuildName": "",
+      "Class": "BP_SheepBall_C", "Action": "BP_AIAction_WildLife_Wandering", "AI_Action": "BP_AIAction_WildLife_Wandering",
+      "LocationX": 9000.0, "LocationY": 9000.0, "LocationZ": 12.0,
+      "RotationX": 0.0, "RotationY": 0.0, "RotationZ": 180.0,
+      "Stage": "MainWorld", "IsActive": "true"
+    },
+    {
+      "Type": "Character", "UnitType": "NPC",
+      "InstanceID": "3939393939393939393939393939393c : 4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a",
+      "NickName": "Wandering Merchant", "TrainerInstanceID": "", "TrainerNickName": "", "TrainerClass": "",
+      "level": 1, "HP": 100, "MaxHP": 100, "GuildID": "", "GuildName": "",
+      "Class": "BP_NPC_TownPeople_C", "Action": "BP_AIAction_NPC_Wait", "AI_Action": "BP_AIAction_NPC_Wait",
+      "LocationX": 500.0, "LocationY": 480.0, "LocationZ": 5.0,
+      "RotationX": 0.0, "RotationY": 0.0, "RotationZ": 270.0,
+      "Stage": "MainWorld", "IsActive": "true"
+    },
+    {
+      "Type": "PalBox", "Name": "Palbox",
+      "GuildID": "G-1", "GuildName": "Noema",
+      "Class": "BP_BuildObject_PalBoxV2_C",
+      "LocationX": 110.0, "LocationY": 205.0, "LocationZ": 0.0
+    },
+    {
+      "Type": "PalBox", "Name": "Palbox",
+      "GuildID": "G-2", "GuildName": "Vesper",
+      "Class": "BP_BuildObject_PalBoxV2_C",
+      "LocationX": 8005.0, "LocationY": 8002.0, "LocationZ": 0.0
+    }
+  ]
+}
