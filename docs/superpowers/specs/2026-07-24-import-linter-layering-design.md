@@ -52,7 +52,7 @@
 
 **CI 现状**（`.github/workflows/ci.yml`）：`lint` job（ubuntu，checkout@v7/setup-python@v6 3.12，`pip install -r requirements-dev.txt`，`ruff check .`，`python -m mypy palworld_terminal/`）+ `test` 矩阵（ubuntu 3.11/3.12/3.13 + windows 3.12，pytest）。
 
-**当前基线**：main @ 80451e2、v1.1.0、**1198 passed / 1 skipped**、ruff/mypy(64) 全绿。
+**当前基线**：main @ 80451e2、v1.1.0、**1201 passed / 1 skipped**、ruff/mypy(64) 全绿。
 
 ---
 
@@ -147,7 +147,7 @@ import-linter>=2.13   # 声明式分层契约（配置见 pyproject.toml [tool.i
 ## 7. 硬约束
 
 1. **command_permissions 逐字保留**（除 §3.1 唯一 import-depth 行）：方法体/常量/docstring 字节不变、LF。
-2. **零行为变化**：现有全库测试（除删的 2 守卫）保持全绿。基线 1198 passed → **1196 passed / 1 skipped**（−2 删守卫；契约非 pytest 不加计）。
+2. **零行为变化**：现有全库测试（除删的 2 守卫）保持全绿。基线 1201 passed → **1199 passed / 1 skipped**（−2 删守卫；契约非 pytest 不加计）。
 3. **契约 0 broken**：`lint-imports` 报 `2 kept, 0 broken`（移走 command_permissions 后实测）。
 4. **ruff/mypy 全绿**：`ruff check .`（全仓）+ `mypy palworld_terminal/`（Success，文件数 64 不变——move 非新增文件）。
 5. **相对导入**（`shared/__init__` 空，导入风格不变）。
@@ -163,7 +163,7 @@ import-linter>=2.13   # 声明式分层契约（配置见 pyproject.toml [tool.i
 - **契约正确性**：`lint-imports` 0 broken（Part 2 加契约后）；**对抗验证：临时植入一条越界 import（如 application 加 `from ..adapters import X`）→ `lint-imports` 须 BROKEN → 还原**（证契约真咬合，非假绿）。
 - **删守卫无损**：删的 2 grep 守卫的语义被 layers 契约的 application↛presentation/adapters 完全覆盖且更强（含 adapters↛application 对称边、传递链）。
 - **18 测试导入方清单**（re-point，须逐一改 import 路径）：`commands_admin_write` · `commands_dispatch` · `commands_gating` · `commands_guild` · `commands_permissions` · `commands_player` · `commands_rank` · `command_permissions_effective` · `command_permissions_endpoints` · `command_permissions_migrate` · **`command_permissions_meta`（特殊形 `from ...application import command_permissions as cp`）** · `config_command_permissions` · `container_features` · `frontend_pal_commands` · `gamedata_output_suppression` · `main_migration` · `rank_total` · `_perm`（+ 复核 grep 全仓**全 import 形** `application.command_permissions` **与** `application import command_permissions` 零残留）。
-- **验收命令**：`.venv/Scripts/lint-imports.exe`（2 kept/0 broken）+ `ruff check .` + `.venv/Scripts/python.exe -m mypy palworld_terminal/`（Success 64）+ 全库 `pytest -q`（1196 passed / 1 skipped）+ CI 全绿（lint job 新增 Import contracts 步 pass）。
+- **验收命令**：`.venv/Scripts/lint-imports.exe`（2 kept/0 broken）+ `ruff check .` + `.venv/Scripts/python.exe -m mypy palworld_terminal/`（Success 64）+ 全库 `pytest -q`（1199 passed / 1 skipped）+ CI 全绿（lint job 新增 Import contracts 步 pass）。
 
 ---
 
@@ -171,7 +171,7 @@ import-linter>=2.13   # 声明式分层契约（配置见 pyproject.toml [tool.i
 
 | 风险 | 缓解 |
 |---|---|
-| move 后漏改某导入方 → `ImportError`/`ModuleNotFoundError` | 全仓 grep **全 import 形**（`application.command_permissions` + `application import command_permissions` + `.palworld_terminal.` 相对形）零残留复核 + 全库 pytest（导入方炸）。**⚠️ main.py（仓库根）被 import-linter 契约豁免——契约不查它、非-repo-root grep 也漏它；必须 repo-wide grep + 靠 8 个 import main 的测试兜（漏则插件加载炸+这 8 测试 collection 失败，1198 不成立）** |
+| move 后漏改某导入方 → `ImportError`/`ModuleNotFoundError` | 全仓 grep **全 import 形**（`application.command_permissions` + `application import command_permissions` + `.palworld_terminal.` 相对形）零残留复核 + 全库 pytest（导入方炸）。**⚠️ main.py（仓库根）被 import-linter 契约豁免——契约不查它、非-repo-root grep 也漏它；必须 repo-wide grep + 靠 8 个 import main 的测试兜（漏则插件加载炸+这 8 测试 collection 失败，1201 不成立）** |
 | command_permissions 内部 `.command_registry` import 深度改错 | mypy + import 该模块的测试立即炸 |
 | shared→domain 新边未被 layers 允许 → 契约反而 broken | layers 序 `shared` 在 `domain` 之上（shared 可下探 domain）；已实测新序 0 broken |
 | 契约 `|` 语法/格式错 → lint-imports 读不到或报错 | §4 TOML 已实测可解析运行（2 kept/0 broken）；SDD 加契约后即跑 lint-imports 验证 |
@@ -192,15 +192,15 @@ import-linter>=2.13   # 声明式分层契约（配置见 pyproject.toml [tool.i
 - **改 `.github/workflows/ci.yml`**：lint job 加 `Import contracts` 步。
 - **删 2 测试**：`layering_guard_test.py` + `adapter_layering_guard_test.py`。
 - **零改动**：`no_absolute_self_import_test.py`、所有 service/adapter/domain/infra 逻辑、command_permissions 的符号与行为。
-- **验收**：`lint-imports`（2 kept/0 broken）+ `ruff check .` + `mypy(64)` + `pytest`（1196 passed/1 skipped）+ CI 全绿。**不 bump**（v1.1.0）。
+- **验收**：`lint-imports`（2 kept/0 broken）+ `ruff check .` + `mypy(64)` + `pytest`（1199 passed/1 skipped）+ CI 全绿。**不 bump**（v1.1.0）。
 
 ---
 
 ## 11. 执行结构（供 plan/SDD 参考）
 
 **Part 1 先于 Part 2**（加契约前先修掉 config 耦合，否则契约首跑 broken）：
-1. **T1**：move `command_permissions` → shared（§3.1 改 import-depth）+ 重指 27 导入方（§3.2，**含 main.py 2 行 + command_permissions_meta_test 特殊形**）+ 删原文件（§3.3）。验收：全库 pytest 1198（此刻 grep 守卫仍在、仍绿，move 不碰 application↛presentation/adapters）+ ruff + mypy + **全仓全 import 形 grep `application.command_permissions`/`application import command_permissions` 零残留**（含 main.py：import-linter 豁免顶层不查，pytest[8 个 import main 的测试]是唯一网）。**原子提交**（导入方须同提交切换否则中途 ImportError）。
+1. **T1**：move `command_permissions` → shared（§3.1 改 import-depth）+ 重指 27 导入方（§3.2，**含 main.py 2 行 + command_permissions_meta_test 特殊形**）+ 删原文件（§3.3）。验收：全库 pytest 1201（此刻 grep 守卫仍在、仍绿，move 不碰 application↛presentation/adapters）+ ruff + mypy + **全仓全 import 形 grep `application.command_permissions`/`application import command_permissions` 零残留**（含 main.py：import-linter 豁免顶层不查，pytest[8 个 import main 的测试]是唯一网）。**原子提交**（导入方须同提交切换否则中途 ImportError）。
 2. **T2**：加 `requirements-dev.txt` 的 import-linter + `pyproject.toml` 的 `[tool.importlinter]` 契约。验收：`lint-imports` **2 kept/0 broken**（config 耦合已 T1 修掉）+ 对抗验证（植入越界 import→BROKEN→还原）。
-3. **T3**：CI lint job 加 `Import contracts` 步 + 删 2 grep 守卫。验收：全库 pytest **1196 passed**（−2 守卫）+ ruff + mypy + lint-imports 0 broken + 全仓 grep `layering_guard`/`adapter_layering_guard` 引用零残留。
+3. **T3**：CI lint job 加 `Import contracts` 步 + 删 2 grep 守卫。验收：全库 pytest **1199 passed**（−2 守卫）+ ruff + mypy + lint-imports 0 broken + 全仓 grep `layering_guard`/`adapter_layering_guard` 引用零残留。
 
 > T1（move）先立地基修掉耦合；T2 加契约此刻即 0 broken；T3 接管 CI + 退役旧守卫。每步独立绿。
