@@ -50,6 +50,18 @@ _ACTION_CAT_LABEL = {
     ActionCategory.INCAPACITATED: "濒死", ActionCategory.UNKNOWN: "未知",
 }
 
+# 车间现场行为 emoji（spec §6）：与 _ACTION_CAT_LABEL 同键、按枚举定序渲染（⛏工作/🚬摸鱼…）。
+_ACTION_CAT_EMOJI = {
+    ActionCategory.WORKING: "⛏", ActionCategory.MOVING: "🚶",
+    ActionCategory.IDLE: "💤", ActionCategory.SLACKING: "🚬",
+    ActionCategory.COMBAT: "⚔️",
+    ActionCategory.SLEEPING: "🛌", ActionCategory.EATING: "🍖",
+    ActionCategory.INCAPACITATED: "💫", ActionCategory.UNKNOWN: "❓",
+}
+
+# 车间氛围（spec §6）：mood 稳定键白名单（越界值防御回落 fired_up）；徽章/吐槽措辞在 locale。
+_MOODS = ("fired_up", "slacking_off")
+
 # 性能流畅度档位 → 状态色点（spec §2.2/§4.1）：流畅🟢 / 一般🟡 / 卡顿·严重卡顿🔴。
 _SMOOTH_DOT = {"流畅": "🟢", "一般": "🟡", "卡顿": "🔴", "严重卡顿": "🔴"}
 
@@ -195,24 +207,32 @@ def _health_status(score: float) -> tuple[str, str]:
 
 
 def format_base(dto: BaseDetailDTO) -> str:
-    """guild base（spec §4.9）。标题锚点=据点名 dto.display_name。健康度→状态点+词；行为分布=
-    ActionCategory 8 档中文（有计数者按枚举定序渲染）。activity_score 裸数与 palbox_count 砍位。
-    available=False（无观测）→ ⚠️ 取数失败态（不再全 0 假数据，§6#8）。"""
+    """guild base 车间现场（spec §4.9 / §6）。标题锚点=据点名 dto.display_name。
+
+    健康度→状态点+词；**氛围徽章**（🔥热火朝天/😴集体摆烂，按 dto.mood 稳定键取 locale 模板）
+    + 一句吐槽；**摸鱼行**（🚬 摸鱼率 N%，dto.slacker_rate 派生）；行为分布以 emoji 呈现
+    （⛏工作中/🚬摸鱼…，有计数者按枚举定序）；物种 Top（就近可见快照聚合）。
+    C2 口径：只报「此刻可见 N 只」（非「共有」）；脚注标观察推导（C4）。activity_score 裸数与
+    palbox_count 砍位。available=False（无观测）→ ⚠️ 取数失败态（不再全 0 假数据，§6#8）。"""
     title = f"🏕️ 据点 · {dto.display_name}"
     guild = f"公会「{dto.guild_name}」" if dto.guild_name else "未确定公会"
     ident = f"{guild} · 置信度{_CONF_LABEL[dto.confidence]}"
     if not dto.available:
         return f"{title}\n{ident}\n{L('base_no_observation')}"
     dot, word = _health_status(dto.health_score)
+    mood = dto.mood if dto.mood in _MOODS else "fired_up"  # 越界值防御回落
     lines = [
         title,
         ident,
+        f"{L(f'base_badge_{mood}')} · {L(f'base_snark_{mood}')}",
         "",
-        f"工作帕鲁 {dto.worker_count} · 活跃 {dto.active_count} · 平均 Lv{dto.average_level:.1f}",
+        # C2：只报此刻可见（就近可见快照），不吹「共有」。
+        f"此刻可见 {dto.worker_count} 只 · 活跃 {dto.active_count} · 平均 Lv{dto.average_level:.1f}",
         f"状态 {dot} {word} · 平均HP {dto.average_hp_ratio:.0%}",
+        f"🚬 摸鱼率 {dto.slacker_rate:.0%}",
     ]
     dist = [
-        f"{_ACTION_CAT_LABEL[cat]} {dto.action_distribution[cat.value]}"
+        f"{_ACTION_CAT_EMOJI[cat]}{dto.action_distribution[cat.value]} {_ACTION_CAT_LABEL[cat]}"
         for cat in ActionCategory
         if dto.action_distribution.get(cat.value, 0) > 0
     ]
@@ -220,6 +240,11 @@ def format_base(dto: BaseDetailDTO) -> str:
         lines.append("")
         lines.append("行为分布")
         lines.append("· " + " · ".join(dist))
+    if dto.species_top:
+        lines.append("")
+        lines.append("热门物种")
+        lines.append("· " + " · ".join(f"{name} ×{count}" for name, count in dto.species_top))
+    lines.append("└ 据点为插件观察推导 · 仅统计此刻可见帕鲁")
     return "\n".join(lines)
 
 

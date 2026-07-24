@@ -312,12 +312,15 @@ def test_format_base_sample_4_9():
     assert format_base(dto) == (
         "🏕️ 据点 · 海岸木材场\n"
         "公会「Matrix」 · 置信度高\n"
+        "🔥 热火朝天 · 帕鲁们干劲十足，火力全开！\n"      # 车间氛围徽章 + 吐槽（§6，mood 派生）
         "\n"
-        "工作帕鲁 18 · 活跃 12 · 平均 Lv17.5\n"
+        "此刻可见 18 只 · 活跃 12 · 平均 Lv17.5\n"        # C2：此刻可见（非「共有」）
         "状态 🟢 健康 · 平均HP 92%\n"
+        "🚬 摸鱼率 0%\n"                                   # 摸鱼行（slacker_rate 派生）
         "\n"
         "行为分布\n"
-        "· 工作中 8 · 移动 5 · 闲置 3 · 未知 2"
+        "· ⛏8 工作中 · 🚶5 移动 · 💤3 闲置 · ❓2 未知\n"  # emoji 呈现
+        "└ 据点为插件观察推导 · 仅统计此刻可见帕鲁"        # C4 推导免责
     )
 
 
@@ -346,7 +349,9 @@ def test_format_base_action_distribution_eight_categories():
             "sleeping": 5, "eating": 6, "incapacitated": 7, "unknown": 8}
     dto = BaseDetailDTO("B", None, Confidence.LOW, 1, 1, 1.0, 1.0, dist, 50.0)
     text = format_base(dto)
-    assert "· 工作中 1 · 移动 2 · 闲置 3 · 战斗 4 · 睡觉 5 · 进食 6 · 濒死 7 · 未知 8" in text
+    assert (
+        "· ⛏1 工作中 · 🚶2 移动 · 💤3 闲置 · ⚔️4 战斗 · 🛌5 睡觉 · 🍖6 进食 · 💫7 濒死 · ❓8 未知"
+    ) in text
     assert "未确定公会" in text  # guild_name None
 
 

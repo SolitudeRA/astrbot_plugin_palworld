@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from ..domain.enums import Confidence, EventType, PingBucket
 from ..domain.models import WorldEvent
@@ -149,8 +149,16 @@ class BaseDTO:
 
 @dataclass(slots=True)
 class BaseDetailDTO:
-    """guild base 详情（spec §4.9）。palbox_count（硬编码 1）与 activity_score 裸数砍位。
-    available=False（latest_base_observation 缺失）→ formatter 走 ⚠️ 无观测态（不再全 0 假数据）。"""
+    """guild base 详情（spec §4.9）+ 车间现场富化（spec §6）。palbox_count（硬编码 1）与
+    activity_score 裸数砍位。available=False（latest_base_observation 缺失）→ formatter 走
+    ⚠️ 无观测态（不再全 0 假数据）。
+
+    车间现场（§6）三派生字段：
+      · slacker_rate —— slacking 计数占 action_distribution 总数比例 ∈ [0,1]（空/零→0.0）；
+      · mood —— **由 slacker_rate 阈值派生**的稳定键（fired_up / slacking_off）；中文/徽章/
+        吐槽映射下沉 presentation（locale 模板），不在数据层预渲染；
+      · species_top —— 就近可见快照按公会名聚合的 BaseCampPal 物种 (name, count) 降序 Top-N
+        （Class→meta.pal_name）；无快照/无公会名→空（C2 只报此刻可见，不臆造）。"""
     display_name: str
     guild_name: str | None
     confidence: Confidence
@@ -161,6 +169,9 @@ class BaseDetailDTO:
     action_distribution: dict[str, int]
     health_score: float
     available: bool = True
+    mood: str = "fired_up"
+    slacker_rate: float = 0.0
+    species_top: list[tuple[str, int]] = field(default_factory=list)
 
 
 @dataclass(slots=True)

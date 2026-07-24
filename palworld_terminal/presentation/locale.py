@@ -30,6 +30,12 @@ MESSAGES: dict[str, str] = {
     "bases_empty": "暂无可展示的据点",
     "base_no_observation": "⚠️ 该据点尚无观测数据",
     "bases_disabled_strict": "⚠️ 据点模块在 strict 隐私模式下停用",
+    # 据点车间现场氛围徽章 + 吐槽（spec §6）：mood 稳定键（fired_up/slacking_off）→ 徽章/吐槽。
+    # 徽章 emoji+词与吐槽措辞全落 locale（结构标签仍在 formatter），mood 阈值判定归 query 层。
+    "base_badge_fired_up": "🔥 热火朝天",
+    "base_badge_slacking_off": "😴 集体摆烂",
+    "base_snark_fired_up": "帕鲁们干劲十足，火力全开！",
+    "base_snark_slacking_off": "没有一只帕鲁想好好上班……",
     # 场景/环境不符类拦截统一 ⚠️（spec §3；link add/remove 共用同键同待遇）。
     "use_only_group": "⚠️ 该命令仅可在群聊中使用",
     # 配置停用类拦截（spec §3）：整命令被拒执行的停用主句统一戴 ⚠️。

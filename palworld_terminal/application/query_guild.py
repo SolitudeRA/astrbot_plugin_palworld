@@ -1,6 +1,8 @@
 from __future__ import annotations
 
-from ..domain.enums import EventType
+from typing import Any
+
+from ..domain.enums import ActionCategory, EventType, UnitType
 from ..domain.models import Base, BaseObservation, World
 from ..infrastructure.cache import TTLCache
 from .dtos import (
@@ -20,10 +22,44 @@ class _GuildBaseQueries(_PrivacyBase):
     _cache: TTLCache
     _GUILDS_TTL: int
     _BASES_TTL: int
+    _meta: Any          # 物种名解析（车间 species_top）；隐式 Any，见 query_service 拆分契约
+    _world_cache: Any   # 脱敏 game-data 快照（species_top 就近可见）；防 mypy attr-defined
+
+    # 车间氛围阈值（spec §6，写死）：摸鱼率 ≥ 30% → 集体摆烂，否则热火朝天。
+    _SLACKER_MOOD_THRESHOLD = 0.3
+    _SPECIES_TOP_N = 3
 
     @staticmethod
     def _health_score(o: BaseObservation) -> float:
         return round(100 * (0.8 * o.average_hp_ratio + 0.2 * 1.0), 2)
+
+    @staticmethod
+    def _slacker_rate(dist: dict[str, int]) -> float:
+        """摸鱼率（spec §6）：slacking 计数占 action_distribution 总数比例；空/零→0.0。"""
+        total = sum(dist.values())
+        if total <= 0:
+            return 0.0
+        return dist.get(ActionCategory.SLACKING.value, 0) / total
+
+    def _mood(self, slacker_rate: float) -> str:
+        """氛围稳定键（spec §6）：由摸鱼率阈值派生；中文/徽章/吐槽映射下沉 presentation。"""
+        return "slacking_off" if slacker_rate >= self._SLACKER_MOOD_THRESHOLD else "fired_up"
+
+    def _species_top(self, world: World, guild_name: str | None) -> list[tuple[str, int]]:
+        """物种 Top（spec §6·C2 就近可见）：从当前脱敏快照按公会名聚合 BaseCampPal 物种
+        （Class→meta.pal_name），降序取 Top-N。无快照/无公会名→空（不臆造，只报此刻可见）。"""
+        if not guild_name:
+            return []
+        gd = self._world_cache.get(world.server_id)
+        if gd is None:
+            return []
+        counts: dict[str, int] = {}
+        for a in gd.characters:
+            if a.unit_type != UnitType.BASE_CAMP or a.guild_name != guild_name or not a.pal_class:
+                continue
+            name = self._meta.pal_name(a.pal_class) if self._meta is not None else a.pal_class
+            counts[name] = counts.get(name, 0) + 1
+        return sorted(counts.items(), key=lambda kv: (-kv[1], kv[0]))[: self._SPECIES_TOP_N]
 
     async def _base_counts_by_guild(self, world: World) -> dict[str | None, int]:
         """每公会据点数（spec §5#15）：按统一序号空间（include_low，hidden 排除）的
@@ -161,15 +197,21 @@ class _GuildBaseQueries(_PrivacyBase):
             return None
         # 无观测（obs is None）→ available=False：formatter 走 ⚠️「尚无观测数据」，不再全 0 假数据（§6#8）。
         obs = await self._repo.latest_base_observation(world.world_id, target.base_key)
+        action_dist = obs.action_distribution if obs else {}
+        slacker_rate = self._slacker_rate(action_dist)
+        guild_name = guild_names.get(target.guild_key)
         return BaseDetailDTO(
             display_name=target.display_name or f"BASE-{target_idx}",
-            guild_name=guild_names.get(target.guild_key),
+            guild_name=guild_name,
             confidence=target.confidence,
             worker_count=obs.worker_count if obs else 0,
             active_count=obs.active_count if obs else 0,
             average_level=obs.average_level if obs else 0.0,
             average_hp_ratio=obs.average_hp_ratio if obs else 0.0,
-            action_distribution=obs.action_distribution if obs else {},
+            action_distribution=action_dist,
             health_score=self._health_score(obs) if obs else 0.0,
             available=obs is not None,
+            mood=self._mood(slacker_rate),
+            slacker_rate=slacker_rate,
+            species_top=self._species_top(world, guild_name),
         )
