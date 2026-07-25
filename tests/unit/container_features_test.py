@@ -42,15 +42,29 @@ async def _build(cfg, tmp_path, captured):
     return c
 
 
-async def test_defaults_exclude_game_data_null_guilds_bases_keep_events(tmp_path: Path):
-    # command_overrides={}：events 默认开 → EventService 非 None；
-    # guilds_bases 默认关 → game-data 端点排除、GuildService/BaseService 为 None。
+async def test_defaults_include_game_data_guilds_bases_on(tmp_path: Path):
+    # command_overrides={}：guilds_bases 默认开（2026-07-25）→ game-data 端点在、
+    # GuildService/BaseService 装配；events 默认开 → EventService 非 None。
     captured = {}
     c = await _build(_cfg({}), tmp_path, captured)
     try:
-        assert EndpointName.GAME_DATA not in captured["endpoints"]
+        assert EndpointName.GAME_DATA in captured["endpoints"]
         assert {EndpointName.INFO, EndpointName.METRICS,
                 EndpointName.PLAYERS, EndpointName.SETTINGS} <= captured["endpoints"]
+        assert c._snapshot._guilds is not None and c._snapshot._bases is not None
+        assert c._snapshot._events is not None
+    finally:
+        await c.stop()
+
+
+async def test_guilds_bases_disabled_excludes_game_data_null_services(tmp_path: Path):
+    # 显式关全部 guilds_bases 命令（guild 组 + world overview + dex）→ game-data 端点排除、
+    # GuildService/BaseService 为 None；events 仍默认开（分组独立）。
+    captured = {}
+    off = {k: CO(enabled=False) for k in ("guild", "world overview", "dex")}
+    c = await _build(_cfg(off), tmp_path, captured)
+    try:
+        assert EndpointName.GAME_DATA not in captured["endpoints"]
         assert c._snapshot._guilds is None and c._snapshot._bases is None
         assert c._snapshot._events is not None
     finally:

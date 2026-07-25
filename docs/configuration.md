@@ -172,13 +172,13 @@ v0.9.5 及更早用 `features` 布尔功能开关 + `admin_only_commands` 名单
 | `report` | 开 | `/pal world today` | 日报/在线统计 |
 | `events` | 开 | `/pal world events` | 世界事件记录(关闭后不生成事件) |
 | `players` | **默认关** | `/pal player info` `/pal player bind` `/pal player unbind` `/pal rank` `/pal me` | 玩家个体查询(隐私考量默认关) |
-| `guilds_bases` | **默认关** | `/pal world overview` `/pal guild list` `/pal guild info` `/pal guild bases` `/pal guild base` `/pal dex` | 公会与据点、世界概览及服务器图鉴,依赖 `game-data`(PalGameDataBridge)派生数据,默认关、由服主按需开启 |
+| `guilds_bases` | **默认开** | `/pal world overview` `/pal guild list` `/pal guild info` `/pal guild bases` `/pal guild base` `/pal dex` | 公会与据点、世界概览及服务器图鉴,依赖 `game-data`(PalGameDataBridge)派生数据,随 game-data 上线默认开启;如不需要由服主关掉对应命令 |
 | `server_admin_basic` | **默认关** | `/pal server announce` `/pal server save` `/pal server kick` `/pal server unban` | 服务器管控(基础写):受控写,仅授权管理员可用,详见 [server_admin](#server_admin服务器管控) |
 | `server_admin_danger` | **默认关** | `/pal server ban` `/pal server shutdown` `/pal server stop` | 服务器管控(高危写):停服/封禁等,建议配合二次确认,详见 [server_admin](#server_admin服务器管控) |
 
 关闭的命令指令回「未开启」、`/pal help` 里不再列出。**采集派生自启用状态**:观测只读端点(`/info` `/metrics` `/players` `/settings`)**恒采集**,与命令启停无关;`/game-data` 端点仅当 `guilds_bases` 组有命令生效启用时才轮询(`bases.*` 与 `game_data_seconds` 亦随之生效)。
 
-**关于 `guilds_bases`(默认关)**:公会/据点/PalBox 命令与归队至此的 `world overview` 依赖 `/v1/api/game-data`(PalGameDataBridge)派生数据,与 `players` 同为**默认关**,由服主在 `command_permissions` 命令树按需为对应命令启用。启用任一 `guilds_bases` 命令后,`/game-data` 端点方随之轮询、`bases.*` 据点推导参数亦生效。
+**关于 `guilds_bases`(默认开)**:公会/据点/PalBox 命令与归队至此的 `world overview` 依赖 `/v1/api/game-data`(PalGameDataBridge)派生数据,随 game-data 稳定上线已**默认开启**(区别于 `players` 的默认关)。任一 `guilds_bases` 命令生效时,`/game-data` 端点随之轮询、`bases.*` 据点推导参数亦生效;如不需要,由服主在 `command_permissions` 命令树关掉对应命令。
 
 ## server_admin(服务器管控)
 

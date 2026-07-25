@@ -8,16 +8,16 @@ import type { CmdPerm } from './collect'
 export type Axis = 'enabled' | 'admin_only'
 export type PermMap = Record<string, CmdPerm>
 
-// 内置默认（enabled 轴）：core 恒开；events/report 默认开；
-// guilds_bases/players/server_admin_* 默认关。由 PAL_TREE.defaultEnabled 派生。
+// 内置默认（enabled 轴）：core 恒开；events/report/guilds_bases 默认开；
+// players/server_admin_* 默认关。由 PAL_TREE.defaultEnabled 派生。
 export const DEFAULT_ENABLED: Record<string, boolean> = Object.fromEntries(
   PAL_TREE.map((n) => [n.path, n.defaultEnabled]),
 )
 
 // 组的内置默认：组内**可配（enableConfigurable）**叶子的 defaultEnabled。仅当组内可配
-// 叶子的 defaultEnabled 全一致才产键（绝不静默取首个）；不一致（如 world 组解禁后
-// events/today 默认开、overview 默认关并存）或无可配叶子（如 link）→ 不产键，无单一组
-// 默认——组头开关经消费方 `?? false` 取「默认不施加整组强制」。
+// 叶子的 defaultEnabled 全一致才产键（绝不静默取首个）；不一致（叶子默认有开有关）或无
+// 可配叶子（如 link 全不可配）→ 不产键，无单一组默认——组头开关经消费方 `?? false` 取
+// 「默认不施加整组强制」。
 function deriveGroupDefaults(): Record<string, boolean> {
   const out: Record<string, boolean> = {}
   const conflicted = new Set<string>()

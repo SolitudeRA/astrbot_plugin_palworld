@@ -41,8 +41,8 @@ def test_default_enabled_matches_feature_defaults():
     assert cp.default_enabled("world status") is True
     assert cp.default_enabled("world today") is True
     assert cp.default_enabled("world events") is True
-    assert cp.default_enabled("guild list") is False
-    assert cp.default_enabled("rank") is False
+    assert cp.default_enabled("guild list") is True    # guilds_bases 默认开（2026-07-25）
+    assert cp.default_enabled("rank") is False          # players 仍默认关
     assert cp.default_enabled("server ban") is False
 
 

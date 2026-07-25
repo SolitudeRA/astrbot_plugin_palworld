@@ -40,12 +40,12 @@ describe('enabled 轴（功能页实例）', () => {
   })
   it('组头开关写组键 enabled、不逐叶展开；切回默认清键', async () => {
     const w = mountTree('enabled')
-    await groupHead(w, '公会').find('.pw-switch').trigger('click') // 组默认关 → 开
+    await groupHead(w, '公会').find('.pw-switch').trigger('click') // 组默认开 → 关
     let emitted = w.emitted('update:modelValue')!.at(-1)![0] as Record<string, CmdPerm>
-    expect(emitted['guild']).toEqual({ enabled: 'on', admin_only: 'inherit' })
+    expect(emitted['guild']).toEqual({ enabled: 'off', admin_only: 'inherit' })
     expect('guild list' in emitted).toBe(false)
-    const w2 = mountTree('enabled', { guild: { enabled: 'on', admin_only: 'inherit' } })
-    await groupHead(w2, '公会').find('.pw-switch').trigger('click') // 开 → 关 == 默认 → 清
+    const w2 = mountTree('enabled', { guild: { enabled: 'off', admin_only: 'inherit' } })
+    await groupHead(w2, '公会').find('.pw-switch').trigger('click') // 关 → 开 == 默认 → 清
     emitted = w2.emitted('update:modelValue')!.at(-1)![0] as Record<string, CmdPerm>
     expect('guild' in emitted).toBe(false)
   })
@@ -74,10 +74,11 @@ describe('enabled 轴（功能页实例）', () => {
 })
 
 describe('admin_only 轴（权限章实例）', () => {
-  it('行集：只列当前启用的命令（默认=恒开核心+events/today）；开功能后对应组出现', async () => {
+  it('行集：只列当前启用的命令（默认=恒开核心+events/today+guilds_bases 组）；开功能后对应组出现', async () => {
     const w = mountTree('admin_only')
-    expect(w.findAll('.ct-leaf')).toHaveLength(12) // 恒开核心 10（world2+link3+扁平5）+ events/today（overview/guild 默认关不列）
-    expect(w.findAll('.ct-leaf').some((r) => r.text().includes('guild list'))).toBe(false) // 默认关不列
+    // 恒开核心 10（world2+link3+扁平5）+ events/today + guilds_bases 默认开（overview+guild4+dex=6）= 18
+    expect(w.findAll('.ct-leaf')).toHaveLength(18)
+    expect(w.findAll('.ct-leaf').some((r) => r.text().includes('guild list'))).toBe(true) // guilds_bases 默认开 → 列出
     const help = leaf(w, '/pal help')
     expect(help.find('.ct-lock').exists()).toBe(true)
     expect(help.text()).toContain('所有人')
