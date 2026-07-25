@@ -1,9 +1,14 @@
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 
 from ..domain.enums import ActionCategory
+
+# 外观/头目变体后缀（大小写不敏感）：剥到基础种时只吃这些「同种同元素」的尾段。
+# 元素后缀（Dark/Fire/Water/Neutral…）绝不在列——它们是不同亚种/不同元素，剥了会指错种。
+_COSMETIC_SUFFIX = re.compile(r"^(?:BOSS|Skin\d+|otomo)$", re.IGNORECASE)
 
 
 class MetadataRepository:
@@ -49,13 +54,21 @@ class MetadataRepository:
 
     def _lookup_pal(self, internal_class: str) -> dict | None:
         """帕鲁条目查找：先精确命中（含旧 PalDataParameter/ 与裸键），未命中再对真实
-        BP_<Name>_C 形做 strip 规范化重试（BP_ChickenPal_C → ChickenPal）。"""
+        BP_<Name>_C 形做 strip 规范化重试（BP_ChickenPal_C → ChickenPal），仍不中再
+        剥外观/头目变体后缀归一到基础种（BP_JetDragon_BOSS_C → JetDragon）。"""
         entry = self._pals.get(internal_class)
         if entry is not None:
             return entry
         normalized = self._normalize_pal_class(internal_class)
         if normalized != internal_class:
-            return self._pals.get(normalized)
+            entry = self._pals.get(normalized)
+            if entry is not None:
+                return entry
+        # 外观/头目变体后缀（_BOSS/_Skin###/_otomo）归一到基础种：同名同元素。
+        # 元素后缀（_Dark/_Fire…）不剥——那是独立亚种，剥了会指错种/错元素。
+        base = self._strip_cosmetic_variants(normalized)
+        if base != normalized:
+            return self._pals.get(base)
         return None
 
     @staticmethod
@@ -66,6 +79,18 @@ class MetadataRepository:
         if s.endswith("_C"):
             s = s[:-2]
         return s
+
+    @staticmethod
+    def _strip_cosmetic_variants(normalized: str) -> str:
+        """从规范化名（已去 BP_/_C）尾部逐段剥外观/头目后缀（BOSS/Skin###/otomo）到基础种。
+
+        仅剥 `_COSMETIC_SUFFIX` 命中的尾段：JetDragon_BOSS→JetDragon、
+        JetDragon_BOSS_Skin001→JetDragon、KingWhale_BOSS_otomo→KingWhale。
+        LilyQueen_Dark_BOSS→LilyQueen_Dark（_Dark 是元素亚种，保留）。"""
+        parts = normalized.split("_")
+        while len(parts) > 1 and _COSMETIC_SUFFIX.match(parts[-1]):
+            parts.pop()
+        return "_".join(parts)
 
     def action_category(self, raw_action: str | None) -> ActionCategory:
         if not raw_action:

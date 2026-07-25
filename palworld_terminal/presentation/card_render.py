@@ -21,6 +21,11 @@ import html
 from ..application.dtos import MeCardDTO
 from .textkit import fmt_duration
 
+# 图片卡栅格缩放（HiDPI）：AstrBot html_render 默认 device_scale_factor 常为 1，1x 栅格在
+# 群里放大后发糊。用 CSS zoom 把整卡按此倍数放大再截图 → N 倍像素、文字锐利，且不依赖
+# 框架的 DSF 配置。调大更清晰但图更大；2 = 视网膜级足够。
+_SCALE = 2
+
 # 元素英文键 → 中文（与 domain.Element 九元素 + formatters._ELEMENT_LABEL 对齐）。
 _ELEMENT_ZH = {
     "fire": "火", "water": "水", "grass": "草", "electric": "电", "ice": "冰",
@@ -126,9 +131,13 @@ def build_me_card_html(dto: MeCardDTO, icons: dict[str, str], theme: str) -> str
 
     return f"""<style>
 * {{ box-sizing: border-box; }}
-body {{ margin: 0; }}
+/* HiDPI：zoom 把整卡放大 {_SCALE}x 再截图 → 锐利，不依赖 AstrBot 的 device_scale_factor。 */
+html {{ zoom: {_SCALE}; }}
+/* 只截卡片：body/.page 用 inline-block 收缩到卡片本身（原 flex 会铺满视口宽 → 整页背景）。
+   full_page 默认按内容尺寸出图，收缩后即「只出卡片」。 */
+body {{ margin: 0; display: inline-block; }}
 .page {{ font-family: system-ui,-apple-system,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
-  padding:34px 30px; -webkit-font-smoothing:antialiased; display:flex; justify-content:center; }}
+  padding:22px; -webkit-font-smoothing:antialiased; display:inline-block; }}
 .page.light {{ background:#eceae4; }}
 .page.dark {{ background:#0f0c07; }}
 .card {{ width:460px; max-width:100%; border-radius:16px; overflow:hidden;

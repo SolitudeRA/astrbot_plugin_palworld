@@ -139,3 +139,42 @@ async def test_strict_still_records_species_and_plaintext_name(tmp_path):
     assert by_class["BP_ChickenPal_C"].first_seen_name == "小鸡"
     names = {r.first_seen_name for r in by_class.values()}
     assert names & _ID_STRINGS == set()
+
+
+def _snapshot_with_npc_as_basecamp():
+    # 真 bug 复现：商人 NPC 被游戏归类成 BaseCampPal（在 _DEX_UNIT_TYPES 允许集里），
+    # 类名却顶着 BP_NPC_*——仅按 UnitType 过滤会漏进图鉴。BP_BuildObject_ 同理防御。
+    chars = [
+        _char(UnitType.OTOMO, "INST-O1", "小鸡", "Akari", None, "BP_ChickenPal_C"),
+        _char(UnitType.BASE_CAMP, "INST-M1", "商人", None, None, "BP_NPC_PalDealer_C"),
+        _char(UnitType.BASE_CAMP, "INST-M2", "货郎", None, None, "BP_NPC_Male_Trader01_v24_C"),
+        _char(UnitType.WILD, "INST-BO", None, None, None, "BP_BuildObject_PalBoxV2_C"),
+    ]
+    return GameDataSnapshot(5000, 60.0, 60.0, chars, [], [])
+
+
+async def test_npc_and_buildobject_class_excluded_even_as_pal_unit_type(tmp_path):
+    by_class = await _ingest(tmp_path, _snapshot_with_npc_as_basecamp())
+    # 只收真帕鲁；BP_NPC_* / BP_BuildObject_* 即便 UnitType 落在允许集也不入图鉴
+    assert set(by_class) == {"BP_ChickenPal_C"}
+    assert not any(c.startswith(("BP_NPC_", "BP_BuildObject_")) for c in by_class)
+
+
+async def test_migration_0006_purges_non_pal_dex_rows(tmp_path):
+    # 历史脏行清理：早前仅按 UnitType 过滤，商人 NPC 混进过图鉴表，migration_0006 按类名前缀清。
+    from palworld_terminal.infrastructure.migrations import migration_0006
+
+    db = Database(tmp_path / "d.db"); await db.open(); await apply_migrations(db)
+    repo = Repository(db, FakeClock(5000))
+    cols = "species_class,species_name,element,first_seen_at,first_seen_name,observe_count"
+    async with db.write_tx() as conn:
+        for cls in ("BP_NPC_PalDealer_C", "BP_BuildObject_PalBoxV2_C",
+                    "BP_Player_Female_C", "BP_ChickenPal_C"):
+            await conn.execute(
+                f"INSERT INTO observed_species({cols}) VALUES (?,?,?,?,?,?)",
+                (cls, "x", "unknown", 1, None, 1),
+            )
+        await migration_0006(conn)  # 幂等重跑：清脏行
+    classes = {r.species_class for r in await repo.observed_species()}
+    await db.close()
+    assert classes == {"BP_ChickenPal_C"}  # 三类非帕鲁行被清，真帕鲁留存

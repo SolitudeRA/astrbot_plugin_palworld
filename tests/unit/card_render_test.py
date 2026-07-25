@@ -154,3 +154,15 @@ def test_unknown_element_degrades_gracefully():
 def test_hidden_badge_present_when_hidden():
     html = build_me_card_html(_dto(hidden=True), _ICONS, "light")
     assert "已隐藏（仅自己可见）" in html
+
+
+# ---- 渲染修复：HiDPI 清晰度 + 只截卡片（不整页铺满）----
+
+def test_hidpi_zoom_and_card_only_sizing():
+    html = build_me_card_html(_dto(), _ICONS, "light")
+    flat = html.replace(" ", "")
+    # 清晰度：CSS zoom 提升栅格（不依赖 AstrBot device_scale_factor）
+    assert "zoom:2" in flat
+    # 只截卡片：body/.page 收缩到内容（inline-block），不再整页 flex 居中铺满
+    assert "display:inline-block" in flat
+    assert "justify-content:center;}" not in flat  # 原 .page 铺满居中已移除
