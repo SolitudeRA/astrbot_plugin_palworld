@@ -9,10 +9,11 @@ from palworld_terminal.presentation.command_support import feature_disabled_text
 
 def _cfg(guilds_bases=False, events=True, bases_enabled=True):
     # 经 command_permissions 三态行驱动（容器装配门读 command_overrides；命令层 features
-    # 由派生桥复算，两端一致）。空行集 → 全默认（events 开、guilds_bases 关）。
+    # 由派生桥复算，两端一致）。guilds_bases 默认开（2026-07-25）：测「关」路径须显式下 off
+    # 覆盖全部 guilds_bases 命令（guild 组 + world overview + dex）。
     cmds = []
-    if guilds_bases:
-        cmds.append({"command": "guild", "enabled": "on"})
+    if not guilds_bases:
+        cmds += [{"command": c, "enabled": "off"} for c in ("guild", "world overview", "dex")]
     if not events:
         cmds.append({"command": "world events", "enabled": "off"})
     return parse_config({

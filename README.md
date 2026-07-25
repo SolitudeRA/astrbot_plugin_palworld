@@ -97,9 +97,9 @@
 | 玩家档案 | **关** | 玩家查询、绑定、排行榜和个人档案由服主按需开启 |
 | 基础管控 | **关** | 广播、存档、踢人、解封；始终仅插件管理员可用 |
 | 危险管控 | **关** | 封禁、倒计时关服、强制停服必须逐条开启；可选二次确认 |
-| 公会与据点 | **关** | 公会、据点与世界概览，依赖 `game-data`（PalGameDataBridge）派生，由服主按需开启 |
+| 公会与据点 | **开** | 公会、据点、世界概览与图鉴，依赖 `game-data`（PalGameDataBridge）派生；随 game-data 上线默认开启 |
 
-> **公会与据点默认关闭**：公会、据点与 `world overview` 依赖 Palworld 官方 [`/game-data`](https://docs.palworldgame.com/api/rest-api/game-data/)（PalGameDataBridge）派生数据，与玩家档案一样默认关闭，由服主在设置页「权限」章按需开启；启用任一相关命令后，插件才会轮询 `/game-data` 端点。
+> **公会与据点默认开启**：公会、据点、`world overview` 与图鉴依赖 Palworld 官方 [`/game-data`](https://docs.palworldgame.com/api/rest-api/game-data/)（PalGameDataBridge）派生数据；随该 API 稳定上线，本插件已默认开启，启用即轮询 `/game-data` 端点。如不需要，可在设置页「功能」章关掉对应命令（玩家档案仍默认关闭）。
 
 ## 快速开始
 
@@ -154,7 +154,7 @@ curl -u admin http://PALWORLD_HOST:8212/v1/api/info
 /pal online
 ```
 
-公会与据点默认关闭，可在设置页「权限」章开启后一并验收。
+公会与据点默认开启，可直接执行 `/pal guild list`、`/pal dex` 一并验收（如不需要可在设置页「功能」章关闭）。
 
 ## 常用指令
 
@@ -191,7 +191,7 @@ curl -u admin http://PALWORLD_HOST:8212/v1/api/info
 | `401 Unauthorized` | 是否把 `ServerPassword` 误当成 `AdminPassword`，或环境变量没有注入 AstrBot 进程 |
 | 超时 / 拒绝连接 | REST 是否启用并重启、`8212/TCP`、防火墙、容器网络及 `base_url` |
 | “无可用服务器” | 服务器是否启用、地址与密码是否完整；配置就绪不代表网络一定在线 |
-| 公会 / 据点数据为空 | 公会与据点（`guilds_bases`）默认关闭，需由服主在设置页按需开启；启用后插件才会轮询 `/game-data` 端点派生这些数据 |
+| 公会 / 据点数据为空 | 公会与据点（`guilds_bases`）默认开启，插件会轮询 `/game-data`；若为空请确认服务器已启用 game-data API 且可达，或该组是否被手动关闭 |
 
 ## 文档与贡献
 

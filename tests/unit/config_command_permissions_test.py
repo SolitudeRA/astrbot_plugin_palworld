@@ -31,7 +31,7 @@ def test_tristate_inherit_is_none():
     cfg = _cfg({"command_permissions": [_row("guild", enabled="inherit", admin_only="inherit")]})
     # 两轴 inherit → 无有效覆盖（可为空或该键两字段皆 None）
     ov = cfg.permissions.command_overrides
-    assert ee(ov, "guild list") is False        # 走默认
+    assert ee(ov, "guild list") is True         # 走默认（guilds_bases 默认开）
 
 
 def test_invalid_command_and_axis_logged():

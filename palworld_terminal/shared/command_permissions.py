@@ -16,7 +16,9 @@ from .command_registry import (
 
 FEATURE_DEFAULTS: dict[str, bool] = {
     "core": True, "report": True, "events": True,
-    "guilds_bases": False, "players": False,
+    # guilds_bases 默认开（2026-07-25）：/game-data 上游已稳定上线，公会/据点/世界概览/图鉴
+    # 随之默认可用（观测只读、数据已脱敏）；players/server_admin 仍默认关，服主按需开。
+    "guilds_bases": True, "players": False,
     "server_admin_basic": False, "server_admin_danger": False,
 }
 

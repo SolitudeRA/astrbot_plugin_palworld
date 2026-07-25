@@ -56,14 +56,15 @@ describe('内置默认由 PAL_TREE 派生', () => {
   it.each(PAL_TREE.map((n) => n.path))('DEFAULT_ENABLED 覆盖全部路径：%s', (path) => {
     expect(path in DEFAULT_ENABLED).toBe(true)
   })
-  it('叶子默认抽查（events 开 / guild list 关）', () => {
+  it('叶子默认抽查（events 开 / guild list 开 / rank 关）', () => {
     expect(DEFAULT_ENABLED['world events']).toBe(true)
-    expect(DEFAULT_ENABLED['guild list']).toBe(false)
+    expect(DEFAULT_ENABLED['guild list']).toBe(true)    // guilds_bases 默认开（2026-07-25）
+    expect(DEFAULT_ENABLED['rank']).toBe(false)          // players 仍默认关
   })
-  it('组默认抽查（guild 关；world 混合默认与 link 无可配叶子皆不产键）', () => {
-    expect(GROUP_DEFAULT_ENABLED['guild']).toBe(false)
-    // world 组可配叶子默认不一致（events/today 开、overview 关）→ 无单一组默认，不产键（同 link）。
-    expect('world' in GROUP_DEFAULT_ENABLED).toBe(false)
-    expect('link' in GROUP_DEFAULT_ENABLED).toBe(false)
+  it('组默认抽查（guild 开；world 全开产键；link 无可配叶子不产键）', () => {
+    expect(GROUP_DEFAULT_ENABLED['guild']).toBe(true)    // guilds_bases 默认开
+    // world 组可配叶子现全开（overview/events/today 皆 true）→ 产单一组默认 true。
+    expect(GROUP_DEFAULT_ENABLED['world']).toBe(true)
+    expect('link' in GROUP_DEFAULT_ENABLED).toBe(false)  // link 无可配叶子
   })
 })

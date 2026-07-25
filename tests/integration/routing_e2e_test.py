@@ -73,7 +73,7 @@ async def test_restricted_denies_then_use_allows(tmp_path: Path):
         ok = await c.commands.status(UMO, "/pal status", is_group=True)
         assert "🌍 世界状态 · alpha" in ok
         assert "第 42 天" in ok
-        # 据点行随 guilds_bases 组开合（默认关/上游不可用 → 整行消失，spec §4.1）
-        assert "据点" not in ok
+        # 据点行随 guilds_bases 组开合；guilds_bases 默认开 → 据点行显示（basecamp_count=5）
+        assert "据点" in ok
     finally:
         await c.stop()

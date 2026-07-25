@@ -10,10 +10,10 @@ from palworld_terminal.shared.command_permissions import (
 
 
 def test_enable_default_and_inheritance():
-    # 三级继承：叶子覆盖 → 组覆盖 → 内置默认（guild 组：可配 / 默认关 / 解禁后可开）。
+    # 三级继承：叶子覆盖 → 组覆盖 → 内置默认（guild 组：可配 / 默认开）。
     assert ee({}, "world today") is True
-    assert ee({}, "guild list") is False
-    assert ee({"guild": CO(enabled=True)}, "guild list") is True
+    assert ee({}, "guild list") is True                # guilds_bases 默认开
+    assert ee({"guild": CO(enabled=False)}, "guild list") is False   # 组覆盖可关
     ov = {"guild": CO(enabled=True), "guild list": CO(enabled=False)}
     assert ee(ov, "guild list") is False
     assert ee(ov, "guild info") is True
