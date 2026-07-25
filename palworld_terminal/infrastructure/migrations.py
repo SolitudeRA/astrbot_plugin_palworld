@@ -283,12 +283,26 @@ async def migration_0005(conn: aiosqlite.Connection) -> None:
         await conn.execute(stmt)
 
 
+_MIGRATION_0006_SQL = [
+    # 修历史泄漏：早前图鉴仅按 UnitType 过滤，商人 NPC（被游戏归类成 BaseCampPal + 顶着
+    # BP_NPC_ 类名）混进了 observed_species。按类名前缀一次性清除已污染行（幂等，可重跑）。
+    "DELETE FROM observed_species WHERE species_class LIKE 'BP_NPC_%' "
+    "OR species_class LIKE 'BP_BuildObject_%' OR species_class LIKE 'BP_Player%'",
+]
+
+
+async def migration_0006(conn: aiosqlite.Connection) -> None:
+    for stmt in _MIGRATION_0006_SQL:
+        await conn.execute(stmt)
+
+
 MIGRATIONS: list[Callable[[aiosqlite.Connection], Awaitable[None]]] = [
     migration_0001,
     migration_0002,
     migration_0003,
     migration_0004,
     migration_0005,
+    migration_0006,
 ]
 
 

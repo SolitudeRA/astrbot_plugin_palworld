@@ -154,3 +154,23 @@ def test_unknown_element_degrades_gracefully():
 def test_hidden_badge_present_when_hidden():
     html = build_me_card_html(_dto(hidden=True), _ICONS, "light")
     assert "已隐藏（仅自己可见）" in html
+
+
+# ---- 渲染修复：HiDPI 清晰度 + 只截卡片（不整页铺满）----
+
+def test_hidpi_zoom_and_card_only_sizing():
+    html = build_me_card_html(_dto(), _ICONS, "light")
+    flat = html.replace(" ", "")
+    # 清晰度：CSS zoom 提升栅格（不依赖 AstrBot device_scale_factor）
+    assert "zoom:2" in flat
+    # 只截卡片：根元素 width:max-content 收缩到卡片宽——full_page 才按卡片宽出图（宽度不锁视口宽）。
+    # 承重：防回退到「靠 inline-block 缩宽」的坏方案（html 块级仍撑满视口 → 右侧裸白）。
+    assert "width:max-content" in flat
+    assert "justify-content:center;}" not in flat  # 旧 .page 满幅居中已移除
+
+
+def test_companion_unmapped_action_shows_following():
+    # 图片卡：随身未映射动作（OtomoFollow→unknown）显示「随行」而非「未知」（与文字卡 formatters 一致）
+    dto = _dto(companion=_companion(action_label="unknown"), companion_status="shown")
+    html = build_me_card_html(dto, _ICONS, "light")
+    assert "随行" in html

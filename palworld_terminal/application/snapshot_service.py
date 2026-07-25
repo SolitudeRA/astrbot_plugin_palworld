@@ -15,6 +15,9 @@ _log = logging.getLogger("palworld_terminal.snapshot")
 # 图鉴只收真帕鲁物种：排除 Player(BP_Player_*)/NPC/PalBox(BP_BuildObject_*)——
 # 否则虚增物种数、污染元素分桶（spec §4.4）。
 _DEX_UNIT_TYPES = frozenset({UnitType.OTOMO, UnitType.BASE_CAMP, UnitType.WILD})
+# 类名前缀兜底排除：商人 NPC 常被游戏归类成 BaseCampPal（落在 _DEX_UNIT_TYPES 里）却顶着
+# BP_NPC_ 类名 → 仅按 UnitType 过滤会漏进图鉴。BP_BuildObject_/BP_Player 同理防御。
+_NON_PAL_CLASS_PREFIXES = ("BP_NPC_", "BP_BuildObject_", "BP_Player")
 
 
 class SnapshotService:
@@ -268,6 +271,8 @@ class SnapshotService:
         for c in gd.characters:
             if c.unit_type not in _DEX_UNIT_TYPES or not c.pal_class:
                 continue
+            if c.pal_class.startswith(_NON_PAL_CLASS_PREFIXES):
+                continue  # 商人/建筑/玩家类混入帕鲁 UnitType（游戏偶发误分类）——类名前缀兜底排除
             first_seen_name = c.nickname or c.trainer_nickname or None
             await self._repo.upsert_observed_species(
                 c.pal_class,

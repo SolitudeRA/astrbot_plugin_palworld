@@ -78,6 +78,14 @@ _ELEMENT_LABEL = {
 _ACTION_BY_VALUE = {cat.value: label for cat, label in _ACTION_CAT_LABEL.items()}
 
 
+def _companion_action(value: str) -> str:
+    """随身动作中文：OtomoPal 的 Action 字段常为空 / AI_Action=OtomoFollow 未归类 → UNKNOWN。
+    此时给「随行」而非「未知」（随身默认跟随主人；与图片卡 card_render 一致）。"""
+    if value in ("unknown", ""):
+        return "随行"
+    return _ACTION_BY_VALUE.get(value, value)
+
+
 def format_degraded(last_ok: int | None, now: int, server_name: str) -> str:
     """降级态两行（spec §3/§4.1）：标题锚点全局统一 `🌍 世界状态 · {服务器名}`（不随
     发起命令变化）+ 🔴 状态行。last_ok=None 为「从未成功」句；否则「最后成功于 N 分钟前」。
@@ -633,7 +641,7 @@ def format_me(dto: MeCardDTO) -> str:
     if dto.companion_status == "shown" and dto.companion is not None:
         c = dto.companion
         element = _ELEMENT_LABEL.get(c.element, c.element)
-        action = _ACTION_BY_VALUE.get(c.action_label, c.action_label)
+        action = _companion_action(c.action_label)
         lines.append(
             f"随身 {c.species_name}（{element}）Lv{c.level} · HP {c.hp_ratio:.0%} · {action}"
         )

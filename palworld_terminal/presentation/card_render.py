@@ -21,6 +21,11 @@ import html
 from ..application.dtos import MeCardDTO
 from .textkit import fmt_duration
 
+# 图片卡栅格缩放（HiDPI）：AstrBot html_render 默认 device_scale_factor 常为 1，1x 栅格在
+# 群里放大后发糊。用 CSS zoom 把整卡按此倍数放大再截图 → N 倍像素、文字锐利，且不依赖
+# 框架的 DSF 配置。调大更清晰但图更大；2 = 视网膜级足够。
+_SCALE = 2
+
 # 元素英文键 → 中文（与 domain.Element 九元素 + formatters._ELEMENT_LABEL 对齐）。
 _ELEMENT_ZH = {
     "fire": "火", "water": "水", "grass": "草", "electric": "电", "ice": "冰",
@@ -113,6 +118,7 @@ def build_me_card_html(dto: MeCardDTO, icons: dict[str, str], theme: str) -> str
         theme = "light"
     dark = theme == "dark"
     card_cls = "card dossier c3" if dark else "card dossier"
+    page_bg = "#0f0c07" if dark else "#eceae4"
 
     guild_html = (
         f'<div class="guild">{_esc(dto.guild_name)}</div>' if dto.guild_name else ""
@@ -126,9 +132,15 @@ def build_me_card_html(dto: MeCardDTO, icons: dict[str, str], theme: str) -> str
 
     return f"""<style>
 * {{ box-sizing: border-box; }}
-body {{ margin: 0; }}
+/* HiDPI：zoom 放大 {_SCALE}x 再截图 → 锐利，不依赖 AstrBot 的 device_scale_factor
+   （其默认 jpeg q40 亦糊，handler 侧已改 png）。 */
+/* 只截卡片：Playwright full_page 只把「高度」撑到内容、「宽度」恒为视口宽，故必须让根元素
+   &lt;html&gt; 自身收窄——width:max-content 使 documentElement.scrollWidth = 卡片宽，出图宽即卡片宽。
+   html 背景按主题铺满，兜底任何残余留白不露裸白（万一后端视口/缩放交互留边）。 */
+html {{ zoom: {_SCALE}; width: max-content; background: {page_bg}; }}
+body {{ margin: 0; width: max-content; }}
 .page {{ font-family: system-ui,-apple-system,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
-  padding:34px 30px; -webkit-font-smoothing:antialiased; display:flex; justify-content:center; }}
+  padding:22px; -webkit-font-smoothing:antialiased; }}
 .page.light {{ background:#eceae4; }}
 .page.dark {{ background:#0f0c07; }}
 .card {{ width:460px; max-width:100%; border-radius:16px; overflow:hidden;

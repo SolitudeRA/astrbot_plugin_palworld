@@ -46,6 +46,19 @@ def test_full_state_shows_percentile_and_companion():
     assert "暂不可用" not in text
 
 
+def test_companion_unmapped_action_shows_following_not_unknown():
+    # OtomoPal 的 Action 字段常为空 / AI_Action=OtomoFollow 未归类 → action_label="unknown"，
+    # 文字卡展示「随行」而非「未知」（与图片卡一致）。
+    comp = CompanionView(
+        species_name="空涡龙", element="dragon", level=50,
+        action_label="unknown", hp_ratio=1.0,
+    )
+    text = format_me(_dto(companion=comp, companion_status="shown"))
+    assert "随身 空涡龙（龙）Lv50" in text
+    assert "随行" in text
+    assert "未知" not in text
+
+
 # ---- none_out：online + 有快照 + 本人在 + 无随身 → 「此刻未带出随身帕鲁」----
 
 def test_none_out_state_says_not_brought_out():
