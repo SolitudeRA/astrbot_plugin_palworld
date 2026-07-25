@@ -101,7 +101,8 @@ async def _me_reply(commands, html_render, umo, msg, is_group, sender):
     html = await commands.me_card_html(umo, msg, is_group, sender)
     if html and html_render is not None:
         try:
-            img = await html_render(html, {})
+            # options type=png：避开 AstrBot 默认 jpeg q40（发糊）；full_page 默认 True 保留。
+            img = await html_render(html, {}, options={"type": "png"})
         except Exception:  # noqa: BLE001 — 任何渲染异常均降级文字卡，不吞成空回复
             _log.warning("/pal me 图片卡 html_render 失败，降级文字卡", exc_info=True)
             img = None

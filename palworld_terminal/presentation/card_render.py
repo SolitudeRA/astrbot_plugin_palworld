@@ -118,6 +118,7 @@ def build_me_card_html(dto: MeCardDTO, icons: dict[str, str], theme: str) -> str
         theme = "light"
     dark = theme == "dark"
     card_cls = "card dossier c3" if dark else "card dossier"
+    page_bg = "#0f0c07" if dark else "#eceae4"
 
     guild_html = (
         f'<div class="guild">{_esc(dto.guild_name)}</div>' if dto.guild_name else ""
@@ -131,13 +132,15 @@ def build_me_card_html(dto: MeCardDTO, icons: dict[str, str], theme: str) -> str
 
     return f"""<style>
 * {{ box-sizing: border-box; }}
-/* HiDPI：zoom 把整卡放大 {_SCALE}x 再截图 → 锐利，不依赖 AstrBot 的 device_scale_factor。 */
-html {{ zoom: {_SCALE}; }}
-/* 只截卡片：body/.page 用 inline-block 收缩到卡片本身（原 flex 会铺满视口宽 → 整页背景）。
-   full_page 默认按内容尺寸出图，收缩后即「只出卡片」。 */
-body {{ margin: 0; display: inline-block; }}
+/* HiDPI：zoom 放大 {_SCALE}x 再截图 → 锐利，不依赖 AstrBot 的 device_scale_factor
+   （其默认 jpeg q40 亦糊，handler 侧已改 png）。 */
+/* 只截卡片：Playwright full_page 只把「高度」撑到内容、「宽度」恒为视口宽，故必须让根元素
+   &lt;html&gt; 自身收窄——width:max-content 使 documentElement.scrollWidth = 卡片宽，出图宽即卡片宽。
+   html 背景按主题铺满，兜底任何残余留白不露裸白（万一后端视口/缩放交互留边）。 */
+html {{ zoom: {_SCALE}; width: max-content; background: {page_bg}; }}
+body {{ margin: 0; width: max-content; }}
 .page {{ font-family: system-ui,-apple-system,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
-  padding:22px; -webkit-font-smoothing:antialiased; display:inline-block; }}
+  padding:22px; -webkit-font-smoothing:antialiased; }}
 .page.light {{ background:#eceae4; }}
 .page.dark {{ background:#0f0c07; }}
 .card {{ width:460px; max-width:100%; border-radius:16px; overflow:hidden;

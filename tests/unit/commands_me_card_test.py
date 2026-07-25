@@ -113,20 +113,21 @@ class _FakeCommands:
         return self._text
 
 
-async def _render_ok(html, data):
-    assert data == {}          # 第二参恒 {}，绝不透传 raw
+async def _render_ok(html, data, options=None):
+    assert data == {}                       # 第二参恒 {}，绝不透传 raw
+    assert options == {"type": "png"}       # png 出图（避开 AstrBot 默认 jpeg q40 发糊）
     return "http://img/card.png"
 
 
-async def _render_raises(html, data):
+async def _render_raises(html, data, options=None):
     raise RuntimeError("render boom")
 
 
-async def _render_none(html, data):
+async def _render_none(html, data, options=None):
     return None
 
 
-async def _render_empty(html, data):
+async def _render_empty(html, data, options=None):
     return ""
 
 

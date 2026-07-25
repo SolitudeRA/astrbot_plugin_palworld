@@ -121,12 +121,15 @@ def test_backfilled_species_resolve_name_and_element():
 def test_element_suffix_not_stripped_as_cosmetic():
     """元素后缀（_Dark / _Fire / _Neutral …）绝不当外观后缀剥掉——剥了会指向错种/错元素。
 
-    LilyQueen_Dark、GhostDragon_Fire 是有独立条目的元素亚种；剥掉 _Dark/_Fire 会落到
-    未收录的基种 LilyQueen/GhostDragon → 变"未知"或错元素。"""
+    用**复合形**（元素后缀 + 外观后缀）确保真正触达 _strip_cosmetic_variants（先剥 _BOSS 到
+    元素亚种、_Dark/_Fire 须留住），并用**元素对照**强断言——基种与元素亚种元素不同，误剥即抓。"""
     repo = _repo()
     # _Dark 保留：BOSS 变体归一到 LilyQueen_Dark（而非 LilyQueen），命中且非退化
     lily = repo.pal_name("BP_LilyQueen_Dark_BOSS_C")
     assert lily == repo.pal_name("BP_LilyQueen_Dark_C")
     assert not lily.startswith("BP_")
-    # _Fire 保留：GhostDragon_Fire 有独立条目，命中自身（不剥成缺失的 GhostDragon 基种）
-    assert not repo.pal_name("BP_GhostDragon_Fire_C").startswith("BP_")
+    # _Fire 保留：BP_GhostDragon_Fire_BOSS_C 剥 _BOSS 后命中 GhostDragon_Fire（焰魂龙/fire），
+    # 绝不连 _Fire 一起剥成基种 GhostDragon（灵曦龙/dragon）。元素对照锁死：误剥则 fire→dragon。
+    assert repo.element("BP_GhostDragon_Fire_BOSS_C") == "fire"
+    assert repo.element("BP_GhostDragon_C") == "dragon"        # 基种（元素不同，形成对照）
+    assert repo.pal_name("BP_GhostDragon_Fire_BOSS_C") == "焰魂龙"

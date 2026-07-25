@@ -149,15 +149,17 @@ def _snapshot_with_npc_as_basecamp():
         _char(UnitType.BASE_CAMP, "INST-M1", "商人", None, None, "BP_NPC_PalDealer_C"),
         _char(UnitType.BASE_CAMP, "INST-M2", "货郎", None, None, "BP_NPC_Male_Trader01_v24_C"),
         _char(UnitType.WILD, "INST-BO", None, None, None, "BP_BuildObject_PalBoxV2_C"),
+        # 第三个前缀 BP_Player：即便被误标成帕鲁 UnitType（WildPal）也须排除
+        _char(UnitType.WILD, "INST-PL", None, None, None, "BP_Player_Female_C"),
     ]
     return GameDataSnapshot(5000, 60.0, 60.0, chars, [], [])
 
 
 async def test_npc_and_buildobject_class_excluded_even_as_pal_unit_type(tmp_path):
     by_class = await _ingest(tmp_path, _snapshot_with_npc_as_basecamp())
-    # 只收真帕鲁；BP_NPC_* / BP_BuildObject_* 即便 UnitType 落在允许集也不入图鉴
+    # 只收真帕鲁；三个前缀 BP_NPC_ / BP_BuildObject_ / BP_Player 即便 UnitType 落在允许集也不入图鉴
     assert set(by_class) == {"BP_ChickenPal_C"}
-    assert not any(c.startswith(("BP_NPC_", "BP_BuildObject_")) for c in by_class)
+    assert not any(c.startswith(("BP_NPC_", "BP_BuildObject_", "BP_Player")) for c in by_class)
 
 
 async def test_migration_0006_purges_non_pal_dex_rows(tmp_path):
