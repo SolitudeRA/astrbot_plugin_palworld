@@ -15,10 +15,6 @@ from collections.abc import Iterable
 from ..domain.models import WorldEvent
 from .ports import ReadRepositoryPort
 
-# 查无回退占位（绝不回落内部 subject_key，否则重现 §6#7 丑键泄漏）。
-BASE_FALLBACK = "据点"
-GUILD_FALLBACK = "公会"
-
 
 def keep_world_subject_under_strict(
     events: list[WorldEvent], strict: bool
@@ -60,10 +56,12 @@ async def resolve_subjects(
         被排除/隐藏（名字级收敛，防同名另一 key 补位泄露）、或查无身份 → **不入表**；
         调用方据 subject_type=="player" 且 key 缺席即跳过整条事件（与 rank 名字级收敛
         同哲学，不泄漏隐藏玩家）。
-      - guild：解析 guilds.latest_name；查无 → 回退「公会」（绝不回落内部 key）。
+      - guild：解析 guilds.latest_name；查无 → 主体 key 缺席（绝不回落内部 key，回退词
+        「公会」由 presentation.render_event 经 L("fallback_guild") 兜底，i18n §3.2）。
       - base：按 list_bases(include_low=True, hidden 排除) 清单位次给 display_name 或
-        BASE-{i}；hidden/查无（不在清单）→ 回退「据点」（不泄漏隐藏据点名号）。序号空间
-        与 QueryService._bases_indexed / guild bases 列表 / guild base #序号 查找同源。
+        BASE-{i}；hidden/查无（不在清单）→ 主体 key 缺席（不泄漏隐藏据点名号，回退词
+        「据点」由 presentation 兜底）。序号空间与 QueryService._bases_indexed /
+        guild bases 列表 / guild base #序号 查找同源。
       - world（里程碑/在线纪录）：无名主体，不入表。
     """
     result: dict[str, str] = {}
@@ -81,7 +79,9 @@ async def resolve_subjects(
             base_keys.add(e.subject_key)
         # world 主体无名，忽略
 
-    # base：单一序号空间（include_low=True、hidden 排除），与 _bases_indexed 同源
+    # base：单一序号空间（include_low=True、hidden 排除），与 _bases_indexed 同源。
+    # 查无（hidden/不在清单）→ 主体 key 缺席（i18n §3.2：回退词「据点」上提 presentation，
+    # 不注入中文；调用方 .get(key, "") 得空串，render_event 经 L("fallback_base") 兜底）。
     if base_keys:
         indexed = {
             b.base_key: (b.display_name or f"BASE-{i}")
@@ -90,15 +90,19 @@ async def resolve_subjects(
             )
         }
         for k in base_keys:
-            result[k] = indexed.get(k, BASE_FALLBACK)
+            name = indexed.get(k)
+            if name:
+                result[k] = name
 
-    # guild：按 guild_key → latest_name，查无回退「公会」
+    # guild：按 guild_key → latest_name，查无 → 主体 key 缺席（回退词「公会」上提 presentation）。
     if guild_keys:
         guild_names = {
             g.guild_key: g.latest_name for g in await repo.list_guilds(world_id)
         }
         for k in guild_keys:
-            result[k] = guild_names.get(k, GUILD_FALLBACK)
+            name = guild_names.get(k)
+            if name:
+                result[k] = name
 
     # player：被排除/隐藏或名字级收敛命中或查无 → 缺席（调用方跳过整条）
     banned_names: set[str] = set()

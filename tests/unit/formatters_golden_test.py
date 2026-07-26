@@ -125,7 +125,9 @@ def test_today_golden():
             EventView(occurred_at=0, event_type=EventType.NEW_BASE, name="海岸木材场"),
             EventView(occurred_at=0, event_type=EventType.WORKER_DELTA, name="河谷矿场", prev=12, cur=18),
         ]
-        summary = "今天：1 名新玩家加入，2 次成长，2 处据点变化。"
+        # i18n §3.2：DTO 携稳定键 + 计数（措辞拼装移入 format_today）。
+        summary_kind = "editorial"
+        new_players = 1
 
     _check_golden("today.txt", format_today(_Report(), "Palpagos"))
 

@@ -3,6 +3,7 @@ from pathlib import Path
 import pytest
 
 from palworld_terminal.adapters.sqlite_repository import Repository
+from palworld_terminal.application.dtos import event_view
 from palworld_terminal.application.query_service import QueryService
 from palworld_terminal.config import (
     AppConfig,
@@ -211,13 +212,18 @@ async def test_resolve_event_subjects_skips_hidden_player(qs):
     assert "pk1" not in names
 
 
-async def test_hidden_base_event_falls_back(qs):
+async def test_hidden_base_event_absent_for_presentation_fallback(qs):
+    # hidden 据点 → 主体 key 缺席（i18n §3.2 稳定键化：resolver 不再产中文回退词）；
+    # 回退词「据点」由 presentation.render_event 经 L("fallback_base") 兜底。
     repo, q, _ = qs
     await repo.upsert_base(Base("bHid", WID, "pbH", "秘密", "g1", Confidence.HIGH, False, True, 900, 1200))
     ev = WorldEvent(None, WID, EventType.NEW_BASE, "base", "bHid", 1200, 1200,
                     {}, "public", Confidence.HIGH, "d")
     names = await q.resolve_event_subjects(_world(), [ev])
-    assert names["bHid"] == "据点"
+    assert "bHid" not in names               # 查无 → 缺席，不注入回退词
+    assert "秘密" not in names.values()       # 名号不泄漏
+    # presentation 兜底渲染：空名 → 「据点」
+    assert render_event(event_view(ev, names.get("bHid", ""))) == "新据点「据点」确认"
 
 
 async def test_events_today_only_filters(qs):

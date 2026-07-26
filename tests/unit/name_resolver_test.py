@@ -3,7 +3,7 @@
 T6 events / T7 today / T10 guild info 共用本 resolver 供数：
   - 三类 key（player/guild/base）批量解析为显示名；
   - 隐藏/被排除玩家事件缺席（调用方按 subject_type=="player" 且缺席跳过整条）；
-  - 隐藏据点回退「据点」（不泄漏名号）；
+  - 隐藏据点/查无公会主体 key 缺席（i18n §3.2 稳定键化：回退词上提 presentation.render_event）；
   - 据点序号空间与 _bases_indexed / guild bases 列表 / #序号 查找同源（include_low=True）。
 """
 from pathlib import Path
@@ -12,8 +12,6 @@ import pytest
 
 from palworld_terminal.adapters.sqlite_repository import Repository
 from palworld_terminal.application.name_resolver import (
-    BASE_FALLBACK,
-    GUILD_FALLBACK,
     keep_world_subject_under_strict,
     load_excluded_keys,
     resolve_subjects,
@@ -108,15 +106,16 @@ async def test_same_name_convergence_bans_whole_group(repo):
     assert "pk2" not in names
 
 
-async def test_hidden_base_falls_back_to_generic(repo):
-    # hidden 据点不入 include_low 清单 → 回退「据点」，绝不泄漏其名号
+async def test_hidden_base_absent_for_presentation_fallback(repo):
+    # hidden 据点不入 include_low 清单 → 主体 key 缺席（i18n §3.2 稳定键化：resolver 不再
+    # 产中文回退词）；回退词「据点」由 presentation.render_event 经 L("fallback_base") 兜底。
     await repo.upsert_base(
         Base("bHid", WID, "pbH", "秘密基地", "g1", Confidence.HIGH, False, True, 900, 1200)
     )
     events = [_ev(EventType.WORKER_DELTA, "base", "bHid", {"prev": 12, "cur": 18})]
     names = await resolve_subjects(repo, WID, events, excluded_keys=set())
-    assert names["bHid"] == BASE_FALLBACK
-    assert names["bHid"] != "秘密基地"
+    assert "bHid" not in names               # 查无 → 缺席（presentation 兜底），不注入回退词
+    assert "秘密基地" not in names.values()   # 名号不泄漏
 
 
 async def test_low_confidence_base_named_and_indexed(repo):
@@ -142,11 +141,27 @@ async def test_base_display_name_preferred(repo):
     assert names["b1"] == "河谷矿场"
 
 
-async def test_unknown_guild_falls_back(repo):
-    # 查无公会 → 回退「公会」，绝不回落内部 subject_key（§6#7 丑键 bug 修的供数）
+async def test_unknown_guild_absent_for_presentation_fallback(repo):
+    # 查无公会 → 主体 key 缺席（绝不回落内部 subject_key，§6#7 丑键 bug）；回退词「公会」
+    # 由 presentation.render_event 经 L("fallback_guild") 兜底（i18n §3.2 稳定键化）。
     events = [_ev(EventType.NEW_GUILD, "guild", "ghost-guild")]
     names = await resolve_subjects(repo, WID, events, excluded_keys=set())
-    assert names["ghost-guild"] == GUILD_FALLBACK
+    assert "ghost-guild" not in names
+    assert "ghost-guild" not in names.values()   # 不回落内部 key
+
+
+async def test_resolver_result_carries_no_curated_fallback_chinese(repo):
+    # 架构守卫（i18n §3.2/§6）：resolver 收编后不再向解析结果注入策展中文回退词
+    # 「据点」/「公会」——查无据点/公会一律缺席，回退词上提 presentation。真实名字含中文
+    # 合法（数据边界，不在本断言范围）；此处专测查无路径两主体皆缺席。
+    events = [
+        _ev(EventType.NEW_GUILD, "guild", "ghost-guild"),
+        _ev(EventType.WORKER_DELTA, "base", "ghost-base", {"prev": 1, "cur": 2}),
+    ]
+    names = await resolve_subjects(repo, WID, events, excluded_keys=set())
+    assert "据点" not in names.values()
+    assert "公会" not in names.values()
+    assert names == {}                           # 两主体皆查无 → 空表
 
 
 async def test_world_subject_has_no_name(repo):

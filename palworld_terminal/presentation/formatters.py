@@ -565,8 +565,26 @@ def format_today(dto, server_name: str, *, fold_limit: int = 7) -> str:
             lines.append(header)
             lines.extend(fold([f"· {render_event(x)}" for x in items], fold_limit, "条"))
     lines.append("")
-    lines.append(dto.summary)
+    lines.append(_report_summary(dto))
     return "\n".join(lines)
+
+
+def _report_summary(dto) -> str:
+    """末行编辑部总结渲染（i18n §3.2）：application 只产 summary_kind + 计数，措辞拼装在此。
+    quiet_day → 「平静的一天」；editorial → 「今天：N 名新玩家加入，N 次成长，N 处据点变化。」
+    （无事件但有活跃玩家时回落在线活跃句）。逐字复现旧 ReportService._summary。"""
+    if dto.summary_kind == "quiet_day":
+        return L("report_quiet_day")
+    parts: list[str] = []
+    if dto.new_players:
+        parts.append(L("report_new_players", n=dto.new_players))
+    if dto.growth:
+        parts.append(L("report_growth", n=len(dto.growth)))
+    if dto.base_changes:
+        parts.append(L("report_base_changes", n=len(dto.base_changes)))
+    if not parts and dto.active_players:
+        parts.append(L("report_active", n=dto.active_players))
+    return L("report_summary", body=L("report_summary_sep").join(parts))
 
 
 def format_player(

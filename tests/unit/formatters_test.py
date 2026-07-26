@@ -659,7 +659,9 @@ class _TodayReport:
         self.records = kw.get("records", [])
         self.growth = kw.get("growth", [])
         self.base_changes = kw.get("base_changes", [])
-        self.summary = kw.get("summary", "今天：无。")
+        # i18n §3.2：稳定键 + 计数（措辞在 format_today 侧拼装）。
+        self.summary_kind = kw.get("summary_kind", "editorial")
+        self.new_players = kw.get("new_players", 0)
 
 
 def test_today_title_carries_server_and_date():
