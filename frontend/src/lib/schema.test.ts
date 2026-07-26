@@ -53,6 +53,17 @@ describe('presentation 配置节', () => {
   })
 })
 
+describe('world.locale 三语枚举', () => {
+  it('locale 字段 options 为三语 + optionLabels 母语字面（恒定不译）', () => {
+    const world = OBJECT_SECTIONS.find((s) => s.key === 'world')!
+    const locale = world.fields.find((f) => f.key === 'locale')!
+    expect(locale.type).toBe('enum')
+    expect(locale.default).toBe('zh-CN')
+    expect(locale.options).toEqual(['zh-CN', 'ja', 'en'])
+    expect(locale.optionLabels).toEqual({ 'zh-CN': '简体中文', ja: '日本語', en: 'English' })
+  })
+})
+
 describe('server_admin 配置节', () => {
   it('存在 server_admin 配置节（三字段对齐 _conf_schema.json）', () => {
     const sa = OBJECT_SECTIONS.find((s) => s.key === 'server_admin')

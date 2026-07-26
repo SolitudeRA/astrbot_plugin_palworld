@@ -62,7 +62,7 @@ _ENUMS = {
     "routing.access_mode": {"restricted", "open"},
     "routing.world_mode": {"multi", "single"},
     "privacy.mode": {"strict", "balanced", "advanced"},
-    "world.locale": {"zh-CN"},
+    "world.locale": {"zh-CN", "ja", "en"},
     "presentation.me_card_theme": {"light", "dark", "auto"},
 }
 # (section, field) -> "int" | "float"；section=None 表示顶层 object 节

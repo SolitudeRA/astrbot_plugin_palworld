@@ -167,7 +167,7 @@
     "description": "世界与展示",
     "items": {
       "timezone": { "type": "string", "description": "全局时区(IANA)", "default": "Asia/Tokyo" },
-      "locale": { "type": "string", "description": "文案语言", "default": "zh-CN", "options": ["zh-CN"] },
+      "locale": { "type": "string", "description": "文案语言(可选简体中文/日本語/English)", "default": "zh-CN", "options": ["zh-CN", "ja", "en"] },
       "fps_smooth": { "type": "int", "description": "FPS ≥ 此值=流畅", "default": 50 },
       "fps_moderate": { "type": "int", "description": "FPS ≥ 此值=一般", "default": 35 },
       "fps_laggy": { "type": "int", "description": "FPS ≥ 此值=卡顿，低于=严重卡顿", "default": 20 }

@@ -100,7 +100,7 @@ v0.9.5 及更早用 `features` 布尔功能开关 + `admin_only_commands` 名单
 | 配置项 | 默认 | 含义 |
 | --- | --- | --- |
 | `timezone` | `Asia/Tokyo` | 全局时区(IANA 名称),影响 `/pal world today` 等所有时间展示;每台服务器可在 servers 条目里单独填 `timezone` 覆盖 |
-| `locale` | `zh-CN` | 文案语言(当前版本仅支持 zh-CN) |
+| `locale` | `zh-CN` | 文案语言;可选 `zh-CN`(简体中文) / `ja`(日本語) / `en`(English) |
 | `fps_smooth` | 50 | FPS ≥ 此值展示为「流畅」 |
 | `fps_moderate` | 35 | FPS ≥ 此值(且 < `fps_smooth`)展示为「一般」 |
 | `fps_laggy` | 20 | FPS ≥ 此值(且 < `fps_moderate`)展示为「卡顿」;FPS < 此值展示为「严重卡顿」 |

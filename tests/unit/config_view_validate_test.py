@@ -321,3 +321,24 @@ def test_presentation_non_object_rejected():
     body["presentation"] = ["not", "a", "map"]
     ok, err = validate_and_backfill(body, _old(), {})
     assert ok is False and err["error"] == "invalid_shape"
+
+
+# --- world.locale 三值枚举贯通（i18n Phase 1 spec §3.4 / T3）---
+
+def test_world_locale_all_three_values_accepted():
+    # zh-CN/ja/en 均为合法 locale（枚举白名单 {zh-CN} → {zh-CN, ja, en}）
+    for loc in ("zh-CN", "ja", "en"):
+        body = _body()
+        body["world"]["locale"] = loc
+        ok, cand = validate_and_backfill(body, _old(), {})
+        assert ok is True, loc
+        assert cand["world"]["locale"] == loc
+
+
+def test_world_locale_invalid_rejected_path_only_no_value():
+    body = _body()
+    body["world"]["locale"] = "fr"
+    ok, err = validate_and_backfill(body, _old(), {})
+    assert ok is False and err["error"] == "invalid_field"
+    assert err["detail"]["path"] == "world.locale"
+    assert "fr" not in str(err)   # 非法值绝不出现在错误里

@@ -32,6 +32,7 @@ from .infrastructure.salt import load_or_create_salt
 from .infrastructure.scheduler import Scheduler
 from .presentation.commands import Commands
 from .presentation.confirmation import ConfirmationStore
+from .presentation.locale import load_locale
 from .shared.command_permissions import active_endpoints, effective_enabled
 from .shared.rest import RestResponse
 
@@ -83,6 +84,9 @@ class Container:
         self._info_cache: dict[str, dict] = {}
 
     async def start(self) -> None:
+        # 装载文案语言（在构造任何服务/元数据之前）：load_locale 是唯一
+        # 校验/回落/warning 点，非法值在此回落 zh-CN（spec §3.1）。
+        load_locale(self._cfg.world.locale)
         if self._cfg.skipped_headers:
             # 只含 name+reason；value（可能是网关凭证）绝不入日志
             _log.warning(
