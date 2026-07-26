@@ -161,7 +161,7 @@
 
 **结果处置**：
 - 键名/结构不符 → 在 `normalizer.py` 对应 `ci_get(...)` 调用中**追加**真实键名候选（不删旧候选）；顶层键不符则改 `_character_list()`/`_palbox_list()`。
-- 无论结果如何：把真实（脱敏后）响应样本补进 `tests/fixtures/`，覆盖规格 §17 的"大小写混用键 / `IsActive` 字符串布尔"场景；未知 Class 高频条目补进 `metadata/pals.zh-CN.json`。
+- 无论结果如何：把真实（脱敏后）响应样本补进 `tests/fixtures/`，覆盖规格 §17 的"大小写混用键 / `IsActive` 字符串布尔"场景；未知 Class 高频条目补进 `metadata/pals.json`。
 
 ### 2.5 AstrBot 框架事实（`event.message_str` / `object` 子字段渲染 / 子命令别名）
 

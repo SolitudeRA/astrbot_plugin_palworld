@@ -11,9 +11,21 @@ from ..domain.enums import ActionCategory
 _COSMETIC_SUFFIX = re.compile(r"^(?:BOSS|Skin\d+|otomo)$", re.IGNORECASE)
 
 
+# 帕鲁名字段的 locale fallback 链：从所选语言起沿 name_ja→name_en→name_zh 逐级回退。
+# 所选字段缺失/值空即降到下一级；非 ja/en 的 locale（含 zh-CN）只取 name_zh。
+_NAME_FALLBACK: dict[str, tuple[str, ...]] = {
+    "ja": ("name_ja", "name_en", "name_zh"),
+    "en": ("name_en", "name_zh"),
+}
+_DEFAULT_NAME_FIELDS: tuple[str, ...] = ("name_zh",)
+
+
 class MetadataRepository:
-    def __init__(self, metadata_dir: Path) -> None:
+    def __init__(self, metadata_dir: Path, locale: str = "zh-CN") -> None:
         self._dir = Path(metadata_dir)
+        # locale 供三语选字段用（settings 三语字段归 T13，此处先留属性）。
+        self._locale = locale
+        self._name_fields = _NAME_FALLBACK.get(locale, _DEFAULT_NAME_FIELDS)
         self._pals: dict[str, dict] = {}
         self._actions: dict[str, str] = {}
         self._settings: dict[str, dict] = {}
@@ -21,9 +33,9 @@ class MetadataRepository:
         self._unknown_seen: set[str] = set()
 
     def load(self) -> None:
-        self._pals = self._read("pals.zh-CN.json")
+        self._pals = self._read("pals.json")
         self._actions = self._read("actions.json")
-        self._settings = self._read("settings.zh-CN.json")
+        self._settings = self._read("settings.json")
 
     def _read(self, name: str) -> dict:
         path = self._dir / name
@@ -32,14 +44,27 @@ class MetadataRepository:
     def pal_name(self, internal_class: str) -> str:
         entry = self._lookup_pal(internal_class)
         if entry is not None:
-            return entry["name_zh"]
+            name = self._pick_name(entry)
+            if name:
+                return name
         self._register_unknown(internal_class)
         return self._safe_abbrev(internal_class)
+
+    def _pick_name(self, entry: dict) -> str:
+        """按当前 locale 的字段 fallback 链取帕鲁名（ja→en→zh / en→zh / zh）。
+
+        所选字段缺失或值空时回退下一级；全链皆空返回 ""，交由 pal_name 走
+        既有 _safe_abbrev 兜底路径（与旧行为一致）。"""
+        for field in self._name_fields:
+            value = entry.get(field)
+            if value:
+                return str(value)
+        return ""
 
     def element(self, internal_class: str | None) -> str:
         """帕鲁 Class → 首要元素英文键（fire/water/…/neutral）。
 
-        复用 pals.zh-CN.json 的 element_types；真实 Class 为 BP_<Name>_C，查找前做
+        复用 pals.json 的 element_types；真实 Class 为 BP_<Name>_C，查找前做
         与 pal_name 一致的 strip 规范化。未收录/无元素 → "unknown" 优雅降级（不报错、
         不 register，供展示层安全消费）。"""
         if not internal_class:

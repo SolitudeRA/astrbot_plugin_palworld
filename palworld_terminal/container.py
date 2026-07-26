@@ -114,7 +114,7 @@ class Container:
         # data_dir 是 AstrBot 的插件数据目录（<astrbot>/data/plugin_data/<插件名>），
         # 与安装目录无关，不能用来定位 metadata。
         metadata_dir = Path(__file__).resolve().parent.parent / "metadata"
-        meta = MetadataRepository(metadata_dir)
+        meta = MetadataRepository(metadata_dir, self._cfg.world.locale)
         try:
             meta.load()
         except Exception as exc:  # metadata 缺失时降级为占位渲染，但必须留痕

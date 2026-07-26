@@ -32,7 +32,7 @@ class ActionCategory(StrEnum):
 
 
 class Element(StrEnum):
-    """帕鲁属性元素（值即英文键，与 pals.zh-CN.json 的 element_types 对齐）。"""
+    """帕鲁属性元素（值即英文键，与 pals.json 的 element_types 对齐）。"""
     FIRE = "fire"        # 火
     WATER = "water"      # 水
     GRASS = "grass"      # 草
