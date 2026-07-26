@@ -19,7 +19,7 @@ from ..application.query_service import PlayerProfileDTO, RankBoardsDTO
 from ..config import SkippedServer
 from ..domain.enums import ActionCategory, Confidence, PingBucket
 from ..presentation.event_wording import render_event
-from ..presentation.locale import L
+from ..presentation.locale import MESSAGES, L
 from ..presentation.textkit import (
     abs_date,
     fmt_duration,
@@ -32,7 +32,6 @@ from ..shared.command_permissions import effective_enabled
 from ..shared.command_registry import (
     DISPATCH,
     FLAT_ACTIONS,
-    HELP_TEXT,
     ActionSpec,
 )
 
@@ -398,8 +397,13 @@ def visible_actions(
 
 
 def _help_line(path: str) -> str:
-    """行式 `· /pal {路径} {描述}`（spec §4.26）：一级 `· ` 前缀，路径与描述单空格分隔。"""
-    desc = HELP_TEXT.get(path, "")
+    """行式 `· /pal {路径} {描述}`（spec §4.26）：一级 `· ` 前缀，路径与描述单空格分隔。
+
+    描述经 locale 键 `help_desc_<路径，空格转下划线>` 取；缺键（不在 zh 基线 MESSAGES 中）
+    出空串——保持旧 `HELP_TEXT.get(path, "")` 的防御语义，避免把 key 本身渲进 help 输出。
+    """
+    key = f"help_desc_{path.replace(' ', '_')}"
+    desc = L(key) if key in MESSAGES else ""
     return f"· /pal {path} {desc}" if desc else f"· /pal {path}"
 
 

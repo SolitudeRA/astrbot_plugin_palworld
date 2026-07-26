@@ -7,7 +7,7 @@
 from __future__ import annotations
 
 from palworld_terminal.presentation.formatters import format_help
-from palworld_terminal.shared.command_registry import HELP_TEXT
+from palworld_terminal.presentation.locale import MESSAGES
 from tests.unit._perm import overrides
 
 
@@ -49,7 +49,7 @@ def test_help_hides_write_commands_when_group_disabled_even_for_admin():
     assert "/pal confirm" in out
 
 
-def test_help_text_confirm_present_no_keyerror():
-    # format_help 取 HELP_TEXT["confirm"]；confirm 缺描述会渲染无描述行。
-    assert "confirm" in HELP_TEXT
-    assert HELP_TEXT["confirm"]
+def test_help_confirm_desc_present():
+    # format_help 经 L("help_desc_confirm") 取；confirm 缺描述会渲染无描述行。
+    assert "help_desc_confirm" in MESSAGES
+    assert MESSAGES["help_desc_confirm"]
