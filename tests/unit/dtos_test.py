@@ -51,7 +51,8 @@ def test_remaining_dtos_construct():
         wild_top=[WildTopRow(name="Lamball", count=4)], available=True,
     )
     RulesDTO(
-        sections=[RuleSection(title="倍率", items=[("经验", "1.0x")])],
+        sections=[RuleSection(title="rules_section_rate",
+                              items=[("rules_label_exp", "1.0", "rate")])],
         available=True, privacy_note=None, updated_at=1000,
     )
     GuildDTO(name="Noema", observed_members=4, base_pals=10, base_count=2)

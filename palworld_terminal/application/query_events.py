@@ -60,22 +60,22 @@ class _EventSummaryQueries(_PrivacyBase):
         return views
 
     def _render_rule_value(self, field: str, value, kind: str) -> str:
+        """规则值取数（i18n §3.2）：enum 经 meta.setting_display（枚举措辞属 metadata/
+        settings.json 数据文件层，query 侧现解，T5 起随 locale 三语）；数值类
+        （rate/hours/minutes/int）只产纯数值串出 application——单位词「小时/分钟」、倍率
+        「x」后缀、节标题/标签一律上提 formatters，DTO 不再携带策展措辞。"""
         if kind == "enum":
             # 枚举措辞与状态卡 detail 同源（setting_display：enum_map 优先）。
             return self._meta.setting_display(field, value) if self._meta else str(value)
         if kind == "rate":
-            # 倍率恒一位小数（spec §2.4：默认 1.0 渲染 1.0x，不去尾成 1x）；
-            # 非数字（异常快照值）回退去尾渲染，不冒 500。
+            # 倍率恒一位小数（spec §2.4：默认 1.0 渲染 1.0，formatter 补 x → 1.0x）；
+            # 非数字（异常快照值）回退去尾，不冒 500。
             try:
-                return f"{float(value):.1f}x"
+                return f"{float(value):.1f}"
             except (TypeError, ValueError):
-                return f"{_fmt_rules_num(value)}x"
-        num = _fmt_rules_num(value)
-        if kind == "hours":
-            return f"{num} 小时"
-        if kind == "minutes":
-            return f"{num} 分钟"
-        return num  # int：裸数
+                return _fmt_rules_num(value)
+        # hours/minutes/int：纯数值串（_fmt_rules_num 去尾），单位词由 formatter 组装。
+        return _fmt_rules_num(value)
 
     async def rules(self, world: World) -> RulesDTO:
         key = f"rules:{world.world_id}"
@@ -88,20 +88,22 @@ class _EventSummaryQueries(_PrivacyBase):
         available = bool(raw)
         sections: list[RuleSection] = []
         if available:
-            for title, entries in _RULES_SECTIONS:
-                items: list[tuple[str, str]] = [
-                    (label, self._render_rule_value(field, raw[field], kind))
-                    for label, field, kind in entries
+            for section_key, entries in _RULES_SECTIONS:
+                # 携带 (标签稳定键, 值, 值类型)：节标题/标签/单位词渲染上提 formatters。
+                items: list[tuple[str, str, str]] = [
+                    (label_key, self._render_rule_value(field, raw[field], kind), kind)
+                    for label_key, field, kind in entries
                     if field in raw    # 快照缺该字段则整项省略（不塞空串，同 status detail）
                 ]
                 if items:
-                    sections.append(RuleSection(title=title, items=items))
+                    sections.append(RuleSection(title=section_key, items=items))
         # 隐私模式注两句分叉（spec §4.3，勿混）：strict = 据点模块停用；advanced = 暂按 balanced。
+        # 携带 presentation locale 稳定键（措辞 formatter 侧经 L() 渲染），不硬编码中文。
         privacy_note = None
         if self._cfg.privacy.mode == "strict":
-            privacy_note = "据点模块在 strict 隐私模式下停用"
+            privacy_note = "rules_privacy_strict"
         elif self._cfg.privacy.mode == "advanced":
-            privacy_note = "advanced 隐私模式暂按 balanced 生效"
+            privacy_note = "rules_privacy_advanced"
         dto = RulesDTO(
             sections=sections, available=available,
             privacy_note=privacy_note, updated_at=self._clock.now(),

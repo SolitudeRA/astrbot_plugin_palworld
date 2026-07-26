@@ -499,11 +499,28 @@ def format_world(
     return "\n".join(lines)
 
 
+def _rule_cell(label_key: str, value: str, kind: str) -> str:
+    """规则单元格 `标签 值`（i18n §3.2）：标签经 L() 稳定键取措辞；值按 kind 组装单位——
+    rate 补 ASCII x（1.0→1.0x）、hours/minutes 经单位词键、enum/int 值即成品（enum 经
+    query 侧 setting_display，int 裸数）。策展措辞在此唯一落点，不再由 application 预渲染。"""
+    label = L(label_key)
+    if kind == "rate":
+        rendered = f"{value}x"
+    elif kind == "hours":
+        rendered = L("rules_unit_hours", num=value)
+    elif kind == "minutes":
+        rendered = L("rules_unit_minutes", num=value)
+    else:  # enum / int
+        rendered = value
+    return f"{label} {rendered}"
+
+
 def format_rules(dto: RulesDTO, server_name: str) -> str:
     """world rules 策展分节（spec §4.3）。同类字段两两并一行 `· A · B`。
 
     快照缺失（available=False）→ ⚠️ 取数失败态。隐私模式注两句分叉走脚注 `└ `。
-    游戏设定原值（蛋孵化 72 小时 / 空投间隔 180 分钟）保游戏原单位（§2.4 豁免，query 已渲）。
+    节标题/标签/单位词/隐私注记均为 presentation locale 稳定键，经 L() 渲染（i18n §3.2）；
+    游戏设定原值（蛋孵化 72 小时 / 空投间隔 180 分钟）保游戏原单位（§2.4 豁免）。
     """
     title = f"📜 世界规则 · {server_name}"
     if not dto.available:
@@ -511,12 +528,12 @@ def format_rules(dto: RulesDTO, server_name: str) -> str:
     lines = [title]
     for sec in dto.sections:
         lines.append("")
-        lines.append(sec.title)
-        for i in range(0, len(sec.items), 2):
-            cells = [f"{label} {value}" for label, value in sec.items[i:i + 2]]
-            lines.append("· " + " · ".join(cells))
+        lines.append(L(sec.title))
+        cells = [_rule_cell(label_key, value, kind) for label_key, value, kind in sec.items]
+        for i in range(0, len(cells), 2):
+            lines.append("· " + " · ".join(cells[i:i + 2]))
     if dto.privacy_note:
-        lines.append(f"└ {dto.privacy_note}")
+        lines.append(f"└ {L(dto.privacy_note)}")
     return "\n".join(lines)
 
 

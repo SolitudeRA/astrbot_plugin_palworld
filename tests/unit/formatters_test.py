@@ -500,10 +500,18 @@ def test_format_world_strict_omits_palbox_keeps_guild_and_base():
 
 
 def _rules_dto(*, available=True, privacy_note=None):
+    # i18n §3.2：节标题/标签为稳定键（formatter 经 L() 渲染 zh）；enum 值为 setting_display
+    # 成品串、rate 携原始数值串（x 由 formatter 补）。
     return RulesDTO(
         sections=[
-            RuleSection("模式", [("难度", "普通"), ("硬核", "关闭")]),
-            RuleSection("倍率", [("经验", "1.0x"), ("捕获", "1.2x")]),
+            RuleSection("rules_section_mode", [
+                ("rules_label_difficulty", "普通", "enum"),
+                ("rules_label_hardcore", "关闭", "enum"),
+            ]),
+            RuleSection("rules_section_rate", [
+                ("rules_label_exp", "1.0", "rate"),
+                ("rules_label_capture", "1.2", "rate"),
+            ]),
         ],
         available=available, privacy_note=privacy_note, updated_at=1700000000,
     )
@@ -529,7 +537,8 @@ def test_format_rules_unavailable_is_error_state():
 
 
 def test_format_rules_privacy_note_footer():
-    text = format_rules(_rules_dto(privacy_note="据点模块在 strict 隐私模式下停用"), "Palpagos")
+    # privacy_note 携稳定键，formatter 经 L() 渲染 zh 措辞（i18n §3.2）。
+    text = format_rules(_rules_dto(privacy_note="rules_privacy_strict"), "Palpagos")
     assert text.endswith("└ 据点模块在 strict 隐私模式下停用")
 
 

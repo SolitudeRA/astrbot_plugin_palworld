@@ -26,41 +26,44 @@ _STATUS_RULE_FIELDS = (
     ("exp_rate", "ExpRate"),
 )
 
-# /pal world rules 策展分节（spec §4.3）：四节定序、每项 (展示label, settings字段, 值类型)。
-# 剔除服务器技术字段（端口/RCON/REST API/日志/认证/备份/聊天限速/跨平台）与长尾细倍率
-# （攻防/饱食度/耐力/生命恢复/建筑/采集/掉落）。值类型决定 value 渲染：
-#   enum    → meta.setting_display（枚举措辞，如 普通/关闭/开启/掉落物品）
-#   rate    → {num}x（ASCII x；spec §2.4「倍率 1.0x」，不用 metadata 的全角 ×）
-#   hours   → {num} 小时（游戏设定原单位，spec §2.4 豁免，不套时长格式）
-#   minutes → {num} 分钟（同上）
+# /pal world rules 策展分节（spec §4.3 + i18n §3.2）：四节定序、每项
+# (节标题稳定键, ((标签稳定键, settings字段, 值类型), ...))。剔除服务器技术字段
+# （端口/RCON/REST API/日志/认证/备份/聊天限速/跨平台）与长尾细倍率（攻防/饱食度/耐力/
+# 生命恢复/建筑/采集/掉落）。**节标题/标签为 presentation locale 稳定键**（zh 措辞见
+# locales/*.json 的 rules_section_*/rules_label_*，与 settings.json label_zh 措辞不同、
+# 不复用）——策展措辞不在 application 硬编码。值类型决定 formatter 侧 value 渲染：
+#   enum    → meta.setting_display（枚举措辞，数据文件层，query 侧现解；如 普通/关闭/开启）
+#   rate    → {num}x（ASCII x；spec §2.4「倍率 1.0x」，不用 metadata 的全角 ×；formatter 加 x）
+#   hours   → rules_unit_hours「{num} 小时」（游戏设定原单位，spec §2.4；单位词 formatter 侧）
+#   minutes → rules_unit_minutes「{num} 分钟」（同上）
 #   int     → {num}（裸数，剥单位）
 _RULES_SECTIONS: tuple[tuple[str, tuple[tuple[str, str, str], ...]], ...] = (
-    ("模式", (
-        ("难度", "Difficulty", "enum"),
-        ("硬核", "bHardcore", "enum"),
-        ("死亡惩罚", "DeathPenalty", "enum"),
-        ("帕鲁永久死亡", "bPalLost", "enum"),
-        ("PVP 伤害", "bEnablePlayerToPlayerDamage", "enum"),
-        ("友军伤害", "bEnableFriendlyFire", "enum"),
-        ("入侵者袭击", "bEnableInvaderEnemy", "enum"),
+    ("rules_section_mode", (
+        ("rules_label_difficulty", "Difficulty", "enum"),
+        ("rules_label_hardcore", "bHardcore", "enum"),
+        ("rules_label_death_penalty", "DeathPenalty", "enum"),
+        ("rules_label_pal_lost", "bPalLost", "enum"),
+        ("rules_label_pvp_damage", "bEnablePlayerToPlayerDamage", "enum"),
+        ("rules_label_friendly_fire", "bEnableFriendlyFire", "enum"),
+        ("rules_label_invader", "bEnableInvaderEnemy", "enum"),
     )),
-    ("倍率", (
-        ("经验", "ExpRate", "rate"),
-        ("捕获", "PalCaptureRate", "rate"),
-        ("工作速度", "WorkSpeedRate", "rate"),
-        ("帕鲁刷新", "PalSpawnNumRate", "rate"),
-        ("白天流速", "DayTimeSpeedRate", "rate"),
-        ("夜晚流速", "NightTimeSpeedRate", "rate"),
+    ("rules_section_rate", (
+        ("rules_label_exp", "ExpRate", "rate"),
+        ("rules_label_capture", "PalCaptureRate", "rate"),
+        ("rules_label_work_speed", "WorkSpeedRate", "rate"),
+        ("rules_label_pal_spawn", "PalSpawnNumRate", "rate"),
+        ("rules_label_day_speed", "DayTimeSpeedRate", "rate"),
+        ("rules_label_night_speed", "NightTimeSpeedRate", "rate"),
     )),
-    ("节奏", (
-        ("蛋孵化", "PalEggDefaultHatchingTime", "hours"),
-        ("空投间隔", "SupplyDropSpan", "minutes"),
+    ("rules_section_tempo", (
+        ("rules_label_egg_hatch", "PalEggDefaultHatchingTime", "hours"),
+        ("rules_label_supply_drop", "SupplyDropSpan", "minutes"),
     )),
-    ("上限", (
-        ("玩家", "ServerPlayerMaxNum", "int"),
-        ("公会成员", "GuildPlayerMaxNum", "int"),
-        ("据点 每公会", "BaseCampMaxNumInGuild", "int"),
-        ("全服", "BaseCampMaxNum", "int"),
+    ("rules_section_cap", (
+        ("rules_label_player_max", "ServerPlayerMaxNum", "int"),
+        ("rules_label_guild_member_max", "GuildPlayerMaxNum", "int"),
+        ("rules_label_basecamp_per_guild", "BaseCampMaxNumInGuild", "int"),
+        ("rules_label_basecamp_total", "BaseCampMaxNum", "int"),
     )),
 )
 
