@@ -19,6 +19,26 @@ _NAME_FALLBACK: dict[str, tuple[str, ...]] = {
 }
 _DEFAULT_NAME_FIELDS: tuple[str, ...] = ("name_zh",)
 
+# settings.json 三语选择（T13）——同 _NAME_FALLBACK 的「名字链」哲学：
+#   label：flat 兄弟键 label_ja/label_en/label_zh，所选缺/空即沿链回退（ja→en→zh）。
+#   enum_map：嵌套三语 {"true": {"zh":..,"ja":..,"en":..}}，按语言键沿同链取措辞。
+#   unit：override 模型——zh 基准存于 "unit"；unit_ja/unit_en 子键存在（含空串）即覆盖，
+#         缺省直接回退基准 unit（不跨语言链，避免日文借到英文单位）。
+_LABEL_FALLBACK: dict[str, tuple[str, ...]] = {
+    "ja": ("label_ja", "label_en", "label_zh"),
+    "en": ("label_en", "label_zh"),
+}
+_DEFAULT_LABEL_FIELDS: tuple[str, ...] = ("label_zh",)
+
+_ENUM_LANG_FALLBACK: dict[str, tuple[str, ...]] = {
+    "ja": ("ja", "en", "zh"),
+    "en": ("en", "zh"),
+}
+_DEFAULT_ENUM_LANGS: tuple[str, ...] = ("zh",)
+
+# locale → unit 覆盖子键（zh 无覆盖键，直取基准 "unit"）。
+_UNIT_OVERRIDE_FIELD: dict[str, str] = {"ja": "unit_ja", "en": "unit_en"}
+
 
 class MetadataRepository:
     def __init__(self, metadata_dir: Path, locale: str = "zh-CN") -> None:
@@ -26,6 +46,10 @@ class MetadataRepository:
         # locale 供三语选字段用（settings 三语字段归 T13，此处先留属性）。
         self._locale = locale
         self._name_fields = _NAME_FALLBACK.get(locale, _DEFAULT_NAME_FIELDS)
+        # settings 三语选择字段/语言链（T13）——按 locale 预解析，取数时零分支开销。
+        self._label_fields = _LABEL_FALLBACK.get(locale, _DEFAULT_LABEL_FIELDS)
+        self._enum_langs = _ENUM_LANG_FALLBACK.get(locale, _DEFAULT_ENUM_LANGS)
+        self._unit_override = _UNIT_OVERRIDE_FIELD.get(locale)  # zh → None（直取基准 unit）
         self._pals: dict[str, dict] = {}
         self._actions: dict[str, str] = {}
         self._settings: dict[str, dict] = {}
@@ -126,13 +150,31 @@ class MetadataRepository:
         return ActionCategory(value)
 
     def setting_label(self, field: str) -> tuple[str, str]:
+        """(展示名, 单位后缀)，按当前 locale 选字段；未知字段 → (field, "")。"""
         entry = self._settings.get(field)
         if entry is None:
             return (field, "")
-        return (entry.get("label_zh", field), entry.get("unit", ""))
+        return (self._pick_label(entry, field), self._pick_unit(entry))
+
+    def _pick_label(self, entry: dict, field: str) -> str:
+        """按 locale 的 label 字段链取展示名（ja→en→zh / en→zh / zh）。
+
+        所选字段缺失/值空即回退下一级；全链皆空回退字段名（同旧 label_zh 缺失兜底）。"""
+        for name in self._label_fields:
+            value = entry.get(name)
+            if value:
+                return str(value)
+        return field
+
+    def _pick_unit(self, entry: dict) -> str:
+        """按 locale 取单位后缀（override 模型）：子键（unit_ja/unit_en）存在即用（含空串），
+        缺省回退基准 unit（zh）——不跨语言链，日文缺省时取中日通用的基准单位而非英文。"""
+        if self._unit_override is not None and self._unit_override in entry:
+            return str(entry[self._unit_override])
+        return str(entry.get("unit", ""))
 
     def setting_display(self, field: str, value) -> str:
-        """把原始设置值渲染为展示串：enum_map 措辞优先，否则 value+unit。
+        """把原始设置值渲染为展示串：enum_map 措辞优先，否则 value+unit（均按 locale）。
 
         `/pal world rules` 与状态卡 detail 共用此函数，保证两处措辞一致（不再直出
         原始 token 如 "Normal"/"true"/"ItemAndEquipment"）。未知字段/未知枚举值
@@ -148,12 +190,25 @@ class MetadataRepository:
                 key = "true" if value else "false"
             else:
                 key = str(value)
-            if key in enum_map:
-                return enum_map[key]
-            if key.lower() in enum_map:  # "True"/"False" 之类大小写兜底
-                return enum_map[key.lower()]
-            return key                    # 未知枚举值：原样 token，不误映射
-        return f"{value}{entry.get('unit', '')}"
+            mapping = enum_map.get(key)
+            if mapping is None:
+                mapping = enum_map.get(key.lower())  # "True"/"False" 之类大小写兜底
+            if mapping is None:
+                return key                            # 未知枚举值：原样 token，不误映射
+            return self._pick_enum(mapping, key)
+        return f"{value}{self._pick_unit(entry)}"
+
+    def _pick_enum(self, mapping, fallback: str) -> str:
+        """从嵌套三语枚举值 {"zh":..,"ja":..,"en":..} 按 locale 语言链取措辞。
+
+        非 dict（防御异常/旧结构）原样返回；三语全缺回退原始 token（不冒 500）。"""
+        if not isinstance(mapping, dict):
+            return str(mapping)
+        for lang in self._enum_langs:
+            v = mapping.get(lang)
+            if v:
+                return str(v)
+        return fallback
 
     def take_unknown_classes(self) -> list[str]:
         out = self._unknown

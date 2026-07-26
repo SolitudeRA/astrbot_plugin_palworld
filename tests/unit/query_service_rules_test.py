@@ -1,5 +1,7 @@
 import re
+from pathlib import Path
 
+from palworld_terminal.adapters.metadata_repository import MetadataRepository
 from palworld_terminal.adapters.sqlite_repository import Repository
 from palworld_terminal.application.query_service import QueryService
 from palworld_terminal.config import (
@@ -211,4 +213,50 @@ async def test_today_delegates_to_report(tmp_path):
     db, repo, q = await _make(tmp_path)
     result = await q.today(_world())
     assert result == "DAILY_SENTINEL"
+    await db.close()
+
+
+# ---- T13 端到端：真实 settings.json 三语枚举经 rules 管线现解（非 _FakeMeta）----
+
+_METADATA_DIR = Path(__file__).resolve().parents[2] / "metadata"
+
+
+async def _make_real_meta(tmp_path, locale: str):
+    """QueryService + 真实 MetadataRepository(locale)：证 settings.json 三语枚举
+    经 setting_display 现解、随 locale 出目标语言措辞（rules 管线端到端，非替身）。"""
+    db = Database(tmp_path / "t.sqlite3")
+    await db.open()
+    await apply_migrations(db)
+    clock = FakeClock(1200)
+    repo = Repository(db, clock)
+    await repo.upsert_world(_world())
+    meta = MetadataRepository(_METADATA_DIR, locale)
+    meta.load()
+    settings_cache = {"alpha": {
+        "Difficulty": "Hard", "bHardcore": "true", "DeathPenalty": "All", "ExpRate": "2.0",
+    }}
+    q = QueryService(
+        repo, TTLCache(clock), _cfg(), meta=meta, clock=clock,
+        settings_cache=settings_cache, world_cache={}, report=_FakeReport(),
+    )
+    return db, q
+
+
+async def test_rules_enum_localized_en_via_real_settings(tmp_path):
+    db, q = await _make_real_meta(tmp_path, "en")
+    dto = await q.rules(_world())
+    items = _rule_items(dto)
+    assert items["rules_label_difficulty"] == "Hard"
+    assert items["rules_label_hardcore"] == "On"
+    assert items["rules_label_death_penalty"] == "Drop everything"
+    await db.close()
+
+
+async def test_rules_enum_localized_ja_via_real_settings(tmp_path):
+    db, q = await _make_real_meta(tmp_path, "ja")
+    dto = await q.rules(_world())
+    items = _rule_items(dto)
+    assert items["rules_label_difficulty"] == "ハード"
+    assert items["rules_label_hardcore"] == "オン"
+    assert items["rules_label_death_penalty"] == "すべてドロップ"
     await db.close()
