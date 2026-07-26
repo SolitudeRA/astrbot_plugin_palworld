@@ -1,5 +1,3 @@
-import pytest
-
 from palworld_terminal.presentation.locale import MESSAGES, L
 
 
@@ -27,6 +25,7 @@ def test_admin_required_message():
     assert L("admin_required") == "⚠️ 该命令需要管理员权限"
 
 
-def test_missing_key_raises():
-    with pytest.raises(KeyError):
-        L("this_key_does_not_exist")
+def test_missing_key_returns_key_itself():
+    # 档二锚迁移（i18n Phase 1 · §3.1）：缺键行为由抛 KeyError 改为
+    # fallback 链末端返回 key 本身，永不抛。
+    assert L("this_key_does_not_exist") == "this_key_does_not_exist"
