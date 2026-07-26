@@ -77,7 +77,7 @@ async def test_status_assembles_dto(qs):
     assert dto.world_day == 42
     assert dto.online == 2
     assert dto.basecamp_count == 5
-    assert dto.smoothness_label == "流畅"
+    assert dto.smoothness_label == "smooth"   # 稳定键（应用层不产中文；渲染上提 presentation）
     assert dto.degraded is False
     assert ("Neo", 21, "good") in dto.players
     assert sid >= 1

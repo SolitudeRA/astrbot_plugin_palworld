@@ -21,14 +21,16 @@ class _StatusQueries(_PrivacyBase):
     _info_cache: Any
 
     def _smoothness_label(self, fps: float) -> str:
+        # 产稳定键（不产中文）：分层契约禁止 application 取 L()；中文渲染上提 presentation
+        # 两个消费方（formatters / config_view.status_rows）经 L(f"smoothness_{key}") 出文案。
         w = self._cfg.world
         if fps >= w.fps_smooth:
-            return "流畅"
+            return "smooth"
         if fps >= w.fps_moderate:
-            return "一般"
+            return "moderate"
         if fps >= w.fps_laggy:
-            return "卡顿"
-        return "严重卡顿"
+            return "laggy"
+        return "very_laggy"
 
     async def _online_rows(self, world: World) -> list[OnlinePlayerRow]:
         sessions = await self._repo.list_open_sessions(world.world_id)

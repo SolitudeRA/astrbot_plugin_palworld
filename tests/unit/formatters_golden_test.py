@@ -41,7 +41,7 @@ def test_status_golden():
     )
     dto = StatusDTO(
         server_name="Palpagos", world_name="game-world", world_day=42, online=2,
-        max_players=32, basecamp_count=5, fps=58.0, frame_time=17.2, smoothness_label="流畅",
+        max_players=32, basecamp_count=5, fps=58.0, frame_time=17.2, smoothness_label="smooth",
         players=[("Neo", 21, "good"), ("Trinity", 18, "ok")],
         peak_online_today=7, updated_at=1700000000, degraded=False, last_ok=1700000000,
         detail=detail,

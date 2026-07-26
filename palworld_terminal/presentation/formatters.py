@@ -63,8 +63,9 @@ _ACTION_CAT_EMOJI = {
 # 车间氛围（spec §6）：mood 稳定键白名单（越界值防御回落 fired_up）；徽章/吐槽措辞在 locale。
 _MOODS = ("fired_up", "slacking_off")
 
-# 性能流畅度档位 → 状态色点（spec §2.2/§4.1）：流畅🟢 / 一般🟡 / 卡顿·严重卡顿🔴。
-_SMOOTH_DOT = {"流畅": "🟢", "一般": "🟡", "卡顿": "🔴", "严重卡顿": "🔴"}
+# 性能流畅度稳定键 → 状态色点（spec §2.2/§4.1）：smooth🟢 / moderate🟡 / laggy·very_laggy🔴。
+# 键为 query_status 产出的稳定键（DTO 不再带中文）；文案经 L(f"smoothness_{key}") 渲染。
+_SMOOTH_DOT = {"smooth": "🟢", "moderate": "🟡", "laggy": "🔴", "very_laggy": "🔴"}
 
 # 元素英文键 → 中文（spec §5 名片随身高光）：与 domain.Element 九元素对齐；
 # unknown（未收录/无属性降级）→「未知」，理论外的键回落原键（不炸/不臆造）。
@@ -453,8 +454,9 @@ def format_status(
     lines.append("")
     lines.append(f"在线 {len(dto.players)}/{dto.max_players} · 今日峰值 {dto.peak_online_today}")
     dot = _SMOOTH_DOT.get(dto.smoothness_label, "🟡")
+    label = L(f"smoothness_{dto.smoothness_label}")
     lines.append(
-        f"性能 {dot} {dto.smoothness_label} · FPS {dto.fps:.0f} · 帧时间 {dto.frame_time:.1f}ms"
+        f"性能 {dot} {label} · FPS {dto.fps:.0f} · 帧时间 {dto.frame_time:.1f}ms"
     )
     if show_bases:
         lines.append(f"据点 {dto.basecamp_count}")

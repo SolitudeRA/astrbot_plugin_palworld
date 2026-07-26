@@ -47,7 +47,7 @@ def _status(*, players, online=2, max_players=32, basecamp_count=5, detail=None)
     return StatusDTO(
         server_name="cfg-name", world_name="game-world", world_day=42, online=online,
         max_players=max_players, basecamp_count=basecamp_count, fps=58.0, frame_time=17.2,
-        smoothness_label="流畅", players=players, peak_online_today=7,
+        smoothness_label="smooth", players=players, peak_online_today=7,  # 稳定键；渲染经 L() 出中文
         updated_at=1700000000, degraded=False, last_ok=1700000000, detail=detail,
     )
 

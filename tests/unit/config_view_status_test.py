@@ -7,7 +7,7 @@ def _dto(degraded=False, detail=None):
     return StatusDTO(
         server_name="alpha", world_name="alpha", world_day=3, online=5,
         max_players=32, basecamp_count=2, fps=55.0, frame_time=18.0,
-        smoothness_label="流畅", players=[], peak_online_today=7,
+        smoothness_label="smooth", players=[], peak_online_today=7,  # DTO 值域=稳定键；下发经 L() 渲染回中文
         updated_at=1000, degraded=degraded, last_ok=999, detail=detail,
     )
 
