@@ -12,7 +12,7 @@ import pytest
 _LOCALES_DIR = Path(__file__).resolve().parents[2] / "palworld_terminal" / "presentation" / "locales"
 
 # 参与校验的 locale（zh-CN 为唯一基线）。ja 上线后追加即自动纳入两两比对。
-LOCALES = ("zh-CN", "en")
+LOCALES = ("zh-CN", "en", "ja")
 
 
 def _load(locale: str) -> dict[str, str]:
