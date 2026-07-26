@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from ..presentation.confirmation import PendingAction
-from ..presentation.locale import L
+from ..presentation.locale import MESSAGES, L
 from ..presentation.server_arg import ArgError, parse_arg
 from ..shared.command_permissions import effective_enabled
 from .command_support import _render_routing_error, feature_disabled_text
@@ -19,16 +19,12 @@ def _parse_shutdown_seconds(token: str) -> int | None:
         return None
     return seconds
 
-# 写命令 → 面向用户的中文动作名（失败回执 `{action}失败`、预览/confirm 短语用）。
-_ACTION_LABEL = {
-    "announce": "广播公告",
-    "save": "存档",
-    "kick": "踢出",
-    "unban": "解封",
-    "ban": "封禁",
-    "shutdown": "关服",
-    "stop": "停止服务",
-}
+# 写命令 → 面向用户的动作名（失败回执 `{action}失败`、预览/confirm 短语用）。措辞已抽键
+# （i18n §3.5）：admin_action_*（announce/save/kick/unban/ban/shutdown/stop），经 L() 渲染；
+# 未登记 command_str 优雅回落原 token（复现旧 `.get(cmd, cmd)`）。
+def _action_label(action: str) -> str:
+    key = f"admin_action_{action}"
+    return L(key) if key in MESSAGES else action
 
 
 def _target_phrase(name: str | None, userid: str | None) -> str:
@@ -178,14 +174,15 @@ class AdminWriteFlow:
         ban=封禁 Neo（…1234）；shutdown=关服（60 秒倒计时）；stop=停止服务。"""
         if command_str == "ban":
             return (
-                f"{_ACTION_LABEL['ban']} "
+                f"{_action_label('ban')} "
                 f"{_target_phrase(payload.get('name'), payload.get('userid'))}"
             )
         if command_str == "shutdown":
-            return f"{_ACTION_LABEL['shutdown']}（{payload['seconds']} 秒倒计时）"
+            return L("admin_phrase_shutdown",
+                     action=_action_label("shutdown"), seconds=payload["seconds"])
         if command_str == "stop":
-            return _ACTION_LABEL["stop"]
-        return _ACTION_LABEL.get(command_str, command_str)
+            return _action_label("stop")
+        return _action_label(command_str)
 
     def _store_pending(
         self, command_str, group, admin_id, umo, server, *, payload,
@@ -244,7 +241,7 @@ class AdminWriteFlow:
         # shutdown/stop 断连由 AdminService 标 message_key=admin_shutdown_initiated。
         if result.message_key == "admin_shutdown_initiated":
             return L(
-                "admin_confirm_initiated", verb=_ACTION_LABEL[p.command_str],
+                "admin_confirm_initiated", verb=_action_label(p.command_str),
                 server=resolution.server.name,
             )
         return L(
@@ -270,7 +267,7 @@ class AdminWriteFlow:
         if key == "admin_failed":
             action = str(params.get("action", ""))
             return L(
-                "admin_failed", action=_ACTION_LABEL.get(action, action),
+                "admin_failed", action=_action_label(action),
                 server=params.get("server", ""), error=params.get("error", ""),
             )
         if key == "admin_resolve_failed":

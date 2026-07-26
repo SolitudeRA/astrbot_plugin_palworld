@@ -26,22 +26,25 @@ def _or_q(v: int | None) -> object:
 
 def render_event(view: EventView) -> str:
     """EventView → 面向用户措辞（spec §4.4 八类表，逐字精确）。
-    八类措辞唯一渲染源；未知类型兜底返回枚举值，不冒异常。"""
+    八类措辞经 locale 键渲染（唯一渲染源）；未知类型兜底返回枚举值，不冒异常。
+    据点/公会查无（name 空）经 L("fallback_*") 兜底后填入 name 占位（i18n §3.2）。"""
     et = view.event_type
     if et is EventType.PLAYER_LEVEL_UP:
-        return f"{view.name} 升级 Lv{_or_q(view.old)}→Lv{_or_q(view.new)}"
+        return L("event_level_up", name=view.name, old=_or_q(view.old), new=_or_q(view.new))
     if et is EventType.NEW_PLAYER:
-        return f"新玩家 {view.name} 加入世界"
+        return L("event_new_player", name=view.name)
     if et is EventType.NEW_GUILD:
-        return f"新公会「{view.name or L('fallback_guild')}」出现"
+        return L("event_new_guild", name=view.name or L("fallback_guild"))
     if et is EventType.NEW_BASE:
-        return f"新据点「{view.name or L('fallback_base')}」确认"
+        return L("event_new_base", name=view.name or L("fallback_base"))
     if et is EventType.BASE_VANISHED:
-        return f"据点「{view.name or L('fallback_base')}」疑似消失（连续多次未观察到）"
+        return L("event_base_vanished", name=view.name or L("fallback_base"))
     if et is EventType.WORKER_DELTA:
-        return f"据点「{view.name or L('fallback_base')}」工作帕鲁 {_or_q(view.prev)}→{_or_q(view.cur)}"
+        return L("event_worker_delta",
+                 name=view.name or L("fallback_base"),
+                 prev=_or_q(view.prev), cur=_or_q(view.cur))
     if et is EventType.WORLD_DAY_MILESTONE:
-        return f"世界迎来第 {_or_q(view.milestone)} 天"
+        return L("event_world_day", milestone=_or_q(view.milestone))
     if et is EventType.ONLINE_RECORD:
-        return f"在线人数新纪录 {_or_q(view.value)} 人"
+        return L("event_online_record", value=_or_q(view.value))
     return et.value

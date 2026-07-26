@@ -186,7 +186,7 @@ class Commands:
         if not vis:
             return L("group_no_actions")
         subs = " / ".join(sub for sub, _spec in vis)
-        return f"用法：/pal {group} <{subs}>"
+        return L("group_usage", group=group, subs=subs)
 
     @staticmethod
     def _rebuild_arg(p) -> str:
@@ -385,7 +385,9 @@ class Commands:
             for s in self._cfg.servers:
                 is_allowed, active = group.get(s.server_id, (False, False))
                 if is_allowed:
-                    authed.append(f"{s.name}（当前活动）" if active else s.name)
+                    authed.append(
+                        L("whereami_server_active", name=s.name) if active else s.name
+                    )
             status = (L("whereami_authed", servers="、".join(authed))
                       if authed else L("whereami_unauthed"))
         return f"{head}\n{status}\n{L('whereami_footer')}"

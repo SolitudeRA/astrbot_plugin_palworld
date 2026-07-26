@@ -18,6 +18,7 @@ from palworld_terminal import application as _application_pkg
 from palworld_terminal.application import report_service
 from palworld_terminal.presentation import event_wording as event_wording_module
 from palworld_terminal.presentation import formatters as formatters_module
+from palworld_terminal.presentation.locale import MESSAGES
 
 
 def _query_modules():
@@ -51,7 +52,9 @@ def _code_string_literals(source: str) -> str:
     return "\n".join(parts)
 
 
-# 八类事件措辞（spec §4.4）各取一段 event_wording 独有的 f-string 字面段作指纹。
+# 八类事件措辞（spec §4.4）各取一段独有 zh 措辞指纹。i18n 抽键后（§3.5）措辞唯一源
+# 已从 event_wording.py 字面量迁至 locales/zh-CN.json 的 event_* 键值——本组指纹改锚
+# locale 值；render_event 仍是唯一**渲染映射**源（EventType→键），consumers 只 delegate。
 _WORDING_FRAGMENTS = [
     "升级 Lv",        # PLAYER_LEVEL_UP
     "加入世界",        # NEW_PLAYER
@@ -63,12 +66,22 @@ _WORDING_FRAGMENTS = [
     "在线人数新纪录",  # ONLINE_RECORD
 ]
 
+# render_event 映射到的八类 event_* locale 键（唯一渲染映射源须持有全部键）。
+_EVENT_KEYS = [
+    "event_level_up", "event_new_player", "event_new_guild", "event_new_base",
+    "event_base_vanished", "event_worker_delta", "event_world_day", "event_online_record",
+]
+
 
 def test_eight_wordings_single_source_no_reinline():
-    # 唯一渲染源（render_event）持有全八类措辞指纹。
-    canonical = _code_string_literals(inspect.getsource(event_wording_module))
+    # 措辞唯一源（抽键后）= locales/zh-CN.json：八类 zh 措辞指纹全部落在 locale 值。
+    locale_values = "\n".join(MESSAGES.values())
     for frag in _WORDING_FRAGMENTS:
-        assert frag in canonical, f"event_wording.py 缺措辞指纹 {frag!r}"
+        assert frag in locale_values, f"zh-CN.json 缺事件措辞指纹 {frag!r}（措辞唯一源）"
+    # 唯一渲染映射源（render_event）持有全八类 event_* 键（consumers 只 delegate render_event）。
+    canonical = _code_string_literals(inspect.getsource(event_wording_module))
+    for key in _EVENT_KEYS:
+        assert key in canonical, f"event_wording.py（render_event）缺事件键 {key!r}"
     # 措辞渲染下沉 presentation.render_event（消除 application→presentation 反向依赖）：
     # query/report 不再产措辞、不 import 已废弃的 event_wording，只经 event_view 单一构造
     # 入口产 EventView；代码内绝不 re-inline 任一措辞。

@@ -25,6 +25,7 @@ from ..presentation.textkit import (
     fmt_duration,
     fold,
     rel_date,
+    rel_date_key,
     rel_datetime,
     time_of_day,
 )
@@ -298,7 +299,9 @@ def format_events(
                 lines.append("")          # 空行分节（含标题与首节之间）
                 lines.append(day)         # 素节头无图标
                 current_day = day
-            if day == "今天":
+            # 结构性判断（i18n §3.5）：拿 rel_date_key 档位而非本地化渲染串字面——
+            # 「今天」条目附 HH:MM 的分支在 ja/en 下仍正确命中（渲染串本地化后无法字面比较）。
+            if rel_date_key(e.occurred_at, now, tz) == "today":
                 lines.append(f"· {time_of_day(e.occurred_at, tz)} {render_event(e)}")
             else:
                 lines.append(f"· {render_event(e)}")

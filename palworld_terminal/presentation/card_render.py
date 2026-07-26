@@ -19,6 +19,7 @@ from __future__ import annotations
 import html
 
 from ..application.dtos import MeCardDTO
+from .locale import MESSAGES, L
 from .textkit import fmt_duration
 
 # 图片卡栅格缩放（HiDPI）：AstrBot html_render 默认 device_scale_factor 常为 1，1x 栅格在
@@ -26,22 +27,27 @@ from .textkit import fmt_duration
 # 框架的 DSF 配置。调大更清晰但图更大；2 = 视网膜级足够。
 _SCALE = 2
 
-# 元素英文键 → 中文（与 domain.Element 九元素 + formatters._ELEMENT_LABEL 对齐）。
-_ELEMENT_ZH = {
-    "fire": "火", "water": "水", "grass": "草", "electric": "电", "ice": "冰",
-    "dragon": "龙", "dark": "暗", "ground": "地", "neutral": "无", "unknown": "未知",
-}
-# 元素 → 降级 emoji（图标缺失/未收录元素时用；永不依赖字体/图标文件）。
+# 元素 → 降级 emoji（图标缺失/未收录元素时用；永不依赖字体/图标文件）。元素/动作中文
+# 已抽键（i18n §3.5）：与 formatters 同键 element_* / action_*，经 _label_or_key 渲染。
 _ELEMENT_EMOJI = {
     "fire": "🔥", "water": "💧", "grass": "🌿", "electric": "⚡", "ice": "❄",
     "dragon": "🐲", "dark": "🌑", "ground": "⛰", "neutral": "⭐",
 }
-# ActionCategory.value → 中文（与 formatters._ACTION_CAT_LABEL 对齐）。
-_ACTION_ZH = {
-    "working": "工作中", "moving": "移动", "idle": "闲置", "slacking": "摸鱼",
-    "combat": "战斗", "sleeping": "睡觉", "eating": "进食",
-    "incapacitated": "濒死", "unknown": "随行",
-}
+
+
+def _label_or_key(prefix: str, key: str) -> str:
+    """理论外键优雅回落原键（与 formatters._label_or_key 同范式）：查 zh 基线 MESSAGES
+    命中经 L() 渲染，缺键（未收录元素/未归类动作）返回原始 key，复现旧 `.get(k, k)`（i18n §3.5）。"""
+    full = f"{prefix}_{key}"
+    return L(full) if full in MESSAGES else key
+
+
+def _companion_action(value: str) -> str:
+    """随身动作中文（与文字卡 formatters._companion_action 逐字一致）：Action 常空 /
+    AI_Action=OtomoFollow 未归类 → UNKNOWN，此时给「随行」而非「未知」（随身默认跟随主人）。"""
+    if value in ("unknown", ""):
+        return L("companion_following")
+    return _label_or_key("action", value)
 
 
 def _esc(text: str) -> str:
@@ -57,7 +63,7 @@ def _esc(text: str) -> str:
 def _rel_days(days: int) -> str:
     """距今天数 int（0=今天）→「今天」/「N天前」。绝不当 epoch（隐私 P1）。负值归 0。"""
     n = max(int(days), 0)
-    return "今天" if n == 0 else f"{n}天前"
+    return L("days_ago_today") if n == 0 else L("days_ago_n", n=n)
 
 
 def _companion_face(element: str, icons: dict[str, str]) -> str:
@@ -71,37 +77,37 @@ def _companion_face(element: str, icons: dict[str, str]) -> str:
 def _otomo_block(dto: MeCardDTO, icons: dict[str, str]) -> str:
     """随身三态 → 卡区 HTML。离线卡走专属空态（无实时血量/随身）。"""
     if not dto.online:
-        return '<div class="otomo empty">离线 · 无实时血量与随身数据</div>'
+        return f'<div class="otomo empty">{L("me_card_offline_otomo")}</div>'
     if dto.companion_status == "shown" and dto.companion is not None:
         c = dto.companion
-        element_zh = _ELEMENT_ZH.get(c.element, c.element)
-        action_zh = _ACTION_ZH.get(c.action_label, "随行")
+        element_zh = _label_or_key("element", c.element)
+        action_zh = _companion_action(c.action_label)
         face = _companion_face(c.element, icons)
         return (
             '<div class="otomo">'
             f'<div class="face">{face}</div>'
-            '<div class="info"><div class="l1">随身帕鲁</div>'
+            f'<div class="info"><div class="l1">{L("me_card_companion_label")}</div>'
             f'<div class="l2">{_esc(c.species_name)} <em>{element_zh}</em></div></div>'
             f'<div class="st">Lv{c.level} · HP {c.hp_ratio:.0%}<br>{action_zh}</div>'
             '</div>'
         )
     if dto.companion_status == "none_out":
-        return '<div class="otomo empty">此刻未带出随身帕鲁</div>'
+        return f'<div class="otomo empty">{L("me_card_none_out")}</div>'
     # no_data：无快照/本人不在快照/game-data 未轮询——绝不谎称没带（C2）。
-    return '<div class="otomo empty">随身数据暂不可用（需启用 guilds_bases）</div>'
+    return f'<div class="otomo empty">{L("me_card_no_data")}</div>'
 
 
 def _stat_grid(dto: MeCardDTO) -> str:
     """两格 stat 网格。玩家自身 HP 不在 DTO → 不放 HP（用本次/累计在线或最近上线）。"""
     if dto.online:
         cells = [
-            ("本次在线", fmt_duration(dto.online_seconds)),
-            ("累计在线", fmt_duration(dto.total_seconds)),
+            (L("me_card_stat_session"), fmt_duration(dto.online_seconds)),
+            (L("me_card_stat_total"), fmt_duration(dto.total_seconds)),
         ]
     else:
         cells = [
-            ("最近上线", _rel_days(dto.last_seen_at)),
-            ("累计在线", fmt_duration(dto.total_seconds)),
+            (L("me_card_stat_last_online"), _rel_days(dto.last_seen_at)),
+            (L("me_card_stat_total"), fmt_duration(dto.total_seconds)),
         ]
     return "".join(
         f'<div class="stat"><div class="t">{t}</div><div class="d">{d}</div></div>'
@@ -124,11 +130,12 @@ def build_me_card_html(dto: MeCardDTO, icons: dict[str, str], theme: str) -> str
         f'<div class="guild">{_esc(dto.guild_name)}</div>' if dto.guild_name else ""
     )
     badge_html = (
-        '<span class="badge"><i></i>此刻不在线</span>' if not dto.online else ""
+        f'<span class="badge"><i></i>{L("me_card_offline")}</span>' if not dto.online else ""
     )
     pct = f"{max(0.0, min(dto.percentile, 100.0)):.0f}"
-    hidden_html = " · 已隐藏（仅自己可见）" if dto.hidden else ""
-    foot_right = f"首次记录 {_rel_days(dto.first_seen_at)}{hidden_html}"
+    hidden_html = L("me_card_hidden_inline") if dto.hidden else ""
+    foot_right = f"{L('me_card_first_record', days=_rel_days(dto.first_seen_at))}{hidden_html}"
+    percentile_label = L("me_card_percentile_label")
 
     return f"""<style>
 * {{ box-sizing: border-box; }}
@@ -197,7 +204,7 @@ body {{ margin: 0; width: max-content; }}
         <div><div class="nm">{_esc(dto.name)}</div>{guild_html}{badge_html}</div>
         <div class="lv"><b>{dto.level}</b><span>Level</span></div>
       </div>
-      <div class="hero"><b>{pct}%</b><span>超越有记录玩家</span></div>
+      <div class="hero"><b>{pct}%</b><span>{percentile_label}</span></div>
       <div class="grid">{_stat_grid(dto)}</div>
       {_otomo_block(dto, icons)}
       <div class="foot"><span>PalWorldTerminal</span><span>{foot_right}</span></div>
