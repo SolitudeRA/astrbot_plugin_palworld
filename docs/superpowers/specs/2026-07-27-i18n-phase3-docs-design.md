@@ -22,7 +22,10 @@
 - 日英文档不是摘要版：章节职责、关键事实、技术 token、代码/命令示例和安全告知与中文规范源完整平行。
 - 任意文档的语言导航均落到同一文档族，不跳错页、不回落到另一语言。
 - 日英 README 只引用对应语言的子文档与截图。
-- 18 张正式截图来自同一 commit、同一演示数据、同一布局 scale；原图与 README 实际展示宽度下均清晰可读。
+- 18 张正式截图来自 manifest 记录的同一 source commit、同一语义演示数据和同一布局 scale；原图与 README
+  实际展示宽度下均清晰可读。
+- 正式截图可以由仓库内锁版本的单一命令重新生成；manifest 能证明 locale、场景、主题、scale、来源 commit
+  与当前 PNG 的对应关系。
 - 自动守卫、人工语言审查、浏览器/图片目检与项目全量门禁全部通过。
 
 ## 2. 当前基线
@@ -119,7 +122,17 @@ docs/images/
     me-card-dark.png
 ```
 
-`docs/images/README.md` 扩展为三语资产矩阵，记录来源、scale、尺寸、演示数据政策与复现步骤。
+另新增：
+
+- `docs/images/screenshots.manifest.json`：18 张正式截图的来源、场景、scale、像素尺寸与 SHA-256 清单。
+- `scripts/capture_docs_assets.py`：18 张正式资产的唯一用户入口。
+- `frontend/scripts/capture-docs-screenshots.mjs`：由总入口调用的设置页捕获实现。
+- `scripts/export_docs_cards.py`：由总入口调用的图片名片导出实现；必须走真实 `build_me_card_html` 和
+  与生产 `html_render(html, {}, options={"type": "png"})` 等价的 Jinja→Chromium→PNG 契约，禁止复制
+  一份静态卡片模板冒充 renderer 输出。
+
+`docs/images/README.md` 扩展为三语资产矩阵，记录来源、scale、尺寸、演示数据政策与复现步骤。它与截图
+manifest 属于维护者资产说明，不是用户文档族，不要求三语化。
 
 ## 4. 语言导航
 
@@ -156,11 +169,11 @@ docs/images/
 ### 5.1 中文兼容
 
 - 不改现有中文标题，保留 GitHub 已生成的中文 auto-slug，避免破坏外部深链。
-- 可以在被跨文档引用的标题前新增显式稳定 anchor，但不能移除既有标题。
+- 在每个现有标题前新增显式稳定 anchor，但不能移除或改写既有中文标题。
 
 ### 5.2 跨语言稳定 ID
 
-所有被文档内部或跨文档引用的章节使用语义化英文 ID，例如：
+四个文档族的所有标题都使用显式、语义化英文 ID；所有被文档内部或跨文档引用的章节必须链接到这些 ID，例如：
 
 - `first-setup`
 - `world-mode`
@@ -170,13 +183,16 @@ docs/images/
 - `feature-groups`
 - `degraded-behavior`
 
-三语同一章节使用同一 ID；标题文本正常翻译。链接优先指向显式 ID，不依赖日文/英文标题的 auto-slug。
+三语同一章节使用同一 ID；标题文本正常翻译。仓库内链接统一指向显式 ID，不依赖任一语言标题的
+auto-slug。中文标题文本保持不变，因此既有外部 auto-slug 深链继续兼容；本地自动测试不自行猜测
+GitHub 的中文 slug 算法。
 
 ### 5.3 唯一性
 
 - 同一文件内显式 ID 不重复。
 - 相对链接的 fragment 必须存在于目标文件。
-- 不使用 GitHub 私有或非标准扩展生成 anchor。
+- 显式 anchor 统一使用仓库选定的一种标准 HTML 写法，并通过 GitHub GFM API 与 Draft PR 实际渲染验证；
+  不混用多种写法，也不依赖 GitHub 私有 anchor 扩展。
 
 ## 6. 翻译契约
 
@@ -188,16 +204,18 @@ docs/images/
 
 ### 6.2 逐字保持的内容
 
-下列内容不翻译、不改写：
+下列真实输入或技术字面不翻译、不改写：
 
-- `/pal ...` 命令路径与参数 token
+- `/pal ...` 命令路径、子命令、枚举值与真实输入别名（包括 `卡`、`图`）
 - 配置键、JSON/YAML 字段、枚举存储值
 - 环境变量、文件路径、模块名、类/函数名
 - REST endpoint、URL、版本号
 - shell 命令与可执行代码
 - 产品名 `PalWorldTerminal`、`AstrBot`、`Palworld REST API`
 
-代码围栏中的自然语言输出示例可按 locale 翻译；可执行命令和技术 token 必须保持。
+`<名称>`、`<玩家名>`、`<消息>` 等是说明性 metavariable，不是用户必须逐字输入的 token；日英文档应翻译为
+`<name>`、`<player>`、`<message>` 等自然目标语言写法。代码围栏中的自然语言输出示例可按 locale 翻译；
+可执行命令和上述真实技术字面必须保持。
 
 ### 6.3 语言质量
 
@@ -213,6 +231,7 @@ docs/images/
 
 - 允许修复明确误译、同一术语前后冲突、进入正式截图的生硬/错误文案。
 - 修复必须同步日英词典与测试，且不改变 key、placeholder、配置值或业务行为。
+- 实施计划必须先列出允许修改的精确 locale key 与理由；未列入清单的运行时文案不在本 Phase 修改。
 - 不扩展为运行时文案重写，不引入新 i18n 机制。
 
 ## 7. 截图矩阵
@@ -228,21 +247,33 @@ docs/images/
 | 浅色图片名片 | 1 | 1 | 1 |
 | 深色图片名片 | 1 | 1 | 1 |
 
-中文 6 张也重新生成，保证 18 张来自同一代码版本和演示数据。
+中文 6 张也重新生成，保证 18 张来自 manifest 记录的同一 source commit 和同一组语义实体。source commit
+是生成资产前已提交的代码/文案状态；生成后的 PNG 与 manifest 在后续资产提交中一并纳入版本控制。
 
-### 7.2 数据与场景
+### 7.2 数据、场景与确定性
 
-- 设置页使用 `frontend/dev.html` 与 `frontend/src/dev/mockBridge.ts` 的确定性演示数据。
-- 三语捕获前重置到相同场景，不依赖上一次浏览器交互残留。
+- 设置页使用 `frontend/dev.html` 与 `frontend/src/dev/mockBridge.ts` 的正式 capture mode。
+- capture mode 仅用于开发截图，必须隐藏 dev toolbar，并显式固定 locale、场景、主题、时钟与随机种子。
+- 正式 manifest 为每张设置页记录 scenario ID、locale、theme、viewport、DPR、捕获目标/滚动步骤与输出路径。
+- 三语捕获前由 harness 创建全新 browser context，清空 storage，并重置到同一语义场景；不得依赖上一次交互。
+- 演示实体使用跨语言中性的稳定标识，如 `Tokyo-01`、`Osaka-02`、`operator-01`；三语“同一数据”指相同
+  实体、数值和状态，不要求 locale 文案字节相同。
 - 地址使用 `example.com`；账号、玩家、服务器、状态数据均为演示值。
 - 不连接真实服务器，不读取真实账号、群、Token、密码或审计数据。
 - 四张设置页图片保持现有正式图片的深色主题与内容职责。
 - 两张名片使用同一虚构玩家数据，主题分别为 light/dark。
 
-### 7.3 设置页 scale 契约
+### 7.3 设置页生成与 scale 契约
+
+18 张资产统一由 `python scripts/capture_docs_assets.py --source-commit <sha>` 生成；设置页部分只允许由它
+调用 `frontend/scripts/capture-docs-screenshots.mjs`。前端捕获实现使用
+`frontend/package-lock.json` 锁定的 Playwright/Chromium 版本，并在拍摄前等待应用稳定与
+`document.fonts.ready`；脚本启动后必须断言 `window.innerWidth`、`window.innerHeight`、
+`window.devicePixelRatio === 2`、`visualViewport.scale === 1`、当前 locale 和主题。
 
 - 浏览器 zoom：`100%`
-- CSS viewport/capture width：`1100 CSS px`
+- 常规设置页 CSS viewport：`1100×960`
+- onboarding CSS viewport：`1100×600`
 - `deviceScaleFactor`：`2`
 - 禁止通过缩小字体、浏览器 zoom 或 DPR 塞入英文长文案
 - 常规设置页物理 PNG：`2200×1920`
@@ -252,10 +283,12 @@ docs/images/
 
 英文长文案需要自然换行；若相同语义场景在固定高度内无法完整展示，先精炼文案或调整场景滚动位置，不降低 scale。
 
-### 7.4 图片名片 scale 契约
+### 7.4 图片名片生成与 scale 契约
 
-- 通过真实 card renderer 加载对应 locale 后生成。
-- 使用 renderer 原生 `1008×900` PNG，不做浏览器截屏或重采样。
+- 通过仓库内正式导出入口调用真实 `build_me_card_html`、对应 locale 和生产 HTML render 参数生成。
+- 保持 renderer 的 `zoom: 2` 与原生 `1008px` 输出宽度；高度由内容、字体和自然换行决定，不强凑
+  `900px`。六张图片各自的原生高度写入 manifest 并由 IHDR 测试锁定。
+- 不固定高度、不裁切、不补边、不做浏览器二次截屏或重采样。
 - README 继续以 `width="49%"` 并排展示 light/dark。
 
 ### 7.5 人工目检
@@ -264,10 +297,22 @@ docs/images/
 
 - 原图 100% 下的字体、抗锯齿、缺字、豆腐块与裁切
 - 约 820px README 内容宽度下的正文、标签与按钮可读性
-- 目标语言正确，无 raw key、`{placeholder}` 或错误 fallback
-- 英文无中文展示串；日文无简中整句残留
+- 目标语言正确，无 raw key、未插值 `{placeholder}` 或错误 fallback
+- 英文界面除品牌字标、母语语言名和真实输入别名白名单外无中文 UI 文案；中性演示数据不含中文
+- 日文界面无来自简中词典的整句 fallback；共享汉字与日文标点不作为泄漏证据
 - 三语场景、数据、主题、裁切与布局 scale 一致
 - 不含真实敏感数据
+
+### 7.6 截图 manifest
+
+`docs/images/screenshots.manifest.json` 至少记录：
+
+- schema version、source commit、生成命令、Node/Playwright/Chromium 版本
+- 每张图片的 locale、kind、scenario、theme、viewport、DPR、zoom、像素宽高
+- 图片 SHA-256；设置页额外记录 capture target/滚动步骤，名片额外记录 renderer scale
+
+source commit、18 张路径、SHA-256 与当前文件必须一致。CI 默认校验 manifest、哈希、IHDR 与映射，不做
+跨平台像素级重建比较；正式资产仍必须由同一锁版本命令生成并完成 §7.5 人工目检。
 
 ## 8. 自动测试设计
 
@@ -286,29 +331,33 @@ docs/images/
    - 当前语言不可点击，另外两项指向正确同族文件
 
 3. **结构平行**
-   - 同族三语的标题级别序列一致
-   - 显式 anchor ID 集合一致且文件内唯一
+   - 同族三语逐项比较有序 `(heading level, stable ID)`，不只比较级别序列
+   - 每个显式 anchor 紧邻其标题、文件内唯一，三语集合和顺序一致
    - fenced block 的数量与语言标签序列一致
-   - Markdown 表格数量与列数序列一致
+   - Markdown 表格比较数量、列数、数据行数与 manifest 指定的稳定首列技术键
+   - Markdown 解析必须忽略 fenced code，并正确处理 escaped pipe 与 inline code，不能用逐行 `split("|")`
 
 4. **链接完整**
    - 相对文件路径存在
-   - fragment 命中目标文件的显式 ID，或中文保留标题的既有兼容目标
+   - 仓库内 fragment 必须命中目标文件的显式稳定 ID
    - 日英文档不链接中文子文档（语言导航除外）
 
 5. **技术 token**
-   - 将现有中文守卫中的命令、配置键、endpoint、环境变量等语言无关 token 应用于三语文档聚合
+   - 按“文档族/稳定章节”建立必需命令、配置键、endpoint、环境变量 manifest
+   - 每种语言必须在相同文档族与章节命中，禁止跨 README/configuration/commands 聚合抵消遗漏
    - 不要求三语自然语言逐字相同
 
 6. **截图映射**
    - 三语 README 各自引用 6 张正确语言图片
-   - 通过 PNG IHDR（标准库读取）锁定像素尺寸
+   - 通过 PNG IHDR（标准库读取）锁定设置页固定尺寸、名片原生宽度与 manifest 记录高度
+   - 校验 manifest schema、统一 source commit、路径、SHA-256、locale、场景、主题、scale 与实际文件
    - Banner/Logo 仍引用共用资产
 
 7. **残留与占位符**
-   - 英文正文剔除语言导航后不含 CJK
-   - 日文不做汉字零容忍；使用简中整句/中文标点守卫加人工校对
-   - 三语禁止 `TODO`、`TBD`、`待翻译`、模板占位残留
+   - 英文只扫描解析后的 prose 节点；允许精确白名单中的真实输入别名、品牌字标与母语语言名，不做
+     对整份 Markdown 的粗暴 CJK 零容忍
+   - 日文使用维护在测试中的“简中源整句/高风险短语”清单加人工校对；共享汉字与 `、。` 等日文标点不报错
+   - `TODO`、`TBD`、`待翻译` 只在 prose 节点禁止；命令 metavariable、代码与合法模板语法不视为残留
 
 ### 8.2 保留 `tests/unit/readme_test.py`
 
@@ -333,10 +382,11 @@ docs/images/
 - `ruff check .`
 - `mypy palworld_terminal`
 - `lint-imports`
-- `npm run test:run`
-- `npm run typecheck`
-- `npm run build`
-- `npm run verify:bundle`
+- `npm --prefix frontend run test:run`
+- `npm --prefix frontend run typecheck`
+- `npm --prefix frontend run build`
+- `npm --prefix frontend run verify:bundle`
+- 截图 manifest/路径/SHA-256/IHDR 校验
 - `git diff --check`
 
 若未修改运行时/前端源码，生产 bundle 必须 no-drift；若受限校对修改前端词典，必须提交对应重建产物并证明重复构建无漂移。
@@ -346,7 +396,8 @@ docs/images/
 - 逐份通读日英 README、configuration、commands、CONTRIBUTING。
 - 对照运行时词典检查核心术语与聊天输出示例。
 - 从每份文档完整走一遍中→日→英→中的导航闭环。
-- 在 GitHub Markdown 渲染中复核目录、anchor、表格、代码围栏和图片。
+- push 前使用 GitHub GFM API 复核生成 HTML；Draft PR 创建后再在 GitHub 文件页完整复核目录、anchor、
+  表格、代码围栏、相对链接和图片。
 - 18 张图片按 §7.5 全数目检。
 
 ### 9.3 完成定义
@@ -355,7 +406,7 @@ docs/images/
 
 - 任一语言缺文档、缺章节、缺安全告知或缺截图
 - 日英页面的正文链接意外落到中文
-- fragment、图片或外部链接失效
+- fragment、图片或已完成联网复核的外部链接失效；临时网络不可用必须记录为待验收，不能假报通过
 - 技术 token 被翻译或误改
 - 英文/日文截图靠缩放字体或 zoom 才能容纳
 - 图片包含真实敏感数据
@@ -363,11 +414,11 @@ docs/images/
 
 ## 10. 失败处理
 
-- **英文过长**：先改写为自然、简洁的英文，再调整捕获滚动位置；禁止降低 zoom、字体或 DPR。
+- **英文过长**：先改写为自然、简洁的英文，再调整 manifest 中的捕获滚动位置；禁止降低 zoom、字体或 DPR。
 - **anchor 冲突**：修正显式稳定 ID；不依赖语言相关 auto-slug 猜测。
 - **文档与运行时术语冲突**：以已发布运行时词典为基准；若词典明确错误，按 §6.4 受限修复并补测试。
 - **结构不平行**：补齐缺失章节/表格/代码围栏，不通过放宽测试掩盖。
-- **截图泄密或状态漂移**：丢弃整组并从重置后的确定性 mock 重新生成。
+- **截图泄密或状态漂移**：丢弃整组并从全新 context、固定时钟/随机种子的 capture mode 重新生成。
 - **固定 scale 下裁切**：精炼文案或选择同语义完整视图；禁止后期拉伸。
 
 ## 11. 非目标
@@ -382,9 +433,10 @@ docs/images/
 
 ## 12. 实施顺序
 
-1. 建立三语文档 manifest、失败测试、语言导航与显式 anchor 骨架。
+1. 建立三语文档 manifest、失败测试、语言导航与全标题显式 anchor 骨架。
 2. 完成英文四文档族，做技术 token/链接/安全语义校对。
 3. 完成日文四文档族，做术语与简中残留校对。
-4. 对截图涉及的 Phase 1/2 日英语句做受限一致性校对。
-5. 从同一 commit、同一演示数据生成 18 张正式图片。
-6. 更新图片资产说明，执行结构测试、全量门禁与三语人工验收。
+4. 冻结运行时校对 key 清单；只对清单内的 Phase 1/2 日英语句做受限一致性校对。
+5. 实现并验证 capture mode、锁版本截图入口与截图 manifest。
+6. 提交代码/文案 source commit，从该 commit 与同一语义演示数据生成 18 张正式图片。
+7. 更新图片资产说明，执行结构测试、manifest 校验、全量门禁与三语人工验收。
