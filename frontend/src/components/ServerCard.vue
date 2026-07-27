@@ -51,8 +51,10 @@ function saveCard() {
       <span class="hchip" :class="modelValue.enabled ? 'on' : 'off'">{{ modelValue.enabled ? t('view.server.enabled') : t('view.server.disabled') }}</span>
       <span class="grow"></span>
       <span v-if="flash" class="hchip on savedflash">{{ t('common.staged') }}</span>
-      <button v-if="!hideDelete" class="headbtn del" @click="emit('delete')">{{ t('common.remove') }}</button>
-      <button class="headbtn edit" @click="enterEdit">{{ t('common.edit') }}</button>
+      <span class="card-actions">
+        <button v-if="!hideDelete" class="headbtn del" @click="emit('delete')">{{ t('common.remove') }}</button>
+        <button class="headbtn edit" @click="enterEdit">{{ t('common.edit') }}</button>
+      </span>
     </div>
     <div class="cbody">
       <div class="crow"><span class="ck">{{ t('view.server.address') }}</span><span class="cv">{{ modelValue.base_url }}</span></div>
@@ -71,8 +73,10 @@ function saveCard() {
       <span class="idx">{{ indexLabel }}</span>
       <span class="editing-tag">{{ t('common.editing') }}</span>
       <span class="grow"></span>
-      <button class="headbtn cancel-card" @click="cancel">{{ t('common.cancel') }}</button>
-      <button class="headbtn save-card" @click="saveCard">{{ t('common.done') }}</button>
+      <span class="card-actions">
+        <button class="headbtn cancel-card" @click="cancel">{{ t('common.cancel') }}</button>
+        <button class="headbtn save-card" @click="saveCard">{{ t('common.done') }}</button>
+      </span>
     </div>
     <div class="cbody">
       <template v-for="f in SERVER_FIELDS" :key="f.key">

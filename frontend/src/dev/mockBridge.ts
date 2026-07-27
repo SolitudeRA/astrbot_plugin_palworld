@@ -34,7 +34,7 @@ interface RawConfig {
 }
 interface StatusSeed {
   ready: boolean; degraded: boolean; online: number; max_players: number
-  fps: number; smoothness_label: string; world_day: number
+  fps: number; smoothness: 'smooth' | 'moderate' | 'laggy' | 'very_laggy'; world_day: number
   peak_online_today: number; basecamp_count: number
 }
 interface AuditRow {
@@ -112,8 +112,19 @@ function computeOrphans(db: Db): string[] {
   return [...db.dataServerIds].filter((id) => !valid.has(id)).sort()
 }
 
+const SMOOTHNESS_LABELS = {
+  'zh-CN': { smooth: '流畅', moderate: '一般', laggy: '卡顿', very_laggy: '严重卡顿' },
+  ja: { smooth: '滑らか', moderate: '普通', laggy: 'カクつき', very_laggy: '深刻なカクつき' },
+  en: { smooth: 'Smooth', moderate: 'Fair', laggy: 'Laggy', very_laggy: 'Very laggy' },
+} as const
+
 function statusRows(db: Db): Dict[] {
   const t = nowSec()
+  const world = db.config.world
+  const locale = world && typeof world === 'object' && !Array.isArray(world)
+    ? str((world as Dict).locale)
+    : 'zh-CN'
+  const labels = SMOOTHNESS_LABELS[locale as keyof typeof SMOOTHNESS_LABELS] ?? SMOOTHNESS_LABELS['zh-CN']
   return db.config.servers.map((s) => {
     const seed = db.statusByName[s.name]
     if (!seed || !seed.ready) return { name: s.name, ready: false }
@@ -126,7 +137,7 @@ function statusRows(db: Db): Dict[] {
     return {
       name: s.name, ready: true, degraded: false,
       online, max_players: seed.max_players, fps,
-      smoothness_label: seed.smoothness_label, world_day: seed.world_day,
+      smoothness: seed.smoothness, smoothness_label: labels[seed.smoothness], world_day: seed.world_day,
       peak_online_today: peak, basecamp_count: seed.basecamp_count,
       updated_at: t - randInt(2, 40),
       // 详细区（demo 假数据）：字段名对齐 Palworld API（info/metrics/settings），
@@ -189,6 +200,20 @@ function applySave(db: Db, body: Dict): Dict {
   }
   // group_bindings 不在 body 内（collectBody 故意省略）→ 保留旧值，不清空。
   return { ok: true, warnings: {}, config: redact(db.config), saved_ts: nowSec() }
+}
+
+// ---- config/locale：镜像 locale-only patch，只改 world.locale ----
+function applyLocalePatch(db: Db, body: Dict): Dict {
+  const value = body.locale
+  if (value !== 'zh-CN' && value !== 'ja' && value !== 'en') {
+    return { ok: false, error: 'invalid_field', detail: { path: 'world.locale' } }
+  }
+  const world = db.config.world
+  db.config.world = {
+    ...(world && typeof world === 'object' && !Array.isArray(world) ? world as Dict : {}),
+    locale: value,
+  }
+  return { ok: true, config: redact(db.config), saved_ts: nowSec() }
 }
 
 // ---- mode/transfer/preview ----
@@ -318,9 +343,9 @@ function scenarioMulti(): Db {
       { umo: 'aiocqhttp:GroupMessage:900300', server_ids: ['首尔三号'] },
     ],
     statusByName: {
-      '东京一号': { ready: true, degraded: false, online: 12, max_players: 32, fps: 58, smoothness_label: '流畅', world_day: 47, peak_online_today: 21, basecamp_count: 6 },
-      '大阪二号': { ready: true, degraded: false, online: 4, max_players: 16, fps: 33, smoothness_label: '一般', world_day: 12, peak_online_today: 9, basecamp_count: 2 },
-      '首尔三号': { ready: true, degraded: true, online: 0, max_players: 24, fps: 0, smoothness_label: '', world_day: 0, peak_online_today: 0, basecamp_count: 0 },
+      '东京一号': { ready: true, degraded: false, online: 12, max_players: 32, fps: 58, smoothness: 'smooth', world_day: 47, peak_online_today: 21, basecamp_count: 6 },
+      '大阪二号': { ready: true, degraded: false, online: 4, max_players: 16, fps: 33, smoothness: 'moderate', world_day: 12, peak_online_today: 9, basecamp_count: 2 },
+      '首尔三号': { ready: true, degraded: true, online: 0, max_players: 24, fps: 0, smoothness: 'very_laggy', world_day: 0, peak_online_today: 0, basecamp_count: 0 },
     },
   }
 }
@@ -347,7 +372,7 @@ function scenarioSingle(): Db {
     dataServerIds: new Set(['我的私服']),
     groupBindings: [],
     statusByName: {
-      '我的私服': { ready: true, degraded: false, online: 3, max_players: 8, fps: 60, smoothness_label: '流畅', world_day: 5, peak_online_today: 5, basecamp_count: 1 },
+      '我的私服': { ready: true, degraded: false, online: 3, max_players: 8, fps: 60, smoothness: 'smooth', world_day: 5, peak_online_today: 5, basecamp_count: 1 },
     },
   }
 }
@@ -383,15 +408,15 @@ function scenarioEmptyConfig(): Db {
 function seedAudits(): AuditRow[] {
   const t = nowSec()
   return [
-    { ts: t - 120, time: fmtTs(t - 120), action: 'server announce', server: '东京一号', admin: 'demo-admin', target: '', success: true, error: null },
-    { ts: t - 900, time: fmtTs(t - 900), action: 'server kick', server: '大阪二号', admin: 'demo-admin', target: '捣乱玩家#a1b2c3', success: true, error: null },
-    { ts: t - 3600, time: fmtTs(t - 3600), action: 'server ban', server: '首尔三号', admin: 'demo-admin', target: '#f0e1d2', success: false, error: 'target_not_found' },
-    { ts: t - 7200, time: fmtTs(t - 7200), action: 'server save', server: '东京一号', admin: 'demo-admin', target: '', success: true, error: null },
+    { ts: t - 120, time: fmtTs(t - 120), action: 'announce', server: '东京一号', admin: 'demo-admin', target: '', success: true, error: null },
+    { ts: t - 900, time: fmtTs(t - 900), action: 'kick', server: '大阪二号', admin: 'demo-admin', target: '捣乱玩家#a1b2c3', success: true, error: null },
+    { ts: t - 3600, time: fmtTs(t - 3600), action: 'ban', server: '首尔三号', admin: 'demo-admin', target: '#f0e1d2', success: false, error: 'target_not_found' },
+    { ts: t - 7200, time: fmtTs(t - 7200), action: 'save', server: '东京一号', admin: 'demo-admin', target: '', success: true, error: null },
   ]
     .concat(
       // 批量历史记录：演示前端分页（每页 50；后端封顶 200 的中间量级）
       Array.from({ length: 116 }, (_, i) => {
-        const actions = ['server save', 'server announce', 'server kick', 'server unban']
+        const actions = ['save', 'announce', 'kick', 'unban']
         const servers = ['东京一号', '大阪二号', '首尔三号']
         const ts = t - 10800 - i * 5400
         return {
@@ -455,6 +480,8 @@ export function createMockBridge(scenarioId: string): AstrBotBridge {
       switch (path) {
         case 'config/save':
           return applySave(db, b)
+        case 'config/locale':
+          return applyLocalePatch(db, b)
         case 'mode/transfer':
           return runTransfer(db, b)
         case 'mode/orphans/purge':

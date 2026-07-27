@@ -183,6 +183,21 @@ describe('SettingsPanel', () => {
     expect(w.text()).toContain('名单全局') // 爆炸半径安全警句(勿静默删除)
   })
 
+  it('英文权限 callout 的粗体术语与相邻句子保留可见空格', async () => {
+    const c = cfg()
+    c.config.world.locale = 'en'
+    ;(window.AstrBotPluginPage!.apiGet as any).mockResolvedValue(c)
+    setLocale('en')
+    try {
+      const w = mountAt('permissions'); await flushPromises()
+      const text = w.findAll('.callout p')[1].text().replace(/\u00a0/g, ' ')
+      expect(text).toContain('layers: Administrator list determines')
+      expect(text).toContain('administrator; Locked commands determines')
+    } finally {
+      setLocale('zh-CN')
+    }
+  })
+
   it('权限章：点击命令树三态段 → 覆盖命令权限并置 dirty，collectBody 产出该行', async () => {
     const c = cfg()
     c.config.command_permissions = [{ command: 'player', enabled: 'on', admin_only: 'inherit' }] // 开玩家功能，行才在权限页列出

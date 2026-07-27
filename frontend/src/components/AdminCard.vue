@@ -46,8 +46,10 @@ function saveCard() {
       <span class="nm mono">{{ (modelValue.id as string) || t('common.empty') }}</span>
       <span class="grow"></span>
       <span v-if="flash" class="hchip on savedflash">{{ t('common.staged') }}</span>
-      <button class="headbtn del" data-act="delete" @click="emit('delete')">{{ t('common.remove') }}</button>
-      <button class="headbtn edit" data-act="edit" @click="enterEdit">{{ t('common.edit') }}</button>
+      <span class="card-actions">
+        <button class="headbtn del" data-act="delete" @click="emit('delete')">{{ t('common.remove') }}</button>
+        <button class="headbtn edit" data-act="edit" @click="enterEdit">{{ t('common.edit') }}</button>
+      </span>
     </div>
     <div class="cbody">
       <div class="crow"><span class="ck">{{ t('common.identifier') }}</span><span class="cv mono">{{ (modelValue.id as string) || t('common.empty') }}</span></div>
@@ -64,8 +66,10 @@ function saveCard() {
       <span class="idx">{{ indexLabel }}</span>
       <span class="editing-tag">{{ t('common.editing') }}</span>
       <span class="grow"></span>
-      <button class="headbtn cancel-card" data-act="cancel" @click="cancel">{{ t('common.cancel') }}</button>
-      <button class="headbtn save-card" data-act="save" @click="saveCard">{{ t('common.done') }}</button>
+      <span class="card-actions">
+        <button class="headbtn cancel-card" data-act="cancel" @click="cancel">{{ t('common.cancel') }}</button>
+        <button class="headbtn save-card" data-act="save" @click="saveCard">{{ t('common.done') }}</button>
+      </span>
     </div>
     <div class="cbody">
       <div class="crow">
