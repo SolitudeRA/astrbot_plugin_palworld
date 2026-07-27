@@ -74,6 +74,18 @@ class MetadataRepository:
         self._register_unknown(internal_class)
         return self._safe_abbrev(internal_class)
 
+    def pal_name_or(self, internal_class: str, default: str) -> str:
+        """按当前 locale 现解帕鲁名；meta 查不到该 class 时回退 default（dex 历史行用 DB 落库名兜底）。
+
+        与 pal_name 同解析路径（_lookup_pal + _pick_name），但未命中/取名为空返回 default 而非
+        类名缩写，且**不 register unknown**（纯查询、无副作用——dex 有优雅 DB 兜底，无需标记未知）。"""
+        entry = self._lookup_pal(internal_class)
+        if entry is not None:
+            name = self._pick_name(entry)
+            if name:
+                return name
+        return default
+
     def _pick_name(self, entry: dict) -> str:
         """按当前 locale 的字段 fallback 链取帕鲁名（ja→en→zh / en→zh / zh）。
 
