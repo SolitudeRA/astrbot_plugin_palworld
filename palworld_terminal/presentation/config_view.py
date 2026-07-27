@@ -13,6 +13,7 @@ from urllib.parse import urlsplit
 
 from ..shared.command_permissions import COMMAND_META
 from ..shared.command_registry import DISPATCH
+from .locale import L
 
 _LIST_SECTIONS = ("servers", "custom_headers", "group_bindings", "permission_admins",
                   "command_permissions", "single_allowed_groups")
@@ -61,7 +62,7 @@ _ENUMS = {
     "routing.access_mode": {"restricted", "open"},
     "routing.world_mode": {"multi", "single"},
     "privacy.mode": {"strict", "balanced", "advanced"},
-    "world.locale": {"zh-CN"},
+    "world.locale": {"zh-CN", "ja", "en"},
     "presentation.me_card_theme": {"light", "dark", "auto"},
 }
 # (section, field) -> "int" | "float"；section=None 表示顶层 object 节
@@ -278,7 +279,9 @@ def status_rows(entries: list) -> list[dict]:
             # 白名单仅世界级数据,不含 players 个体列表(隐私面不扩)
             "name": name, "ready": ready, "online": dto.online,
             "max_players": dto.max_players, "fps": dto.fps,
-            "smoothness_label": dto.smoothness_label,
+            # smoothness_label 为稳定键（query_status 产出）；presentation 边界就地经 L()
+            # 服务端渲染回本地化串下发——设置页 API 契约保持本地化文案，前端零改动。
+            "smoothness_label": L(f"smoothness_{dto.smoothness_label}"),
             "world_day": dto.world_day, "peak_online_today": dto.peak_online_today,
             "basecamp_count": dto.basecamp_count, "updated_at": dto.updated_at,
             "degraded": dto.degraded, "last_ok": dto.last_ok,

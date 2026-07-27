@@ -94,17 +94,20 @@ class WorldSummaryDTO:
 
 @dataclass(slots=True)
 class RuleSection:
-    title: str                       # 节名（模式/倍率/节奏/上限），素文无图标
-    items: list[tuple[str, str]]     # (展示label, 已渲染值)——formatter 两两并一行
+    title: str                          # 节标题稳定键（rules_section_*），formatter 经 L() 渲染
+    items: list[tuple[str, str, str]]   # (标签稳定键 rules_label_*, 值, 值类型 kind)——措辞/
+                                        # 单位渲染上提 formatter；enum 值为 query 侧 setting_display
 
 
 @dataclass(slots=True)
 class RulesDTO:
-    """world rules 策展分节（spec §4.3）。
+    """world rules 策展分节（spec §4.3 + i18n §3.2）。
 
-    sections 已由 query 层按策展清单裁剪 + 值渲染（倍率 1.0x / 节奏保游戏原单位 /
-    上限裸数）。available=False（settings 快照未获取）→ formatter 走 ⚠️ 取数失败态。
-    privacy_note 两模式分叉句（strict / advanced），balanced 为 None。
+    sections 由 query 层按策展清单裁剪；节标题/标签为 presentation locale 稳定键，值仅携
+    原始数值串（rate/hours/minutes/int）或 enum 经 setting_display 的枚举措辞——单位词/倍率 x/
+    节标题/标签渲染全在 formatter，DTO 不再携策展措辞。available=False（settings 快照未获取）
+    → formatter 走 ⚠️ 取数失败态。privacy_note 两模式分叉稳定键（rules_privacy_strict /
+    rules_privacy_advanced），balanced 为 None。
     """
     sections: list[RuleSection]
     available: bool

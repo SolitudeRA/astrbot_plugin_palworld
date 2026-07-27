@@ -472,6 +472,7 @@ def parse_config(raw: Mapping, env: Mapping[str, str]) -> AppConfig:
         ),
         world=WorldConfig(
             timezone=str(w.get("timezone", "Asia/Tokyo") or "Asia/Tokyo"),
+            # 裸透传，不在此校验/归一：校验/回落/warning 归 load_locale（spec §3.4-4）。
             locale=str(w.get("locale", "zh-CN") or "zh-CN"),
             fps_smooth=_as_int(w.get("fps_smooth", 50), 50),
             fps_moderate=_as_int(w.get("fps_moderate", 35), 35),

@@ -8,6 +8,7 @@ from pathlib import Path
 
 import pytest
 
+from palworld_terminal.adapters.metadata_repository import MetadataRepository
 from palworld_terminal.adapters.sqlite_repository import Repository
 from palworld_terminal.application.dtos import DexElementBucket, DexProgressDTO
 from palworld_terminal.application.query_service import QueryService
@@ -26,6 +27,17 @@ from palworld_terminal.infrastructure.clock import FakeClock
 from palworld_terminal.infrastructure.database import Database
 from palworld_terminal.infrastructure.migrations import apply_migrations
 from palworld_terminal.presentation.formatters import format_dex
+
+METADATA_DIR = Path(__file__).resolve().parents[2] / "metadata"
+
+
+def _zh_meta() -> MetadataRepository:
+    """真实 zh-CN metadata（dex 现解依赖 self._meta.pal_name_or）：ChickenPal 现解=皮皮鸡
+    （命中，与 DB 落库名同值）；KitsunebiPal/FlameBambiPal/PenguinPal 用带 Pal 后缀的内部名不在
+    pals.json 键 → miss → 回退 DB 落库名。故既有中文断言值全部不变。"""
+    meta = MetadataRepository(METADATA_DIR, "zh-CN")
+    meta.load()
+    return meta
 
 
 def _cfg() -> AppConfig:
@@ -53,7 +65,7 @@ async def env(tmp_path: Path):
 
 
 def _qs(repo, clock) -> QueryService:
-    return QueryService(repo, TTLCache(clock), _cfg(), None, clock, {}, world_cache={})
+    return QueryService(repo, TTLCache(clock), _cfg(), _zh_meta(), clock, {}, world_cache={})
 
 
 class _QSWithRoster(QueryService):
@@ -68,7 +80,7 @@ class _QSWithRoster(QueryService):
 
 
 def _qs_roster(repo, clock) -> QueryService:
-    return _QSWithRoster(repo, TTLCache(clock), _cfg(), None, clock, {}, world_cache={})
+    return _QSWithRoster(repo, TTLCache(clock), _cfg(), _zh_meta(), clock, {}, world_cache={})
 
 
 # ---- ① 已观测数 = 去重物种行数（**非 observe_count 之和**）----

@@ -10,7 +10,7 @@ VALID_CATEGORIES = {
 
 
 def test_pals_file_structure_and_min_count():
-    data = json.loads((METADATA_DIR / "pals.zh-CN.json").read_text(encoding="utf-8"))
+    data = json.loads((METADATA_DIR / "pals.json").read_text(encoding="utf-8"))
     assert isinstance(data, dict)
     # 1-111 全图鉴 + 常见亚种, 双键形式 (PalDataParameter/<代号> 与裸代号)
     assert len(data) >= 200
@@ -37,7 +37,7 @@ def test_actions_file_covers_all_categories():
 
 
 def test_settings_file_covers_rules_fields():
-    data = json.loads((METADATA_DIR / "settings.zh-CN.json").read_text(encoding="utf-8"))
+    data = json.loads((METADATA_DIR / "settings.json").read_text(encoding="utf-8"))
     assert isinstance(data, dict)
     required = {
         "ExpRate", "PalCaptureRate", "PalSpawnNumRate", "DropItemMaxNum",

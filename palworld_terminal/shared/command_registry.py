@@ -3,7 +3,7 @@ from __future__ import annotations
 
 # ============================================================================
 # 分级命令真相源（v0.9.5 Phase 1，spec §3 命令树 / §8 锚定）。
-# 门控（commands._gated 经 METHOD_PATH）与 help（format_help 经 HELP_TEXT）均按
+# 门控（commands._gated 经 METHOD_PATH）与 help（format_help 经 locale help_desc_*）均按
 # 完整路径消费下方真相源。
 # 两种粒度分家（spec §8）：
 #   - 注册身份 = 13 首词（PAL_REGISTERED），AstrBot 只认首词，供 @pal.command 锚定。
@@ -104,37 +104,5 @@ _NON_LOCKABLE: frozenset[str] = frozenset(
 # 可设置 admin_only 的完整路径 = 全部 − 不可锁集。
 LOCKABLE_COMMANDS: frozenset[str] = frozenset(PAL_COMMAND_STRINGS) - _NON_LOCKABLE
 
-# 分级 help 文案：完整路径 → 描述（含参数提示）。format_help / 裸组迷你帮助的展示真相源。
-# 键须与 PAL_COMMAND_STRINGS 双向全等（formatters_hierarchy_test 防漂移锚定）。
-HELP_TEXT: dict[str, str] = {
-    "world status": "世界状态",
-    "world overview": "世界概览",
-    "world rules": "世界规则",
-    "world events": "世界事件",
-    "world today": "今日日报",
-    "guild list": "公会列表",
-    "guild info": "公会详情（<名称>）",
-    "guild bases": "据点列表",
-    "guild base": "据点详情（<名称|#序号>）",
-    "player info": "玩家查询（<玩家名>）",
-    "player bind": "绑定我的玩家（<玩家名>）",
-    "player unbind": "解除我的玩家绑定",
-    "server announce": "全服广播（<消息>）",
-    "server save": "保存世界存档",
-    "server kick": "踢出玩家（<玩家名|userid> [理由]）",
-    "server unban": "解封玩家（<userid>）",
-    "server ban": "封禁玩家（<玩家名|userid> [理由]）",
-    "server shutdown": "倒计时关服（<秒> [公告]）",
-    "server stop": "立即停止服务",
-    "link list": "服务器列表",
-    "link add": "授权本群并设为活动服务器（<名称>）",
-    "link remove": "撤销本群授权（<名称>）",
-    "rank": "排行榜（[today|total|level|climb]）",
-    "online": "当前在线",
-    "me": "我的名片（[hide|show|card|卡|图]）",
-    "dex": "服务器图鉴（已观测物种进度）",
-    "help": "帮助",
-    "whoami": "查看我的账号标识（建议私聊使用）",
-    "whereami": "查看当前群标识（UMO）",
-    "confirm": "确认执行上一条危险操作",
-}
+# 分级 help 文案已迁 presentation/locales/*.json（键 help_desc_<完整路径，空格转下划线>）；
+# format_help 经 L() 取，防漂移锚由 zh-CN.json help_desc_* 键集 ↔ PAL_COMMAND_STRINGS 全等守卫。

@@ -40,14 +40,14 @@ def test_pals_seed_corrected_internal_codes():
         assert META.pal_name(code) == name_zh, code
         assert META.pal_name(f"PalDataParameter/{code}") == name_zh, code
     # 旧的臆造代号不应再存在
-    pals = _load("pals.zh-CN.json")
+    pals = _load("pals.json")
     for bogus in ("GrassMonkey", "FoxFire", "WaterRay", "DragonJet"):
         assert bogus not in pals
         assert f"PalDataParameter/{bogus}" not in pals
 
 
 def test_pals_seed_numbers_match_paldeck():
-    pals = _load("pals.zh-CN.json")
+    pals = _load("pals.json")
     expected_numbers = {
         "SheepBall": 1,        # 旧值 40
         "PinkCat": 2,
@@ -68,7 +68,7 @@ def test_pals_seed_numbers_match_paldeck():
 
 
 def test_pals_seed_expanded_with_paired_keys():
-    pals = _load("pals.zh-CN.json")
+    pals = _load("pals.json")
     prefixed = {k.split("/", 1)[1] for k in pals if k.startswith("PalDataParameter/")}
     # 扩充下限: 至少 60 个帕鲁 (实际含 1-111 全图鉴 + 常见亚种)
     assert len(prefixed) >= 60
@@ -135,7 +135,7 @@ def test_settings_seed_covers_default_ini_fields():
     for field in required:
         label, _ = META.setting_label(field)
         assert label and label != field, field
-    settings = _load("settings.zh-CN.json")
+    settings = _load("settings.json")
     assert len(settings) >= 40
     # 布尔键统一携带 enum_map(true/false → 开启/关闭 类文案)
     for field, entry in settings.items():

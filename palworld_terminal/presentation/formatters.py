@@ -17,14 +17,15 @@ from ..application.dtos import (
 )
 from ..application.query_service import PlayerProfileDTO, RankBoardsDTO
 from ..config import SkippedServer
-from ..domain.enums import ActionCategory, Confidence, PingBucket
+from ..domain.enums import ActionCategory
 from ..presentation.event_wording import render_event
-from ..presentation.locale import L
+from ..presentation.locale import MESSAGES, L
 from ..presentation.textkit import (
     abs_date,
     fmt_duration,
     fold,
     rel_date,
+    rel_date_key,
     rel_datetime,
     time_of_day,
 )
@@ -32,26 +33,15 @@ from ..shared.command_permissions import effective_enabled
 from ..shared.command_registry import (
     DISPATCH,
     FLAT_ACTIONS,
-    HELP_TEXT,
     ActionSpec,
 )
 
-_PING_LABEL = {
-    PingBucket.GOOD: "优秀", PingBucket.OK: "正常",
-    PingBucket.HIGH: "偏高", PingBucket.UNKNOWN: "未知",
-}
-_CONF_LABEL = {Confidence.HIGH: "高", Confidence.MEDIUM: "中", Confidence.LOW: "低"}
+# 七映射表已全量抽键入 locale（i18n §3.5）：ping_* / confidence_* / action_* /
+# element_* / skip_reason_* / help_group_* / rank_title_*，消费处经 L(f"…_{key}") 渲染。
+# 行为分布中文（原 _ACTION_CAT_LABEL）→ action_*：ActionCategory 9 档（细分工种数据面
+# 不存在，不臆造「伐木/搬运」）；理论外值优雅回落原键（不炸/不臆造）。
 
-# 行为分布类目（spec §4.9）：ActionCategory 8 档中文（细分工种数据面不存在，不臆造「伐木/搬运」）。
-_ACTION_CAT_LABEL = {
-    ActionCategory.WORKING: "工作中", ActionCategory.MOVING: "移动",
-    ActionCategory.IDLE: "闲置", ActionCategory.SLACKING: "摸鱼",
-    ActionCategory.COMBAT: "战斗",
-    ActionCategory.SLEEPING: "睡觉", ActionCategory.EATING: "进食",
-    ActionCategory.INCAPACITATED: "濒死", ActionCategory.UNKNOWN: "未知",
-}
-
-# 车间现场行为 emoji（spec §6）：与 _ACTION_CAT_LABEL 同键、按枚举定序渲染（⛏工作/🚬摸鱼…）。
+# 车间现场行为 emoji（spec §6）：与 action_* 同键、按枚举定序渲染（⛏工作/🚬摸鱼…）。
 _ACTION_CAT_EMOJI = {
     ActionCategory.WORKING: "⛏", ActionCategory.MOVING: "🚶",
     ActionCategory.IDLE: "💤", ActionCategory.SLACKING: "🚬",
@@ -63,27 +53,23 @@ _ACTION_CAT_EMOJI = {
 # 车间氛围（spec §6）：mood 稳定键白名单（越界值防御回落 fired_up）；徽章/吐槽措辞在 locale。
 _MOODS = ("fired_up", "slacking_off")
 
-# 性能流畅度档位 → 状态色点（spec §2.2/§4.1）：流畅🟢 / 一般🟡 / 卡顿·严重卡顿🔴。
-_SMOOTH_DOT = {"流畅": "🟢", "一般": "🟡", "卡顿": "🔴", "严重卡顿": "🔴"}
+# 性能流畅度稳定键 → 状态色点（spec §2.2/§4.1）：smooth🟢 / moderate🟡 / laggy·very_laggy🔴。
+# 键为 query_status 产出的稳定键（DTO 不再带中文）；文案经 L(f"smoothness_{key}") 渲染。
+_SMOOTH_DOT = {"smooth": "🟢", "moderate": "🟡", "laggy": "🔴", "very_laggy": "🔴"}
 
-# 元素英文键 → 中文（spec §5 名片随身高光）：与 domain.Element 九元素对齐；
-# unknown（未收录/无属性降级）→「未知」，理论外的键回落原键（不炸/不臆造）。
-_ELEMENT_LABEL = {
-    "fire": "火", "water": "水", "grass": "草", "electric": "电", "ice": "冰",
-    "dragon": "龙", "dark": "暗", "ground": "地", "neutral": "无", "unknown": "未知",
-}
-
-# 随身行为标签：CompanionView.action_label 为 ActionCategory.value 稳定键（working/…），
-# 复用 _ACTION_CAT_LABEL 的中文（按值索引）；未知值回落原键。
-_ACTION_BY_VALUE = {cat.value: label for cat, label in _ACTION_CAT_LABEL.items()}
+def _label_or_key(prefix: str, key: str) -> str:
+    """理论外键优雅回落原键（不炸/不臆造）：`L(f"{prefix}_{key}")` 前先查 zh 基线 MESSAGES；
+    缺键（如未收录元素/未归类动作）返回原始 key，复现旧 `.get(k, k)` 回落语义（i18n §3.5）。"""
+    full = f"{prefix}_{key}"
+    return L(full) if full in MESSAGES else key
 
 
 def _companion_action(value: str) -> str:
     """随身动作中文：OtomoPal 的 Action 字段常为空 / AI_Action=OtomoFollow 未归类 → UNKNOWN。
     此时给「随行」而非「未知」（随身默认跟随主人；与图片卡 card_render 一致）。"""
     if value in ("unknown", ""):
-        return "随行"
-    return _ACTION_BY_VALUE.get(value, value)
+        return L("companion_following")
+    return _label_or_key("action", value)
 
 
 def format_degraded(last_ok: int | None, now: int, server_name: str) -> str:
@@ -95,7 +81,7 @@ def format_degraded(last_ok: int | None, now: int, server_name: str) -> str:
     else:
         minutes = max(0, (now - last_ok) // 60)
         status = L("degraded", minutes=minutes)
-    return f"🌍 世界状态 · {server_name}\n{status}"
+    return f"{L('status_title')} · {server_name}\n{status}"
 
 
 def format_online(
@@ -108,20 +94,20 @@ def format_online(
     今日峰值取 dto.peak_online（metric 聚合值，不可归因，保留）。strict 砍时长字段（名/Lv/Ping
     保留，同 rank/me 双砍哲学）。空态收编 locale online_empty。>7 折叠尾行「…等共 N 人」。
     """
-    title = f"👥 当前在线 · {server_name}"
+    title = f"{L('online_title')} · {server_name}"
     if not dto.rows:
         return f"{title}\n{L('online_empty')}"
     entries: list[str] = []
     for r in dto.rows:
-        cells = [f"{r.name} Lv{r.level}", f"Ping {_PING_LABEL[r.ping_bucket]}"]
+        cells = [f"{r.name} Lv{r.level}", f"Ping {L(f'ping_{r.ping_bucket.value}')}"]
         if not strict:
             cells.append(fmt_duration(r.online_seconds))
         entries.append("· " + " · ".join(cells))
     lines = [
         title,
-        f"在线 {len(dto.rows)}/{dto.max_players} · 今日峰值 {dto.peak_online}",
+        L("common_online_peak", online=len(dto.rows), max=dto.max_players, peak=dto.peak_online),
         "",
-        *fold(entries, fold_limit, "人"),
+        *fold(entries, fold_limit, L("quantifier_person")),
     ]
     return "\n".join(lines)
 
@@ -132,17 +118,20 @@ def format_guilds(
     """guild list（spec §4.6）。标题锚点=服务器名（commands 层供数）。每公会成员~/工作帕鲁/
     据点数（PalBox 归 overview 设施节，此处不渲染；active_7d 砍位）。strict=字段级裁剪：
     砍「据点 N」计数位，公会本体保留（命令仍产出，非拒执行）。空态素文；>7 折叠「…等共 N 个」。"""
-    title = f"🏰 公会 · {server_name}"
+    title = f"{L('guild_title')} · {server_name}"
     if not dto:
         return f"{title}\n{L('guilds_empty')}"
     entries: list[str] = []
     for g in dto:
-        cells = [f"{g.name} 成员 ~{g.observed_members}", f"工作帕鲁 {g.base_pals}"]
+        cells = [
+            f"{g.name} {L('guild_members', n=g.observed_members)}",
+            L("guild_work_pals", n=g.base_pals),
+        ]
         if not strict:
-            cells.append(f"据点 {g.base_count}")
+            cells.append(L("common_base_count", n=g.base_count))
         entries.append("· " + " · ".join(cells))
-    lines = [title, "", *fold(entries, fold_limit, "个")]
-    lines.append("└ 公会与据点均为插件观察推导")
+    lines = [title, "", *fold(entries, fold_limit, L("quantifier_item"))]
+    lines.append(L("guilds_footer"))
     return "\n".join(lines)
 
 
@@ -154,26 +143,32 @@ def format_guild(
     渲染，query 层已构造 EventView）。恒 0 占位（active_*/average_level）与 PalBox 砍位。
     strict=字段级裁剪：省略据点节 + 近期动态节 + 首行「据点 N」计数（据点类不经本命令绕出
     strict）；公会本体（成员/工作帕鲁/首次观察/最近）保留。"""
-    head = [f"成员 ~{dto.observed_members}", f"工作帕鲁 {dto.base_pals}"]
+    head = [L("guild_members", n=dto.observed_members), L("guild_work_pals", n=dto.base_pals)]
     if not strict:
-        head.append(f"据点 {dto.base_count}")
+        head.append(L("common_base_count", n=dto.base_count))
     lines = [
-        f"🏰 公会 · {dto.name}",
+        f"{L('guild_title')} · {dto.name}",
         " · ".join(head),
-        f"首次观察 {abs_date(dto.first_seen_at, tz)} · 最近 {rel_datetime(dto.last_seen_at, now, tz)}",
+        L("guild_seen",
+          first=abs_date(dto.first_seen_at, tz),
+          last=rel_datetime(dto.last_seen_at, now, tz)),
     ]
     if not strict:
         if dto.bases:
             lines.append("")
-            lines.append("据点")
+            lines.append(L("guild_section_bases"))
             lines.extend(fold(
-                [f"· {name} 置信度{_CONF_LABEL[conf]}" for name, conf in dto.bases],
-                fold_limit, "个",
+                [f"· {name} {L('base_confidence', conf=L(f'confidence_{conf.value}'))}"
+                 for name, conf in dto.bases],
+                fold_limit, L("quantifier_item"),
             ))
         if dto.recent_events:
             lines.append("")
-            lines.append("近期动态")
-            lines.extend(fold([f"· {render_event(ev)}" for ev in dto.recent_events], fold_limit, "条"))
+            lines.append(L("guild_section_events"))
+            lines.extend(fold(
+                [f"· {render_event(ev)}" for ev in dto.recent_events],
+                fold_limit, L("quantifier_entry"),
+            ))
     return "\n".join(lines)
 
 
@@ -182,37 +177,40 @@ def format_bases(dto: list[BaseDTO], server_name: str, *, fold_limit: int = 7) -
     「未确定公会」）；每据点 #序号（T5 统一含 low 序号空间）+ 置信度 + worker_count 实填
     （>0 才渲染，无观测据点省该位）；hidden 恒不入清单；全局折叠（textkit.fold 单一尾行
     格式「…等共 N 个」，共用 cfg.players.list_fold_limit）。空态素文。"""
-    title = f"🏕️ 据点 · {server_name}"
+    title = f"{L('base_title')} · {server_name}"
     if not dto:
         return f"{title}\n{L('bases_empty')}"
     visible = dto[:fold_limit]
     # 折叠尾行经 textkit.fold 生成（与其它列表共用同一限额与「…等共 N 个」尾格式）：
     # 分组渲染用 visible，尾行只取 fold 汇总部分（未折叠时为空）。
-    tail = fold([b.display_name for b in dto], fold_limit, "个")[len(visible):]
+    tail = fold([b.display_name for b in dto], fold_limit, L("quantifier_item"))[len(visible):]
     lines = [title]
     current_guild: str | None = None
     for b in visible:
-        guild = b.guild_name or "未确定公会"
+        guild = b.guild_name or L("base_guild_unknown")
         if guild != current_guild:
             lines.append("")
             lines.append(guild)
             current_guild = guild
-        cells = [f"#{b.index} {b.display_name} 置信度{_CONF_LABEL[b.confidence]}"]
+        cells = [
+            f"#{b.index} {b.display_name} "
+            f"{L('base_confidence', conf=L(f'confidence_{b.confidence.value}'))}"
+        ]
         if b.worker_count > 0:
-            cells.append(f"工作帕鲁 {b.worker_count}")
+            cells.append(L("guild_work_pals", n=b.worker_count))
         lines.append("· " + " · ".join(cells))
     lines.extend(tail)
-    lines.append("└ 据点为插件观察推导；#序号可用于 /pal guild base")
+    lines.append(L("bases_footer"))
     return "\n".join(lines)
 
 
 def _health_status(score: float) -> tuple[str, str]:
     """健康度 → 状态点+词（spec §4.9）：🟢 健康 ≥75 / 🟡 一般 ≥40 / 🔴 低迷 <40。"""
     if score >= 75:
-        return "🟢", "健康"
+        return "🟢", L("health_good")
     if score >= 40:
-        return "🟡", "一般"
-    return "🔴", "低迷"
+        return "🟡", L("health_ok")
+    return "🔴", L("health_low")
 
 
 def format_base(dto: BaseDetailDTO) -> str:
@@ -223,9 +221,9 @@ def format_base(dto: BaseDetailDTO) -> str:
     （⛏工作中/🚬摸鱼…，有计数者按枚举定序）；物种 Top（就近可见快照聚合）。
     C2 口径：只报「此刻可见 N 只」（非「共有」）；脚注标观察推导（C4）。activity_score 裸数与
     palbox_count 砍位。available=False（无观测）→ ⚠️ 取数失败态（不再全 0 假数据，§6#8）。"""
-    title = f"🏕️ 据点 · {dto.display_name}"
-    guild = f"公会「{dto.guild_name}」" if dto.guild_name else "未确定公会"
-    ident = f"{guild} · 置信度{_CONF_LABEL[dto.confidence]}"
+    title = f"{L('base_title')} · {dto.display_name}"
+    guild = L("guild_label", name=dto.guild_name) if dto.guild_name else L("base_guild_unknown")
+    ident = f"{guild} · {L('base_confidence', conf=L(f'confidence_{dto.confidence.value}'))}"
     if not dto.available:
         return f"{title}\n{ident}\n{L('base_no_observation')}"
     dot, word = _health_status(dto.health_score)
@@ -236,26 +234,28 @@ def format_base(dto: BaseDetailDTO) -> str:
         f"{L(f'base_badge_{mood}')} · {L(f'base_snark_{mood}')}",
         "",
         # C2：只报此刻可见（就近可见快照），不吹「共有」。
-        f"此刻可见 {dto.worker_count} 只 · 活跃 {dto.active_count} · 平均 Lv{dto.average_level:.1f}",
-        f"状态 {dot} {word} · 平均HP {dto.average_hp_ratio:.0%}",
-        f"🚬 摸鱼率 {dto.slacker_rate:.0%}",
+        L("base_visible_stats",
+          visible=dto.worker_count, active=dto.active_count,
+          level=f"{dto.average_level:.1f}"),
+        L("base_status_line", dot=dot, word=word, hp=f"{dto.average_hp_ratio:.0%}"),
+        L("base_slacker_rate", rate=f"{dto.slacker_rate:.0%}"),
     ]
     dist = [
-        f"{_ACTION_CAT_EMOJI[cat]}{dto.action_distribution[cat.value]} {_ACTION_CAT_LABEL[cat]}"
+        f"{_ACTION_CAT_EMOJI[cat]}{dto.action_distribution[cat.value]} {L(f'action_{cat.value}')}"
         for cat in ActionCategory
         if dto.action_distribution.get(cat.value, 0) > 0
     ]
     if dist:
         lines.append("")
-        lines.append("行为分布")
+        lines.append(L("base_section_actions"))
         lines.append("· " + " · ".join(dist))
     if dto.species_top:
         lines.append("")
         # C2 作用域披露：species_top 按公会名聚合（含本公会全部据点），非本据点独有——
         # 表头显式标「本公会此刻可见」，与上方本据点「此刻可见 N 只」区分，杜绝多据点合计 > N 的自相矛盾。
-        lines.append("热门物种（本公会此刻可见）")
+        lines.append(L("base_section_species"))
         lines.append("· " + " · ".join(f"{name} ×{count}" for name, count in dto.species_top))
-    lines.append("└ 据点为插件观察推导 · 仅统计此刻可见帕鲁")
+    lines.append(L("base_footer"))
     return "\n".join(lines)
 
 
@@ -275,14 +275,17 @@ def format_events(
     - 折叠为**消息级特例**（spec §2.7）：多日节合计 ≤ fold_limit，尾行「…等共 N 条」；
       经 textkit.fold 生成尾行（量词「条」，N=池内总条数）。
     """
-    title = f"📰 今日事件 · {server_name}" if today_only else f"📰 世界事件 · {server_name}"
+    title = (
+        f"{L('events_title_today')} · {server_name}" if today_only
+        else f"{L('events_title')} · {server_name}"
+    )
     if not events:
         empty = L("events_empty_today") if today_only else L("events_empty")
         return f"{title}\n{empty}"
 
     # 消息级折叠：截前 fold_limit 条渲染，尾行经 textkit.fold 复用同一「…等共 N 条」格式。
     visible = events[:fold_limit]
-    tail = fold([render_event(e) for e in events], fold_limit, "条")[len(visible):]
+    tail = fold([render_event(e) for e in events], fold_limit, L("quantifier_entry"))[len(visible):]
 
     lines = [title]
     if today_only:
@@ -296,21 +299,14 @@ def format_events(
                 lines.append("")          # 空行分节（含标题与首节之间）
                 lines.append(day)         # 素节头无图标
                 current_day = day
-            if day == "今天":
+            # 结构性判断（i18n §3.5）：拿 rel_date_key 档位而非本地化渲染串字面——
+            # 「今天」条目附 HH:MM 的分支在 ja/en 下仍正确命中（渲染串本地化后无法字面比较）。
+            if rel_date_key(e.occurred_at, now, tz) == "today":
                 lines.append(f"· {time_of_day(e.occurred_at, tz)} {render_event(e)}")
             else:
                 lines.append(f"· {render_event(e)}")
     lines.extend(tail)                     # 折叠尾行（未折叠时为空）
     return "\n".join(lines)
-
-
-# skipped 配置 reason 中文化（spec §4.20）：无效配置节逐条回显原始名 + 中文原因。
-_SKIP_REASON = {
-    "empty": "名称为空",
-    "duplicate": "名称重复",
-    "illegal_char": "名称含非法字符",
-    "no_credential": "缺少凭据",
-}
 
 
 def format_servers(
@@ -329,38 +325,32 @@ def format_servers(
     entries: list[str] = []
     for r in rows:
         if not r.ready:
-            dot, word = "🟡", "未就绪"
+            dot, word = "🟡", L("server_not_ready")
         elif r.online:
-            dot, word = "🟢", "在线"
+            dot, word = "🟢", L("server_online")
         else:
-            dot, word = "🔴", "离线"
+            dot, word = "🔴", L("server_offline")
         cells = [f"{r.name} {dot} {word}"]
         if is_group:
-            cells.append("本群已授权" if r.allowed else "本群未授权")
+            cells.append(L("server_authed") if r.allowed else L("server_unauthed"))
             if r.active:
-                cells.append("当前活动")
+                cells.append(L("server_active"))
         entries.append("· " + " · ".join(cells))
-    lines = ["🔗 已配置服务器", "", *fold(entries, fold_limit, "条")]
+    lines = [L("link_list_title"), "", *fold(entries, fold_limit, L("quantifier_entry"))]
     if is_admin and skipped:
         lines.append("")
-        lines.append("无效配置")
+        lines.append(L("server_section_invalid"))
         lines.extend(
-            f"· {s.raw_name}（{_SKIP_REASON.get(s.reason, s.reason)}）" for s in skipped
+            f"· {s.raw_name}{L('paren_open')}{_label_or_key('skip_reason', s.reason)}{L('paren_close')}"
+            for s in skipped
         )
     return "\n".join(lines)
 
 
-# 命令组显示标签（分级 help / 裸组迷你帮助共用；避免英文词汇泄漏干扰功能门测试）。
-# 组头词表与前端设置页 GROUP_LABELS 统一定字（spec §4.26）：world/guild/player/link
-# 同词；server 于聊天帮助补「（管理员）」标注（前端权限章靠锁图标呈现，无需此后缀）。
-_GROUP_LABEL: dict[str, str] = {
-    "world": "世界",
-    "guild": "公会",
-    "player": "玩家",
-    "server": "服务器管控（管理员）",
-    "link": "服务器授权",
-}
-_FLAT_LABEL = "其他"
+# 命令组显示标签（分级 help / 裸组迷你帮助共用；避免英文词汇泄漏干扰功能门测试）→ help_group_*。
+# 组头词表与前端设置页 GROUP_LABELS 统一定字（spec §4.26）：world/guild/player/link 同词；
+# server 于聊天帮助补「（管理员）」标注（前端权限章靠锁图标呈现，无需此后缀）；flat 组=「其他」。
+# 未登记组优雅回落原组名（_label_or_key）。
 
 
 def _action_visible(path: str, spec: ActionSpec, is_admin: bool, overrides) -> bool:
@@ -397,8 +387,13 @@ def visible_actions(
 
 
 def _help_line(path: str) -> str:
-    """行式 `· /pal {路径} {描述}`（spec §4.26）：一级 `· ` 前缀，路径与描述单空格分隔。"""
-    desc = HELP_TEXT.get(path, "")
+    """行式 `· /pal {路径} {描述}`（spec §4.26）：一级 `· ` 前缀，路径与描述单空格分隔。
+
+    描述经 locale 键 `help_desc_<路径，空格转下划线>` 取；缺键（不在 zh 基线 MESSAGES 中）
+    出空串——保持旧 `HELP_TEXT.get(path, "")` 的防御语义，避免把 key 本身渲进 help 输出。
+    """
+    key = f"help_desc_{path.replace(' ', '_')}"
+    desc = L(key) if key in MESSAGES else ""
     return f"· /pal {path} {desc}" if desc else f"· /pal {path}"
 
 
@@ -409,23 +404,23 @@ def format_help(topic: str | None, is_admin: bool, overrides, world_mode: str = 
     本函数只定版式与组头词表。尾注 `└ 命令末尾加 @服务器名 可指定服务器` 单模式省略（single
     下 resolve 忽略 @override，尾注是空承诺）。topic 参数维持忽略（不扩 /pal help <组>）。
     """
-    lines = ["📖 PalWorldTerminal 命令"]
+    lines = [L("help_title")]
     for group in DISPATCH:  # world/guild/player/server/link（插入序）
         vis = visible_actions(group, is_admin, overrides, world_mode)
         if not vis:
             continue
         lines.append("")                                      # 空行分节
-        lines.append(_GROUP_LABEL.get(group, group))          # 素节头无图标/无【】
+        lines.append(_label_or_key("help_group", group))      # 素节头无图标/无【】
         lines.extend(_help_line(f"{group} {sub}") for sub, _spec in vis)
     flat = [name for name, spec in FLAT_ACTIONS.items()
             if _action_visible(name, spec, is_admin, overrides)]
     if flat:
         lines.append("")
-        lines.append(_FLAT_LABEL)
+        lines.append(L("help_group_flat"))
         lines.extend(_help_line(name) for name in flat)
     if world_mode != "single":                                # 单模式省略 @ 尾注（空承诺）
         lines.append("")
-        lines.append("└ 命令末尾加 @服务器名 可指定服务器")
+        lines.append(L("help_footer"))
     return "\n".join(lines)
 
 
@@ -443,25 +438,32 @@ def format_status(
         # now 用 dto.now（真实当下）：陈旧时 updated_at==last_ok，不能充当 now。
         return format_degraded(dto.last_ok, dto.now, server_name)
     detail = dto.detail
-    lines = [f"🌍 世界状态 · {server_name}"]
+    lines = [f"{L('status_title')} · {server_name}"]
     if detail is not None:
-        lines.append(
-            f"第 {dto.world_day} 天 · v{detail.version} · 已运行 {fmt_duration(detail.uptime_seconds)}"
-        )
+        lines.append(L(
+            "status_detail_line",
+            day=dto.world_day, version=detail.version,
+            uptime=fmt_duration(detail.uptime_seconds),
+        ))
     else:  # 防御：live 恒有 detail；缺失时仅出天数，不冒 AttributeError。
-        lines.append(f"第 {dto.world_day} 天")
+        lines.append(L("common_world_day", day=dto.world_day))
     lines.append("")
-    lines.append(f"在线 {len(dto.players)}/{dto.max_players} · 今日峰值 {dto.peak_online_today}")
+    lines.append(L("common_online_peak",
+                   online=len(dto.players), max=dto.max_players, peak=dto.peak_online_today))
     dot = _SMOOTH_DOT.get(dto.smoothness_label, "🟡")
-    lines.append(
-        f"性能 {dot} {dto.smoothness_label} · FPS {dto.fps:.0f} · 帧时间 {dto.frame_time:.1f}ms"
-    )
+    label = L(f"smoothness_{dto.smoothness_label}")
+    lines.append(L(
+        "status_perf",
+        dot=dot, label=label, fps=f"{dto.fps:.0f}", frame_time=f"{dto.frame_time:.1f}",
+    ))
     if show_bases:
-        lines.append(f"据点 {dto.basecamp_count}")
+        lines.append(L("common_base_count", n=dto.basecamp_count))
     if dto.players:  # 0 人省略整节（含其上方空行）
         lines.append("")
-        lines.append("在线玩家")
-        lines.extend(fold([f"· {n} Lv{lv}" for n, lv, _ in dto.players], fold_limit, "人"))
+        lines.append(L("status_section_online"))
+        lines.extend(fold(
+            [f"· {n} Lv{lv}" for n, lv, _ in dto.players], fold_limit, L("quantifier_person"),
+        ))
     return "\n".join(lines)
 
 
@@ -473,48 +475,67 @@ def format_world(
     快照缺失（available=False）→ ⚠️ 取数失败态（不再静默全 0）。strict 下省略设施节的
     PalBox 项（保留公会/据点两计数——据点/公会为官方推导计数，非个体隐私）。
     """
-    title = f"🗺️ 世界概览 · {server_name}"
+    title = f"{L('world_title')} · {server_name}"
     if not dto.available:
         return f"{title}\n{L('world_snapshot_missing')}"
     lines = [
         title,
-        f"第 {dto.world_day} 天 · 在线 {dto.online}/{dto.max_players}",
+        L("world_day_online", day=dto.world_day, online=dto.online, max=dto.max_players),
         "",
-        "居民",
-        f"· 角色 {dto.players} · NPC {dto.npc}",
-        f"· 帕鲁 随行 {dto.otomo} · 工作 {dto.base_pal} · 野生 {dto.wild}",
+        L("world_section_residents"),
+        L("world_residents_chars", players=dto.players, npc=dto.npc),
+        L("world_residents_pals", otomo=dto.otomo, base_pal=dto.base_pal, wild=dto.wild),
         "",
-        "设施",
+        L("world_section_facility"),
     ]
     facility = [] if strict else [f"PalBox {dto.palbox}"]
-    facility.append(f"公会 {dto.guilds}")
-    facility.append(f"据点 {dto.basecamp_count}")
+    facility.append(L("world_guilds_count", n=dto.guilds))
+    facility.append(L("common_base_count", n=dto.basecamp_count))
     lines.append("· " + " · ".join(facility))
     if dto.wild_top:
         lines.append("")
-        lines.append("野生帕鲁 Top（当前快照）")
-        lines.extend(fold([f"· {w.name} ×{w.count}" for w in dto.wild_top], fold_limit, "种"))
+        lines.append(L("world_section_wild_top"))
+        lines.extend(fold(
+            [f"· {w.name} ×{w.count}" for w in dto.wild_top], fold_limit, L("quantifier_species"),
+        ))
     return "\n".join(lines)
+
+
+def _rule_cell(label_key: str, value: str, kind: str) -> str:
+    """规则单元格 `标签 值`（i18n §3.2）：标签经 L() 稳定键取措辞；值按 kind 组装单位——
+    rate 补 ASCII x（1.0→1.0x）、hours/minutes 经单位词键、enum/int 值即成品（enum 经
+    query 侧 setting_display，int 裸数）。策展措辞在此唯一落点，不再由 application 预渲染。"""
+    label = L(label_key)
+    if kind == "rate":
+        rendered = f"{value}x"
+    elif kind == "hours":
+        rendered = L("rules_unit_hours", num=value)
+    elif kind == "minutes":
+        rendered = L("rules_unit_minutes", num=value)
+    else:  # enum / int
+        rendered = value
+    return f"{label} {rendered}"
 
 
 def format_rules(dto: RulesDTO, server_name: str) -> str:
     """world rules 策展分节（spec §4.3）。同类字段两两并一行 `· A · B`。
 
     快照缺失（available=False）→ ⚠️ 取数失败态。隐私模式注两句分叉走脚注 `└ `。
-    游戏设定原值（蛋孵化 72 小时 / 空投间隔 180 分钟）保游戏原单位（§2.4 豁免，query 已渲）。
+    节标题/标签/单位词/隐私注记均为 presentation locale 稳定键，经 L() 渲染（i18n §3.2）；
+    游戏设定原值（蛋孵化 72 小时 / 空投间隔 180 分钟）保游戏原单位（§2.4 豁免）。
     """
-    title = f"📜 世界规则 · {server_name}"
+    title = f"{L('rules_title')} · {server_name}"
     if not dto.available:
         return f"{title}\n{L('rules_unavailable')}"
     lines = [title]
     for sec in dto.sections:
         lines.append("")
-        lines.append(sec.title)
-        for i in range(0, len(sec.items), 2):
-            cells = [f"{label} {value}" for label, value in sec.items[i:i + 2]]
-            lines.append("· " + " · ".join(cells))
+        lines.append(L(sec.title))
+        cells = [_rule_cell(label_key, value, kind) for label_key, value, kind in sec.items]
+        for i in range(0, len(cells), 2):
+            lines.append("· " + " · ".join(cells[i:i + 2]))
     if dto.privacy_note:
-        lines.append(f"└ {dto.privacy_note}")
+        lines.append(f"└ {L(dto.privacy_note)}")
     return "\n".join(lines)
 
 
@@ -527,27 +548,48 @@ def format_today(dto, server_name: str, *, fold_limit: int = 7) -> str:
     （today 为节级特例，spec §2.7）；累计在线走 textkit.fmt_duration（N时M分，废 N 小时
     聚合式）。空态标题同带日期 + 素文一句。据点变化节 gamedata 锁定期自然缺席（既有屏蔽）。
     """
-    title = f"📅 今日日报 · {server_name} · {dto.day}"
+    title = f"{L('today_title')} · {server_name} · {dto.day}"
     if getattr(dto, "is_empty", False):
         return f"{title}\n{L('empty_day')}"
     lines = [
         title,
         "",
-        f"第 {dto.world_day_start} → {dto.world_day_end} 天 · 活跃玩家 {dto.active_players}"
-        f" · 峰值在线 {dto.peak_online} · 累计在线 {fmt_duration(dto.total_online_seconds)}",
+        L("today_summary",
+          start=dto.world_day_start, end=dto.world_day_end, active=dto.active_players,
+          peak=dto.peak_online, online=fmt_duration(dto.total_online_seconds)),
     ]
     for header, items in (
-        ("今日纪录", dto.records),
-        ("玩家成长", dto.growth),
-        ("据点变化", dto.base_changes),
+        (L("today_section_records"), dto.records),
+        (L("today_section_growth"), dto.growth),
+        (L("today_section_bases"), dto.base_changes),
     ):
         if items:
             lines.append("")
             lines.append(header)
-            lines.extend(fold([f"· {render_event(x)}" for x in items], fold_limit, "条"))
+            lines.extend(fold(
+                [f"· {render_event(x)}" for x in items], fold_limit, L("quantifier_entry"),
+            ))
     lines.append("")
-    lines.append(dto.summary)
+    lines.append(_report_summary(dto))
     return "\n".join(lines)
+
+
+def _report_summary(dto) -> str:
+    """末行编辑部总结渲染（i18n §3.2）：application 只产 summary_kind + 计数，措辞拼装在此。
+    quiet_day → 「平静的一天」；editorial → 「今天：N 名新玩家加入，N 次成长，N 处据点变化。」
+    （无事件但有活跃玩家时回落在线活跃句）。逐字复现旧 ReportService._summary。"""
+    if dto.summary_kind == "quiet_day":
+        return L("report_quiet_day")
+    parts: list[str] = []
+    if dto.new_players:
+        parts.append(L("report_new_players", n=dto.new_players))
+    if dto.growth:
+        parts.append(L("report_growth", n=len(dto.growth)))
+    if dto.base_changes:
+        parts.append(L("report_base_changes", n=len(dto.base_changes)))
+    if not parts and dto.active_players:
+        parts.append(L("report_active", n=dto.active_players))
+    return L("report_summary", body=L("report_summary_sep").join(parts))
 
 
 def format_player(
@@ -562,30 +604,30 @@ def format_player(
     「最后在线」用 rel_datetime（时间戳字段全档带 HH:MM）；「首次现身」用绝对日期。
     公会名缺席（gamedata 锁定期）省整行；已隐藏角标仅 me 路径缀于首次现身行。
     """
-    head = "我的玩家" if is_me else "玩家"
+    head = L("player_head_me") if is_me else L("player_head")
     title = f"👤 {head} · {dto.name}"
     if world_mode != "single":
         title += f" · {server_name}"
 
     if dto.online:
-        status = [f"Lv{dto.level}", "🟢 在线"]
+        status = [f"Lv{dto.level}", L("player_online")]
         if not strict:
-            status.append(f"本次 {fmt_duration(dto.online_seconds)}")
+            status.append(L("player_session", duration=fmt_duration(dto.online_seconds)))
     else:
-        status = [f"Lv{dto.level}", "离线"]
+        status = [f"Lv{dto.level}", L("player_offline")]
         if not strict:
-            status.append(f"最后在线 {rel_datetime(dto.last_seen_at, now, tz)}")
+            status.append(L("player_last_seen", time=rel_datetime(dto.last_seen_at, now, tz)))
 
     block: list[str] = []
     if not strict:
-        block.append(
-            f"今日在线 {fmt_duration(dto.today_seconds)} · 累计 {fmt_duration(dto.total_seconds)}"
-        )
+        block.append(L("common_today_total",
+                       today=fmt_duration(dto.today_seconds),
+                       total=fmt_duration(dto.total_seconds)))
     if dto.guild_name:
-        block.append(f"公会「{dto.guild_name}」")
-    first_seen = f"首次现身 {abs_date(dto.first_seen_at, tz)}"
+        block.append(L("guild_label", name=dto.guild_name))
+    first_seen = L("player_first_seen", date=abs_date(dto.first_seen_at, tz))
     if is_me and dto.hidden:
-        first_seen += " · 已隐藏"
+        first_seen += f" · {L('player_hidden_suffix')}"
     block.append(first_seen)
 
     return "\n".join([title, " · ".join(status), "", *block])
@@ -596,7 +638,7 @@ def _days_ago_label(days: int) -> str:
     「今天」/「N天前」（spec §5·隐私 P1）。**绝不 fromtimestamp**——入参是天数差非 epoch，
     当时间戳会显 1970 乱数据 + 泄漏绝对登录时刻（作息）。负值防御归 0（今天）。"""
     n = max(int(days), 0)
-    return "今天" if n == 0 else f"{n}天前"
+    return L("days_ago_today") if n == 0 else L("days_ago_n", n=n)
 
 
 def format_me(dto: MeCardDTO) -> str:
@@ -611,7 +653,7 @@ def format_me(dto: MeCardDTO) -> str:
     渲染，绝不当 epoch（隐私 P1，无绝对时间戳）。签名仅收 dto——百分位/时长/天数皆自足，
     无需 now/tz/server_name（同图片版 build_me_card_html 的 DTO 自足边界）。
     """
-    title = f"🎴 我的名片 · {dto.name}"
+    title = f"{L('me_card_title')} · {dto.name}"
 
     if not dto.online:
         # 离线卡：无实时状态点、无随身/血量；最近上线走距今天数（非绝对时刻）+ 累计在线。
@@ -619,10 +661,12 @@ def format_me(dto: MeCardDTO) -> str:
             title,
             f"Lv{dto.level} · {L('me_card_offline')}",
             "",
-            f"最近上线 {_days_ago_label(dto.last_seen_at)} · 累计在线 {fmt_duration(dto.total_seconds)}",
+            L("me_card_last_online",
+              days=_days_ago_label(dto.last_seen_at),
+              total=fmt_duration(dto.total_seconds)),
         ]
         if dto.guild_name:
-            lines.append(f"公会「{dto.guild_name}」")
+            lines.append(L("guild_label", name=dto.guild_name))
         if dto.hidden:
             lines.append(L("me_card_hidden"))
         return "\n".join(lines)
@@ -630,21 +674,24 @@ def format_me(dto: MeCardDTO) -> str:
     # 在线卡：状态点 🟢 + 本次在线 + 百分位（hero）+ 今日/累计 + 公会 + 随身三态。
     lines = [
         title,
-        f"Lv{dto.level} · 🟢 在线 · 本次 {fmt_duration(dto.online_seconds)}",
+        f"Lv{dto.level} · {L('me_card_online_status', session=fmt_duration(dto.online_seconds))}",
         "",
         L("me_card_percentile", pct=f"{dto.percentile:.0f}"),
-        f"今日在线 {fmt_duration(dto.today_seconds)} · 累计 {fmt_duration(dto.total_seconds)}",
+        L("common_today_total",
+          today=fmt_duration(dto.today_seconds), total=fmt_duration(dto.total_seconds)),
     ]
     if dto.guild_name:
-        lines.append(f"公会「{dto.guild_name}」")
+        lines.append(L("guild_label", name=dto.guild_name))
 
     if dto.companion_status == "shown" and dto.companion is not None:
         c = dto.companion
-        element = _ELEMENT_LABEL.get(c.element, c.element)
+        element = _label_or_key("element", c.element)
         action = _companion_action(c.action_label)
-        lines.append(
-            f"随身 {c.species_name}（{element}）Lv{c.level} · HP {c.hp_ratio:.0%} · {action}"
-        )
+        lines.append(L(
+            "me_card_companion",
+            name=c.species_name, element=element, level=c.level,
+            hp=f"{c.hp_ratio:.0%}", action=action,
+        ))
     elif dto.companion_status == "none_out":
         lines.append(L("me_card_none_out"))
     else:  # no_data（无快照/本人不在快照/game-data 未轮询）——绝不谎称没带
@@ -655,14 +702,8 @@ def format_me(dto: MeCardDTO) -> str:
     return "\n".join(lines)
 
 
-# rank 三变体榜名（spec §4.23）。which=time 为 today 别名；未识别值回落 today
-# （命令层已把非法首词归 today，此处 mapping 兜底防越界）。
-_RANK_TITLE = {
-    "today": "今日在线时长榜",
-    "time": "今日在线时长榜",
-    "total": "累计在线时长榜",
-    "level": "等级榜",
-}
+# rank 三变体榜名（spec §4.23）→ rank_title_*（today/time/total/level）。which=time 为 today
+# 别名；未识别值回落 today（命令层已把非法首词归 today，此处以 locale 键存在性兜底防越界）。
 
 
 def format_rank(dto: RankBoardsDTO, *, which: str, server_name: str) -> str:
@@ -673,8 +714,8 @@ def format_rank(dto: RankBoardsDTO, *, which: str, server_name: str) -> str:
     名次序号 `1. `/`2. ` 纯渲染零成本；时长走 textkit.fmt_duration。total 变体附脚注
     `└ 统计范围为数据留存期`。空榜=标题锚点 + 素文 rank_empty（无脚注）。
     """
-    board = which if which in _RANK_TITLE else "today"
-    title = f"🏆 {_RANK_TITLE[board]} · {server_name}"
+    board = which if f"rank_title_{which}" in MESSAGES else "today"
+    title = f"🏆 {L(f'rank_title_{board}')} · {server_name}"
     if board == "level":
         rows = [f"{i}. {name} Lv{lv}" for i, (name, lv) in enumerate(dto.level_rows, 1)]
     else:
@@ -684,7 +725,7 @@ def format_rank(dto: RankBoardsDTO, *, which: str, server_name: str) -> str:
         return f"{title}\n{L('rank_empty')}"
     lines = [title, *rows]
     if board == "total":
-        lines.append("└ 统计范围为数据留存期")
+        lines.append(L("rank_footer_total"))
     return "\n".join(lines)
 
 
@@ -694,20 +735,21 @@ def format_rank_climb(dto: RankClimbDTO, *, server_name: str) -> str:
     行 `1. {name} +{gain} 级`；口径脚注随 shallow 分叉（历史不足 7 天时诚实标「自 bot
     记录以来」）；末尾「你第 N，离前一位差 X 级」为调用方本人榜位（榜首无差）。空榜=标题 +
     素文（无脚注、无本人榜位）。gain 恒 > 0（query 层已剔零/负增量），此处纯渲染。"""
-    title = f"🚀 飞升榜 · {server_name}"
+    title = f"{L('rank_climb_title')} · {server_name}"
     if not dto.rows:
         return f"{title}\n{L('rank_climb_empty')}"
-    rows = [f"{i}. {e.name} +{e.gain} 级" for i, e in enumerate(dto.rows, 1)]
+    rows = [L("rank_climb_row", rank=i, name=e.name, gain=e.gain)
+            for i, e in enumerate(dto.rows, 1)]
     lines = [title, *rows]
     lines.append(
-        "└ 涨幅自 bot 开始记录以来（历史不足 7 天）" if dto.shallow
-        else "└ 统计近 7 天等级涨幅"
+        L("rank_climb_footer_shallow") if dto.shallow
+        else L("rank_climb_footer")
     )
     if dto.viewer_rank is not None:
         if dto.viewer_gap is None:
-            lines.append(f"你第 {dto.viewer_rank}，已登顶飞升榜 🎉")
+            lines.append(L("rank_climb_viewer_top", rank=dto.viewer_rank))
         else:
-            lines.append(f"你第 {dto.viewer_rank}，离前一位差 {dto.viewer_gap} 级")
+            lines.append(L("rank_climb_viewer_gap", rank=dto.viewer_rank, gap=dto.viewer_gap))
     return "\n".join(lines)
 
 
@@ -718,9 +760,9 @@ def format_dex(dto: DexProgressDTO) -> str:
     C2）；「曾被观测到」≠「服上存在全物种」（末尾脚注钉死）。分母已知 → 「已观测 N/总数 种」
     + 每元素缺失清单（「尚未被观测」）；分母未知（roster 不完整）→ 降级为「已观测 N 种」+ 仅
     已点亮列表，**不显分母、不出缺失**（SD5：分母与缺失绑同一前置一起降级）。空图鉴 → 素文。
-    元素中文复用 _ELEMENT_LABEL（unknown/理论外键优雅回落原键，不炸）。
+    元素中文经 element_* locale 键渲染（unknown/理论外键优雅回落原键，不炸）。
     标题**不带服名**：observed_species 无 world_id、跨插件全局累积，per-server 锚点会误导口径。"""
-    title = "📖 服务器图鉴"
+    title = L("dex_title")
     if not dto.buckets:
         return f"{title}\n{L('dex_empty')}"
     head = (
@@ -730,10 +772,10 @@ def format_dex(dto: DexProgressDTO) -> str:
     )
     lines = [title, head, ""]
     for b in dto.buckets:
-        elem = _ELEMENT_LABEL.get(b.element, b.element)
-        lit = "、".join(b.observed) if b.observed else "—"
-        lines.append(f"{elem} {len(b.observed)}：{lit}")
+        elem = _label_or_key("element", b.element)
+        lit = L("list_sep").join(b.observed) if b.observed else "—"
+        lines.append(f"{elem} {len(b.observed)}{L('label_value_sep')}{lit}")
         if b.missing:   # 缺失仅分母已知时非空（降级恒空）
-            lines.append(f"　└ 尚未被观测：{'、'.join(b.missing)}")
+            lines.append(f"{L('dex_missing_indent')}{L('dex_missing')}{L('label_value_sep')}{L('list_sep').join(b.missing)}")
     lines.append(L("dex_note"))
     return "\n".join(lines)

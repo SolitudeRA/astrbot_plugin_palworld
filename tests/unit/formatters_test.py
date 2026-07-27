@@ -47,7 +47,7 @@ def _status(*, players, online=2, max_players=32, basecamp_count=5, detail=None)
     return StatusDTO(
         server_name="cfg-name", world_name="game-world", world_day=42, online=online,
         max_players=max_players, basecamp_count=basecamp_count, fps=58.0, frame_time=17.2,
-        smoothness_label="流畅", players=players, peak_online_today=7,
+        smoothness_label="smooth", players=players, peak_online_today=7,  # 稳定键；渲染经 L() 出中文
         updated_at=1700000000, degraded=False, last_ok=1700000000, detail=detail,
     )
 
@@ -500,10 +500,18 @@ def test_format_world_strict_omits_palbox_keeps_guild_and_base():
 
 
 def _rules_dto(*, available=True, privacy_note=None):
+    # i18n §3.2：节标题/标签为稳定键（formatter 经 L() 渲染 zh）；enum 值为 setting_display
+    # 成品串、rate 携原始数值串（x 由 formatter 补）。
     return RulesDTO(
         sections=[
-            RuleSection("模式", [("难度", "普通"), ("硬核", "关闭")]),
-            RuleSection("倍率", [("经验", "1.0x"), ("捕获", "1.2x")]),
+            RuleSection("rules_section_mode", [
+                ("rules_label_difficulty", "普通", "enum"),
+                ("rules_label_hardcore", "关闭", "enum"),
+            ]),
+            RuleSection("rules_section_rate", [
+                ("rules_label_exp", "1.0", "rate"),
+                ("rules_label_capture", "1.2", "rate"),
+            ]),
         ],
         available=available, privacy_note=privacy_note, updated_at=1700000000,
     )
@@ -529,7 +537,8 @@ def test_format_rules_unavailable_is_error_state():
 
 
 def test_format_rules_privacy_note_footer():
-    text = format_rules(_rules_dto(privacy_note="据点模块在 strict 隐私模式下停用"), "Palpagos")
+    # privacy_note 携稳定键，formatter 经 L() 渲染 zh 措辞（i18n §3.2）。
+    text = format_rules(_rules_dto(privacy_note="rules_privacy_strict"), "Palpagos")
     assert text.endswith("└ 据点模块在 strict 隐私模式下停用")
 
 
@@ -650,7 +659,9 @@ class _TodayReport:
         self.records = kw.get("records", [])
         self.growth = kw.get("growth", [])
         self.base_changes = kw.get("base_changes", [])
-        self.summary = kw.get("summary", "今天：无。")
+        # i18n §3.2：稳定键 + 计数（措辞在 format_today 侧拼装）。
+        self.summary_kind = kw.get("summary_kind", "editorial")
+        self.new_players = kw.get("new_players", 0)
 
 
 def test_today_title_carries_server_and_date():

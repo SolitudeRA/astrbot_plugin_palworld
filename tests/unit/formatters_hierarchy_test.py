@@ -10,10 +10,8 @@ from types import SimpleNamespace
 
 from palworld_terminal.presentation.commands import Commands
 from palworld_terminal.presentation.formatters import format_help, visible_actions
-from palworld_terminal.shared.command_registry import (
-    HELP_TEXT,
-    PAL_COMMAND_STRINGS,
-)
+from palworld_terminal.presentation.locale import MESSAGES
+from palworld_terminal.shared.command_registry import PAL_COMMAND_STRINGS
 from tests.unit._perm import all_on as _all_on
 from tests.unit._perm import overrides
 
@@ -90,12 +88,16 @@ def test_format_help_confirm_admin_only():
 
 
 # ============================================================================
-# help-text 覆盖（防漂移：每条完整路径恰有一条描述，双向全等）
+# help 描述覆盖（防漂移：zh-CN.json 内 help_desc_* 键集 ↔ 完整路径集 双向全等）
 # ============================================================================
 
-def test_help_text_covers_all_command_paths_exactly():
+def test_help_desc_keys_cover_all_command_paths_exactly():
     paths = set(PAL_COMMAND_STRINGS)
-    keys = set(HELP_TEXT)
+    keys = {
+        k[len("help_desc_"):].replace("_", " ")
+        for k in MESSAGES
+        if k.startswith("help_desc_")
+    }
     assert keys == paths, f"缺描述: {paths - keys}; 多余描述: {keys - paths}"
 
 

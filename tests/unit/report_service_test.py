@@ -1,3 +1,4 @@
+import re
 from pathlib import Path
 
 from palworld_terminal.adapters.sqlite_repository import Repository
@@ -30,6 +31,7 @@ from palworld_terminal.infrastructure.clock import FakeClock
 from palworld_terminal.infrastructure.database import Database
 from palworld_terminal.infrastructure.migrations import apply_migrations
 from palworld_terminal.presentation.event_wording import render_event
+from palworld_terminal.presentation.formatters import format_today
 
 
 def _cfg(tz: str = "Asia/Tokyo", privacy_mode: str = "balanced") -> AppConfig:
@@ -116,7 +118,34 @@ async def test_daily_splits_events_and_orders(tmp_path):
         assert "在线人数新纪录 8 人" in [render_event(v) for v in rep.records]
         assert "新玩家 Neo 加入世界" in [render_event(v) for v in rep.records]
         assert rep.is_empty is False
-        assert rep.summary  # non-empty editorial summary
+        # 编辑部总结稳定键化（i18n §3.2）：application 产 summary_kind + 计数，措辞下沉
+        # presentation；有内容 → editorial 拼装句档。
+        assert rep.summary_kind == "editorial"
+        assert rep.new_players == 1
+    finally:
+        await db.close()
+
+
+_CJK = re.compile(r"[一-鿿]")
+
+
+async def test_daily_report_carries_no_curated_chinese(tmp_path):
+    # 架构守卫（i18n §3.2/§6，参照 rules test_rules_dto_carries_no_curated_chinese 范式）：
+    # 编辑部总结稳定键化后，DailyReport 不再携带任何硬编码中文措辞——summary_kind 为稳定键
+    # （quiet_day/editorial），措辞渲染全在 presentation.format_today。EventView.name 为真实
+    # 主体名（玩家/公会/据点，可含中文）属数据边界，不在本断言范围。
+    report, repo, events, clock, db = await _make(tmp_path)
+    try:
+        w = _world()
+        clock.set(NOON)
+        await repo.upsert_player(
+            PlayerIdentity("pk1", w.world_id, "Neo", NOON, NOON, 22, None,
+                           IdConfidence.HIGH))
+        await events.new_player(w, "pk1")
+        await events.level_up(w, "pk1", old=21, new=22)
+        rep = await report.daily(w, day="2026-07-10")
+        assert not _CJK.search(rep.summary_kind), f"summary_kind 含中文: {rep.summary_kind}"
+        assert rep.summary_kind in {"quiet_day", "editorial"}
     finally:
         await db.close()
 
@@ -149,7 +178,7 @@ async def test_daily_empty_day_reports_calm(tmp_path):
         w = _world()
         rep = await report.daily(w, day="2026-07-10")
         assert rep.is_empty is True
-        assert rep.summary == "平静的一天"
+        assert rep.summary_kind == "quiet_day"
         assert rep.growth == []
         assert rep.base_changes == []
         assert rep.records == []
@@ -194,9 +223,12 @@ async def test_daily_three_section_dispatch_and_dedup(tmp_path):
         assert any("工作帕鲁" in render_event(r) for r in rep.base_changes)
         # 成长节
         assert [render_event(v) for v in rep.growth] == ["Neo 升级 Lv21→Lv22"]
-        # 末行编辑部总结主分支（spec §4.5）：经 _summary 三计数拼装（1 新玩家 / 1 成长 /
-        # 2 据点变化），锚定 golden 手造串之外的真实渲染路径，防 _summary 主分支回归。
-        assert rep.summary == "今天：1 名新玩家加入，1 次成长，2 处据点变化。"
+        # 末行编辑部总结主分支（spec §4.5 / i18n §3.2）：application 只产结构化计数
+        # （summary_kind + new_players），措辞拼装上提 presentation.format_today。锚定 golden
+        # 手造串之外的真实渲染路径（report.daily → format_today），防主分支回归。
+        assert rep.summary_kind == "editorial"
+        assert rep.new_players == 1
+        assert "今天：1 名新玩家加入，1 次成长，2 处据点变化。" in format_today(rep, "Srv")
     finally:
         await db.close()
 
@@ -254,7 +286,7 @@ async def test_daily_strict_empty_when_only_individual_events(tmp_path):
         assert rep.growth == []
         assert rep.base_changes == []
         assert rep.is_empty is True
-        assert rep.summary == "平静的一天"
+        assert rep.summary_kind == "quiet_day"
     finally:
         await db.close()
 
@@ -349,7 +381,9 @@ async def test_daily_total_online_and_active_players_dedup_by_player(tmp_path):
         assert rep.total_online_seconds == 400 + 300 + 700 + 700 + 100
         assert rep.active_players == 2  # pk_a + pk_b（按玩家去重，非按会话）
         assert rep.is_empty is False
-        assert "2 名玩家在线活跃" in rep.summary
+        # 活跃玩家回落分支（无事件、有活跃会话）：结构化 DTO 经 format_today 拼装活跃句。
+        assert rep.summary_kind == "editorial"
+        assert "2 名玩家在线活跃" in format_today(rep, "Srv")
     finally:
         await db.close()
 

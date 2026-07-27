@@ -8,6 +8,7 @@ import logging
 from collections.abc import Callable, Mapping
 
 from .config_view import _MAX_LIST, audit_rows, redact_config, status_rows, validate_and_backfill
+from .locale import L
 
 _log = logging.getLogger("palworld_terminal.web_api")
 _TRANSFER_ACTION = "mode_transfer"
@@ -295,7 +296,8 @@ async def handle_mode_transfer(
         }
         success = 1 if clear_ok else 0
         if not clear_ok:
-            error = "源介质（DB 群绑定）清理未尽，切回多世界前请人工核查残留"
+            # 抽键（i18n §3.5）：审计 error 字段落盘时按当时 locale 渲染（§4 落盘政策）。
+            error = L("mode_transfer_clear_incomplete")
         elif state["failed_server_ids"]:
             error = "purge_failed:" + ",".join(state["failed_server_ids"])
         else:

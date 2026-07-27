@@ -1,3 +1,7 @@
+import re
+from pathlib import Path
+
+from palworld_terminal.adapters.metadata_repository import MetadataRepository
 from palworld_terminal.adapters.sqlite_repository import Repository
 from palworld_terminal.application.query_service import QueryService
 from palworld_terminal.config import (
@@ -98,35 +102,71 @@ async def _make(tmp_path, privacy_mode="balanced"):
 
 
 def _rule_items(dto) -> dict[str, str]:
-    return {label: value for sec in dto.sections for label, value in sec.items}
+    return {label: value for sec in dto.sections for label, value, _kind in sec.items}
+
+
+_CJK = re.compile(r"[一-鿿]")
+
+
+def _has_cjk(s) -> bool:
+    return isinstance(s, str) and bool(_CJK.search(s))
+
+
+async def test_rules_dto_carries_no_curated_chinese(tmp_path):
+    # 架构守卫（i18n §3.2/§6）：策展措辞层（节标题/标签/单位词/隐私注记）稳定键化后，
+    # RulesDTO 不再携带任何硬编码中文措辞。enum 值经 meta.setting_display（元数据/settings.json
+    # 数据文件层，T5 起按 locale 三语）除外——它非 application 硬编码措辞，属数据边界。
+    db, repo, q = await _make(tmp_path)
+    try:
+        q._settings_cache["alpha"] = {
+            "Difficulty": "Normal", "DeathPenalty": "Item", "ExpRate": "1.0",
+            "PalEggDefaultHatchingTime": "72", "SupplyDropSpan": "180",
+            "ServerPlayerMaxNum": "32",
+        }
+        dto = await q.rules(_world())
+        assert dto.sections, "fixture 应产出非空分节"
+        for sec in dto.sections:
+            assert not _has_cjk(sec.title), f"节标题含中文: {sec.title}"
+            for label_key, value, kind in sec.items:
+                assert not _has_cjk(label_key), f"标签含中文: {label_key}"
+                assert not _has_cjk(kind), f"kind 含中文: {kind}"
+                if kind != "enum":   # enum 值=metadata setting_display 输出（数据文件层），豁免
+                    assert not _has_cjk(value), f"非枚举值含中文: {value!r}"
+        if dto.privacy_note is not None:
+            assert not _has_cjk(dto.privacy_note), f"privacy_note 含中文: {dto.privacy_note}"
+    finally:
+        await db.close()
 
 
 async def test_rules_curates_rate_field(tmp_path):
-    # 策展分节（spec §4.3）：ExpRate 落 倍率 节，值渲染为 1.5x（ASCII x，非全角 ×）。
+    # 策展分节（spec §4.3）：ExpRate 落 倍率 节。i18n §3.2：标签为稳定键，DTO 携原始数值串
+    # 1.5（rate 一位小数；ASCII x 由 formatter 补，不出全角 ×）。
     db, repo, q = await _make(tmp_path)
     dto = await q.rules(_world())
     assert dto.available is True
-    assert _rule_items(dto)["经验"] == "1.5x"
+    assert _rule_items(dto)["rules_label_exp"] == "1.5"
     assert dto.privacy_note is None
     await db.close()
 
 
 async def test_rules_rate_whole_number_keeps_one_decimal(tmp_path):
-    # Finding 3（spec §2.4/§4.3）：倍率恒一位小数——默认 1.0 必须渲染 1.0x（非去尾成 1x），
-    # 默认服全倍率=1.0 属最常见场景。锚定真渲染路径（golden 用预渲染 DTO 测不出本回归）。
+    # Finding 3（spec §2.4/§4.3）：倍率恒一位小数——默认 1.0 必须留 1.0（非去尾成 1；
+    # formatter 补 x → 1.0x），默认服全倍率=1.0 属最常见场景。锚定 query 侧真取数路径
+    # （golden 用手搓 DTO 测不出本回归）。
     db, repo, q = await _make(tmp_path)
     q._settings_cache["alpha"] = {"ExpRate": "1.000000"}
     dto = await q.rules(_world())
-    assert _rule_items(dto)["经验"] == "1.0x"
+    assert _rule_items(dto)["rules_label_exp"] == "1.0"
     await db.close()
 
 
 async def test_rules_maps_enum_values_via_setting_display(tmp_path):
-    # 枚举字段走 setting_display（enum_map 措辞，不直出 "ItemAndEquipment"）。
+    # 枚举字段走 setting_display（enum_map 措辞，不直出 "ItemAndEquipment"）；enum 值为
+    # 数据文件层成品，query 侧现解（i18n §3.2 豁免上提），标签为稳定键。
     db, repo, q = await _make(tmp_path)
     q._settings_cache["alpha"] = {"DeathPenalty": "ItemAndEquipment"}
     dto = await q.rules(_world())
-    assert _rule_items(dto)["死亡惩罚"] == "掉落物品与装备"
+    assert _rule_items(dto)["rules_label_death_penalty"] == "掉落物品与装备"
     await db.close()
 
 
@@ -141,17 +181,18 @@ async def test_rules_unavailable_when_snapshot_empty(tmp_path):
 
 
 async def test_rules_advanced_note(tmp_path):
+    # privacy_note 携稳定键（i18n §3.2），措辞由 formatter 经 L() 渲染。
     db, repo, q = await _make(tmp_path, privacy_mode="advanced")
     dto = await q.rules(_world())
-    assert dto.privacy_note == "advanced 隐私模式暂按 balanced 生效"
+    assert dto.privacy_note == "rules_privacy_advanced"
     await db.close()
 
 
 async def test_rules_strict_note_diverges(tmp_path):
-    # 两模式两句分叉（spec §4.3，勿混）：strict = 据点模块停用句。
+    # 两模式两句分叉（spec §4.3，勿混）：strict = 据点模块停用句（稳定键 rules_privacy_strict）。
     db, repo, q = await _make(tmp_path, privacy_mode="strict")
     dto = await q.rules(_world())
-    assert dto.privacy_note == "据点模块在 strict 隐私模式下停用"
+    assert dto.privacy_note == "rules_privacy_strict"
     await db.close()
 
 
@@ -172,4 +213,50 @@ async def test_today_delegates_to_report(tmp_path):
     db, repo, q = await _make(tmp_path)
     result = await q.today(_world())
     assert result == "DAILY_SENTINEL"
+    await db.close()
+
+
+# ---- T13 端到端：真实 settings.json 三语枚举经 rules 管线现解（非 _FakeMeta）----
+
+_METADATA_DIR = Path(__file__).resolve().parents[2] / "metadata"
+
+
+async def _make_real_meta(tmp_path, locale: str):
+    """QueryService + 真实 MetadataRepository(locale)：证 settings.json 三语枚举
+    经 setting_display 现解、随 locale 出目标语言措辞（rules 管线端到端，非替身）。"""
+    db = Database(tmp_path / "t.sqlite3")
+    await db.open()
+    await apply_migrations(db)
+    clock = FakeClock(1200)
+    repo = Repository(db, clock)
+    await repo.upsert_world(_world())
+    meta = MetadataRepository(_METADATA_DIR, locale)
+    meta.load()
+    settings_cache = {"alpha": {
+        "Difficulty": "Hard", "bHardcore": "true", "DeathPenalty": "All", "ExpRate": "2.0",
+    }}
+    q = QueryService(
+        repo, TTLCache(clock), _cfg(), meta=meta, clock=clock,
+        settings_cache=settings_cache, world_cache={}, report=_FakeReport(),
+    )
+    return db, q
+
+
+async def test_rules_enum_localized_en_via_real_settings(tmp_path):
+    db, q = await _make_real_meta(tmp_path, "en")
+    dto = await q.rules(_world())
+    items = _rule_items(dto)
+    assert items["rules_label_difficulty"] == "Hard"
+    assert items["rules_label_hardcore"] == "On"
+    assert items["rules_label_death_penalty"] == "Drop everything"
+    await db.close()
+
+
+async def test_rules_enum_localized_ja_via_real_settings(tmp_path):
+    db, q = await _make_real_meta(tmp_path, "ja")
+    dto = await q.rules(_world())
+    items = _rule_items(dto)
+    assert items["rules_label_difficulty"] == "ハード"
+    assert items["rules_label_hardcore"] == "オン"
+    assert items["rules_label_death_penalty"] == "すべてドロップ"
     await db.close()

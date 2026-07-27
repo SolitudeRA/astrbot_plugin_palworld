@@ -35,7 +35,9 @@ class _DexQueries(_PrivacyBase):
         lit: dict[str, list[str]] = {}       # 元素 → 已点亮物种名
         lit_classes: set[str] = set()
         for o in observed:
-            lit.setdefault(o.element or "unknown", []).append(o.species_name)
+            lit.setdefault(o.element or "unknown", []).append(
+                self._meta.pal_name_or(o.species_class, o.species_name)
+            )
             lit_classes.add(o.species_class)
 
         roster = self._species_roster

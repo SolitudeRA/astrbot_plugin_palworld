@@ -9,6 +9,8 @@ from __future__ import annotations
 from datetime import datetime, tzinfo
 from zoneinfo import ZoneInfo
 
+from .locale import L
+
 # 全角双引号（spec §2.3：回执内容回显专用；名字/引用另用「」由 formatter 内联）。
 _LQUO = "“"  # “
 _RQUO = "”"  # ”
@@ -21,7 +23,7 @@ def fold(lines: list[str], limit: int, unit: str) -> list[str]:
     """
     if len(lines) <= limit:
         return list(lines)
-    return list(lines[:limit]) + [f"…等共 {len(lines)} {unit}"]
+    return list(lines[:limit]) + [L("fold_tail", n=len(lines), unit=unit)]
 
 
 def fmt_duration(seconds: int) -> str:
@@ -37,10 +39,11 @@ def fmt_duration(seconds: int) -> str:
     h, m = divmod(total_min, 60)
     if h >= 24:
         d, hh = divmod(h, 24)
-        return f"{d}天{hh}时"
+        return L("duration_dh", d=d, h=hh)
     if h:
-        return f"{h}时{m:02d}分"
-    return f"{m}分"
+        # 分钟两位补零在此完成，模板只承 `{mm}` 位（补零语义随渲染语言不变）。
+        return L("duration_hm", h=h, mm=f"{m:02d}")
+    return L("duration_m", m=m)
 
 
 def _resolve_tz(tz: str | tzinfo) -> tzinfo:
@@ -51,21 +54,36 @@ def _local(ts: int, tz: tzinfo) -> datetime:
     return datetime.fromtimestamp(int(ts), tz)
 
 
-def rel_date(ts: int, now: int, tz: str | tzinfo) -> str:
-    """相对日期三档词形（spec §2.5）：今天 / 昨天 / MM-DD（跨年 YYYY-MM-DD）。
+def rel_date_key(ts: int, now: int, tz: str | tzinfo) -> str:
+    """相对日期三档的**结构化档位键**（i18n §3.5 结构性比较修正）：
+    `today` / `yesterday` / `date`，供调用方做语义判断（不再拿本地化渲染串字面比较）。
 
     按 tz 下的自然日历日比较（非 86400 秒差）→ DST 的 23/25 小时日安全。
     tz 接受 IANA 字符串或 tzinfo。
     """
     z = _resolve_tz(tz)
-    t = _local(ts, z)
-    n = _local(now, z)
-    delta = (n.date() - t.date()).days
+    delta = (_local(now, z).date() - _local(ts, z).date()).days
     if delta == 0:
-        return "今天"
+        return "today"
     if delta == 1:
-        return "昨天"
-    if t.year == n.year:
+        return "yesterday"
+    return "date"
+
+
+def rel_date(ts: int, now: int, tz: str | tzinfo) -> str:
+    """相对日期三档词形（spec §2.5）：今天 / 昨天 / MM-DD（跨年 YYYY-MM-DD）。
+
+    档位由 rel_date_key 判定，词形经 locale 渲染（`today`/`yesterday` 走键，`date`
+    档保持 MM-DD / YYYY-MM-DD 数字格式，语言无关）。tz 接受 IANA 字符串或 tzinfo。
+    """
+    z = _resolve_tz(tz)
+    key = rel_date_key(ts, now, z)
+    if key == "today":
+        return L("rel_today")
+    if key == "yesterday":
+        return L("rel_yesterday")
+    t = _local(ts, z)
+    if t.year == _local(now, z).year:
         return t.strftime("%m-%d")
     return t.strftime("%Y-%m-%d")
 

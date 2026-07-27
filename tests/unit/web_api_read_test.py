@@ -52,7 +52,7 @@ class _Container:
 def _dto():
     return StatusDTO(server_name="a", world_name="a", world_day=1, online=4,
                      max_players=32, basecamp_count=0, fps=55.0, frame_time=18.0,
-                     smoothness_label="流畅", players=[], peak_online_today=4,
+                     smoothness_label="smooth", players=[], peak_online_today=4,  # 稳定键；下发经 L() 渲染回中文
                      updated_at=1, degraded=False, last_ok=9)
 
 

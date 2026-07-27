@@ -58,17 +58,21 @@ class DailyReport:
     - growth：玩家成长（升级；显示名，隐藏玩家跳过）。
     - base_changes：据点变化（新据点/消失/工作帕鲁；gamedata 锁定期自然缺席）。
     - world_day_start/end：日窗口内 metrics 首末世界天数（epoch bug 修，§6#1）。
+    - summary_kind/new_players：编辑部总结的结构化载荷（i18n §3.2 稳定键化）——application
+      只产稳定键（quiet_day/editorial）+ 计数，末行措辞拼装上提 presentation.format_today
+      （"application 产结构化数据、presentation 产措辞"）。
     """
     day: str
     world_day_start: int
     world_day_end: int
     active_players: int
+    new_players: int
     peak_online: int
     total_online_seconds: int
     records: list[EventView]
     growth: list[EventView]
     base_changes: list[EventView]
-    summary: str
+    summary_kind: str
     is_empty: bool
 
 
@@ -168,39 +172,24 @@ class ReportService:
         )
 
         has_content = bool(records or growth or base_changes) or active_players > 0
-        if has_content:
-            summary = self._summary(
-                len(new_player_views), len(growth), len(base_changes), active_players,
-            )
-        else:
-            summary = "平静的一天"
+        new_players = len(new_player_views)
+        # 编辑部总结分档（spec §4.5 / i18n §3.2）：有任一计数（新玩家/成长/据点变化/活跃
+        # 玩家）→ editorial（末行拼装句，措辞在 presentation）；否则 quiet_day（「平静的一天」）。
+        # 与旧 _summary 逐字等价：parts 非空 ⟺ has_parts；末行措辞下沉 format_today。
+        has_parts = bool(new_players or growth or base_changes or active_players)
+        summary_kind = "editorial" if has_parts else "quiet_day"
 
         return DailyReport(
             day=day,
             world_day_start=world_day_start,
             world_day_end=world_day_end,
             active_players=active_players,
+            new_players=new_players,
             peak_online=peak,
             total_online_seconds=total_online_seconds,
             records=records,
             growth=growth,
             base_changes=base_changes,
-            summary=summary,
+            summary_kind=summary_kind,
             is_empty=not has_content,
         )
-
-    def _summary(
-        self, new_players: int, growth: int, base_changes: int, active_players: int,
-    ) -> str:
-        """末行编辑部总结（spec §4.5）：`今天：N 名新玩家加入，N 次成长，N 处据点变化。`
-        无事件但有活跃玩家时回落在线活跃句；全空回「平静的一天」。"""
-        parts: list[str] = []
-        if new_players:
-            parts.append(f"{new_players} 名新玩家加入")
-        if growth:
-            parts.append(f"{growth} 次成长")
-        if base_changes:
-            parts.append(f"{base_changes} 处据点变化")
-        if not parts and active_players:
-            parts.append(f"{active_players} 名玩家在线活跃")
-        return "今天：" + "，".join(parts) + "。" if parts else "平静的一天"

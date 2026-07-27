@@ -38,6 +38,30 @@ def test_worker_delta():
     assert render_event(v) == "据点「河谷矿场」工作帕鲁 2→5"
 
 
+# ---- i18n §3.2：name_resolver 查无回退词上提 render_event（name 空 → L("fallback_*") 兜底）----
+
+
+def test_new_guild_empty_name_falls_back():
+    # resolver 查无公会 → name 空 → render_event 经 L("fallback_guild") 兜底「公会」
+    v = EventView(occurred_at=1, event_type=EventType.NEW_GUILD, name="")
+    assert render_event(v) == "新公会「公会」出现"
+
+
+def test_new_base_empty_name_falls_back():
+    v = EventView(occurred_at=1, event_type=EventType.NEW_BASE, name="")
+    assert render_event(v) == "新据点「据点」确认"
+
+
+def test_base_vanished_empty_name_falls_back():
+    v = EventView(occurred_at=1, event_type=EventType.BASE_VANISHED, name="")
+    assert render_event(v) == "据点「据点」疑似消失（连续多次未观察到）"
+
+
+def test_worker_delta_empty_name_falls_back():
+    v = EventView(occurred_at=1, event_type=EventType.WORKER_DELTA, name="", prev=2, cur=5)
+    assert render_event(v) == "据点「据点」工作帕鲁 2→5"
+
+
 def test_world_day_milestone():
     v = EventView(occurred_at=1, event_type=EventType.WORLD_DAY_MILESTONE, milestone=5, name="")
     assert render_event(v) == "世界迎来第 5 天"

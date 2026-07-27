@@ -41,7 +41,7 @@ def test_status_golden():
     )
     dto = StatusDTO(
         server_name="Palpagos", world_name="game-world", world_day=42, online=2,
-        max_players=32, basecamp_count=5, fps=58.0, frame_time=17.2, smoothness_label="流畅",
+        max_players=32, basecamp_count=5, fps=58.0, frame_time=17.2, smoothness_label="smooth",
         players=[("Neo", 21, "good"), ("Trinity", 18, "ok")],
         peak_online_today=7, updated_at=1700000000, degraded=False, last_ok=1700000000,
         detail=detail,
@@ -61,21 +61,37 @@ def test_world_golden():
 
 def test_rules_golden():
     # 样张镜像 spec §4.3（模式/倍率/节奏/上限四节；同类字段两两并一行；倍率 1.0x /
-    # 节奏保游戏原单位 / 上限裸数——值均由 query 层策展渲染，此处直接给定稿串）。
+    # 节奏保游戏原单位 / 上限裸数）。i18n §3.2：DTO 携 (节标题稳定键, (标签稳定键, 值, kind))
+    # ——节标题/标签/单位词/倍率 x 由 formatter 经 L() 渲染；enum 值为 setting_display 成品，
+    # 数值类携原始数值串（rate 一位小数、hours/minutes/int 去尾）。golden 字节不变锁 zh 渲染。
     dto = RulesDTO(
         sections=[
-            RuleSection("模式", [
-                ("难度", "普通"), ("硬核", "关闭"), ("死亡惩罚", "掉落物品"),
-                ("帕鲁永久死亡", "关闭"), ("PVP 伤害", "关闭"), ("友军伤害", "关闭"),
-                ("入侵者袭击", "开启"),
+            RuleSection("rules_section_mode", [
+                ("rules_label_difficulty", "普通", "enum"),
+                ("rules_label_hardcore", "关闭", "enum"),
+                ("rules_label_death_penalty", "掉落物品", "enum"),
+                ("rules_label_pal_lost", "关闭", "enum"),
+                ("rules_label_pvp_damage", "关闭", "enum"),
+                ("rules_label_friendly_fire", "关闭", "enum"),
+                ("rules_label_invader", "开启", "enum"),
             ]),
-            RuleSection("倍率", [
-                ("经验", "1.0x"), ("捕获", "1.2x"), ("工作速度", "1.0x"),
-                ("帕鲁刷新", "1.0x"), ("白天流速", "1.0x"), ("夜晚流速", "1.0x"),
+            RuleSection("rules_section_rate", [
+                ("rules_label_exp", "1.0", "rate"),
+                ("rules_label_capture", "1.2", "rate"),
+                ("rules_label_work_speed", "1.0", "rate"),
+                ("rules_label_pal_spawn", "1.0", "rate"),
+                ("rules_label_day_speed", "1.0", "rate"),
+                ("rules_label_night_speed", "1.0", "rate"),
             ]),
-            RuleSection("节奏", [("蛋孵化", "72 小时"), ("空投间隔", "180 分钟")]),
-            RuleSection("上限", [
-                ("玩家", "32"), ("公会成员", "20"), ("据点 每公会", "4"), ("全服", "128"),
+            RuleSection("rules_section_tempo", [
+                ("rules_label_egg_hatch", "72", "hours"),
+                ("rules_label_supply_drop", "180", "minutes"),
+            ]),
+            RuleSection("rules_section_cap", [
+                ("rules_label_player_max", "32", "int"),
+                ("rules_label_guild_member_max", "20", "int"),
+                ("rules_label_basecamp_per_guild", "4", "int"),
+                ("rules_label_basecamp_total", "128", "int"),
             ]),
         ],
         available=True, privacy_note=None, updated_at=1700000000,
@@ -109,7 +125,9 @@ def test_today_golden():
             EventView(occurred_at=0, event_type=EventType.NEW_BASE, name="海岸木材场"),
             EventView(occurred_at=0, event_type=EventType.WORKER_DELTA, name="河谷矿场", prev=12, cur=18),
         ]
-        summary = "今天：1 名新玩家加入，2 次成长，2 处据点变化。"
+        # i18n §3.2：DTO 携稳定键 + 计数（措辞拼装移入 format_today）。
+        summary_kind = "editorial"
+        new_players = 1
 
     _check_golden("today.txt", format_today(_Report(), "Palpagos"))
 
