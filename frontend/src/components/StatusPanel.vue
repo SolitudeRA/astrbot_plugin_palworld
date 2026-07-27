@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from 'vue'
 import { apiGet } from '../lib/bridge'
+import { t } from '../lib/i18n'
 
 interface StatusDetail {
   version?: string; description?: string; uptime_seconds?: number
@@ -9,7 +10,7 @@ interface StatusDetail {
 }
 interface StatusRow {
   name: string; ready: boolean; online?: number; max_players?: number
-  fps?: number; smoothness_label?: string; world_day?: number
+  fps?: number; smoothness?: string; smoothness_label?: string; world_day?: number
   peak_online_today?: number; basecamp_count?: number
   updated_at?: number; degraded?: boolean; last_ok?: number | null
   detail?: StatusDetail
@@ -43,21 +44,21 @@ onUnmounted(() => { if (timer) clearTimeout(timer) })
 function ago(epochSec?: number | null): string {
   if (!epochSec) return ''
   const s = Math.max(0, Math.floor(Date.now() / 1000 - epochSec))
-  if (s < 60) return `${s} 秒前`
-  if (s < 3600) return `${Math.floor(s / 60)} 分钟前`
-  if (s < 86400) return `${Math.floor(s / 3600)} 小时前`
-  return `${Math.floor(s / 86400)} 天前`
+  if (s < 60) return t('status.ago.seconds', { n: s })
+  if (s < 3600) return t('status.ago.minutes', { n: Math.floor(s / 60) })
+  if (s < 86400) return t('status.ago.hours', { n: Math.floor(s / 3600) })
+  return t('status.ago.days', { n: Math.floor(s / 86400) })
 }
 // 在线占比（进度条宽度），max 缺失/为 0 时不画
 function onlineRatio(row: StatusRow): number | null {
   if (!row.max_players || row.max_players <= 0) return null
   return Math.min(100, Math.round(((row.online ?? 0) / row.max_players) * 100))
 }
-// 流畅度着色：后端 label（流畅/一般/卡顿/严重卡顿）→ 语义色类
-function fpsClass(label?: string): string {
-  if (label === '流畅') return 'good'
-  if (label === '一般') return 'mid'
-  return 'bad' // 卡顿 / 严重卡顿
+// 流畅度着色只读后端稳定键；smoothness_label 是本地化显示串，不参与逻辑。
+function fpsClass(smoothness?: string): string {
+  if (smoothness === 'smooth') return 'good'
+  if (smoothness === 'moderate') return 'mid'
+  return 'bad'
 }
 // 展开：多台默认收起、点卡头展开；仅一台时恒展开（单服务器模式必然命中）
 const expandedNames = ref(new Set<string>())
@@ -72,51 +73,51 @@ function toggleOpen(row: StatusRow) {
 function fmtUptime(s?: number): string {
   if (!s || s <= 0) return ''
   const d = Math.floor(s / 86400), h = Math.floor((s % 86400) / 3600), m = Math.floor((s % 3600) / 60)
-  if (d > 0) return `${d} 天 ${h} 小时`
-  if (h > 0) return `${h} 小时 ${m} 分钟`
-  return `${m} 分钟`
+  if (d > 0) return t('status.uptime.days_hours', { days: d, hours: h })
+  if (h > 0) return t('status.uptime.hours_minutes', { hours: h, minutes: m })
+  return t('status.uptime.minutes', { minutes: m })
 }
 </script>
 
 <template>
   <div class="pw-status">
-    <div class="chapter-head"><h2>状态</h2></div>
-    <p class="stint"><span>服务器实时状态</span><button class="ghost" @click="load">刷新</button></p>
-    <p v-if="state === 'loading'" class="pw-muted">加载中…</p>
-    <p v-else-if="state === 'error'" class="pw-error">读取状态失败，请重试</p>
+    <div class="chapter-head"><h2>{{ t('status.title') }}</h2></div>
+    <p class="stint"><span>{{ t('status.subtitle') }}</span><button class="ghost" @click="load">{{ t('common.refresh') }}</button></p>
+    <p v-if="state === 'loading'" class="pw-muted">{{ t('status.loading') }}</p>
+    <p v-else-if="state === 'error'" class="pw-error">{{ t('status.load_error') }}</p>
     <template v-else>
-      <p v-if="restarting" class="pw-muted">正在应用新配置…</p>
-      <p v-if="!rows.length" class="pw-muted">尚未添加服务器，或数据尚未采集</p>
+      <p v-if="restarting" class="pw-muted">{{ t('status.restarting') }}</p>
+      <p v-if="!rows.length" class="pw-muted">{{ t('status.empty') }}</p>
       <div v-for="row in rows" :key="row.name" class="obs-card">
         <div class="oc-head" :class="{ clickable: rows.length > 1 }" @click="toggleOpen(row)">
           <span class="oc-nm">{{ row.name }}</span>
-          <span v-if="!row.ready" class="chip idle">未连接</span>
-          <span v-else-if="row.degraded" class="chip warn">部分数据缺失</span>
-          <span v-else class="chip good">正常</span>
-          <span v-if="row.ready && !row.degraded && row.updated_at" class="oc-updated">更新于 {{ ago(row.updated_at) }}</span>
+          <span v-if="!row.ready" class="chip idle">{{ t('status.chip.disconnected') }}</span>
+          <span v-else-if="row.degraded" class="chip warn">{{ t('status.chip.degraded') }}</span>
+          <span v-else class="chip good">{{ t('status.chip.normal') }}</span>
+          <span v-if="row.ready && !row.degraded && row.updated_at" class="oc-updated">{{ t('status.updated_at', { ago: ago(row.updated_at) }) }}</span>
           <button v-if="rows.length > 1" type="button" class="oc-chev" :class="{ open: isOpen(row) }"
-            :aria-expanded="isOpen(row)" :aria-label="row.name + ' 详细信息'" @click.stop="toggleOpen(row)">▸</button>
+            :aria-expanded="isOpen(row)" :aria-label="t('status.details_aria', { name: row.name })" @click.stop="toggleOpen(row)">▸</button>
         </div>
 
         <template v-if="row.ready && !row.degraded">
         <div class="oc-grid">
           <div class="oc-stat">
-            <span class="oc-label">在线玩家</span>
+            <span class="oc-label">{{ t('status.label.online_players') }}</span>
             <span class="oc-value">{{ row.online }}<small>/{{ row.max_players }}</small></span>
             <span v-if="onlineRatio(row) !== null" class="oc-bar" aria-hidden="true"><i :style="{ width: onlineRatio(row) + '%' }"></i></span>
-            <span class="oc-sub">今日峰值 {{ row.peak_online_today }}</span>
+            <span class="oc-sub">{{ t('status.today_peak', { n: row.peak_online_today ?? 0 }) }}</span>
           </div>
           <div class="oc-stat">
-            <span class="oc-label">帧率 FPS</span>
+            <span class="oc-label">{{ t('status.label.fps') }}</span>
             <span class="oc-value">{{ Math.round(row.fps ?? 0) }}</span>
-            <span class="oc-sub" :class="'fps-' + fpsClass(row.smoothness_label)">{{ row.smoothness_label }}</span>
+            <span class="oc-sub" :class="'fps-' + fpsClass(row.smoothness)">{{ row.smoothness_label }}</span>
           </div>
           <div class="oc-stat">
-            <span class="oc-label">世界时间</span>
-            <span class="oc-value">第 {{ row.world_day }} 天</span>
+            <span class="oc-label">{{ t('status.label.world_time') }}</span>
+            <span class="oc-value">{{ t('status.world_day', { day: row.world_day ?? 0 }) }}</span>
           </div>
           <div v-if="row.basecamp_count" class="oc-stat">
-            <span class="oc-label">据点数</span>
+            <span class="oc-label">{{ t('status.label.basecamp_count') }}</span>
             <span class="oc-value">{{ row.basecamp_count }}</span>
           </div>
         </div>
@@ -125,32 +126,32 @@ function fmtUptime(s?: number): string {
              ready 且非 degraded 由外层 template 守卫，此处只判展开/有 detail——绝不参与 fallback 链 -->
         <div v-if="isOpen(row) && row.detail" class="oc-detail">
           <div class="oc-section">
-            <span class="oc-label">运行信息</span>
+            <span class="oc-label">{{ t('status.runtime_info') }}</span>
             <div class="oc-kvgrid">
-              <div v-if="row.detail.version" class="oc-kv"><span>版本</span><b class="mono">{{ row.detail.version }}</b></div>
-              <div v-if="row.detail.uptime_seconds" class="oc-kv"><span>运行时长</span><b>{{ fmtUptime(row.detail.uptime_seconds) }}</b></div>
-              <div v-if="row.detail.frametime_ms" class="oc-kv"><span>帧时间</span><b class="mono">{{ row.detail.frametime_ms }} ms</b></div>
-              <div v-if="row.detail.address" class="oc-kv"><span>地址</span><b class="mono">{{ row.detail.address }}</b></div>
-              <div v-if="row.detail.description" class="oc-kv oc-kv-wide"><span>描述</span><b>{{ row.detail.description }}</b></div>
+              <div v-if="row.detail.version" class="oc-kv"><span>{{ t('status.version') }}</span><b class="mono">{{ row.detail.version }}</b></div>
+              <div v-if="row.detail.uptime_seconds" class="oc-kv"><span>{{ t('status.uptime') }}</span><b>{{ fmtUptime(row.detail.uptime_seconds) }}</b></div>
+              <div v-if="row.detail.frametime_ms" class="oc-kv"><span>{{ t('status.frametime') }}</span><b class="mono">{{ row.detail.frametime_ms }} ms</b></div>
+              <div v-if="row.detail.address" class="oc-kv"><span>{{ t('status.address') }}</span><b class="mono">{{ row.detail.address }}</b></div>
+              <div v-if="row.detail.description" class="oc-kv oc-kv-wide"><span>{{ t('status.description') }}</span><b>{{ row.detail.description }}</b></div>
             </div>
           </div>
           <div v-if="row.detail.rules" class="oc-section">
-            <span class="oc-label">世界规则</span>
+            <span class="oc-label">{{ t('status.world_rules') }}</span>
             <div class="oc-kvgrid">
-              <div v-if="row.detail.rules.difficulty" class="oc-kv"><span>难度</span><b>{{ row.detail.rules.difficulty }}</b></div>
-              <div v-if="row.detail.rules.pvp" class="oc-kv"><span>PVP</span><b>{{ row.detail.rules.pvp }}</b></div>
-              <div v-if="row.detail.rules.death_penalty" class="oc-kv"><span>死亡惩罚</span><b>{{ row.detail.rules.death_penalty }}</b></div>
-              <div v-if="row.detail.rules.exp_rate" class="oc-kv"><span>经验倍率</span><b class="mono">{{ row.detail.rules.exp_rate }}</b></div>
+              <div v-if="row.detail.rules.difficulty" class="oc-kv"><span>{{ t('status.difficulty') }}</span><b>{{ row.detail.rules.difficulty }}</b></div>
+              <div v-if="row.detail.rules.pvp" class="oc-kv"><span>{{ t('status.pvp') }}</span><b>{{ row.detail.rules.pvp }}</b></div>
+              <div v-if="row.detail.rules.death_penalty" class="oc-kv"><span>{{ t('status.death_penalty') }}</span><b>{{ row.detail.rules.death_penalty }}</b></div>
+              <div v-if="row.detail.rules.exp_rate" class="oc-kv"><span>{{ t('status.exp_rate') }}</span><b class="mono">{{ row.detail.rules.exp_rate }}</b></div>
             </div>
           </div>
         </div>
         </template>
 
         <p v-else-if="row.ready && row.degraded" class="oc-degraded">
-          <template v-if="row.last_ok">最后成功更新 {{ ago(row.last_ok) }}</template>
-          <template v-else>暂无可用数据</template>
+          <template v-if="row.last_ok">{{ t('status.last_success', { ago: ago(row.last_ok) }) }}</template>
+          <template v-else>{{ t('status.no_data') }}</template>
         </p>
-        <p v-else class="oc-degraded">尚未建立连接，请检查「连接」页的服务器配置</p>
+        <p v-else class="oc-degraded">{{ t('status.disconnected_help') }}</p>
       </div>
     </template>
   </div>

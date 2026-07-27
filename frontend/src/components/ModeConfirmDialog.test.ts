@@ -1,6 +1,9 @@
 import { describe, it, expect } from 'vitest'
 import { mount } from '@vue/test-utils'
+import { nextTick } from 'vue'
 import ModeConfirmDialog from './ModeConfirmDialog.vue'
+import { setLocale } from '../lib/i18n'
+import en from '../lib/locales/en'
 
 describe('ModeConfirmDialog', () => {
   it('target=multi：allowed_groups 全默认勾，确认 emit 全部 umo', async () => {
@@ -61,5 +64,32 @@ describe('ModeConfirmDialog', () => {
     } })
     await w.get('button[data-act="cancel"]').trigger('click')
     expect(w.emitted('cancel')).toBeTruthy()
+  })
+
+  it('标题、说明与按钮随 locale 响应，模式值仍走稳定键', async () => {
+    Object.assign(en, {
+      'transfer.switch_to_mode': 'Switch to {mode} mode',
+      'settings.mode.multi': 'Multi-server',
+      'transfer.confirm.multi_lead': 'Migrate authorized groups to multi-server bindings.',
+      'transfer.confirm_switch': 'Confirm switch',
+    })
+    try {
+      setLocale('en')
+      const w = mount(ModeConfirmDialog, { props: {
+        target: 'multi', preview: { ok: true, ready_servers: [], allowed_groups: [] },
+      } })
+      expect(w.text()).toContain('Switch to Multi-server mode')
+      expect(w.text()).toContain('Migrate authorized groups to multi-server bindings.')
+      expect(w.get('[data-act="confirm"]').text()).toBe('Confirm switch')
+
+      setLocale('zh-CN')
+      await nextTick()
+      expect(w.text()).toContain('切换到多服务器模式')
+    } finally {
+      delete en['transfer.switch_to_mode']
+      delete en['settings.mode.multi']
+      delete en['transfer.confirm.multi_lead']
+      delete en['transfer.confirm_switch']
+    }
   })
 })

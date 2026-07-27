@@ -1,6 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { mount, flushPromises } from '@vue/test-utils'
 import AuditPanel from './AuditPanel.vue'
+import { setLocale, t } from '../lib/i18n'
+import en from '../lib/locales/en'
 
 beforeEach(() => {
   window.AstrBotPluginPage = { ready: () => Promise.resolve(), apiGet: vi.fn(), apiPost: vi.fn() }
@@ -14,6 +16,8 @@ describe('AuditPanel', () => {
           admin: 'qq:1', target: 'Alice#abcdef', success: true, error: null },
         { ts: 1_699_999_000, time: '2023-11-14 21:56 UTC', action: 'stop', server: 'beta',
           admin: 'qq:2', target: '', success: false, error: 'server_offline' },
+        { ts: 1_699_998_000, time: '2023-11-14 21:40 UTC', action: 'save', server: 'gamma',
+          admin: 'qq:3', target: '', success: true, error: null },
       ],
     })
     const w = mount(AuditPanel); await flushPromises()
@@ -27,14 +31,16 @@ describe('AuditPanel', () => {
     // 行内容
     expect(w.text()).toContain('2023-11-14 22:13 UTC')
     expect(w.text()).toContain('qq:1')
-    expect(w.text()).toContain('kick')
+    expect(w.text()).toContain('踢出玩家')
     expect(w.text()).toContain('Alice#abcdef')
     expect(w.text()).toContain('alpha')
     expect(w.text()).toContain('成功')
     // 失败行
-    expect(w.text()).toContain('stop')
+    expect(w.text()).toContain('立即停止')
+    expect(w.text()).toContain('保存存档')
     expect(w.text()).toContain('beta')
     expect(w.text()).toContain('失败')
+    expect(t('audit.action.kick')).not.toBe('kick')
   })
 
   it('分页：每页 10 条，页码切换换页，刷新回第一页', async () => {
@@ -75,5 +81,26 @@ describe('AuditPanel', () => {
     (window.AstrBotPluginPage!.apiGet as any).mockResolvedValue({ ok: true, audits: [], restarting: true })
     const w = mount(AuditPanel); await flushPromises()
     expect(w.text()).toContain('正在应用新配置')
+  })
+
+  it('已知 action 随 locale 翻译，未知 action 保留原 token', async () => {
+    en['audit.action.kick'] = 'KICK_EN'
+    try {
+      setLocale('en')
+      ;(window.AstrBotPluginPage!.apiGet as any).mockResolvedValue({
+        ok: true,
+        audits: [
+          { ts: 2, time: 'T2', action: 'kick', server: 'alpha', admin: 'demo', target: '', success: true },
+          { ts: 1, time: 'T1', action: 'future_action', server: 'alpha', admin: 'demo', target: '', success: true },
+        ],
+      })
+      const w = mount(AuditPanel); await flushPromises()
+      expect(w.text()).toContain('KICK_EN')
+      expect(w.text()).toContain('future_action')
+      expect(w.text()).not.toContain('audit.action.future_action')
+    } finally {
+      setLocale('zh-CN')
+      delete en['audit.action.kick']
+    }
   })
 })

@@ -1,6 +1,8 @@
 import { mount } from '@vue/test-utils'
 import { describe, it, expect } from 'vitest'
 import AdminCard from './AdminCard.vue'
+import { setLocale } from '../lib/i18n'
+import en from '../lib/locales/en'
 
 describe('AdminCard', () => {
   it('查看态显示 id，点修改进编辑态', async () => {
@@ -29,5 +31,20 @@ describe('AdminCard', () => {
     // 新行初始即编辑态；取消
     await w.get('[data-act="cancel"]').trigger('click')
     expect(w.emitted('delete')).toBeTruthy()
+  })
+
+  it('查看态标签随 locale 响应', () => {
+    en['common.identifier'] = 'IDENTIFIER_EN'
+    en['common.note'] = 'NOTE_EN'
+    try {
+      setLocale('en')
+      const w = mount(AdminCard, { props: { modelValue: { __row_id: 'adm-0', id: 'aiocqhttp:1', note: '' }, indexLabel: '席 01' } })
+      expect(w.text()).toContain('IDENTIFIER_EN')
+      expect(w.text()).toContain('NOTE_EN')
+    } finally {
+      setLocale('zh-CN')
+      delete en['common.identifier']
+      delete en['common.note']
+    }
   })
 })

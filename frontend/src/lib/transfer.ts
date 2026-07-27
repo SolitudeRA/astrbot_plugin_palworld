@@ -1,5 +1,7 @@
+import { computed } from 'vue'
 import { apiGet, apiPost } from './bridge'
 import { BusinessError, Unauthorized } from './errors'
+import { t } from './i18n'
 
 export interface ReadyServer { server_id: string; name: string }
 export interface Binding { umo: string; server_ids: string[] }
@@ -70,25 +72,15 @@ export function purgeOrphans(serverIds?: string[]): Promise<OrphanPurgeResult> {
   return apiPost<OrphanPurgeResult>('mode/orphans/purge', body)
 }
 
-export const TRANSFER_ERR: Record<string, string> = {
-  transfer_in_progress: '转移正在进行中，请稍候',
-  purge_in_progress: '清理正在进行中，请稍候',
-  busy: '系统忙（重载中），请稍后再试',
-  no_change: '目标模式与当前一致，无需切换',
-  invalid_target: '切换目标无效',
-  invalid_surviving: '所选保留服务器无效或未就绪',
-  no_ready_server: '没有就绪的服务器，无法切换到单服务器模式',
-  no_ready_target: '没有就绪的服务器可绑定，无法迁移授权',
-  invalid_migrate_umos: '迁移列表已过期，请重新打开切换向导后重试',
-  too_many_groups: '授权群数量超过上限（200），无法迁移，请先精简名单',
-  migrate_bind_failed: '授权预绑定失败，模式未改变，可稍后重试',
-  restart_failed_rolled_back: '切换未生效，已恢复原模式',
-  restart_failed: '切换未生效且恢复失败，请检查后台日志',
-}
+export const TRANSFER_ERR = computed<Record<string, string>>(() => Object.fromEntries([
+  'transfer_in_progress', 'purge_in_progress', 'busy', 'no_change', 'invalid_target',
+  'invalid_surviving', 'no_ready_server', 'no_ready_target', 'invalid_migrate_umos',
+  'too_many_groups', 'migrate_bind_failed', 'restart_failed_rolled_back', 'restart_failed',
+].map((code) => [code, t(`err.transfer.${code}`)])))
 
 // 统一错误文案：Unauthorized / BusinessError 码表 / 兜底。模式不变路径只弹此文案、不改 state。
 export function mapTransferError(e: unknown): string {
-  if (e instanceof Unauthorized) return '未登录或登录已过期，请重新登录 Dashboard'
-  if (e instanceof BusinessError) return TRANSFER_ERR[e.code] ?? '操作失败，请重试'
-  return '操作失败，请重试'
+  if (e instanceof Unauthorized) return t('err.unauthorized')
+  if (e instanceof BusinessError) return TRANSFER_ERR.value[e.code] ?? t('err.transfer.fallback')
+  return t('err.transfer.fallback')
 }

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, reactive } from 'vue'
+import { t } from '../lib/i18n'
 
 const props = defineProps<{ modelValue: Record<string, unknown>; indexLabel: string }>()
 const emit = defineEmits<{
@@ -42,17 +43,19 @@ function saveCard() {
   <div v-if="mode === 'view'" class="card">
     <div class="card-head">
       <span class="idx">{{ indexLabel }}</span>
-      <span class="nm mono">{{ (modelValue.umo as string) || '（未填）' }}</span>
+      <span class="nm mono">{{ (modelValue.umo as string) || t('common.empty') }}</span>
       <span class="grow"></span>
-      <span v-if="flash" class="hchip on savedflash">已暂存</span>
-      <button class="headbtn del" data-act="delete" @click="emit('delete')">移除</button>
-      <button class="headbtn edit" data-act="edit" @click="enterEdit">修改</button>
+      <span v-if="flash" class="hchip on savedflash">{{ t('common.staged') }}</span>
+      <span class="card-actions">
+        <button class="headbtn del" data-act="delete" @click="emit('delete')">{{ t('common.remove') }}</button>
+        <button class="headbtn edit" data-act="edit" @click="enterEdit">{{ t('common.edit') }}</button>
+      </span>
     </div>
     <div class="cbody">
-      <div class="crow"><span class="ck">标识</span><span class="cv mono">{{ (modelValue.umo as string) || '（未填）' }}</span></div>
-      <div class="crow"><span class="ck">备注</span><span class="cv">
+      <div class="crow"><span class="ck">{{ t('common.identifier') }}</span><span class="cv mono">{{ (modelValue.umo as string) || t('common.empty') }}</span></div>
+      <div class="crow"><span class="ck">{{ t('common.note') }}</span><span class="cv">
         <template v-if="modelValue.note">{{ modelValue.note }}</template>
-        <span v-else class="muted">（无）</span>
+        <span v-else class="muted">{{ t('common.none') }}</span>
       </span></div>
     </div>
   </div>
@@ -61,27 +64,29 @@ function saveCard() {
   <div v-else class="card editing">
     <div class="card-head">
       <span class="idx">{{ indexLabel }}</span>
-      <span class="editing-tag">编辑</span>
+      <span class="editing-tag">{{ t('common.editing') }}</span>
       <span class="grow"></span>
-      <button class="headbtn cancel-card" data-act="cancel" @click="cancel">取消</button>
-      <button class="headbtn save-card" data-act="save" @click="saveCard">完成</button>
+      <span class="card-actions">
+        <button class="headbtn cancel-card" data-act="cancel" @click="cancel">{{ t('common.cancel') }}</button>
+        <button class="headbtn save-card" data-act="save" @click="saveCard">{{ t('common.done') }}</button>
+      </span>
     </div>
     <div class="cbody">
       <div class="crow">
-        <span class="ck">标识</span>
+        <span class="ck">{{ t('common.identifier') }}</span>
         <span class="cv">
           <input class="pw-input mono" type="text"
             autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false"
-            placeholder="如 aiocqhttp:GroupMessage:123456"
+            :placeholder="t('common.umo_example')"
             :value="(draft.umo as string) ?? ''"
             @input="setDraft('umo', ($event.target as HTMLInputElement).value)" />
         </span>
       </div>
       <div class="crow">
-        <span class="ck">备注</span>
+        <span class="ck">{{ t('common.note') }}</span>
         <span class="cv">
           <input class="pw-input" type="text"
-            placeholder="备注，可选"
+            :placeholder="t('common.note_optional')"
             :value="(draft.note as string) ?? ''"
             @input="setDraft('note', ($event.target as HTMLInputElement).value)" />
         </span>

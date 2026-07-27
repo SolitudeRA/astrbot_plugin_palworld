@@ -1,6 +1,9 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { mount, flushPromises } from '@vue/test-utils'
+import { nextTick } from 'vue'
 import App from './App.vue'
+import { locale, setLocale } from './lib/i18n'
+import en from './lib/locales/en'
 
 beforeEach(() => {
   window.AstrBotPluginPage = {
@@ -48,7 +51,8 @@ describe('App', () => {
     (window.AstrBotPluginPage!.apiGet as any).mockResolvedValue({ ok: true, config: {}, servers: [] })
     const w = mount(App); await flushPromises()
     expect(w.find('nav.rail').exists()).toBe(false)
-    expect(w.text()).toContain('选择运行模式')
+    expect(w.text()).toContain('选择语言')
+    expect(w.find('select.locale-switch').exists()).toBe(false)
     expect(w.text()).toContain('帕鲁世界终端') // 品牌头保留
   })
 
@@ -56,6 +60,53 @@ describe('App', () => {
     (window.AstrBotPluginPage!.apiGet as any).mockResolvedValue({ ok: true, config: { routing: { setup_confirmed: true } }, servers: [] })
     const w = mount(App); await flushPromises()
     expect(w.find('nav.rail').exists()).toBe(true)
+    expect(w.find('select.locale-switch').exists()).toBe(true)
+  })
+
+  it('顶栏语言切换器只调用 config/locale，成功后保留新 locale', async () => {
+    const post = window.AstrBotPluginPage!.apiPost as any
+    const w = mount(App); await flushPromises()
+    await w.get('select.locale-switch').setValue('ja')
+    await flushPromises()
+    expect(post).toHaveBeenCalledWith('config/locale', { locale: 'ja' })
+    expect(post.mock.calls.some(([, body]: any[]) => body && 'servers' in body)).toBe(false)
+    expect(locale.value).toBe('ja')
+  })
+
+  it('顶栏语言 patch 失败回滚到已应用 locale', async () => {
+    const post = window.AstrBotPluginPage!.apiPost as any
+    post.mockResolvedValueOnce({ ok: false, error: 'restart_failed_rolled_back', detail: {} })
+    const w = mount(App); await flushPromises()
+    expect(locale.value).toBe('zh-CN')
+    await w.get('select.locale-switch').setValue('en')
+    await flushPromises()
+    expect(locale.value).toBe('zh-CN')
+    expect((w.get('select.locale-switch').element as HTMLSelectElement).value).toBe('zh-CN')
+  })
+
+  it('主题按钮、口号与章节索引 aria 随 locale 响应', async () => {
+    en['app.theme.dark'] = '☾ Dark'
+    en['app.theme.light'] = '☀ Light'
+    en['app.subtitle'] = 'Palworld server monitoring and control'
+    en['app.chapter_index'] = 'Chapter index'
+    try {
+      setLocale('en')
+      const w = mount(App); await flushPromises()
+      expect(w.text()).toContain('Palworld server monitoring and control')
+      expect(w.get('.mast button').text()).toBe('☾ Dark')
+      expect(w.get('nav.rail').attributes('aria-label')).toBe('Chapter index')
+
+      setLocale('zh-CN')
+      await nextTick()
+      expect(w.text()).toContain('Palworld 服务器监测与管控')
+      expect(w.get('.mast button').text()).toBe('☾ 深色')
+    } finally {
+      setLocale('zh-CN')
+      delete en['app.theme.dark']
+      delete en['app.theme.light']
+      delete en['app.subtitle']
+      delete en['app.chapter_index']
+    }
   })
 })
 

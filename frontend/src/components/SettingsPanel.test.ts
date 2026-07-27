@@ -1,8 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { mount, flushPromises } from '@vue/test-utils'
+import { nextTick } from 'vue'
 import SettingsPanel from './SettingsPanel.vue'
 import ServerCard from './ServerCard.vue'
 import { collectBody } from '../lib/collect'
+import { locale, setLocale } from '../lib/i18n'
+import en from '../lib/locales/en'
 
 const cfg = () => ({ ok: true, config: {
   servers: [{ __row_id: 'srv-0', name: 'a', enabled: true, base_url: 'http://x', username: 'admin',
@@ -101,6 +104,52 @@ describe('SettingsPanel', () => {
     expect(w.text()).toContain('保存设置') // 表单/保存条仍在（未塌成整页错误）
   })
 
+  it('危险命令标签/说明随 locale 响应，不冻结在模块常量', async () => {
+    en['settings.danger.command.server_kick.label'] = 'KICK_EN'
+    en['settings.danger.command.server_kick.desc'] = 'KICK_DESC_EN'
+    try {
+      const c = cfg()
+      c.config.world.locale = 'en'
+      ;(window.AstrBotPluginPage!.apiGet as any).mockResolvedValue(c)
+      setLocale('en')
+      const w = mountAt('features'); await flushPromises()
+      expect(w.text()).toContain('KICK_EN')
+      expect(w.text()).toContain('KICK_DESC_EN')
+
+      setLocale('zh-CN')
+      await nextTick()
+      expect(w.text()).toContain('踢出玩家')
+      expect(w.text()).toContain('将在线玩家踢出服务器（写操作，仅管理员可用）')
+    } finally {
+      setLocale('zh-CN')
+      delete en['settings.danger.command.server_kick.label']
+      delete en['settings.danger.command.server_kick.desc']
+    }
+  })
+
+  it('业务错误文案与路径标点随 locale 即时求值', async () => {
+    en['err.credential_redirect'] = 'CREDENTIAL_EN'
+    en['punct.colon'] = ': '
+    try {
+      const c = cfg()
+      c.config.world.locale = 'en'
+      ;(window.AstrBotPluginPage!.apiGet as any).mockResolvedValue(c)
+      ;(window.AstrBotPluginPage!.apiPost as any).mockResolvedValue({
+        ok: false,
+        error: 'credential_redirect',
+        detail: { path: 'servers[0].password' },
+      })
+      setLocale('en')
+      const w = mountAt('access'); await flushPromises()
+      await w.get('button.pw-save').trigger('click'); await flushPromises()
+      expect(w.text()).toContain('CREDENTIAL_EN: servers[0].password')
+    } finally {
+      setLocale('zh-CN')
+      delete en['err.credential_redirect']
+      delete en['punct.colon']
+    }
+  })
+
   it('保存响应回传 config 时用其刷新 state(新行获得服务端 __row_id)', async () => {
     (window.AstrBotPluginPage!.apiGet as any).mockResolvedValue(cfg())
     const saved = cfg().config
@@ -132,6 +181,21 @@ describe('SettingsPanel', () => {
     expect(w.text()).toContain('/pal world status') // 命令树含具体命令完整路径（恒开核心必列）
     expect(w.text()).toContain('名单为空') // 空名单提示
     expect(w.text()).toContain('名单全局') // 爆炸半径安全警句(勿静默删除)
+  })
+
+  it('英文权限 callout 的粗体术语与相邻句子保留可见空格', async () => {
+    const c = cfg()
+    c.config.world.locale = 'en'
+    ;(window.AstrBotPluginPage!.apiGet as any).mockResolvedValue(c)
+    setLocale('en')
+    try {
+      const w = mountAt('permissions'); await flushPromises()
+      const text = w.findAll('.callout p')[1].text().replace(/\u00a0/g, ' ')
+      expect(text).toContain('layers: Administrator list determines')
+      expect(text).toContain('administrator; Locked commands determines')
+    } finally {
+      setLocale('zh-CN')
+    }
   })
 
   it('权限章：点击命令树三态段 → 覆盖命令权限并置 dirty，collectBody 产出该行', async () => {
@@ -296,13 +360,14 @@ describe('SettingsPanel', () => {
     expect(w.text()).toContain('保存设置')
   })
 
-  it('确认写 world_mode + setup_confirmed 并保存', async () => {
+  it('确认写 locale + world_mode + setup_confirmed 并保存', async () => {
     const post = (window.AstrBotPluginPage!.apiPost as any)
     post.mockResolvedValue({ ok: true, warnings: {} })
     const w = await mountAccess({ routing: { access_mode: 'restricted', default_server: '', setup_confirmed: false } })
-    await w.findComponent({ name: 'ModeOnboarding' }).vm.$emit('confirm', 'multi')
+    await w.findComponent({ name: 'ModeOnboarding' }).vm.$emit('confirm', { locale: 'ja', mode: 'multi' })
     await flushPromises()
     const body = post.mock.calls.at(-1)![1]
+    expect(body.world.locale).toBe('ja')
     expect(body.routing.world_mode).toBe('multi')
     expect(body.routing.setup_confirmed).toBe(true)
   })
@@ -311,11 +376,46 @@ describe('SettingsPanel', () => {
     const post = (window.AstrBotPluginPage!.apiPost as any)
     post.mockRejectedValue(new Error('boom'))  // 保存失败（瞬时/未鉴权/回滚等）
     const w = await mountAccess({ routing: { access_mode: 'restricted', default_server: '', setup_confirmed: false } })
-    await w.findComponent({ name: 'ModeOnboarding' }).vm.$emit('confirm', 'multi')
+    await w.findComponent({ name: 'ModeOnboarding' }).vm.$emit('confirm', { locale: 'zh-CN', mode: 'multi' })
     await flushPromises()
     // 失败还原：引导屏仍挂载、不进正常章节，整页刷新才恢复的半态被杜绝
     expect(w.findComponent({ name: 'ModeOnboarding' }).exists()).toBe(true)
     expect((w.vm as any).state.sections.routing.setup_confirmed).toBe(false)
     expect(w.text()).not.toContain('保存设置')
+  })
+
+  it('applyConfig 用 world.locale 回灌 UI locale', async () => {
+    const c = cfg()
+    c.config.world.locale = 'ja'
+    ;(window.AstrBotPluginPage!.apiGet as any).mockResolvedValue(c)
+    setLocale('zh-CN')
+    mountAt('access'); await flushPromises()
+    expect(locale.value).toBe('ja')
+  })
+
+  it('setLocaleAndPersist 只 POST locale，不夹带未保存草稿', async () => {
+    const post = window.AstrBotPluginPage!.apiPost as any
+    post.mockResolvedValue({ ok: true })
+    const w = await mountAccess()
+    ;(w.vm as any).state.sections.routing.default_server = 'UNSAVED_DRAFT'
+    const ok = await (w.vm as any).setLocaleAndPersist('en')
+    await flushPromises()
+    expect(ok).toBe(true)
+    expect(post).toHaveBeenCalledWith('config/locale', { locale: 'en' })
+    expect(post.mock.calls.at(-1)![1]).toEqual({ locale: 'en' })
+    expect((w.vm as any).state.sections.routing.default_server).toBe('UNSAVED_DRAFT')
+    expect(locale.value).toBe('en')
+  })
+
+  it('setLocaleAndPersist 失败回滚 UI locale 与 world.locale 快照', async () => {
+    const post = window.AstrBotPluginPage!.apiPost as any
+    post.mockResolvedValue({ ok: false, error: 'restart_failed', detail: {} })
+    const w = await mountAccess()
+    expect(locale.value).toBe('zh-CN')
+    const ok = await (w.vm as any).setLocaleAndPersist('ja')
+    await flushPromises()
+    expect(ok).toBe(false)
+    expect(locale.value).toBe('zh-CN')
+    expect((w.vm as any).state.sections.world.locale).toBe('zh-CN')
   })
 })

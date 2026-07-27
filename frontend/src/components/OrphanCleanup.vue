@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted, watch } from 'vue'
 import { listOrphans, purgeOrphans, mapTransferError } from '../lib/transfer'
+import { t } from '../lib/i18n'
 
 // refreshKey：父组件在「转移完成 / 保存后」自增此值，令本节重拉孤儿集（兄弟组件改配置后
 // 本节不再滞留旧空列表）。初次拉取由 onMounted 负责，watch 只在后续变更触发，避免挂载双拉。
@@ -30,11 +31,15 @@ async function purge() {
     const n = Object.keys(r.purged ?? {}).length
     const failed = r.failed_server_ids ?? []
     const rejected = r.rejected ?? []
-    let msg = `已清理 ${n} 台残留数据`
+    let msg = t('transfer.orphan.purged', { n })
     let warn = false
-    if (failed.length) { msg += `；${failed.length} 台清理失败，可稍后重试`; warn = true }
+    if (failed.length) {
+      msg += t('punct.semicolon') + t('transfer.orphan.failed', { n: failed.length }); warn = true
+    }
     // rejected：清理前重算发现这些台服务端已不再是孤儿（TOCTOU），被跳过——提示用户其未被清理。
-    if (rejected.length) { msg += `；${rejected.length} 台已不再是孤儿（已跳过）`; warn = true }
+    if (rejected.length) {
+      msg += t('punct.semicolon') + t('transfer.orphan.rejected', { n: rejected.length }); warn = true
+    }
     emit('notify', msg, warn)
     ack.value = false
     await refresh()
@@ -49,13 +54,13 @@ async function purge() {
 <template>
   <section v-if="loaded && orphans.length" class="orphan-cleanup dz-item">
     <div class="dz-info">
-      <span class="dz-title">残留数据清理</span>
-      <span class="dz-desc">以下服务器在配置中已不存在，但数据库仍有其历史数据。清理不可恢复。</span>
+      <span class="dz-title">{{ t('transfer.orphan.title') }}</span>
+      <span class="dz-desc">{{ t('transfer.orphan.desc') }}</span>
       <ul class="rows"><li v-for="o in orphans" :key="o" class="mono">{{ o }}</li></ul>
       <label class="ack"><input type="checkbox" data-act="ack" :checked="ack"
-        @change="ack = ($event.target as HTMLInputElement).checked" /> 我了解此操作不可恢复</label>
+        @change="ack = ($event.target as HTMLInputElement).checked" /> {{ t('transfer.irreversible_ack') }}</label>
     </div>
-    <button class="dz-btn" data-act="purge" :disabled="!ack || working" @click="purge">清理残留数据</button>
+    <button class="dz-btn" data-act="purge" :disabled="!ack || working" @click="purge">{{ t('transfer.orphan.action') }}</button>
   </section>
 </template>
 

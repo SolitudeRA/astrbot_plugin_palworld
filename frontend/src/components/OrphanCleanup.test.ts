@@ -1,6 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { mount, flushPromises } from '@vue/test-utils'
 import OrphanCleanup from './OrphanCleanup.vue'
+import { setLocale } from '../lib/i18n'
+import en from '../lib/locales/en'
 
 function setBridge(impl: Partial<AstrBotBridge>) {
   window.AstrBotPluginPage = { ready: () => Promise.resolve(), apiGet: vi.fn(), apiPost: vi.fn(), ...impl }
@@ -85,5 +87,30 @@ describe('OrphanCleanup', () => {
     expect(apiGet).toHaveBeenCalledTimes(2) // refreshKey 变更再拉
     expect(w.text()).toContain('ghost')
     expect(w.text()).toContain('残留数据清理')
+  })
+
+  it('清理结果按逐子句键拼接，随 locale 响应', async () => {
+    Object.assign(en, {
+      'transfer.orphan.title': 'Orphan data cleanup',
+      'transfer.orphan.purged': 'Cleaned {n} orphan servers',
+      'transfer.orphan.rejected': '{n} servers are no longer orphans (skipped)',
+      'punct.semicolon': '; ',
+    })
+    try {
+      setLocale('en')
+      const apiGet = vi.fn().mockResolvedValue({ ok: true, orphans: ['ghost'] })
+      const apiPost = vi.fn().mockResolvedValue({ ok: true, purged: {}, rejected: ['ghost'], failed_server_ids: [] })
+      setBridge({ apiGet, apiPost })
+      const w = mount(OrphanCleanup); await flushPromises()
+      expect(w.text()).toContain('Orphan data cleanup')
+      await w.get('[data-act="ack"]').setValue(true)
+      await w.get('[data-act="purge"]').trigger('click'); await flushPromises()
+      expect(w.emitted('notify')?.at(-1)?.[0]).toBe('Cleaned 0 orphan servers; 1 servers are no longer orphans (skipped)')
+    } finally {
+      delete en['transfer.orphan.title']
+      delete en['transfer.orphan.purged']
+      delete en['transfer.orphan.rejected']
+      delete en['punct.semicolon']
+    }
   })
 })

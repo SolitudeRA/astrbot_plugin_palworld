@@ -1,4 +1,10 @@
-import { vi } from 'vitest'
+import { vi, beforeEach } from 'vitest'
+import { setLocale } from './src/lib/i18n'
+
+// 全测试钉 zh-CN：i18n locale 恒以中文起步（jsdom navigator.language='en-US'，避免组件
+// 测试被非中文污染）；每例前复位，防跨例 setLocale 泄漏。
+setLocale('zh-CN')
+beforeEach(() => setLocale('zh-CN'))
 
 // Node 25 的 experimental webstorage 与 jsdom 冲突，使 localStorage 退化为无方法空对象
 // （getItem/setItem/clear 全 undefined）；CI 的 Node 22（.nvmrc）不受影响。缺方法时补一份

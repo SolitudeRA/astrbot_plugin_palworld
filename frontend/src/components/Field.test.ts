@@ -2,6 +2,8 @@ import { describe, it, expect } from 'vitest'
 import { mount } from '@vue/test-utils'
 import Field from './Field.vue'
 import type { FieldSpec } from '../lib/schema'
+import { setLocale } from '../lib/i18n'
+import en from '../lib/locales/en'
 
 const mountField = (spec: FieldSpec, modelValue: unknown) =>
   mount(Field, { props: { spec, modelValue } })
@@ -39,5 +41,23 @@ describe('Field', () => {
     expect(triggers[0].element.tagName).toBe('BUTTON')
     // 枚举分支不应回退到 string 的纯文本输入框
     expect(w.find('input[type="text"]').exists()).toBe(false)
+  })
+
+  it('有 section 时控件 aria-label 走字段词典并随 locale 响应', () => {
+    en['field.server.enabled.label'] = 'ENABLED_EN'
+    try {
+      setLocale('en')
+      const w = mount(Field, {
+        props: {
+          spec: { key: 'enabled', type: 'bool', label: '启用', default: true },
+          modelValue: true,
+          section: 'server',
+        },
+      })
+      expect(w.get('[role="switch"]').attributes('aria-label')).toBe('ENABLED_EN')
+    } finally {
+      setLocale('zh-CN')
+      delete en['field.server.enabled.label']
+    }
   })
 })

@@ -1,6 +1,8 @@
 import { mount } from '@vue/test-utils'
 import { describe, it, expect } from 'vitest'
 import GroupCard from './GroupCard.vue'
+import { setLocale } from '../lib/i18n'
+import en from '../lib/locales/en'
 
 describe('GroupCard', () => {
   it('查看态显示 umo，点修改进编辑态', async () => {
@@ -29,5 +31,23 @@ describe('GroupCard', () => {
     // 新行初始即编辑态；取消
     await w.get('[data-act="cancel"]').trigger('click')
     expect(w.emitted('delete')).toBeTruthy()
+  })
+
+  it('查看态通用词随 locale 响应', () => {
+    en['common.identifier'] = 'IDENTIFIER_EN'
+    en['common.note'] = 'NOTE_EN'
+    en['common.edit'] = 'EDIT_EN'
+    try {
+      setLocale('en')
+      const w = mount(GroupCard, { props: { modelValue: { __row_id: 'sag-0', umo: 'aiocqhttp:GroupMessage:1', note: '' }, indexLabel: '授权群 01' } })
+      expect(w.text()).toContain('IDENTIFIER_EN')
+      expect(w.text()).toContain('NOTE_EN')
+      expect(w.get('[data-act="edit"]').text()).toBe('EDIT_EN')
+    } finally {
+      setLocale('zh-CN')
+      delete en['common.identifier']
+      delete en['common.note']
+      delete en['common.edit']
+    }
   })
 })

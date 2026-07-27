@@ -4,6 +4,7 @@ import { previewTransfer, postTransfer, mapTransferError, type TransferPreview, 
 import ModeConfirmDialog from './ModeConfirmDialog.vue'
 import TransferWizard from './TransferWizard.vue'
 import OrphanCleanup from './OrphanCleanup.vue'
+import { t } from '../lib/i18n'
 
 const props = defineProps<{ worldMode: string; dirty: boolean; serverNames: string[] }>()
 const emit = defineEmits<{
@@ -25,18 +26,18 @@ const doneSeq = ref(0)
 // 切换派发：dirty 门 → 拉预览 → 按 target×就绪数派对应子流。
 // 失败不留半态：此处只开子流，模式变更等 POST ok 后由父 applyConfig 做（T2 runTransfer）。
 async function onSwitch() {
-  if (props.dirty || working.value) { emit('notify', '请先保存当前更改，再切换模式', true); return }
-  const t: 'single' | 'multi' = props.worldMode === 'single' ? 'multi' : 'single'
-  target.value = t
+  if (props.dirty || working.value) { emit('notify', t('transfer.save_before_switch'), true); return }
+  const targetMode: 'single' | 'multi' = props.worldMode === 'single' ? 'multi' : 'single'
+  target.value = targetMode
   working.value = true
   let pv: TransferPreview
-  try { pv = await previewTransfer(t) } catch (e) { emit('notify', mapTransferError(e), true); working.value = false; return }
+  try { pv = await previewTransfer(targetMode) } catch (e) { emit('notify', mapTransferError(e), true); working.value = false; return }
   working.value = false
-  if (pv.restarting) { emit('notify', '系统重载中，请稍后再试', true); return }
+  if (pv.restarting) { emit('notify', t('transfer.restarting'), true); return }
   preview.value = pv
   const readyCount = (pv.ready_servers ?? []).length
-  if (t === 'single') {
-    if (readyCount === 0) { emit('notify', '没有就绪的服务器，无法切换到单服务器模式', true); return }
+  if (targetMode === 'single') {
+    if (readyCount === 0) { emit('notify', t('err.transfer.no_ready_server'), true); return }
     if (readyCount === 1) { survivingId.value = pv.ready_servers![0].server_id; flow.value = 'confirm' }
     else { flow.value = 'wizard' }
   } else {
@@ -65,14 +66,19 @@ async function runTransfer(body: TransferBody) {
   try {
     const res = await postTransfer(body)
     emit('applied', res.config)
-    const toMode = res.summary.to === 'single' ? '单服务器' : '多服务器'
-    let msg = `已切换到${toMode}模式；迁移 ${res.summary.migrated} 个群`
+    const toMode = t(`settings.mode.${res.summary.to === 'single' ? 'single' : 'multi'}`)
+    let msg = t('transfer.switched', { mode: toMode })
+      + t('punct.semicolon') + t('transfer.migrated', { n: res.summary.migrated })
     const purgedN = Object.keys(res.summary.purged ?? {}).length
-    if (purgedN) msg += `，清理 ${purgedN} 台数据`
+    if (purgedN) msg += t('punct.comma') + t('transfer.purged', { n: purgedN })
     let warn = false
-    if (res.warnings?.cleared_group_servers === false) { msg += '；源介质清理未尽，切回多世界前请人工核查'; warn = true }
+    if (res.warnings?.cleared_group_servers === false) {
+      msg += t('punct.semicolon') + t('transfer.source_cleanup_incomplete'); warn = true
+    }
     const failed = res.warnings?.purge_failed ?? []
-    if (failed.length) { msg += `；${failed.length} 台数据清理失败，可在下方残留数据清理中重试`; warn = true }
+    if (failed.length) {
+      msg += t('punct.semicolon') + t('transfer.purge_failed_retry', { n: failed.length }); warn = true
+    }
     doneMsg.value = msg
     doneWarn.value = warn
     doneSeq.value++      // 令完成步的残留清理重拉孤儿集
@@ -90,12 +96,12 @@ async function runTransfer(body: TransferBody) {
 <template>
   <section class="mode-transfer dz-item">
     <div class="dz-info">
-      <span class="dz-title">切换运行模式</span>
-      <span class="dz-desc">当前为<b class="mt-name">{{ worldMode === 'single' ? '单服务器' : '多服务器' }}</b>，{{ worldMode === 'single' ? '所有操作对应唯一服务器' : '按群绑定与切换服务器' }}。切换前会先预览影响范围，可能涉及数据迁移与清理。</span>
-      <span v-if="dirty" class="mt-hint">有未保存更改，保存后可切换</span>
+      <span class="dz-title">{{ t('transfer.control.title') }}</span>
+      <span class="dz-desc">{{ t('transfer.control.current_before') }}<b class="mt-name">{{ t(`settings.mode.${worldMode === 'single' ? 'single' : 'multi'}`) }}</b>{{ t('transfer.control.current_after', { effect: t(`transfer.mode.${worldMode === 'single' ? 'single' : 'multi'}.effect`) }) }}</span>
+      <span v-if="dirty" class="mt-hint">{{ t('transfer.control.dirty') }}</span>
     </div>
     <button class="dz-btn" data-act="switch" :disabled="dirty || working" @click="onSwitch">
-      切换到{{ worldMode === 'single' ? '多' : '单' }}服务器
+      {{ t('transfer.control.switch_to', { mode: t(`settings.mode.${worldMode === 'single' ? 'multi' : 'single'}`) }) }}
     </button>
     <ModeConfirmDialog v-if="flow === 'confirm' && preview" :target="target" :preview="preview"
       :surviving-id="survivingId" @confirm="onConfirm" @cancel="closeFlow" />
@@ -104,20 +110,20 @@ async function runTransfer(body: TransferBody) {
     <!-- 完成步：全覆盖展示切换结果；残留数据清理内嵌于此（切换才产生孤儿，清理是收尾步） -->
     <div v-if="flow === 'done'" class="helper-overlay">
       <div class="helper-panel">
-        <div class="helper-head"><h3>切换完成</h3></div>
+        <div class="helper-head"><h3>{{ t('transfer.done.heading') }}</h3></div>
         <div class="done-hero" :class="{ warn: doneWarn }">
           <span class="done-ico" aria-hidden="true">{{ doneWarn ? '!' : '✓' }}</span>
           <div class="done-body">
-            <p class="done-title">{{ doneWarn ? '已切换，但有需要注意的事项' : '切换成功' }}</p>
+            <p class="done-title">{{ doneWarn ? t('transfer.done.warning') : t('transfer.done.success') }}</p>
             <p class="done-msg" :class="{ warn: doneWarn }">{{ doneMsg }}</p>
           </div>
         </div>
-        <p class="done-note">若切换留下了残留数据，可在下方直接清理；也可先完成、稍后再切换模式时处理。</p>
+        <p class="done-note">{{ t('transfer.done.note') }}</p>
         <div class="danger-zone">
           <OrphanCleanup :refresh-key="doneSeq" @notify="(m, e) => emit('notify', m, e)" />
         </div>
         <div class="done-actions">
-          <button class="pw-primary" data-act="done" @click="closeFlow">完成</button>
+          <button class="pw-primary" data-act="done" @click="closeFlow">{{ t('common.done') }}</button>
         </div>
       </div>
     </div>

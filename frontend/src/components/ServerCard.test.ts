@@ -1,6 +1,8 @@
 import { describe, it, expect } from 'vitest'
 import { mount } from '@vue/test-utils'
 import ServerCard from './ServerCard.vue'
+import { setLocale } from '../lib/i18n'
+import en from '../lib/locales/en'
 
 const row = () => ({ __row_id: 'srv-0', name: 'a', enabled: true, base_url: 'http://x', username: 'admin',
   password: '', password_set: true, password_env: '', timeout: 10, verify_tls: true, timezone: '' })
@@ -60,5 +62,23 @@ describe('ServerCard', () => {
     await w.get('button.edit').trigger('click')
     await w.get('button.save-card').trigger('click')
     expect(w.emitted('update:modelValue')).toBeFalsy()
+  })
+
+  it('查看态短标签与布尔枚举随 locale 响应', () => {
+    en['view.server.enabled'] = 'ENABLED_EN'
+    en['view.server.address'] = 'ADDRESS_EN'
+    en['view.yes'] = 'YES_EN'
+    try {
+      setLocale('en')
+      const w = mountCard(row())
+      expect(w.text()).toContain('ENABLED_EN')
+      expect(w.text()).toContain('ADDRESS_EN')
+      expect(w.text()).toContain('YES_EN')
+    } finally {
+      setLocale('zh-CN')
+      delete en['view.server.enabled']
+      delete en['view.server.address']
+      delete en['view.yes']
+    }
   })
 })
