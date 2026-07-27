@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { SwitchRoot, SwitchThumb } from 'reka-ui'
-import { PAL_TREE, GROUP_LABELS, type PalTreeNode, type Tri } from '../lib/schema'
+import { PAL_TREE, type PalTreeNode, type Tri } from '../lib/schema'
 import type { CmdPerm } from '../lib/collect'
+import { t } from '../lib/i18n'
 import {
   GROUP_DEFAULT_ENABLED, type Axis,
   cellOf as libCellOf,
@@ -45,11 +46,13 @@ const groups = computed<Grp[]>(() => {
   }
   return order.map((k) => ({
     key: k,
-    label: k === '__flat__' ? '其他' : (GROUP_LABELS[k] ?? k),
+    label: k === '__flat__' ? '其他' : t(`group.${k}`),
     nodes: byKey[k],
     isFlat: k === '__flat__',
   }))
 })
+// 命令展示名经 t()：cmd.<path 去空格换 _>（PAL_TREE.label 值保留于 schema 作数据/兜底）
+const cmdLabel = (n: PalTreeNode) => t(`cmd.${n.path.replace(/ /g, '_')}`)
 // 组头批量开关：组内存在本轴可配叶子才有意义
 const groupConfigurable = (g: Grp) => g.nodes.some((n) => configurable(n))
 
@@ -142,7 +145,7 @@ const colHead = computed(() => (isEnabledAxis.value ? '启用' : '仅管理员')
           <div v-for="n in g.nodes" :key="n.path" class="ct-row ct-leaf"
             :class="{ danger: isEnabledAxis && n.danger, overridden: configurable(n) && hasAxisOverride(n.path), grouped: configurable(n) && groupManaged(g) && !hasAxisOverride(n.path) && !(isEnabledAxis && n.danger) }">
             <div class="ct-lname">
-              <span class="lbl">{{ n.label }}
+              <span class="lbl">{{ cmdLabel(n) }}
                 <!-- 危险标只在功能页（enabled 轴）有信息量：不随整组、需逐条开启；权限页该三条恒锁定，标是噪音 -->
                 <span v-if="isEnabledAxis && n.danger" class="dtag" title="危险命令：不随整组开关，需逐条开启">危险</span>
                 <span v-if="configurable(n) && hasAxisOverride(n.path)" class="ov-dot" title="此命令已单独设置" aria-label="已单独设置"></span>
@@ -152,7 +155,7 @@ const colHead = computed(() => (isEnabledAxis.value ? '启用' : '仅管理员')
             <div class="ct-cell">
               <span v-if="lockedLabel(n)" class="ct-lock">{{ lockedLabel(n) }}<small>内置</small></span>
               <SwitchRoot v-else class="pw-switch sm" :class="{ ovr: hasAxisOverride(n.path) }"
-                :model-value="effOf(n)" :aria-label="n.label + ' ' + colHead"
+                :model-value="effOf(n)" :aria-label="cmdLabel(n) + ' ' + colHead"
                 @update:model-value="(v: boolean) => onLeafToggle(n, v)">
                 <SwitchThumb class="pw-switch-thumb" />
               </SwitchRoot>

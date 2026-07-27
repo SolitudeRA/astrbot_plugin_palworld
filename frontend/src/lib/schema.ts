@@ -50,7 +50,7 @@ export const OBJECT_SECTIONS: ObjectSection[] = [
   ]},
   { key: 'world', title: '世界与展示', subtitle: '时区与 FPS 流畅度分档', fields: [
     { key: 'timezone', type: 'string', label: '默认时区', default: 'Asia/Tokyo', hint: 'IANA 名称，如 Asia/Tokyo' },
-    { key: 'locale', type: 'enum', label: '消息语言', default: 'zh-CN', options: ['zh-CN', 'ja', 'en'], optionLabels: { 'zh-CN': '简体中文', 'ja': '日本語', 'en': 'English' } },
+    { key: 'locale', type: 'enum', label: '界面与消息语言', default: 'zh-CN', options: ['zh-CN', 'ja', 'en'], optionLabels: { 'zh-CN': '简体中文', 'ja': '日本語', 'en': 'English' } },
     { key: 'fps_smooth', type: 'int', label: 'FPS 流畅阈值', default: 50, hint: '≥ 此值为流畅' },
     { key: 'fps_moderate', type: 'int', label: 'FPS 一般阈值', default: 35, hint: '≥ 此值为一般' },
     { key: 'fps_laggy', type: 'int', label: 'FPS 卡顿阈值', default: 20, hint: '≥ 此值为卡顿，低于则为严重卡顿' },

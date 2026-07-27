@@ -4,6 +4,7 @@ import SettingsPanel from './components/SettingsPanel.vue'
 import StatusPanel from './components/StatusPanel.vue'
 import AuditPanel from './components/AuditPanel.vue'
 import { CHAPTERS, DEFAULT_CHAPTER } from './lib/chapters'
+import { t } from './lib/i18n'
 
 const chapter = ref(DEFAULT_CHAPTER)
 // 按当前章的 kind 分派面板：status→StatusPanel、audit→AuditPanel、其余→SettingsPanel
@@ -55,10 +56,10 @@ const onboarding = ref(false)
       <div class="layout">
         <nav v-if="!onboarding" class="rail" aria-label="章节索引">
           <button v-for="c in observeChapters" :key="c.id" :aria-current="chapter === c.id ? 'true' : 'false'" @click="chapter = c.id">
-            {{ c.label }}<span v-if="c.kind === 'status'" class="dot" aria-hidden="true"></span>
+            {{ t(`chapter.${c.id}.label`) }}<span v-if="c.kind === 'status'" class="dot" aria-hidden="true"></span>
           </button>
           <div class="rail-sep" aria-hidden="true"></div>
-          <button v-for="c in configChapters" :key="c.id" :aria-current="chapter === c.id ? 'true' : 'false'" @click="chapter = c.id">{{ c.label }}</button>
+          <button v-for="c in configChapters" :key="c.id" :aria-current="chapter === c.id ? 'true' : 'false'" @click="chapter = c.id">{{ t(`chapter.${c.id}.label`) }}</button>
         </nav>
         <div class="pane">
           <SettingsPanel v-show="currentKind === 'settings'" :chapter="chapter" @onboarding="onboarding = $event" />
