@@ -54,6 +54,11 @@ body { margin: 0; background: var(--paper); color: var(--ink); font-family: var(
 .brand { display: flex; align-items: baseline; gap: var(--space-3); min-width: 0; }
 .brand .cn { font-size: var(--fs-display); font-weight: var(--fw-semibold); letter-spacing: var(--track-brand); line-height: 1; }
 .brand .en { font-size: var(--fs-caption); letter-spacing: .34em; text-transform: uppercase; color: var(--ink-3); }
+.mast-actions { display: flex; align-items: center; gap: var(--space-2); }
+.locale-switch { min-height: 28px; font: inherit; font-size: var(--fs-caption); color: var(--ink-2); background: var(--card); border: 1px solid var(--rule); border-radius: var(--r); padding: var(--space-1) var(--space-2); cursor: pointer; }
+.locale-switch:hover { border-color: var(--rule-2); color: var(--ink); }
+.locale-switch:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.locale-switch:disabled { cursor: wait; opacity: .58; }
 .ghost { font-size: var(--fs-caption); text-transform: uppercase; color: var(--ink-2); background: none; border: 1px solid var(--rule); border-radius: var(--r); padding: var(--space-1) var(--space-3); cursor: pointer; }
 .ghost:hover { border-color: var(--rule-2); color: var(--ink); }
 .ghost:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }

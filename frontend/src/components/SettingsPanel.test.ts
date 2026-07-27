@@ -4,7 +4,7 @@ import { nextTick } from 'vue'
 import SettingsPanel from './SettingsPanel.vue'
 import ServerCard from './ServerCard.vue'
 import { collectBody } from '../lib/collect'
-import { setLocale } from '../lib/i18n'
+import { locale, setLocale } from '../lib/i18n'
 import en from '../lib/locales/en'
 
 const cfg = () => ({ ok: true, config: {
@@ -345,13 +345,14 @@ describe('SettingsPanel', () => {
     expect(w.text()).toContain('保存设置')
   })
 
-  it('确认写 world_mode + setup_confirmed 并保存', async () => {
+  it('确认写 locale + world_mode + setup_confirmed 并保存', async () => {
     const post = (window.AstrBotPluginPage!.apiPost as any)
     post.mockResolvedValue({ ok: true, warnings: {} })
     const w = await mountAccess({ routing: { access_mode: 'restricted', default_server: '', setup_confirmed: false } })
-    await w.findComponent({ name: 'ModeOnboarding' }).vm.$emit('confirm', 'multi')
+    await w.findComponent({ name: 'ModeOnboarding' }).vm.$emit('confirm', { locale: 'ja', mode: 'multi' })
     await flushPromises()
     const body = post.mock.calls.at(-1)![1]
+    expect(body.world.locale).toBe('ja')
     expect(body.routing.world_mode).toBe('multi')
     expect(body.routing.setup_confirmed).toBe(true)
   })
@@ -360,11 +361,46 @@ describe('SettingsPanel', () => {
     const post = (window.AstrBotPluginPage!.apiPost as any)
     post.mockRejectedValue(new Error('boom'))  // 保存失败（瞬时/未鉴权/回滚等）
     const w = await mountAccess({ routing: { access_mode: 'restricted', default_server: '', setup_confirmed: false } })
-    await w.findComponent({ name: 'ModeOnboarding' }).vm.$emit('confirm', 'multi')
+    await w.findComponent({ name: 'ModeOnboarding' }).vm.$emit('confirm', { locale: 'zh-CN', mode: 'multi' })
     await flushPromises()
     // 失败还原：引导屏仍挂载、不进正常章节，整页刷新才恢复的半态被杜绝
     expect(w.findComponent({ name: 'ModeOnboarding' }).exists()).toBe(true)
     expect((w.vm as any).state.sections.routing.setup_confirmed).toBe(false)
     expect(w.text()).not.toContain('保存设置')
+  })
+
+  it('applyConfig 用 world.locale 回灌 UI locale', async () => {
+    const c = cfg()
+    c.config.world.locale = 'ja'
+    ;(window.AstrBotPluginPage!.apiGet as any).mockResolvedValue(c)
+    setLocale('zh-CN')
+    mountAt('access'); await flushPromises()
+    expect(locale.value).toBe('ja')
+  })
+
+  it('setLocaleAndPersist 只 POST locale，不夹带未保存草稿', async () => {
+    const post = window.AstrBotPluginPage!.apiPost as any
+    post.mockResolvedValue({ ok: true })
+    const w = await mountAccess()
+    ;(w.vm as any).state.sections.routing.default_server = 'UNSAVED_DRAFT'
+    const ok = await (w.vm as any).setLocaleAndPersist('en')
+    await flushPromises()
+    expect(ok).toBe(true)
+    expect(post).toHaveBeenCalledWith('config/locale', { locale: 'en' })
+    expect(post.mock.calls.at(-1)![1]).toEqual({ locale: 'en' })
+    expect((w.vm as any).state.sections.routing.default_server).toBe('UNSAVED_DRAFT')
+    expect(locale.value).toBe('en')
+  })
+
+  it('setLocaleAndPersist 失败回滚 UI locale 与 world.locale 快照', async () => {
+    const post = window.AstrBotPluginPage!.apiPost as any
+    post.mockResolvedValue({ ok: false, error: 'restart_failed', detail: {} })
+    const w = await mountAccess()
+    expect(locale.value).toBe('zh-CN')
+    const ok = await (w.vm as any).setLocaleAndPersist('ja')
+    await flushPromises()
+    expect(ok).toBe(false)
+    expect(locale.value).toBe('zh-CN')
+    expect((w.vm as any).state.sections.world.locale).toBe('zh-CN')
   })
 })

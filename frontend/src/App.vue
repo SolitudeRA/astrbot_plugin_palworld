@@ -4,9 +4,15 @@ import SettingsPanel from './components/SettingsPanel.vue'
 import StatusPanel from './components/StatusPanel.vue'
 import AuditPanel from './components/AuditPanel.vue'
 import { CHAPTERS, DEFAULT_CHAPTER } from './lib/chapters'
-import { t } from './lib/i18n'
+import { locale, t, type Locale } from './lib/i18n'
+
+type SettingsPanelHandle = {
+  setLocaleAndPersist: (value: Locale) => Promise<boolean>
+  localeChangeDisabled: boolean
+}
 
 const chapter = ref(DEFAULT_CHAPTER)
+const settingsPanelRef = ref<SettingsPanelHandle | null>(null)
 // 按当前章的 kind 分派面板：status→StatusPanel、audit→AuditPanel、其余→SettingsPanel
 const currentKind = computed(() => CHAPTERS.find((c) => c.id === chapter.value)?.kind ?? 'settings')
 const fatal = ref(false)
@@ -39,6 +45,17 @@ const configChapters = CHAPTERS.filter((c) => c.group === '配置')
 
 // 首次未选模：SettingsPanel 上抛 true → 隐藏整条左轨（含观测组），只留品牌头 + 引导屏。
 const onboarding = ref(false)
+const localeChangeDisabled = computed(() => settingsPanelRef.value?.localeChangeDisabled ?? false)
+
+async function onLocaleChange(event: Event) {
+  const select = event.currentTarget as HTMLSelectElement
+  const target = select.value as Locale
+  if (!settingsPanelRef.value) {
+    select.value = locale.value
+    return
+  }
+  await settingsPanelRef.value.setLocaleAndPersist(target)
+}
 </script>
 
 <template>
@@ -48,7 +65,15 @@ const onboarding = ref(false)
       <header>
         <div class="mast">
           <div class="brand"><span class="cn">帕鲁世界终端</span><span class="en">PalWorldTerminal</span></div>
-          <button class="ghost" @click="toggleTheme">{{ theme === 'dark' ? t('app.theme.light') : t('app.theme.dark') }}</button>
+          <div class="mast-actions">
+            <select v-if="!onboarding" class="locale-switch" :value="locale"
+              :aria-label="t('app.language_switch')" :disabled="localeChangeDisabled" @change="onLocaleChange">
+              <option value="zh-CN">简体中文</option>
+              <option value="ja">日本語</option>
+              <option value="en">English</option>
+            </select>
+            <button class="ghost" @click="toggleTheme">{{ theme === 'dark' ? t('app.theme.light') : t('app.theme.dark') }}</button>
+          </div>
         </div>
         <div class="dateline"></div>
         <div class="subline"><span>{{ t('app.subtitle') }}</span></div>
@@ -62,7 +87,7 @@ const onboarding = ref(false)
           <button v-for="c in configChapters" :key="c.id" :aria-current="chapter === c.id ? 'true' : 'false'" @click="chapter = c.id">{{ t(`chapter.${c.id}.label`) }}</button>
         </nav>
         <div class="pane">
-          <SettingsPanel v-show="currentKind === 'settings'" :chapter="chapter" @onboarding="onboarding = $event" />
+          <SettingsPanel ref="settingsPanelRef" v-show="currentKind === 'settings'" :chapter="chapter" @onboarding="onboarding = $event" />
           <StatusPanel v-if="currentKind === 'status'" />
           <AuditPanel v-if="currentKind === 'audit'" />
         </div>

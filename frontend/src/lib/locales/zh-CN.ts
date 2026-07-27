@@ -10,8 +10,31 @@ const dict: Record<string, string> = {
   'app.theme.dark': '☾ 深色',
   'app.subtitle': 'Palworld 服务器监测与管控',
   'app.chapter_index': '章节索引',
+  'app.language_switch': '界面与消息语言',
   'app.boot.bridge_missing': '需要 AstrBot ≥ v4.24.1 的插件页面环境',
   'app.boot.failed': '初始化失败，请刷新',
+
+  // ── 首次引导（语言 → 运行模式） ────────────────────────────────────────
+  'onboarding.language_title': '选择语言',
+  'onboarding.mode_title': '选择运行模式',
+  'onboarding.first_setup': '首次设置',
+  'onboarding.step': '第 {current} 步，共 {total} 步',
+  'onboarding.language_lead': '选择设置页与机器人消息使用的语言。两者始终保持一致。',
+  'onboarding.language_aria': '界面与消息语言',
+  'onboarding.locale.zh-CN.desc': '使用简体中文显示界面与机器人消息',
+  'onboarding.locale.ja.desc': '使用日语显示界面与机器人消息',
+  'onboarding.locale.en.desc': '使用英语显示界面与机器人消息',
+  'onboarding.next': '下一步',
+  'onboarding.back': '上一步',
+  'onboarding.mode_lead': '这台机器人要管理一台还是多台 Palworld 服务器？界面与命令会按所选模式精简。',
+  'onboarding.mode_aria': '运行模式',
+  'onboarding.mode.single.title': '单服务器',
+  'onboarding.mode.single.desc': '只连接一台服务器。命令不用带服务器名，配置最简单，适合自建单服。',
+  'onboarding.mode.multi.title': '多服务器',
+  'onboarding.mode.multi.desc': '连接多台服务器，按群授权、分别监测与管控，适合社区与多服运营。',
+  'onboarding.confirm': '确认并开始',
+  'onboarding.hint_before': '已选「{mode}」，之后可随时在',
+  'onboarding.hint_after': '页转换',
 
   // ── 卡片 / 通用词（common.*） ──────────────────────────────────────────
   'common.unnamed': '（未命名）',
@@ -214,6 +237,7 @@ const dict: Record<string, string> = {
   'err.unauthorized': '未登录或登录已过期，请重新登录 Dashboard',
   'err.save_failed': '保存失败',
   'err.save_failed_retry': '保存失败，请重试',
+  'err.locale_update_failed': '语言切换失败，已恢复原设置',
   'err.reserved_sentinel': '不能使用保留字 __unchanged__',
 
   // ── 章节标题 / 副标题（section.<key>.title/.subtitle） ──────────────────

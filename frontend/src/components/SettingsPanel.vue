@@ -16,7 +16,7 @@ import SectionForm from './SectionForm.vue'
 import Field from './Field.vue'
 import ModeOnboarding from './ModeOnboarding.vue'
 import ModeTransfer from './ModeTransfer.vue'
-import { t } from '../lib/i18n'
+import { locale, setLocale, t, type Locale } from '../lib/i18n'
 
 const props = defineProps<{ chapter: string }>()
 // 上抛首次引导态：App.vue 据此隐藏整条左轨（首次未选模时不渲染任何章节索引）。
@@ -25,6 +25,8 @@ const emit = defineEmits<{ (e: 'onboarding', value: boolean): void }>()
 const phase = ref<'loading' | 'error' | 'ready'>('loading')
 const fatalKey = ref('')
 const saving = ref(false)
+const localePatching = ref(false)
+const appliedLocale = ref<Locale>(locale.value)
 const notice = reactive<{ msg: string; error: boolean }>({ msg: '', error: false })
 
 const state = reactive<SettingsState>({ servers: [], custom_headers: [], sections: {}, permission_admins: [], command_perms: {}, single_allowed_groups: [] })
@@ -123,6 +125,10 @@ function applyConfig(c: Record<string, any>) {
   state.custom_headers = (c.custom_headers ?? []).map((h: Record<string, unknown>) => ({ ...h }))
   state.sections = {}
   for (const sec of OBJECT_SECTIONS) state.sections[sec.key] = { ...(c[sec.key] ?? {}) }
+  // 后端 world.locale 是界面与机器人消息的共同真相源。旧配置缺键时 setLocale no-op，
+  // 保留 main.ts 已按浏览器猜出的初始语言。
+  setLocale(state.sections.world?.locale)
+  appliedLocale.value = locale.value
   // seed world_mode：防空值被 coerce 成 '' 撞枚举校验；'multi' 为 fail-safe（呈现全字段）
   if (!state.sections.routing) state.sections.routing = {}
   if (!state.sections.routing.world_mode) state.sections.routing.world_mode = 'multi'
@@ -185,12 +191,45 @@ function toast(msg: string, error = false) {
 // → needsOnboarding 翻假 → 转正常章节；同时后端命令闸清（Task 2）。
 // 保存失败（未鉴权/会话过期/瞬时 RequestFailed/restart_failed_rolled_back）时还原 setup_confirmed，
 // 令引导屏复现，防前端「已确认」而后端仍 setup_confirmed=false 的写侧半态死锁（spec §8）。
-async function onConfirmMode(mode: 'single' | 'multi') {
+async function onConfirmMode(value: { locale: Locale; mode: 'single' | 'multi' }) {
+  if (!state.sections.world) state.sections.world = {}
   if (!state.sections.routing) state.sections.routing = {}
-  state.sections.routing.world_mode = mode
+  setLocale(value.locale)
+  state.sections.world.locale = value.locale
+  state.sections.routing.world_mode = value.mode
   state.sections.routing.setup_confirmed = true
   const ok = await save()
-  if (!ok) state.sections.routing.setup_confirmed = false  // 保存失败→还原，引导屏复现
+  if (ok) appliedLocale.value = value.locale
+  else state.sections.routing.setup_confirmed = false  // 保存失败→还原，引导屏复现
+}
+
+const localeChangeDisabled = computed(() => saving.value || localePatching.value)
+
+// 顶栏语言切换只提交 locale-only patch，避免把 SettingsPanel 内尚未保存的草稿夹带进全量保存。
+// UI 先乐观切换；任何业务/网络失败都回到最后一次后端已应用的 locale。
+async function setLocaleAndPersist(value: Locale): Promise<boolean> {
+  if (localeChangeDisabled.value) return false
+  const previous = appliedLocale.value
+  setLocale(value)
+  localePatching.value = true
+  notice.msg = ''; notice.error = false
+  try {
+    await apiPost('config/locale', { locale: value })
+    if (!state.sections.world) state.sections.world = {}
+    state.sections.world.locale = value
+    appliedLocale.value = value
+    return true
+  } catch (e) {
+    setLocale(previous)
+    if (!state.sections.world) state.sections.world = {}
+    state.sections.world.locale = previous
+    if (e instanceof BusinessError) toast(mapError(e), true)
+    else if (e instanceof Unauthorized) toast(t('err.unauthorized'), true)
+    else toast(t('err.locale_update_failed'), true)
+    return false
+  } finally {
+    localePatching.value = false
+  }
 }
 
 async function save(): Promise<boolean> {
@@ -218,6 +257,8 @@ async function save(): Promise<boolean> {
     saving.value = false
   }
 }
+
+defineExpose({ state, setLocaleAndPersist, localeChangeDisabled })
 </script>
 
 <template>

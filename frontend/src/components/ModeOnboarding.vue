@@ -1,55 +1,108 @@
 <script setup lang="ts">
 import { ref } from 'vue'
-const emit = defineEmits<{ (e: 'confirm', mode: 'single' | 'multi'): void }>()
-const selected = ref<'single' | 'multi' | null>(null)
+import { locale, setLocale, t, type Locale } from '../lib/i18n'
 
-// radiogroup 键盘可达：方向键在 single/multi 间移动 selected；切换后 focus 对应卡；
-// preventDefault 抑制页面滚动。空选态（selected=null）无「当前项」可环绕，按方向落端点：
-// 正向(Right/Down)→第一项、反向(Left/Up)→最后一项；已选态两项环绕翻转。
-const MODES = ['single', 'multi'] as const
+type Mode = 'single' | 'multi'
+type Confirmation = { locale: Locale; mode: Mode }
+
+const emit = defineEmits<{ (e: 'confirm', value: Confirmation): void }>()
+const step = ref<1 | 2>(1)
+const selectedLocale = ref<Locale>(locale.value)
+const selectedMode = ref<Mode | null>(null)
+
+// 语言名是 locale 选择器的例外：始终显示母语名，不随当前 UI 语言翻译。
+const LOCALES: readonly { value: Locale; label: string }[] = [
+  { value: 'zh-CN', label: '简体中文' },
+  { value: 'ja', label: '日本語' },
+  { value: 'en', label: 'English' },
+]
+const MODES: readonly Mode[] = ['single', 'multi']
 const KEY_DIR: Record<string, number> = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 }
-function onKeydown(e: KeyboardEvent) {
+
+function chooseLocale(value: Locale) {
+  selectedLocale.value = value
+  setLocale(value)
+}
+
+function onLocaleKeydown(e: KeyboardEvent) {
   const dir = KEY_DIR[e.key]
   if (dir === undefined) return
   e.preventDefault()
-  if (selected.value === null) {
-    selected.value = dir > 0 ? MODES[0] : MODES[MODES.length - 1]
-  } else {
-    const idx = MODES.indexOf(selected.value)
-    selected.value = MODES[(idx + dir + MODES.length) % MODES.length]
-  }
-  const el = (e.currentTarget as HTMLElement).querySelector<HTMLElement>(`[data-mode="${selected.value}"]`)
+  const values = LOCALES.map((item) => item.value)
+  const index = values.indexOf(selectedLocale.value)
+  chooseLocale(values[(index + dir + values.length) % values.length])
+  const el = (e.currentTarget as HTMLElement).querySelector<HTMLElement>(`[data-locale="${selectedLocale.value}"]`)
   el?.focus()
+}
+
+// 保留原有模式 radiogroup 行为：空选态按正向键落第一项、反向键落最后一项，
+// 已选态则环绕移动；每次移动后把焦点交给对应卡片。
+function onModeKeydown(e: KeyboardEvent) {
+  const dir = KEY_DIR[e.key]
+  if (dir === undefined) return
+  e.preventDefault()
+  if (selectedMode.value === null) {
+    selectedMode.value = dir > 0 ? MODES[0] : MODES[MODES.length - 1]
+  } else {
+    const index = MODES.indexOf(selectedMode.value)
+    selectedMode.value = MODES[(index + dir + MODES.length) % MODES.length]
+  }
+  const el = (e.currentTarget as HTMLElement).querySelector<HTMLElement>(`[data-mode="${selectedMode.value}"]`)
+  el?.focus()
+}
+
+function confirm() {
+  if (selectedMode.value) emit('confirm', { locale: selectedLocale.value, mode: selectedMode.value })
 }
 </script>
 
 <template>
   <div class="pw-onboarding">
     <div class="panel">
-      <div class="head">
-        <h2>选择运行模式</h2>
-        <span class="badge">首次设置</span>
-      </div>
-      <p class="lead">这台机器人要管理一台还是多台 Palworld 服务器？界面与命令会按所选模式精简。</p>
-      <div class="cards" role="radiogroup" aria-label="运行模式" @keydown="onKeydown">
-        <button type="button" class="mode-card" data-mode="single" role="radio"
-          :aria-checked="selected === 'single'" :class="{ selected: selected === 'single' }"
-          :tabindex="selected ? (selected === 'single' ? 0 : -1) : 0"
-          @click="selected = 'single'">
-          <span class="ct">单服务器</span>
-          <span class="cd">只连接一台服务器。命令不用带服务器名，配置最简单，适合自建单服。</span>
-        </button>
-        <button type="button" class="mode-card" data-mode="multi" role="radio"
-          :aria-checked="selected === 'multi'" :class="{ selected: selected === 'multi' }"
-          :tabindex="selected ? (selected === 'multi' ? 0 : -1) : 0"
-          @click="selected = 'multi'">
-          <span class="ct">多服务器</span>
-          <span class="cd">连接多台服务器，按群授权、分别监测与管控，适合社区与多服运营。</span>
-        </button>
-      </div>
-      <button type="button" class="commit confirm" :disabled="!selected"
-        @click="selected && emit('confirm', selected)">确认并开始</button>
-      <p v-if="selected" class="hint">已选「{{ selected === 'single' ? '单服务器' : '多服务器' }}」，之后可随时在<b class="hint-ref">「连接」</b>页转换</p>
+      <template v-if="step === 1">
+        <div class="head">
+          <h2>{{ t('onboarding.language_title') }}</h2>
+          <span class="badge">{{ t('onboarding.first_setup') }} · {{ t('onboarding.step', { current: 1, total: 2 }) }}</span>
+        </div>
+        <p class="lead">{{ t('onboarding.language_lead') }}</p>
+        <div class="cards language-cards" role="radiogroup" :aria-label="t('onboarding.language_aria')" @keydown="onLocaleKeydown">
+          <button v-for="item in LOCALES" :key="item.value" type="button" class="mode-card"
+            :data-locale="item.value" role="radio" :aria-checked="selectedLocale === item.value"
+            :class="{ selected: selectedLocale === item.value }"
+            :tabindex="selectedLocale === item.value ? 0 : -1" @click="chooseLocale(item.value)">
+            <span class="ct">{{ item.label }}</span>
+            <span class="cd">{{ t(`onboarding.locale.${item.value}.desc`) }}</span>
+          </button>
+        </div>
+        <div class="actions">
+          <button type="button" class="commit next" data-act="next" @click="step = 2">{{ t('onboarding.next') }}</button>
+        </div>
+      </template>
+
+      <template v-else>
+        <div class="head">
+          <h2>{{ t('onboarding.mode_title') }}</h2>
+          <span class="badge">{{ t('onboarding.first_setup') }} · {{ t('onboarding.step', { current: 2, total: 2 }) }}</span>
+        </div>
+        <p class="lead">{{ t('onboarding.mode_lead') }}</p>
+        <div class="cards" role="radiogroup" :aria-label="t('onboarding.mode_aria')" @keydown="onModeKeydown">
+          <button v-for="mode in MODES" :key="mode" type="button" class="mode-card"
+            :data-mode="mode" role="radio" :aria-checked="selectedMode === mode"
+            :class="{ selected: selectedMode === mode }"
+            :tabindex="selectedMode ? (selectedMode === mode ? 0 : -1) : 0"
+            @click="selectedMode = mode">
+            <span class="ct">{{ t(`onboarding.mode.${mode}.title`) }}</span>
+            <span class="cd">{{ t(`onboarding.mode.${mode}.desc`) }}</span>
+          </button>
+        </div>
+        <div class="actions">
+          <button type="button" class="ghost" data-act="back" @click="step = 1">{{ t('onboarding.back') }}</button>
+          <button type="button" class="commit confirm" :disabled="!selectedMode" @click="confirm">{{ t('onboarding.confirm') }}</button>
+        </div>
+        <p v-if="selectedMode" class="hint">
+          {{ t('onboarding.hint_before', { mode: t(`onboarding.mode.${selectedMode}.title`) }) }}<b class="hint-ref">「{{ t('chapter.access.label') }}」</b>{{ t('onboarding.hint_after') }}
+        </p>
+      </template>
     </div>
   </div>
 </template>
@@ -70,7 +123,9 @@ function onKeydown(e: KeyboardEvent) {
 .mode-card.selected::after { content: "✓"; position: absolute; top: 12px; right: 14px; color: var(--focus); font-weight: var(--fw-semibold); font-size: var(--fs-body); }
 .mode-card .ct { font-size: var(--fs-title); font-weight: var(--fw-semibold); line-height: var(--lh-tight); }
 .mode-card .cd { font-size: var(--fs-sm); color: var(--ink-3); line-height: var(--lh-snug); }
-.confirm { align-self: flex-start; }
+.language-cards .mode-card { min-width: 0; padding: var(--space-4); }
+.language-cards .ct { font-size: var(--fs-heading); }
+.actions { display: flex; align-items: center; gap: var(--space-3); }
 .hint { margin: 0; font-size: var(--fs-sm); color: var(--ink-2); }
 .hint-ref { color: var(--amber); font-weight: var(--fw-semibold); }
 @media (max-width: 620px) { .cards { flex-direction: column; } }
