@@ -2,6 +2,7 @@
 import { ref, reactive } from 'vue'
 import Field from './Field.vue'
 import { SERVER_FIELDS } from '../lib/schema'
+import { t } from '../lib/i18n'
 
 // hideDelete：单模式下唯一服务器不给删（隐藏查看态「移除」按钮）
 const props = defineProps<{ modelValue: Record<string, unknown>; indexLabel: string; hideDelete?: boolean }>()
@@ -46,21 +47,21 @@ function saveCard() {
   <div v-if="mode === 'view'" class="card">
     <div class="card-head">
       <span class="idx">{{ indexLabel }}</span>
-      <span class="nm">{{ (modelValue.name as string) || '（未命名）' }}</span>
-      <span class="hchip" :class="modelValue.enabled ? 'on' : 'off'">{{ modelValue.enabled ? '启用' : '停用' }}</span>
+      <span class="nm">{{ (modelValue.name as string) || t('common.unnamed') }}</span>
+      <span class="hchip" :class="modelValue.enabled ? 'on' : 'off'">{{ modelValue.enabled ? t('view.server.enabled') : t('view.server.disabled') }}</span>
       <span class="grow"></span>
-      <span v-if="flash" class="hchip on savedflash">已暂存</span>
-      <button v-if="!hideDelete" class="headbtn del" @click="emit('delete')">移除</button>
-      <button class="headbtn edit" @click="enterEdit">修改</button>
+      <span v-if="flash" class="hchip on savedflash">{{ t('common.staged') }}</span>
+      <button v-if="!hideDelete" class="headbtn del" @click="emit('delete')">{{ t('common.remove') }}</button>
+      <button class="headbtn edit" @click="enterEdit">{{ t('common.edit') }}</button>
     </div>
     <div class="cbody">
-      <div class="crow"><span class="ck">地址</span><span class="cv">{{ modelValue.base_url }}</span></div>
-      <div class="crow"><span class="ck">用户名</span><span class="cv">{{ modelValue.username }}</span></div>
-      <div v-if="modelValue.password_set" class="crow"><span class="ck">密码</span><span class="cv"><span class="muted">已设置</span></span></div>
-      <div v-if="modelValue.password_env" class="crow"><span class="ck">密码环境变量</span><span class="cv">{{ modelValue.password_env }}</span></div>
-      <div class="crow"><span class="ck">连接超时</span><span class="cv">{{ modelValue.timeout }} 秒</span></div>
-      <div class="crow"><span class="ck">校验 TLS</span><span class="cv">{{ modelValue.verify_tls ? '是' : '否' }}</span></div>
-      <div v-if="modelValue.timezone" class="crow"><span class="ck">时区</span><span class="cv">{{ modelValue.timezone }}</span></div>
+      <div class="crow"><span class="ck">{{ t('view.server.address') }}</span><span class="cv">{{ modelValue.base_url }}</span></div>
+      <div class="crow"><span class="ck">{{ t('view.server.username') }}</span><span class="cv">{{ modelValue.username }}</span></div>
+      <div v-if="modelValue.password_set" class="crow"><span class="ck">{{ t('view.server.password') }}</span><span class="cv"><span class="muted">{{ t('common.set') }}</span></span></div>
+      <div v-if="modelValue.password_env" class="crow"><span class="ck">{{ t('view.server.password_env') }}</span><span class="cv">{{ modelValue.password_env }}</span></div>
+      <div class="crow"><span class="ck">{{ t('view.server.timeout') }}</span><span class="cv">{{ t('view.seconds', { n: modelValue.timeout as number }) }}</span></div>
+      <div class="crow"><span class="ck">{{ t('view.server.verify_tls') }}</span><span class="cv">{{ modelValue.verify_tls ? t('view.yes') : t('view.no') }}</span></div>
+      <div v-if="modelValue.timezone" class="crow"><span class="ck">{{ t('view.server.timezone') }}</span><span class="cv">{{ modelValue.timezone }}</span></div>
     </div>
   </div>
 
@@ -68,21 +69,21 @@ function saveCard() {
   <div v-else class="card editing">
     <div class="card-head">
       <span class="idx">{{ indexLabel }}</span>
-      <span class="editing-tag">编辑</span>
+      <span class="editing-tag">{{ t('common.editing') }}</span>
       <span class="grow"></span>
-      <button class="headbtn cancel-card" @click="cancel">取消</button>
-      <button class="headbtn save-card" @click="saveCard">完成</button>
+      <button class="headbtn cancel-card" @click="cancel">{{ t('common.cancel') }}</button>
+      <button class="headbtn save-card" @click="saveCard">{{ t('common.done') }}</button>
     </div>
     <div class="cbody">
       <template v-for="f in SERVER_FIELDS" :key="f.key">
         <div class="crow">
-          <span class="ck">{{ f.label }}<small v-if="f.hint">{{ f.hint }}</small></span>
+          <span class="ck">{{ t(`field.server.${f.key}.label`) }}<small v-if="f.hint">{{ t(`field.server.${f.key}.hint`) }}</small></span>
           <span class="cv">
             <input v-if="f.secret" class="pw-input pw-secret" type="text"
               autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false"
-              :placeholder="modelValue.password_set ? '已设置，留空则不修改' : '未设置'"
+              :placeholder="modelValue.password_set ? t('common.secret_keep') : t('common.unset')"
               @input="setDraft(f.key, ($event.target as HTMLInputElement).value)" />
-            <Field v-else :spec="f" :model-value="draft[f.key]" @update:model-value="(v) => setDraft(f.key, v)" />
+            <Field v-else :spec="f" section="server" :model-value="draft[f.key]" @update:model-value="(v) => setDraft(f.key, v)" />
           </span>
         </div>
       </template>

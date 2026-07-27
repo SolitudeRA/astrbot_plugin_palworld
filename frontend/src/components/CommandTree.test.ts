@@ -3,6 +3,8 @@ import { mount } from '@vue/test-utils'
 import CommandTree from './CommandTree.vue'
 import type { CmdPerm } from '../lib/collect'
 import type { Axis } from '../lib/permissions'
+import { setLocale } from '../lib/i18n'
+import en from '../lib/locales/en'
 
 const mountTree = (axis: Axis, mv: Record<string, CmdPerm> = {}, hideGroups?: string[]) =>
   mount(CommandTree, { props: { modelValue: mv, axis, ...(hideGroups ? { hideGroups } : {}) } })
@@ -13,6 +15,24 @@ const groupHead = (w: W, label: string) => w.findAll('.ct-grouphead').find((r) =
 const openGroup = (w: W, label: string) => groupHead(w, label).find('.ct-gname').trigger('click')
 
 describe('enabled 轴（功能页实例）', () => {
+  it('列头与锁定标签随 locale 响应', () => {
+    en['command.col.command'] = 'COMMAND_EN'
+    en['command.axis.enabled'] = 'ENABLED_EN'
+    en['command.lock.always_on'] = 'ALWAYS_EN'
+    try {
+      setLocale('en')
+      const w = mountTree('enabled')
+      expect(w.find('.ct-namecol').text()).toBe('COMMAND_EN')
+      expect(w.find('.ct-colh').text()).toBe('ENABLED_EN')
+      expect(leaf(w, 'world status').text()).toContain('ALWAYS_EN')
+    } finally {
+      setLocale('zh-CN')
+      delete en['command.col.command']
+      delete en['command.axis.enabled']
+      delete en['command.lock.always_on']
+    }
+  })
+
   it('行集：完整命令树 30 条（enabled 轴全展开）；hidePaths 拆去危险区 5 条；核心命令显示锁定「恒开·内置」', () => {
     const w = mountTree('enabled')
     expect(w.findAll('.ct-leaf')).toHaveLength(30) // enabled 轴全展开（含扁平 dex；危险命令由页面危险区承载时才隐藏）

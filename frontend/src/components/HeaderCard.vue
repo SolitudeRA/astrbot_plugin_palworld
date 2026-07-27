@@ -82,7 +82,7 @@ function saveCard() {
               autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false"
               :placeholder="modelValue.value_set ? t('common.secret_keep') : t('common.unset')"
               @input="setDraft(f.key, ($event.target as HTMLInputElement).value)" />
-            <Field v-else :spec="f" :model-value="draft[f.key]" @update:model-value="(v) => setDraft(f.key, v)" />
+            <Field v-else :spec="f" section="header" :model-value="draft[f.key]" @update:model-value="(v) => setDraft(f.key, v)" />
           </span>
         </div>
       </template>

@@ -18,6 +18,9 @@ const set = (v: unknown) => emit('update:modelValue', v)
 const strVal = computed<string>({ get: () => String(props.modelValue ?? ''), set })
 const boolVal = computed<boolean>({ get: () => props.modelValue === true, set })
 const numVal = computed<number>({ get: () => Number(props.modelValue ?? 0), set })
+const ariaLabel = computed(() => props.section
+  ? t(`field.${props.section}.${props.spec.key}.label`)
+  : props.spec.key)
 
 function optLabel(opt: string): string {
   if (props.section && props.spec.key !== 'locale') return t(`opt.${props.section}.${props.spec.key}.${opt}`)
@@ -27,7 +30,7 @@ function optLabel(opt: string): string {
 
 <template>
   <SelectRoot v-if="spec.type === 'enum'" :key="locale" v-model="strVal">
-    <SelectTrigger class="pw-select-trigger" :aria-label="spec.key"><SelectValue /></SelectTrigger>
+    <SelectTrigger class="pw-select-trigger" :aria-label="ariaLabel"><SelectValue /></SelectTrigger>
     <SelectContent class="pw-select-content">
       <SelectViewport>
         <SelectItem v-for="opt in spec.options" :key="opt" :value="opt" class="pw-select-item">
@@ -37,16 +40,16 @@ function optLabel(opt: string): string {
     </SelectContent>
   </SelectRoot>
 
-  <SwitchRoot v-else-if="spec.type === 'bool'" v-model="boolVal" class="pw-switch">
+  <SwitchRoot v-else-if="spec.type === 'bool'" v-model="boolVal" class="pw-switch" :aria-label="ariaLabel">
     <SwitchThumb class="pw-switch-thumb" />
   </SwitchRoot>
 
   <NumberFieldRoot v-else-if="spec.type === 'int' || spec.type === 'float'" v-model="numVal"
-    :step="spec.type === 'float' ? 0.01 : 1" class="pw-number">
+    :step="spec.type === 'float' ? 0.01 : 1" class="pw-number" :aria-label="ariaLabel">
     <NumberFieldDecrement class="pw-number-btn">−</NumberFieldDecrement>
     <NumberFieldInput class="pw-number-input" />
     <NumberFieldIncrement class="pw-number-btn">+</NumberFieldIncrement>
   </NumberFieldRoot>
 
-  <input v-else class="pw-input" type="text" v-model.trim="strVal" />
+  <input v-else class="pw-input" type="text" v-model.trim="strVal" :aria-label="ariaLabel" />
 </template>

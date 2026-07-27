@@ -14,7 +14,7 @@ describe('StatusPanel', () => {
   it('渲染服务器状态卡片', async () => {
     (window.AstrBotPluginPage!.apiGet as any).mockResolvedValue({
       ok: true, servers: [{ name: 'alpha', ready: true, online: 3, max_players: 32,
-        fps: 59.4, smoothness_label: '流畅', world_day: 60, peak_online_today: 5,
+        fps: 59.4, smoothness: 'smooth', smoothness_label: 'Smooth', world_day: 60, peak_online_today: 5,
         basecamp_count: 2, updated_at: Math.floor(Date.now() / 1000) - 12, degraded: false }] })
     const w = mount(StatusPanel); await flushPromises()
     expect(w.text()).toContain('alpha')
@@ -23,12 +23,24 @@ describe('StatusPanel', () => {
     expect(w.text()).toContain('在线玩家')
     expect(w.text()).toContain('今日峰值 5')
     expect(w.text()).toContain('59')
-    expect(w.find('.fps-good').text()).toBe('流畅')
+    expect(w.find('.fps-good').text()).toBe('Smooth')
     expect(w.text()).toContain('第 60 天')
     expect(w.text()).toContain('据点数')
     expect(w.text()).toContain('秒前')
     // 在线占比进度条按 3/32 计算宽度
     expect(w.find('.oc-bar i').attributes('style')).toContain('width: 9%')
+  })
+  it('流畅度颜色只依赖稳定 smoothness 键，不依赖本地化 label', async () => {
+    (window.AstrBotPluginPage!.apiGet as any).mockResolvedValue({
+      ok: true,
+      servers: [{
+        name: 'laggy', ready: true, degraded: false, online: 1, max_players: 8,
+        fps: 12, smoothness: 'very_laggy', smoothness_label: 'Sehr langsam',
+        world_day: 3, peak_online_today: 2,
+      }],
+    })
+    const w = mount(StatusPanel); await flushPromises()
+    expect(w.find('.fps-bad').text()).toBe('Sehr langsam')
   })
   it('仅一台 → 详细区恒展开且无 chevron；detail 缺失静默不渲染', async () => {
     (window.AstrBotPluginPage!.apiGet as any).mockResolvedValue({

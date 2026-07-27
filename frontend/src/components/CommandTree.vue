@@ -27,8 +27,8 @@ const configurable = (n: PalTreeNode) =>
 // 本轴锁定文本：enabled 恒开；admin forced 仅管理员、不可锁所有人
 function lockedLabel(n: PalTreeNode): string | null {
   if (configurable(n)) return null
-  if (props.axis === 'enabled') return '恒开'
-  return n.adminForced ? '仅管理员' : '所有人'
+  if (props.axis === 'enabled') return t('command.lock.always_on')
+  return n.adminForced ? t('command.lock.admin_only') : t('command.lock.everyone')
 }
 
 interface Grp { key: string; label: string; nodes: PalTreeNode[]; isFlat: boolean }
@@ -46,7 +46,7 @@ const groups = computed<Grp[]>(() => {
   }
   return order.map((k) => ({
     key: k,
-    label: k === '__flat__' ? '其他' : t(`group.${k}`),
+    label: k === '__flat__' ? t('group.other') : t(`group.${k}`),
     nodes: byKey[k],
     isFlat: k === '__flat__',
   }))
@@ -108,7 +108,7 @@ function onGroupToggle(g: Grp, target: boolean) {
   emit('change')
 }
 
-const colHead = computed(() => (isEnabledAxis.value ? '启用' : '仅管理员'))
+const colHead = computed(() => t(isEnabledAxis.value ? 'command.axis.enabled' : 'command.axis.admin_only'))
 </script>
 
 <template>
@@ -116,7 +116,7 @@ const colHead = computed(() => (isEnabledAxis.value ? '启用' : '仅管理员')
     <div class="ct-board">
       <!-- 列头（恒显）。enabled：开=可用；admin_only：开=仅管理员 -->
       <div class="ct-row ct-colhead">
-        <span class="ct-namecol">命令</span>
+        <span class="ct-namecol">{{ t('command.col.command') }}</span>
         <div class="ct-cell"><span class="ct-colh">{{ colHead }}</span></div>
       </div>
 
@@ -127,12 +127,12 @@ const colHead = computed(() => (isEnabledAxis.value ? '启用' : '仅管理员')
           <button type="button" class="ct-gname" :aria-expanded="expanded[g.key]" @click="toggleGroup(g.key)">
             <span class="chev" :class="{ open: expanded[g.key] }">▸</span>{{ g.label }}
             <!-- 诚实的「整组」标：有单独设置时带例外计数；组未管但有单独时给弱化计数 -->
-            <span v-if="groupManaged(g)" class="grp-tag" :class="{ mixed: overriddenLeaves(g) > 0 }">整组{{ overriddenLeaves(g) ? ' · ' + overriddenLeaves(g) + ' 单独' : '' }}</span>
-            <span v-else-if="overriddenLeaves(g)" class="grp-count">{{ overriddenLeaves(g) }} 单独</span>
+            <span v-if="groupManaged(g)" class="grp-tag" :class="{ mixed: overriddenLeaves(g) > 0 }">{{ overriddenLeaves(g) ? t('command.group.managed_mixed', { n: overriddenLeaves(g) }) : t('command.group.managed') }}</span>
+            <span v-else-if="overriddenLeaves(g)" class="grp-count">{{ t('command.group.individual_count', { n: overriddenLeaves(g) }) }}</span>
           </button>
           <div class="ct-cell">
             <SwitchRoot v-if="!g.isFlat && groupConfigurable(g)" class="pw-switch sm"
-              :model-value="groupEff(g)" :aria-label="g.label + ' 整组' + colHead"
+              :model-value="groupEff(g)" :aria-label="t('command.group.aria', { group: g.label, axis: colHead })"
               @update:model-value="(v: boolean) => onGroupToggle(g, v)">
               <SwitchThumb class="pw-switch-thumb" />
             </SwitchRoot>
@@ -147,15 +147,15 @@ const colHead = computed(() => (isEnabledAxis.value ? '启用' : '仅管理员')
             <div class="ct-lname">
               <span class="lbl">{{ cmdLabel(n) }}
                 <!-- 危险标只在功能页（enabled 轴）有信息量：不随整组、需逐条开启；权限页该三条恒锁定，标是噪音 -->
-                <span v-if="isEnabledAxis && n.danger" class="dtag" title="危险命令：不随整组开关，需逐条开启">危险</span>
-                <span v-if="configurable(n) && hasAxisOverride(n.path)" class="ov-dot" title="此命令已单独设置" aria-label="已单独设置"></span>
+                <span v-if="isEnabledAxis && n.danger" class="dtag" :title="t('command.danger.title')">{{ t('command.danger.label') }}</span>
+                <span v-if="configurable(n) && hasAxisOverride(n.path)" class="ov-dot" :title="t('command.override.title')" :aria-label="t('command.override.aria')"></span>
               </span>
               <span class="path mono">/pal {{ n.path }}</span>
             </div>
             <div class="ct-cell">
-              <span v-if="lockedLabel(n)" class="ct-lock">{{ lockedLabel(n) }}<small>内置</small></span>
+              <span v-if="lockedLabel(n)" class="ct-lock">{{ lockedLabel(n) }}<small>{{ t('command.built_in') }}</small></span>
               <SwitchRoot v-else class="pw-switch sm" :class="{ ovr: hasAxisOverride(n.path) }"
-                :model-value="effOf(n)" :aria-label="cmdLabel(n) + ' ' + colHead"
+                :model-value="effOf(n)" :aria-label="t('command.leaf.aria', { command: cmdLabel(n), axis: colHead })"
                 @update:model-value="(v: boolean) => onLeafToggle(n, v)">
                 <SwitchThumb class="pw-switch-thumb" />
               </SwitchRoot>
