@@ -106,7 +106,7 @@ export function t(key: string, vars?: Record<string, string | number>): string
 
 ### §4.3 错误码 & audit action 三语
 - **错误码表**（`err.<code>`）：`SettingsPanel.ERR`（9 码）+ `transfer.ts TRANSFER_ERR`（13 码）合并到 `t('err.<code>')`，未知码 fallback→通用「操作失败」。`mapError` 拼的 `：{path}` 冒号随 locale（`punct.colon` 键）。`errors.ts` 4 条 Error 类兜底一并键化。ERR/TRANSFER_ERR 表须按 §4.1 响应性约束改 computed/getter。
-- **audit action（对抗复核 I 修，移出 opt-out）**：`AuditPanel:76 {{r.action}}` 是裸英文 token → 前端 `t('audit.action.<code>')`，全枚举 `kick/ban/unban/announce/shutdown/stop/mode_transfer/orphan_purge`，未知码兜底原样。
+- **audit action（对抗复核 I 修，移出 opt-out）**：`AuditPanel:76 {{r.action}}` 是裸英文 token → 前端 `t('audit.action.<code>')`，全枚举 `kick/ban/unban/announce/save/shutdown/stop/mode_transfer/orphan_purge`，未知码兜底原样。
 - **audit error（tooltip）**：`r.error` 混含后端 `L()` 串与原始 token（如 `purge_failed:…`）——**前端只展示不译**（后端已本地化的走本地化、原始 token 作调试标识）；spec 明确此界，不抽键。
 
 ### §4.4 opt-out（恒定不译）

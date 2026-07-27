@@ -1,6 +1,8 @@
 import { describe, it, expect } from 'vitest'
 import { mount } from '@vue/test-utils'
 import HeaderCard from './HeaderCard.vue'
+import { setLocale } from '../lib/i18n'
+import en from '../lib/locales/en'
 
 const row = () => ({ __row_id: 'hdr-0', name: 'X-Api-Key', value: '', value_set: true, value_env: '', servers: '' })
 const mountCard = (mv: Record<string, unknown>) => mount(HeaderCard, { props: { modelValue: mv, indexLabel: '头 01' } })
@@ -44,5 +46,23 @@ describe('HeaderCard', () => {
     expect(merged.name).toBe('X-Renamed')
     expect(merged.__row_id).toBe('hdr-0')
     expect(w.emitted('save')).toBeFalsy() // 统一由底部「保存设置」落库
+  })
+
+  it('查看态通用词随 locale 响应', () => {
+    en['common.set'] = 'SET_EN'
+    en['common.remove'] = 'REMOVE_EN'
+    en['common.edit'] = 'EDIT_EN'
+    try {
+      setLocale('en')
+      const w = mountCard(row())
+      expect(w.text()).toContain('SET_EN')
+      expect(w.get('button.del').text()).toBe('REMOVE_EN')
+      expect(w.get('button.edit').text()).toBe('EDIT_EN')
+    } finally {
+      setLocale('zh-CN')
+      delete en['common.set']
+      delete en['common.remove']
+      delete en['common.edit']
+    }
   })
 })

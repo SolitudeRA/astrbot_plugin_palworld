@@ -9,9 +9,9 @@ import { t } from './lib/i18n'
 const chapter = ref(DEFAULT_CHAPTER)
 // 按当前章的 kind 分派面板：status→StatusPanel、audit→AuditPanel、其余→SettingsPanel
 const currentKind = computed(() => CHAPTERS.find((c) => c.id === chapter.value)?.kind ?? 'settings')
-const fatal = ref('')
+const fatal = ref(false)
 // 固定文案,不透传 err.message(与 boot.ts 不回显原始错误的策略一致,防内部信息泄露)
-onErrorCaptured(() => { fatal.value = '页面发生错误，请刷新重试'; return false })
+onErrorCaptured(() => { fatal.value = true; return false })
 
 const THEME_KEY = 'palworld-terminal-theme'
 const LEGACY_THEME_KEY = 'palchronicle-theme' // 改名(2026-07)前的 key,读回退保住老用户偏好
@@ -42,19 +42,19 @@ const onboarding = ref(false)
 </script>
 
 <template>
-  <div v-if="fatal" class="pw-fatal">{{ fatal }}<button class="pw-primary" @click="fatal = ''">重试</button></div>
+  <div v-if="fatal" class="pw-fatal">{{ t('app.fatal') }}<button class="pw-primary" @click="fatal = false">{{ t('app.retry') }}</button></div>
   <div v-else class="stage">
     <div class="console">
       <header>
         <div class="mast">
           <div class="brand"><span class="cn">帕鲁世界终端</span><span class="en">PalWorldTerminal</span></div>
-          <button class="ghost" @click="toggleTheme">{{ theme === 'dark' ? '☀ 浅色' : '☾ 深色' }}</button>
+          <button class="ghost" @click="toggleTheme">{{ theme === 'dark' ? t('app.theme.light') : t('app.theme.dark') }}</button>
         </div>
         <div class="dateline"></div>
-        <div class="subline"><span>Palworld 服务器监测与管控</span></div>
+        <div class="subline"><span>{{ t('app.subtitle') }}</span></div>
       </header>
       <div class="layout">
-        <nav v-if="!onboarding" class="rail" aria-label="章节索引">
+        <nav v-if="!onboarding" class="rail" :aria-label="t('app.chapter_index')">
           <button v-for="c in observeChapters" :key="c.id" :aria-current="chapter === c.id ? 'true' : 'false'" @click="chapter = c.id">
             {{ t(`chapter.${c.id}.label`) }}<span v-if="c.kind === 'status'" class="dot" aria-hidden="true"></span>
           </button>

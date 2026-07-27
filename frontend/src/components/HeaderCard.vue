@@ -2,6 +2,7 @@
 import { ref, reactive } from 'vue'
 import Field from './Field.vue'
 import { HEADER_FIELDS } from '../lib/schema'
+import { t } from '../lib/i18n'
 
 const props = defineProps<{ modelValue: Record<string, unknown>; indexLabel: string }>()
 const emit = defineEmits<{
@@ -45,20 +46,20 @@ function saveCard() {
   <div v-if="mode === 'view'" class="card">
     <div class="card-head">
       <span class="idx">{{ indexLabel }}</span>
-      <span class="nm">{{ (modelValue.name as string) || '（未命名）' }}</span>
+      <span class="nm">{{ (modelValue.name as string) || t('common.unnamed') }}</span>
       <span class="grow"></span>
-      <span v-if="flash" class="hchip on savedflash">已暂存</span>
-      <button class="headbtn del" @click="emit('delete')">移除</button>
-      <button class="headbtn edit" @click="enterEdit">修改</button>
+      <span v-if="flash" class="hchip on savedflash">{{ t('common.staged') }}</span>
+      <button class="headbtn del" @click="emit('delete')">{{ t('common.remove') }}</button>
+      <button class="headbtn edit" @click="enterEdit">{{ t('common.edit') }}</button>
     </div>
     <div class="cbody">
-      <div class="crow"><span class="ck">值</span><span class="cv">
-        <span class="muted">{{ modelValue.value_set ? '已设置' : (modelValue.value_env ? '用环境变量' : '未设置') }}</span>
+      <div class="crow"><span class="ck">{{ t('common.value') }}</span><span class="cv">
+        <span class="muted">{{ modelValue.value_set ? t('common.set') : (modelValue.value_env ? t('common.use_env') : t('common.unset')) }}</span>
       </span></div>
-      <div v-if="modelValue.value_env" class="crow"><span class="ck">值环境变量</span><span class="cv">{{ modelValue.value_env }}</span></div>
-      <div class="crow"><span class="ck">作用域</span><span class="cv">
-        <template v-if="modelValue.servers">限定 {{ modelValue.servers }}</template>
-        <span v-else class="muted">所有服务器</span>
+      <div v-if="modelValue.value_env" class="crow"><span class="ck">{{ t('common.value_env') }}</span><span class="cv">{{ modelValue.value_env }}</span></div>
+      <div class="crow"><span class="ck">{{ t('common.scope') }}</span><span class="cv">
+        <template v-if="modelValue.servers">{{ t('common.limited_to', { servers: modelValue.servers as string }) }}</template>
+        <span v-else class="muted">{{ t('common.all_servers') }}</span>
       </span></div>
     </div>
   </div>
@@ -67,19 +68,19 @@ function saveCard() {
   <div v-else class="card editing">
     <div class="card-head">
       <span class="idx">{{ indexLabel }}</span>
-      <span class="editing-tag">编辑</span>
+      <span class="editing-tag">{{ t('common.editing') }}</span>
       <span class="grow"></span>
-      <button class="headbtn cancel-card" @click="cancel">取消</button>
-      <button class="headbtn save-card" @click="saveCard">完成</button>
+      <button class="headbtn cancel-card" @click="cancel">{{ t('common.cancel') }}</button>
+      <button class="headbtn save-card" @click="saveCard">{{ t('common.done') }}</button>
     </div>
     <div class="cbody">
       <template v-for="f in HEADER_FIELDS" :key="f.key">
         <div class="crow">
-          <span class="ck">{{ f.label }}<small v-if="f.hint">{{ f.hint }}</small></span>
+          <span class="ck">{{ t(`field.header.${f.key}.label`) }}<small v-if="f.hint">{{ t(`field.header.${f.key}.hint`) }}</small></span>
           <span class="cv">
             <input v-if="f.secret" class="pw-input pw-secret" type="text"
               autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false"
-              :placeholder="modelValue.value_set ? '已设置，留空则不修改' : '未设置'"
+              :placeholder="modelValue.value_set ? t('common.secret_keep') : t('common.unset')"
               @input="setDraft(f.key, ($event.target as HTMLInputElement).value)" />
             <Field v-else :spec="f" :model-value="draft[f.key]" @update:model-value="(v) => setDraft(f.key, v)" />
           </span>

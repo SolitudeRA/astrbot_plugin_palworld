@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { apiGet } from '../lib/bridge'
+import { t } from '../lib/i18n'
 
 interface AuditRow {
   ts: number; time: string; action: string; server: string
@@ -19,6 +20,11 @@ const page = ref(1)
 const totalPages = computed(() => Math.max(1, Math.ceil(rows.value.length / PAGE_SIZE)))
 const visibleRows = computed(() => rows.value.slice((page.value - 1) * PAGE_SIZE, page.value * PAGE_SIZE))
 const goto = (p: number) => { page.value = Math.min(Math.max(1, p), totalPages.value) }
+function actionLabel(action: string): string {
+  const key = `audit.action.${action}`
+  const label = t(key)
+  return label === key ? action : label
+}
 // 窗口式页码：首尾恒显 + 当前 ±1，间隙折叠为省略号
 const pageList = computed<(number | '…')[]>(() => {
   const total = totalPages.value, cur = page.value
@@ -52,46 +58,46 @@ onMounted(load)
 
 <template>
   <div class="pw-audit">
-    <div class="chapter-head"><h2>审计</h2></div>
-    <p class="stint"><span>管理操作记录 · 只读</span><button class="ghost" @click="load">刷新</button></p>
-    <p v-if="state === 'loading'" class="pw-muted">加载中…</p>
+    <div class="chapter-head"><h2>{{ t('audit.title') }}</h2></div>
+    <p class="stint"><span>{{ t('audit.subtitle') }}</span><button class="ghost" @click="load">{{ t('common.refresh') }}</button></p>
+    <p v-if="state === 'loading'" class="pw-muted">{{ t('audit.loading') }}</p>
     <div v-else-if="state === 'error'" class="state-card">
-      <p class="pw-error">读取审计记录失败，请重试</p>
-      <button class="ghost" @click="load">刷新</button>
+      <p class="pw-error">{{ t('audit.load_error') }}</p>
+      <button class="ghost" @click="load">{{ t('common.refresh') }}</button>
     </div>
     <template v-else>
-      <p v-if="restarting" class="pw-muted">正在应用新配置…</p>
-      <div v-if="!rows.length" class="state-card"><p class="pw-muted">暂无管理操作记录</p></div>
+      <p v-if="restarting" class="pw-muted">{{ t('audit.restarting') }}</p>
+      <div v-if="!rows.length" class="state-card"><p class="pw-muted">{{ t('audit.empty') }}</p></div>
       <div v-else class="pw-audit-scroll">
         <table class="pw-audit-table">
           <thead>
             <tr>
-              <th>时间</th><th>管理员</th><th>动作</th><th>目标</th><th>服务器</th><th>结果</th>
+              <th>{{ t('audit.col.time') }}</th><th>{{ t('audit.col.admin') }}</th><th>{{ t('audit.col.action') }}</th><th>{{ t('audit.col.target') }}</th><th>{{ t('audit.col.server') }}</th><th>{{ t('audit.col.result') }}</th>
             </tr>
           </thead>
           <tbody>
             <tr v-for="(r, i) in visibleRows" :key="`${r.ts}-${i}`">
               <td class="mono">{{ r.time }}</td>
               <td class="mono">{{ r.admin }}</td>
-              <td class="act">{{ r.action }}</td>
+              <td class="act">{{ actionLabel(r.action) }}</td>
               <td class="mono" :class="{ muted: !r.target }">{{ r.target || '—' }}</td>
               <td>{{ r.server }}</td>
               <td>
-                <span v-if="r.success" class="chip good">成功</span>
-                <span v-else class="chip bad" :title="r.error || ''">失败</span>
+                <span v-if="r.success" class="chip good">{{ t('audit.result.success') }}</span>
+                <span v-else class="chip bad" :title="r.error || ''">{{ t('audit.result.failure') }}</span>
               </td>
             </tr>
           </tbody>
         </table>
         <div v-if="totalPages > 1" class="pw-audit-foot">
-          <button class="pg-btn" :disabled="page === 1" aria-label="上一页" @click="goto(page - 1)">‹</button>
+          <button class="pg-btn" :disabled="page === 1" :aria-label="t('audit.previous_page')" @click="goto(page - 1)">‹</button>
           <template v-for="(p, i) in pageList" :key="i">
             <span v-if="p === '…'" class="pg-ellipsis">…</span>
             <button v-else class="pg-btn pg-num" :class="{ cur: p === page }"
               :aria-current="p === page ? 'page' : undefined" @click="goto(p)">{{ p }}</button>
           </template>
-          <button class="pg-btn" :disabled="page === totalPages" aria-label="下一页" @click="goto(page + 1)">›</button>
-          <span class="pg-total">共 {{ rows.length }} 条</span>
+          <button class="pg-btn" :disabled="page === totalPages" :aria-label="t('audit.next_page')" @click="goto(page + 1)">›</button>
+          <span class="pg-total">{{ t('audit.total', { n: rows.length }) }}</span>
         </div>
       </div>
     </template>
