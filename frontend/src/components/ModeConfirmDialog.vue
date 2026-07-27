@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { reactive, computed } from 'vue'
 import type { TransferPreview } from '../lib/transfer'
+import { t } from '../lib/i18n'
 
 const props = defineProps<{
   target: 'single' | 'multi'
@@ -15,7 +16,7 @@ interface Row { umo: string; label: string; hasNew: boolean }
 const rows = computed<Row[]>(() => {
   if (props.target === 'multi') {
     return (props.preview.allowed_groups ?? []).map((g) => ({
-      umo: g.umo, label: g.note ? `${g.umo}（${g.note}）` : g.umo, hasNew: false,
+      umo: g.umo, label: g.note ? t('transfer.group_with_note', { umo: g.umo, note: g.note }) : g.umo, hasNew: false,
     }))
   }
   const sid = props.survivingId ?? ''
@@ -39,26 +40,26 @@ function confirm() {
 <template>
   <div class="helper-overlay">
     <div class="helper-panel">
-      <div class="helper-head"><h3>切换到{{ target === 'single' ? '单服务器' : '多服务器' }}模式</h3></div>
-      <p v-if="target === 'single'" class="lead">迁移下列群的查询授权到保留服务器；未勾选的群切换后需重新授权。</p>
-      <p v-else class="lead">迁移下列授权群到多服务器绑定；未勾选的群切换后需用 /pal link 重新绑定。</p>
-      <p v-if="noReadyTarget" class="warn">当前无就绪服务器可绑定，迁移的群暂时无法生效。</p>
+      <div class="helper-head"><h3>{{ t('transfer.switch_to_mode', { mode: t(`settings.mode.${target}`) }) }}</h3></div>
+      <p v-if="target === 'single'" class="lead">{{ t('transfer.confirm.single_lead') }}</p>
+      <p v-else class="lead">{{ t('transfer.confirm.multi_lead') }}</p>
+      <p v-if="noReadyTarget" class="warn">{{ t('transfer.no_ready_target_warning') }}</p>
       <ul v-if="rows.length" class="pick-list">
         <li v-for="r in rows" :key="r.umo">
           <label class="pick-row" :class="{ sel: checked[r.umo] }">
             <input type="checkbox" :checked="checked[r.umo]"
               @change="checked[r.umo] = ($event.target as HTMLInputElement).checked" />
             <span class="mono">{{ r.label }}</span>
-            <span v-if="r.hasNew" class="tag-new">将获新权</span>
-            <span v-else-if="target === 'single'" class="tag-has">已有权</span>
+            <span v-if="r.hasNew" class="tag-new">{{ t('transfer.tag.new_access') }}</span>
+            <span v-else-if="target === 'single'" class="tag-has">{{ t('transfer.tag.existing_access') }}</span>
           </label>
         </li>
       </ul>
-      <p v-else class="muted">没有可迁移的授权群。</p>
-      <p v-if="rows.length && checkedCount === 0" class="warn">未勾选任何群：切换后相关群需重新授权，否则无法查询。</p>
+      <p v-else class="muted">{{ t('transfer.no_migratable_groups') }}</p>
+      <p v-if="rows.length && checkedCount === 0" class="warn">{{ t('transfer.none_selected_warning') }}</p>
       <div class="helper-actions">
-        <button class="ghost" data-act="cancel" @click="emit('cancel')">取消</button>
-        <button class="pw-primary" data-act="confirm" @click="confirm">确认切换</button>
+        <button class="ghost" data-act="cancel" @click="emit('cancel')">{{ t('common.cancel') }}</button>
+        <button class="pw-primary" data-act="confirm" @click="confirm">{{ t('transfer.confirm_switch') }}</button>
       </div>
     </div>
   </div>

@@ -1,6 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { mount, flushPromises } from '@vue/test-utils'
 import ModeTransfer from './ModeTransfer.vue'
+import { setLocale } from '../lib/i18n'
+import en from '../lib/locales/en'
 
 function setBridge(impl: Partial<AstrBotBridge>) {
   window.AstrBotPluginPage = { ready: () => Promise.resolve(), apiGet: vi.fn(), apiPost: vi.fn(), ...impl }
@@ -182,5 +184,39 @@ describe('ModeTransfer 切换控件', () => {
     w.findComponent({ name: 'TransferWizard' }).vm.$emit('cancel'); await flushPromises()
     expect((w.vm as any).flow).toBe('idle')
     expect(apiPost).not.toHaveBeenCalled()
+  })
+
+  it('完成摘要按逐子句键拼接，随 locale 响应且无占位符泄漏', async () => {
+    Object.assign(en, {
+      'transfer.control.title': 'Switch runtime mode',
+      'transfer.switched': 'Switched to {mode} mode',
+      'transfer.migrated': 'migrated {n} groups',
+      'transfer.purged': 'purged {n} servers',
+      'settings.mode.multi': 'Multi-server',
+      'punct.semicolon': '; ',
+      'punct.comma': ', ',
+    })
+    try {
+      setLocale('en')
+      const apiGet = vi.fn().mockResolvedValue({
+        ok: true, ready_servers: [{ server_id: 'a', name: 'a' }], allowed_groups: [],
+      })
+      const apiPost = vi.fn().mockResolvedValue({
+        ok: true, config: {}, warnings: {},
+        summary: { from: 'single', to: 'multi', surviving: null, migrated: 2, purged: { old: {} }, failed_server_ids: [] },
+      })
+      setBridge({ apiGet, apiPost })
+      const w = mk('single')
+      expect(w.text()).toContain('Switch runtime mode')
+      await w.get('[data-act="switch"]').trigger('click'); await flushPromises()
+      w.findComponent({ name: 'ModeConfirmDialog' }).vm.$emit('confirm', []); await flushPromises()
+      expect(w.get('.done-msg').text()).toContain('Switched to Multi-server mode; migrated 2 groups, purged 1 servers')
+      expect(w.get('.done-msg').text()).not.toContain('{n}')
+    } finally {
+      for (const key of [
+        'transfer.control.title', 'transfer.switched', 'transfer.migrated', 'transfer.purged',
+        'settings.mode.multi', 'punct.semicolon', 'punct.comma',
+      ]) delete en[key]
+    }
   })
 })

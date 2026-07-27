@@ -1,6 +1,8 @@
 import { describe, it, expect } from 'vitest'
 import { mount } from '@vue/test-utils'
 import TransferWizard from './TransferWizard.vue'
+import { setLocale } from '../lib/i18n'
+import en from '../lib/locales/en'
 
 const preview = {
   ok: true,
@@ -115,5 +117,27 @@ describe('TransferWizard', () => {
     boxes = w.findAll('input[type="checkbox"]')
     expect((boxes[0].element as HTMLInputElement).checked).toBe(false) // u_has 将获新权@other
     expect((boxes[1].element as HTMLInputElement).checked).toBe(true)  // u_new 已有权@other
+  })
+
+  it('步骤名与动态台数文案从词典响应，并保留实际服务器名', async () => {
+    Object.assign(en, {
+      'transfer.step.survivor': 'Survivor',
+      'transfer.wizard.handle_others': 'Handle the other {n} servers?',
+      'transfer.next': 'Next',
+    })
+    try {
+      setLocale('en')
+      const w = mk()
+      expect(w.text()).toContain('Survivor')
+      await w.findAll('input[type="radio"]')[0].setValue()
+      await w.get('button[data-act="next"]').trigger('click')
+      await w.get('button[data-act="next"]').trigger('click')
+      expect(w.text()).toContain('Handle the other 2 servers?')
+      expect(w.text()).not.toContain('{n}')
+    } finally {
+      delete en['transfer.step.survivor']
+      delete en['transfer.wizard.handle_others']
+      delete en['transfer.next']
+    }
   })
 })

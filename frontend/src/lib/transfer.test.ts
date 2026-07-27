@@ -3,6 +3,8 @@ import {
   previewTransfer, postTransfer, listOrphans, purgeOrphans, mapTransferError,
 } from './transfer'
 import { BusinessError, Unauthorized } from './errors'
+import { setLocale } from './i18n'
+import en from './locales/en'
 
 function setBridge(impl: Partial<AstrBotBridge>) {
   window.AstrBotPluginPage = { ready: () => Promise.resolve(), apiGet: vi.fn(), apiPost: vi.fn(), ...impl }
@@ -72,5 +74,17 @@ describe('transfer client', () => {
     expect(mapTransferError(new BusinessError('too_many_groups'))).toContain('上限')
     expect(mapTransferError(new Unauthorized())).toContain('未登录')
     expect(mapTransferError(new BusinessError('unknown_x'))).toBe('操作失败，请重试')
+  })
+
+  it('mapTransferError 在调用时按当前 locale 取词典，不冻结模块初始化语言', () => {
+    en['err.transfer.migrate_bind_failed'] = 'Binding migration failed'
+    try {
+      setLocale('en')
+      expect(mapTransferError(new BusinessError('migrate_bind_failed'))).toBe('Binding migration failed')
+      setLocale('zh-CN')
+      expect(mapTransferError(new BusinessError('migrate_bind_failed'))).toContain('预绑定失败')
+    } finally {
+      delete en['err.transfer.migrate_bind_failed']
+    }
   })
 })

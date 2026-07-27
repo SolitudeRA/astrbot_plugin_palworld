@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, reactive, computed, watch } from 'vue'
 import type { TransferPreview } from '../lib/transfer'
+import { t } from '../lib/i18n'
 
 const props = defineProps<{ preview: TransferPreview; serverNames: string[] }>()
 const emit = defineEmits<{
@@ -8,7 +9,7 @@ const emit = defineEmits<{
   (e: 'cancel'): void
 }>()
 
-const STEPS = ['保留台', '迁移群', '处置', '确认'] as const
+const STEPS = ['survivor', 'groups', 'disposal', 'confirm'] as const
 const step = ref(1)
 const survivingId = ref('')
 const purgeOthers = ref<boolean | null>(null) // 步3：true=删除、false=保留、null=未选
@@ -52,17 +53,17 @@ function confirm() {
   <div class="helper-overlay">
     <div class="helper-panel">
       <div class="helper-head">
-        <h3>切换到单服务器模式</h3>
-        <div class="helper-steps" aria-label="步骤进度">
+        <h3>{{ t('transfer.switch_to_mode', { mode: t('settings.mode.single') }) }}</h3>
+        <div class="helper-steps" :aria-label="t('transfer.steps_aria')">
           <template v-for="(s, i) in STEPS" :key="s">
-            <span class="st" :class="{ cur: step === i + 1, done: step > i + 1 }"><i>{{ step > i + 1 ? '✓' : i + 1 }}</i>{{ s }}</span>
+            <span class="st" :class="{ cur: step === i + 1, done: step > i + 1 }"><i>{{ step > i + 1 ? '✓' : i + 1 }}</i>{{ t(`transfer.step.${s}`) }}</span>
             <span v-if="i < STEPS.length - 1" class="sep">—</span>
           </template>
         </div>
       </div>
 
       <section v-if="step === 1">
-        <p class="lead">选择切换后要保留的服务器（仅就绪服务器可选）：</p>
+        <p class="lead">{{ t('transfer.wizard.select_survivor') }}</p>
         <ul class="pick-list">
           <li v-for="s in readyServers" :key="s.server_id">
             <label class="pick-row" :class="{ sel: survivingId === s.server_id }"><input type="radio" name="surv" :value="s.server_id"
@@ -70,60 +71,60 @@ function confirm() {
           </li>
         </ul>
         <div class="helper-actions">
-          <button class="ghost" data-act="cancel" @click="emit('cancel')">取消</button>
-          <button class="pw-primary" data-act="next" :disabled="!survivingId" @click="next">下一步</button>
+          <button class="ghost" data-act="cancel" @click="emit('cancel')">{{ t('common.cancel') }}</button>
+          <button class="pw-primary" data-act="next" :disabled="!survivingId" @click="next">{{ t('transfer.next') }}</button>
         </div>
       </section>
 
       <section v-else-if="step === 2">
-        <p class="lead">勾选要迁移到保留服务器的授权群（已有权默认勾选，将获新权默认不勾）：</p>
+        <p class="lead">{{ t('transfer.wizard.select_groups') }}</p>
         <ul v-if="rows.length" class="pick-list">
           <li v-for="r in rows" :key="r.umo">
             <label class="pick-row" :class="{ sel: checked[r.umo] }"><input type="checkbox" :checked="checked[r.umo]"
               @change="checked[r.umo] = ($event.target as HTMLInputElement).checked" />
               <span class="mono">{{ r.umo }}</span>
-              <span v-if="r.hasNew" class="tag-new">将获新权</span>
-              <span v-else class="tag-has">已有权</span></label>
+              <span v-if="r.hasNew" class="tag-new">{{ t('transfer.tag.new_access') }}</span>
+              <span v-else class="tag-has">{{ t('transfer.tag.existing_access') }}</span></label>
           </li>
         </ul>
-        <p v-else class="muted">没有可迁移的授权群。</p>
+        <p v-else class="muted">{{ t('transfer.no_migratable_groups') }}</p>
         <div class="helper-actions">
-          <button class="ghost" data-act="back" @click="back">上一步</button>
-          <button class="pw-primary" data-act="next" @click="next">下一步</button>
+          <button class="ghost" data-act="back" @click="back">{{ t('transfer.back') }}</button>
+          <button class="pw-primary" data-act="next" @click="next">{{ t('transfer.next') }}</button>
         </div>
       </section>
 
       <section v-else-if="step === 3">
-        <p class="lead">如何处理其余服务器（{{ deleteNames.length }} 台）？</p>
+        <p class="lead">{{ t('transfer.wizard.handle_others', { n: deleteNames.length }) }}</p>
         <div class="pick-list">
           <label class="pick-row" :class="{ sel: purgeOthers === false }"><input type="radio" name="others" :checked="purgeOthers === false"
-            @change="purgeOthers = false" /> 保留（仅退出多服务器模式，数据留存）</label>
+            @change="purgeOthers = false" /> {{ t('transfer.wizard.keep_others') }}</label>
           <label class="pick-row" :class="{ 'sel-danger': purgeOthers === true }"><input type="radio" name="others" :checked="purgeOthers === true"
-            @change="purgeOthers = true" /> 永久删除其余服务器及其全部历史数据（不可恢复）</label>
+            @change="purgeOthers = true" /> {{ t('transfer.wizard.purge_others') }}</label>
         </div>
         <div class="helper-actions">
-          <button class="ghost" data-act="back" @click="back">上一步</button>
-          <button class="pw-primary" data-act="next" :disabled="purgeOthers === null" @click="next">下一步</button>
+          <button class="ghost" data-act="back" @click="back">{{ t('transfer.back') }}</button>
+          <button class="pw-primary" data-act="next" :disabled="purgeOthers === null" @click="next">{{ t('transfer.next') }}</button>
         </div>
       </section>
 
       <section v-else>
-        <p class="lead">请确认以下操作：</p>
+        <p class="lead">{{ t('transfer.wizard.confirm_intro') }}</p>
         <ul class="summary">
-          <li>保留服务器：<b>{{ survivingId }}</b></li>
-          <li>迁移授权群：<b>{{ migrateUmos.length }}</b> 个（其中新授权 {{ newCount }} 个）</li>
-          <li v-if="purgeOthers">永久删除：<b class="danger-text">{{ deleteNames.length }}</b> 台及其全部历史数据</li>
-          <li v-else>其余 {{ deleteNames.length }} 台：保留数据</li>
+          <li>{{ t('transfer.wizard.summary.survivor') }}<b>{{ survivingId }}</b></li>
+          <li>{{ t('transfer.wizard.summary.migrated', { n: migrateUmos.length, new: newCount }) }}</li>
+          <li v-if="purgeOthers" class="danger-text">{{ t('transfer.wizard.summary.purged', { n: deleteNames.length }) }}</li>
+          <li v-else>{{ t('transfer.wizard.summary.kept', { n: deleteNames.length }) }}</li>
         </ul>
         <div v-if="purgeOthers" class="delete-box">
-          <p class="danger-text">将永久删除以下服务器及其全部历史数据，不可恢复：</p>
-          <p class="mono">{{ deleteNames.join('、') }}</p>
+          <p class="danger-text">{{ t('transfer.wizard.purge_warning') }}</p>
+          <p class="mono">{{ deleteNames.join(t('punct.list_separator')) }}</p>
           <label class="ack"><input type="checkbox" data-act="ack" :checked="deleteAck"
-            @change="deleteAck = ($event.target as HTMLInputElement).checked" /> 我了解此操作不可恢复</label>
+            @change="deleteAck = ($event.target as HTMLInputElement).checked" /> {{ t('transfer.irreversible_ack') }}</label>
         </div>
         <div class="helper-actions">
-          <button class="ghost" data-act="back" @click="back">上一步</button>
-          <button class="pw-primary" data-act="confirm" :disabled="!canConfirm" @click="confirm">确认切换</button>
+          <button class="ghost" data-act="back" @click="back">{{ t('transfer.back') }}</button>
+          <button class="pw-primary" data-act="confirm" :disabled="!canConfirm" @click="confirm">{{ t('transfer.confirm_switch') }}</button>
         </div>
       </section>
     </div>
