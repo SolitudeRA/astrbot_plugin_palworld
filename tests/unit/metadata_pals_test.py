@@ -43,11 +43,11 @@ def _repo_locale(locale: str) -> MetadataRepository:
 def test_pal_name_locale_selects_language_field():
     """locale 化取名：按 locale 选 name_ja/name_en/name_zh + fallback 链 ja→en→zh。
 
-    JetDragon 条目现有 name_zh=空涡龙 / name_en=Jetragon，尚无 name_ja（T14 回填）。"""
+    JetDragon 条目现有 name_zh=空涡龙 / name_en=Jetragon / name_ja=ジェッドラン（T14 已回填）。"""
     # en → name_en（JetDragon 已有 "Jetragon"）
     assert _repo_locale("en").pal_name("BP_JetDragon_BOSS_C") == "Jetragon"
-    # ja → name_ja 尚未回填，fallback 链 name_ja→name_en → "Jetragon"
-    assert _repo_locale("ja").pal_name("BP_JetDragon_BOSS_C") == "Jetragon"
+    # ja → name_ja（T14 已回填）→ "ジェッドラン"
+    assert _repo_locale("ja").pal_name("BP_JetDragon_BOSS_C") == "ジェッドラン"
     # zh-CN（默认）→ name_zh，不变
     assert _repo_locale("zh-CN").pal_name("BP_JetDragon_BOSS_C") == "空涡龙"
 
