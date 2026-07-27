@@ -279,8 +279,10 @@ def status_rows(entries: list) -> list[dict]:
             # 白名单仅世界级数据,不含 players 个体列表(隐私面不扩)
             "name": name, "ready": ready, "online": dto.online,
             "max_players": dto.max_players, "fps": dto.fps,
-            # smoothness_label 为稳定键（query_status 产出）；presentation 边界就地经 L()
-            # 服务端渲染回本地化串下发——设置页 API 契约保持本地化文案，前端零改动。
+            # dto.smoothness_label 是稳定键（smooth/moderate/laggy/very_laggy，query_status 产出）。
+            # 并行下发两路：smoothness 原样透传稳定键（前端 fpsClass 判色去中文硬依赖）；
+            # smoothness_label 就地经 L() 服务端渲染回本地化串（保持既有本地化文案 API 契约）。
+            "smoothness": dto.smoothness_label,
             "smoothness_label": L(f"smoothness_{dto.smoothness_label}"),
             "world_day": dto.world_day, "peak_online_today": dto.peak_online_today,
             "basecamp_count": dto.basecamp_count, "updated_at": dto.updated_at,
