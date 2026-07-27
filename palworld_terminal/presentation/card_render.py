@@ -136,6 +136,9 @@ def build_me_card_html(dto: MeCardDTO, icons: dict[str, str], theme: str) -> str
     hidden_html = L("me_card_hidden_inline") if dto.hidden else ""
     foot_right = f"{L('me_card_first_record', days=_rel_days(dto.first_seen_at))}{hidden_html}"
     percentile_label = L("me_card_percentile_label")
+    # 字体栈按已装载 locale 注入（i18n §3.6）：ja 前置日文字体避免假名/汉字回落成豆腐块，
+    # zh/en 为基础栈（逐字节等同旧硬编码值）。走 L() 全局机制，不在此硬判 locale 分支。
+    font_stack = L("card_font_stack")
 
     return f"""<style>
 * {{ box-sizing: border-box; }}
@@ -146,7 +149,7 @@ def build_me_card_html(dto: MeCardDTO, icons: dict[str, str], theme: str) -> str
    html 背景按主题铺满，兜底任何残余留白不露裸白（万一后端视口/缩放交互留边）。 */
 html {{ zoom: {_SCALE}; width: max-content; background: {page_bg}; }}
 body {{ margin: 0; width: max-content; }}
-.page {{ font-family: system-ui,-apple-system,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
+.page {{ font-family: {font_stack};
   padding:22px; -webkit-font-smoothing:antialiased; }}
 .page.light {{ background:#eceae4; }}
 .page.dark {{ background:#0f0c07; }}

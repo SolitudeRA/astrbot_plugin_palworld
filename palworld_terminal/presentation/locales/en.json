@@ -325,6 +325,7 @@
   "me_card_first_record": "First record {days}",
   "me_card_hidden_inline": " · hidden (visible only to you)",
   "me_card_offline_otomo": "Offline · no live HP or companion data",
+  "card_font_stack": "system-ui,-apple-system,\"Segoe UI\",\"PingFang SC\",\"Microsoft YaHei\",sans-serif",
   "admin_action_announce": "Broadcast",
   "admin_action_save": "Save",
   "admin_action_kick": "Kick",

@@ -174,3 +174,18 @@ def test_companion_unmapped_action_shows_following():
     dto = _dto(companion=_companion(action_label="unknown"), companion_status="shown")
     html = build_me_card_html(dto, _ICONS, "light")
     assert "随行" in html
+
+
+# ---- 字体栈按 locale 注入（i18n §3.6）：ja 前置日文字体，zh 保持基础栈 ----
+
+def test_ja_locale_injects_japanese_font_stack():
+    from palworld_terminal.presentation.locale import load_locale
+    try:
+        load_locale("ja")
+        html_ja = build_me_card_html(_dto(), _ICONS, "light")
+        assert "Yu Gothic" in html_ja        # ja 前置日文字体
+    finally:
+        load_locale("zh-CN")                 # 复位，防污染同模块后续 zh 断言
+    html_zh = build_me_card_html(_dto(), _ICONS, "light")
+    assert "Yu Gothic" not in html_zh        # zh 下不含日文字体
+    assert "PingFang SC" in html_zh          # zh 仍是基础栈

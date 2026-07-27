@@ -325,6 +325,7 @@
   "me_card_first_record": "首次记录 {days}",
   "me_card_hidden_inline": " · 已隐藏（仅自己可见）",
   "me_card_offline_otomo": "离线 · 无实时血量与随身数据",
+  "card_font_stack": "system-ui,-apple-system,\"Segoe UI\",\"PingFang SC\",\"Microsoft YaHei\",sans-serif",
   "admin_action_announce": "广播公告",
   "admin_action_save": "存档",
   "admin_action_kick": "踢出",

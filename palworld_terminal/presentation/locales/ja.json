@@ -325,6 +325,7 @@
   "me_card_first_record": "初記録 {days}",
   "me_card_hidden_inline": " · 非表示（自分のみ表示）",
   "me_card_offline_otomo": "オフライン · リアルタイムのHPとお供データなし",
+  "card_font_stack": "\"Yu Gothic UI\",\"Yu Gothic\",\"Meiryo\",\"Noto Sans JP\",system-ui,-apple-system,\"Segoe UI\",\"PingFang SC\",\"Microsoft YaHei\",sans-serif",
   "admin_action_announce": "告知配信",
   "admin_action_save": "セーブ",
   "admin_action_kick": "キック",
