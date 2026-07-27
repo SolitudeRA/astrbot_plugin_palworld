@@ -32,7 +32,7 @@ def _target_phrase(name: str | None, userid: str | None) -> str:
     steam_ 直传 / unban 无名字解析时退化为 `…尾4`（无「玩家」前缀）。"""
     tail = userid[-4:] if userid else ""
     if name:
-        return f"{name}（…{tail}）"
+        return f"{name}{L('paren_open')}…{tail}{L('paren_close')}"
     if tail:
         return f"…{tail}"
     return ""

@@ -341,7 +341,8 @@ def format_servers(
         lines.append("")
         lines.append(L("server_section_invalid"))
         lines.extend(
-            f"· {s.raw_name}（{_label_or_key('skip_reason', s.reason)}）" for s in skipped
+            f"· {s.raw_name}{L('paren_open')}{_label_or_key('skip_reason', s.reason)}{L('paren_close')}"
+            for s in skipped
         )
     return "\n".join(lines)
 
@@ -772,9 +773,9 @@ def format_dex(dto: DexProgressDTO) -> str:
     lines = [title, head, ""]
     for b in dto.buckets:
         elem = _label_or_key("element", b.element)
-        lit = "、".join(b.observed) if b.observed else "—"
-        lines.append(f"{elem} {len(b.observed)}：{lit}")
+        lit = L("list_sep").join(b.observed) if b.observed else "—"
+        lines.append(f"{elem} {len(b.observed)}{L('label_value_sep')}{lit}")
         if b.missing:   # 缺失仅分母已知时非空（降级恒空）
-            lines.append(f"　└ {L('dex_missing')}：{'、'.join(b.missing)}")
+            lines.append(f"{L('dex_missing_indent')}{L('dex_missing')}{L('label_value_sep')}{L('list_sep').join(b.missing)}")
     lines.append(L("dex_note"))
     return "\n".join(lines)

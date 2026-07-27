@@ -35,6 +35,7 @@ from palworld_terminal.application.dtos import (
     StatusDTO,
 )
 from palworld_terminal.domain.enums import Confidence, EventType
+from palworld_terminal.presentation.admin_write_flow import _target_phrase
 from palworld_terminal.presentation.formatters import (
     format_base,
     format_dex,
@@ -159,6 +160,36 @@ class TestEnSmoke:
         assert "Not yet observed" in text                      # dex_missing
         assert "Fire" in text and "Grass" in text              # element_* 渲染
         _assert_no_cjk(text)
+
+    def test_dex_english_structural_punctuation_is_ascii(self):
+        """终审对抗复核修：结构性分隔符/冒号/缩进走 locale 键，en 取 ASCII——
+        不得再渲染硬编码全角标点（：/、/　）。多物种 observed + 多物种 missing 触发 join。"""
+        dto = DexProgressDTO(
+            observed_count=3, total=5,
+            buckets=[DexElementBucket("fire", ["Foxparks", "Rushoar"], ["Rooby", "Arsox"]),
+                     DexElementBucket("grass", ["Lamball"], [])],
+        )
+        text = format_dex(dto)
+        assert "Fire 2: Foxparks, Rushoar" in text            # 观测行 ASCII 冒号/逗号
+        assert "  └ Not yet observed: Rooby, Arsox" in text   # 缺失行 ASCII 缩进/冒号/逗号
+        for ch in ("：", "、", "　", "（", "）"):  # ：、　（）
+            assert ch not in text, f"全角标点残留于 en dex: {ch!r}"
+        _assert_no_cjk(text)
+
+    def test_whereami_english_joins_servers_with_ascii_comma(self):
+        """复现 commands.whereami（:391）多服组装：list_sep 作胶水，en 下为 ', ' 不含全角 '、'。"""
+        status = L("whereami_authed", servers=L("list_sep").join(["Alpha", "Beta"]))
+        assert "Alpha, Beta" in status                        # ASCII 逗号连接
+        assert "、" not in status                         # 无全角顿号
+        _assert_no_cjk(status)
+
+    def test_target_phrase_english_uses_ascii_parens(self):
+        """_target_phrase（admin_write_flow）括号走 paren_open/close，en 取 ASCII '(' ')'。"""
+        assert _target_phrase("Neo", "steam_1234") == "Neo (…1234)"  # … 语言中立保留
+        phrase = _target_phrase("Neo", "1234")
+        for ch in ("（", "）"):                       # （）
+            assert ch not in phrase, f"全角括号残留于 en target: {ch!r}"
+        _assert_no_cjk(phrase)
 
     def test_help_renders_english_and_no_cjk_with_alias_exemption(self):
         text = format_help(None, is_admin=True, overrides=all_on())
@@ -335,3 +366,18 @@ class TestJaResidue:
         corpus = _ja_render_corpus()
         leaked = sorted(f for f in fragments if f in corpus)
         assert not leaked, f"zh 专属 CJK 片段残留于 ja 渲染：{leaked}"
+
+
+# ==== zh 不变佐证（终审对抗复核修）：结构性标点键在 zh 下仍精确复现全角原字符 ==========
+
+def test_zh_dex_keeps_fullwidth_punctuation():
+    """本修把结构性标点抽键后，zh 输出须逐字节不变——列表顿号/标签冒号/缺失缩进仍全角。"""
+    load_locale("zh-CN")
+    dto = DexProgressDTO(
+        observed_count=2, total=5,
+        buckets=[DexElementBucket("fire", ["Foxparks", "Rushoar"], ["Rooby"]),
+                 DexElementBucket("grass", ["Lamball"], [])],
+    )
+    text = format_dex(dto)
+    assert "2：Foxparks、Rushoar" in text          # 观测行：全角冒号 U+FF1A + 全角顿号 U+3001
+    assert "　└ 尚未被观测：Rooby" in text          # 缺失行：全角空格 U+3000 缩进 + 全角冒号

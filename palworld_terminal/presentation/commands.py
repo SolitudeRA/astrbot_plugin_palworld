@@ -388,7 +388,7 @@ class Commands:
                     authed.append(
                         L("whereami_server_active", name=s.name) if active else s.name
                     )
-            status = (L("whereami_authed", servers="、".join(authed))
+            status = (L("whereami_authed", servers=L("list_sep").join(authed))
                       if authed else L("whereami_unauthed"))
         return f"{head}\n{status}\n{L('whereami_footer')}"
 
