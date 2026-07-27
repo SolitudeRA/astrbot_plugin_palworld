@@ -7,7 +7,14 @@ import json
 import logging
 from collections.abc import Callable, Mapping
 
-from .config_view import _MAX_LIST, audit_rows, redact_config, status_rows, validate_and_backfill
+from .config_view import (
+    _ENUMS,
+    _MAX_LIST,
+    audit_rows,
+    redact_config,
+    status_rows,
+    validate_and_backfill,
+)
 from .locale import L
 
 _log = logging.getLogger("palworld_terminal.web_api")
@@ -62,6 +69,40 @@ async def handle_config_save(
         # 「新行空密码」提交,静默清掉已存密码(审查 F1)
         return 200, {"ok": True, "warnings": outcome.get("warnings", {}),
                      "config": redact_config(old_raw), "saved_ts": now}
+
+
+async def handle_locale_patch(
+    body, *, old_raw, env, lock, now, last_save_ts,
+    apply_and_restart, min_interval: float = 5,
+) -> tuple[int, dict]:
+    """顶栏语言切换器专用 locale-only patch：只写 world.locale、不 collect 全表单。
+
+    依赖签名与 handle_config_save 一致（便于 main 复用同一批注入）；env 仅为签名
+    对齐保留（此路径不做 env 凭证重定向）。守卫复用 _save_lock/_last_save_ts 避免
+    与全量 save 竞态。校验 locale ∈ world.locale 枚举后，深拷 old_raw 只改 world.locale
+    再 reload——绝不过 validate_and_backfill（那会回填/校验整表单，夹带用户未存草稿）。
+    """
+    if lock.locked():
+        return 200, {"ok": False, "error": "save_in_progress", "detail": {}}
+    if last_save_ts is not None and now - last_save_ts < min_interval:
+        return 200, {"ok": False, "error": "too_frequent", "detail": {}}
+    async with lock:
+        locale = body.get("locale") if isinstance(body, Mapping) else None
+        if locale not in _ENUMS["world.locale"]:
+            return 200, {"ok": False, "error": "invalid_field",
+                         "detail": {"path": "world.locale"}}
+        # 深拷 old_raw 后只改 world.locale：其它字段原样、绝不回填/剥离
+        result = copy.deepcopy(dict(old_raw))
+        world = result.get("world")
+        if not isinstance(world, dict):
+            world = {}
+            result["world"] = world
+        world["locale"] = locale
+        outcome = await apply_and_restart(result)
+        if not outcome.get("ok"):
+            return 200, outcome
+        # 与 save 同形回执：前端用脱敏配置刷新 state、saved_ts 参与节流
+        return 200, {"ok": True, "config": redact_config(old_raw), "saved_ts": now}
 
 
 async def handle_mode_transfer_preview(container, restarting, target) -> tuple[int, dict]:

@@ -208,6 +208,8 @@ class PalWorldTerminal(Star):
         self._context.register_web_api(
             f"{p}/config/save", self._web_config_save, ["POST"], "保存插件配置并重启")
         self._context.register_web_api(
+            f"{p}/config/locale", self._web_locale_patch, ["POST"], "设置界面/消息语言")
+        self._context.register_web_api(
             f"{p}/status/overview", self._web_status, ["GET"], "服务器状态概览")
         self._context.register_web_api(
             f"{p}/audit/list", self._web_audit, ["GET"], "管理审计日志(只读)")
@@ -424,6 +426,23 @@ class PalWorldTerminal(Star):
             return self._deny_unauthorized()
         body = await request.get_json(silent=True)
         _code, payload = await web_api.handle_config_save(
+            body, old_raw=self._raw_config, env=os.environ,
+            lock=self._save_lock, now=time.monotonic(),
+            last_save_ts=self._last_save_ts,
+            apply_and_restart=self._apply_and_restart)
+        if payload.get("ok") and "saved_ts" in payload:
+            self._last_save_ts = payload.pop("saved_ts")
+        return jsonify(payload)
+
+    async def _web_locale_patch(self):
+        import time
+
+        from quart import jsonify, request
+        if not self._has_identity():
+            return self._deny_unauthorized()
+        body = await request.get_json(silent=True)
+        # 顶栏语言切换器：复用 save 的锁/节流依赖，但只写 world.locale
+        _code, payload = await web_api.handle_locale_patch(
             body, old_raw=self._raw_config, env=os.environ,
             lock=self._save_lock, now=time.monotonic(),
             last_save_ts=self._last_save_ts,
