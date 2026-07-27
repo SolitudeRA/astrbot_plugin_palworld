@@ -1,7 +1,7 @@
 // 简体中文词典（基线语）。数据层键（schema/chapters 派生）由 Phase 2 Task 2 补入，
 // 值 = 对应 schema/chapters 现有中文串逐字节复制（保证 zh 渲染字节不变）。
 // 例外：field.world.locale.label 为「界面与消息语言」（有意文案扩张，schema 同步更新）。
-// 键派生规则见 i18n-datakeys.test.ts。ja/en 词典由 T10 统一补齐。
+// 键派生规则见 i18n-datakeys.test.ts；ja/en 词典与本基线保持严格同键、同占位符。
 const dict: Record<string, string> = {
   // ── 应用壳 / 启动错误（app.*） ──────────────────────────────────────────
   'app.fatal': '页面发生错误，请刷新重试',
@@ -284,6 +284,8 @@ const dict: Record<string, string> = {
   'punct.comma': '，',
   'punct.semicolon': '；',
   'punct.list_separator': '、',
+  'punct.quote_open': '「',
+  'punct.quote_close': '」',
   'err.save_in_progress': '保存进行中，请稍候',
   'err.too_frequent': '保存过于频繁，请稍后再试',
   'err.too_large': '配置内容过大，请精简后再保存',

@@ -2,6 +2,8 @@ import { describe, it, expect } from 'vitest'
 import { OBJECT_SECTIONS, SERVER_FIELDS, HEADER_FIELDS, GROUP_LABELS, PAL_TREE } from './schema'
 import { CHAPTERS } from './chapters'
 import zhCN from './locales/zh-CN'
+import ja from './locales/ja'
+import en from './locales/en'
 
 // 数据层键覆盖：按「渲染派生规则」遍历 schema/chapters 结构，逐键断言其存在于词典——
 // 堵住「结构里有字段、词典漏了对应键」的盲区（漏键会让该语渲染回退到键名/字节漂移）。
@@ -35,12 +37,11 @@ function expectedKeys(): string[] {
 }
 
 describe('数据层键覆盖', () => {
-  // 本阶段（Phase 2 Task 2）只向 zh 基线补数据层键；ja/en 由 T10 统一补齐。
-  // 故此刻仅断言 zh 词典含所有派生键。T10 后可把下方断言扩到三词典（对 ja/en 各跑一遍）。
   // 注：词典是「含点」平键（如 'section.routing.title'）的扁平表；toHaveProperty 会把点当嵌套
   // 路径解析，故用 hasOwnProperty 精确判定平键存在。
-  it('每个派生键存在于 zh 词典', () => {
-    for (const k of expectedKeys())
-      expect(Object.prototype.hasOwnProperty.call(zhCN, k), `zh 缺键 ${k}`).toBe(true)
+  it('每个派生键存在于三语词典', () => {
+    for (const [locale, dict] of [['zh-CN', zhCN], ['ja', ja], ['en', en]] as const)
+      for (const k of expectedKeys())
+        expect(Object.prototype.hasOwnProperty.call(dict, k), `${locale} 缺键 ${k}`).toBe(true)
   })
 })

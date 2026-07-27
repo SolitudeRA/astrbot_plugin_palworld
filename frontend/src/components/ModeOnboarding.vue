@@ -100,7 +100,7 @@ function confirm() {
           <button type="button" class="commit confirm" :disabled="!selectedMode" @click="confirm">{{ t('onboarding.confirm') }}</button>
         </div>
         <p v-if="selectedMode" class="hint">
-          {{ t('onboarding.hint_before', { mode: t(`onboarding.mode.${selectedMode}.title`) }) }}<b class="hint-ref">「{{ t('chapter.access.label') }}」</b>{{ t('onboarding.hint_after') }}
+          {{ t('onboarding.hint_before', { mode: t(`onboarding.mode.${selectedMode}.title`) }) }}<b class="hint-ref">{{ t('punct.quote_open') }}{{ t('chapter.access.label') }}{{ t('punct.quote_close') }}</b>{{ t('onboarding.hint_after') }}
         </p>
       </template>
     </div>
