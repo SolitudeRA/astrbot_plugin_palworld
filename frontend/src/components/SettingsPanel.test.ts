@@ -1,8 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { mount, flushPromises } from '@vue/test-utils'
+import { nextTick } from 'vue'
 import SettingsPanel from './SettingsPanel.vue'
 import ServerCard from './ServerCard.vue'
 import { collectBody } from '../lib/collect'
+import { setLocale } from '../lib/i18n'
+import en from '../lib/locales/en'
 
 const cfg = () => ({ ok: true, config: {
   servers: [{ __row_id: 'srv-0', name: 'a', enabled: true, base_url: 'http://x', username: 'admin',
@@ -99,6 +102,52 @@ describe('SettingsPanel', () => {
     await w.get('button.pw-save').trigger('click'); await flushPromises()
     expect(w.text()).toContain('请点击该服务器的「修改」重新输入密码后再保存')
     expect(w.text()).toContain('保存设置') // 表单/保存条仍在（未塌成整页错误）
+  })
+
+  it('危险命令标签/说明随 locale 响应，不冻结在模块常量', async () => {
+    en['settings.danger.command.server_kick.label'] = 'KICK_EN'
+    en['settings.danger.command.server_kick.desc'] = 'KICK_DESC_EN'
+    try {
+      const c = cfg()
+      c.config.world.locale = 'en'
+      ;(window.AstrBotPluginPage!.apiGet as any).mockResolvedValue(c)
+      setLocale('en')
+      const w = mountAt('features'); await flushPromises()
+      expect(w.text()).toContain('KICK_EN')
+      expect(w.text()).toContain('KICK_DESC_EN')
+
+      setLocale('zh-CN')
+      await nextTick()
+      expect(w.text()).toContain('踢出玩家')
+      expect(w.text()).toContain('将在线玩家踢出服务器（写操作，仅管理员可用）')
+    } finally {
+      setLocale('zh-CN')
+      delete en['settings.danger.command.server_kick.label']
+      delete en['settings.danger.command.server_kick.desc']
+    }
+  })
+
+  it('业务错误文案与路径标点随 locale 即时求值', async () => {
+    en['err.credential_redirect'] = 'CREDENTIAL_EN'
+    en['punct.colon'] = ': '
+    try {
+      const c = cfg()
+      c.config.world.locale = 'en'
+      ;(window.AstrBotPluginPage!.apiGet as any).mockResolvedValue(c)
+      ;(window.AstrBotPluginPage!.apiPost as any).mockResolvedValue({
+        ok: false,
+        error: 'credential_redirect',
+        detail: { path: 'servers[0].password' },
+      })
+      setLocale('en')
+      const w = mountAt('access'); await flushPromises()
+      await w.get('button.pw-save').trigger('click'); await flushPromises()
+      expect(w.text()).toContain('CREDENTIAL_EN: servers[0].password')
+    } finally {
+      setLocale('zh-CN')
+      delete en['err.credential_redirect']
+      delete en['punct.colon']
+    }
   })
 
   it('保存响应回传 config 时用其刷新 state(新行获得服务端 __row_id)', async () => {
