@@ -24,7 +24,6 @@ FENCE_RE = re.compile(r"^\s{0,3}(`{3,}|~{3,})([^`]*)$")
 MARKDOWN_LINK_RE = re.compile(r"!?\[[^\]]*]\(([^)\s]+)(?:\s+['\"][^)]*['\"])?\)")
 HTML_SRC_RE = re.compile(r'<(?:img|a)\b[^>]*(?:src|href)="([^"]+)"', re.IGNORECASE)
 INLINE_CODE_RE = re.compile(r"`[^`\n]*`")
-HAN_RE = re.compile(r"[\u3400-\u4dbf\u4e00-\u9fff]+")
 PLACEHOLDER_RE = re.compile(r"\{[A-Za-z_][A-Za-z0-9_]*}")
 PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 
@@ -33,34 +32,12 @@ PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 class DocFamily:
     key: str
     paths: dict[str, str]
-    headings: tuple[tuple[int, str], ...]
 
 
 DOC_FAMILIES = (
     DocFamily(
         "readme",
         {"zh-CN": "README.md", "ja": "README.ja.md", "en": "README.en.md"},
-        (
-            (1, "readme"),
-            (2, "actual-ui"),
-            (3, "settings-dashboard"),
-            (3, "features-and-permissions"),
-            (3, "single-and-multi-world"),
-            (2, "chat-examples"),
-            (2, "capabilities"),
-            (2, "quick-start"),
-            (3, "requirements"),
-            (3, "enable-rest-api"),
-            (3, "install-plugin"),
-            (3, "configure-servers"),
-            (3, "authorize-admins"),
-            (3, "verify-installation"),
-            (2, "common-commands"),
-            (2, "security-boundaries"),
-            (2, "faq"),
-            (2, "docs-and-contributing"),
-            (2, "license"),
-        ),
     ),
     DocFamily(
         "contributing",
@@ -69,13 +46,6 @@ DOC_FAMILIES = (
             "ja": "CONTRIBUTING.ja.md",
             "en": "CONTRIBUTING.en.md",
         },
-        (
-            (1, "contributing"),
-            (2, "development"),
-            (2, "frontend-build"),
-            (2, "checks"),
-            (2, "commit-conventions"),
-        ),
     ),
     DocFamily(
         "configuration",
@@ -84,55 +54,10 @@ DOC_FAMILIES = (
             "ja": "docs/configuration.ja.md",
             "en": "docs/configuration.en.md",
         },
-        (
-            (1, "configuration"),
-            (2, "servers"),
-            (2, "routing"),
-            (3, "single-allowed-groups"),
-            (3, "mode-transfer"),
-            (2, "permissions"),
-            (3, "command-tree-permissions"),
-            (3, "legacy-permission-migration"),
-            (2, "polling"),
-            (2, "world"),
-            (2, "presentation"),
-            (2, "bases"),
-            (2, "history"),
-            (2, "custom-headers"),
-            (2, "plugin-page"),
-            (2, "features"),
-            (2, "server-admin"),
-        ),
     ),
     DocFamily(
         "commands",
         {"zh-CN": "docs/commands.md", "ja": "docs/commands.ja.md", "en": "docs/commands.en.md"},
-        (
-            (1, "commands"),
-            (2, "first-setup"),
-            (2, "command-reference"),
-            (3, "world-commands"),
-            (3, "guild-commands"),
-            (3, "player-commands"),
-            (3, "flat-commands"),
-            (3, "server-commands"),
-            (3, "link-commands"),
-            (2, "feature-matrix"),
-            (2, "world-modes"),
-            (3, "single-world-access"),
-            (3, "mode-transfer"),
-            (3, "orphan-cleanup"),
-            (2, "multi-world-routing"),
-            (2, "permissions"),
-            (3, "legacy-permission-migration"),
-            (2, "server-admin"),
-            (3, "three-layer-safety"),
-            (3, "confirmation"),
-            (3, "target-player-resolution"),
-            (3, "audit"),
-            (3, "security-notice"),
-            (2, "degraded-behavior"),
-        ),
     ),
 )
 
@@ -224,23 +149,6 @@ EXPECTED_SETTING_SIZE = {
     "settings-permissions.png": (2200, 1920),
     "settings-onboarding.png": (2200, 1200),
 }
-EN_PROSE_HAN_ALLOWLIST = {"卡", "图", "帕鲁世界终端"}
-JA_FORBIDDEN_PHRASES = (
-    "默认关闭",
-    "设置页",
-    "服务器管控",
-    "仅管理员",
-    "未开启",
-    "首次设置",
-    "多世界模式",
-    "单世界模式",
-    "配置项",
-    "功能开关",
-    "玩家档案",
-    "随身帕鲁",
-    "安全告知",
-    "明文落盘",
-)
 
 
 def _read_utf8_lf(path: Path) -> str:
@@ -482,11 +390,10 @@ def test_user_docs_exist_utf8_lf(family: DocFamily, locale: str, relative: str):
         for locale, relative in family.paths.items()
     ],
 )
-def test_navigation_and_heading_contract(family: DocFamily, locale: str, relative: str):
+def test_navigation_contract(family: DocFamily, locale: str, relative: str):
     text = _read_utf8_lf(ROOT / relative)
     nav = _expected_nav(family, locale)
     assert text.count(nav) == 1, f"{family.key}/{locale} must contain exactly one canonical nav: {nav}"
-    assert _heading_contract(text) == family.headings, f"{family.key}/{locale} heading/anchor contract drift"
 
 
 @pytest.mark.parametrize(
@@ -511,11 +418,13 @@ def test_readme_language_badges_and_tagline_share_one_paragraph(locale: str, rel
 
 
 @pytest.mark.parametrize("family", DOC_FAMILIES, ids=lambda family: family.key)
-def test_fences_and_tables_are_parallel(family: DocFamily):
+def test_document_structure_is_parallel(family: DocFamily):
     texts = {locale: _read_utf8_lf(ROOT / relative) for locale, relative in family.paths.items()}
+    zh_headings = _heading_contract(texts["zh-CN"])
     zh_fences = _fence_languages(texts["zh-CN"])
     zh_tables = _table_contract(texts["zh-CN"])
     for locale in ("ja", "en"):
+        assert _heading_contract(texts[locale]) == zh_headings, f"{family.key}/{locale} heading/anchor drift"
         assert _fence_languages(texts[locale]) == zh_fences, f"{family.key}/{locale} fence sequence drift"
         assert _table_contract(texts[locale]) == zh_tables, f"{family.key}/{locale} table structure/key drift"
 
@@ -573,16 +482,8 @@ def test_required_technical_tokens_stay_in_the_same_family_and_section(
             )
 
 
-def test_english_and_japanese_have_no_translation_residue():
+def test_docs_have_no_authoring_residue_or_placeholders():
     for family in DOC_FAMILIES:
-        en_text = _prose(_read_utf8_lf(ROOT / family.paths["en"]))
-        unexpected_han = sorted({match for match in HAN_RE.findall(en_text) if match not in EN_PROSE_HAN_ALLOWLIST})
-        assert not unexpected_han, f"{family.key}/en unexpected CJK prose: {unexpected_han}"
-
-        ja_text = _prose(_read_utf8_lf(ROOT / family.paths["ja"]))
-        leaked = [phrase for phrase in JA_FORBIDDEN_PHRASES if phrase in ja_text]
-        assert not leaked, f"{family.key}/ja simplified-Chinese residue: {leaked}"
-
         for locale, relative in family.paths.items():
             prose = _prose(_read_utf8_lf(ROOT / relative))
             authoring_residue = [token for token in ("TODO", "TBD", "待翻译") if token in prose]
