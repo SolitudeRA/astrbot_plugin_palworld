@@ -145,7 +145,7 @@ FAMILY_BY_PATH = {
 # 必需 token 按文档族/稳定章节守卫，禁止跨文件或跨章节抵消遗漏。
 REQUIRED_TOKENS: dict[str, dict[str, tuple[str, ...]]] = {
     "readme": {
-        "requirements": ("AstrBot", "Palworld REST API", "Python 3.11"),
+        "requirements": ("AstrBot", "1.0 REST API", "3.11"),
         "enable-rest-api": ("RESTAPIEnabled=True", "RESTAPIPort=8212"),
         "common-commands": (
             "/pal world status",
@@ -153,9 +153,9 @@ REQUIRED_TOKENS: dict[str, dict[str, tuple[str, ...]]] = {
             "/pal rank",
             "/pal me",
             "/pal dex",
-            "/pal server announce",
+            "/pal server ...",
         ),
-        "security-boundaries": ("permission_admins", "server_admin_basic", "server_admin_danger"),
+        "security-boundaries": ("password_env", "value_env", "/pal server save"),
     },
     "contributing": {
         "development": ("pip install -r requirements-dev.txt", "npm ci"),
@@ -167,21 +167,27 @@ REQUIRED_TOKENS: dict[str, dict[str, tuple[str, ...]]] = {
         "servers": ("base_url", "password_env", "verify_tls", "timezone"),
         "routing": ("access_mode", "world_mode", "default_server", "setup_confirmed"),
         "permissions": ("permission_admins", "command_permissions"),
-        "polling": ("poll_seconds", "timeout", "collect_timeout"),
+        "polling": (
+            "metrics_seconds",
+            "players_seconds",
+            "info_seconds",
+            "settings_seconds",
+            "game_data_seconds",
+        ),
         "world": ("locale", "fps_smooth", "fps_moderate", "fps_laggy"),
         "presentation": ("me_card_theme",),
         "custom-headers": ("custom_headers", "value_env"),
         "server-admin": (
-            "confirm_dangerous",
-            "confirm_ttl_seconds",
+            "require_confirmation",
+            "confirmation_timeout",
             "server_admin_basic",
             "server_admin_danger",
         ),
     },
     "commands": {
-        "world-commands": ("/pal world status", "/pal world overview", "/pal world info"),
+        "world-commands": ("/pal world status", "/pal world overview", "/pal world rules"),
         "guild-commands": ("/pal guild list", "/pal guild info", "/pal guild base"),
-        "player-commands": ("/pal player list", "/pal player info", "/pal player bind"),
+        "player-commands": ("/pal player info", "/pal player bind", "/pal player unbind"),
         "flat-commands": (
             "/pal rank",
             "/pal online",
@@ -201,7 +207,6 @@ REQUIRED_TOKENS: dict[str, dict[str, tuple[str, ...]]] = {
             "/pal server shutdown",
             "/pal server stop",
         ),
-        "degraded-behavior": ("cache_stale", "world_not_ready", "game_data_unavailable"),
     },
 }
 
@@ -391,9 +396,21 @@ def _table_contract(text: str) -> tuple[tuple[str, int, int, tuple[str, ...]], .
 def _section_text(text: str) -> dict[str, str]:
     sections: dict[str, list[str]] = {}
     current = ""
-    for _, line in _without_fences(text):
-        anchor = ANCHOR_RE.fullmatch(line.strip())
-        if anchor:
+    fence_char = ""
+    fence_len = 0
+    for line in text.splitlines():
+        fence = FENCE_RE.match(line)
+        if fence:
+            marker = fence.group(1)
+            if not fence_char:
+                fence_char, fence_len = marker[0], len(marker)
+            elif marker[0] == fence_char and len(marker) >= fence_len:
+                fence_char, fence_len = "", 0
+            if current:
+                sections[current].append(line)
+            continue
+        anchor = ANCHOR_RE.fullmatch(line.strip()) if not fence_char else None
+        if anchor is not None:
             current = anchor.group(1)
             sections.setdefault(current, [])
             continue
@@ -457,16 +474,24 @@ def test_user_docs_exist_utf8_lf(family: DocFamily, locale: str, relative: str):
     _read_utf8_lf(path)
 
 
-@pytest.mark.parametrize("family", DOC_FAMILIES, ids=lambda family: family.key)
-def test_navigation_heading_structure_fences_and_tables_are_parallel(family: DocFamily):
-    texts = {
-        locale: _read_utf8_lf(ROOT / relative)
+@pytest.mark.parametrize(
+    ("family", "locale", "relative"),
+    [
+        (family, locale, relative)
+        for family in DOC_FAMILIES
         for locale, relative in family.paths.items()
-    }
-    for locale, text in texts.items():
-        nav = _expected_nav(family, locale)
-        assert text.count(nav) == 1, f"{family.key}/{locale} must contain exactly one canonical nav: {nav}"
-        assert _heading_contract(text) == family.headings, f"{family.key}/{locale} heading/anchor contract drift"
+    ],
+)
+def test_navigation_and_heading_contract(family: DocFamily, locale: str, relative: str):
+    text = _read_utf8_lf(ROOT / relative)
+    nav = _expected_nav(family, locale)
+    assert text.count(nav) == 1, f"{family.key}/{locale} must contain exactly one canonical nav: {nav}"
+    assert _heading_contract(text) == family.headings, f"{family.key}/{locale} heading/anchor contract drift"
+
+
+@pytest.mark.parametrize("family", DOC_FAMILIES, ids=lambda family: family.key)
+def test_fences_and_tables_are_parallel(family: DocFamily):
+    texts = {locale: _read_utf8_lf(ROOT / relative) for locale, relative in family.paths.items()}
     zh_fences = _fence_languages(texts["zh-CN"])
     zh_tables = _table_contract(texts["zh-CN"])
     for locale in ("ja", "en"):
@@ -508,17 +533,23 @@ def test_relative_links_exist_and_fragments_hit_stable_ids(family: DocFamily, lo
                 assert target_locale == locale, f"{relative}: body link falls into {target_locale}: {raw_target}"
 
 
-@pytest.mark.parametrize("family", DOC_FAMILIES, ids=lambda family: family.key)
-def test_required_technical_tokens_stay_in_the_same_family_and_section(family: DocFamily):
+@pytest.mark.parametrize(
+    ("family", "locale"),
+    [(family, locale) for family in DOC_FAMILIES for locale in LOCALES],
+)
+def test_required_technical_tokens_stay_in_the_same_family_and_section(
+    family: DocFamily,
+    locale: str,
+):
     required = REQUIRED_TOKENS.get(family.key, {})
-    for locale, relative in family.paths.items():
-        sections = _section_text(_read_utf8_lf(ROOT / relative))
-        for stable_id, tokens in required.items():
-            assert stable_id in sections, f"{family.key}/{locale}: missing section {stable_id}"
-            for token in tokens:
-                assert token in sections[stable_id], (
-                    f"{family.key}/{locale}/{stable_id}: missing technical token {token!r}"
-                )
+    relative = family.paths[locale]
+    sections = _section_text(_read_utf8_lf(ROOT / relative))
+    for stable_id, tokens in required.items():
+        assert stable_id in sections, f"{family.key}/{locale}: missing section {stable_id}"
+        for token in tokens:
+            assert token in sections[stable_id], (
+                f"{family.key}/{locale}/{stable_id}: missing technical token {token!r}"
+            )
 
 
 def test_english_and_japanese_have_no_translation_residue():

@@ -1,9 +1,13 @@
+<a id="commands"></a>
 # 完整指令与功能开关
 
-自 v0.9.5 起指令改为**分级结构**:`/pal <组> <动作> [参数]`。5 个命令组(`world`/`guild`/`player`/`server`/`link`)+ 8 个扁平命令(`rank`/`online`/`me`/`dex`/`help`/`whoami`/`whereami`/`confirm`)。所有指令以 `/pal` 前缀触发、返回纯文本。查询指令只读;**服务器管控为受控写**(默认全关、仅授权管理员、执行阶段写请求留痕,见[服务器管控](#服务器管控受控写))。带「功能组」的指令仅在对应组开启时可用(见下方矩阵);`core` 组指令恒可用。
+**简体中文** | [日本語](commands.ja.md) | [English](commands.en.md)
+
+自 v0.9.5 起指令改为**分级结构**:`/pal <组> <动作> [参数]`。5 个命令组(`world`/`guild`/`player`/`server`/`link`)+ 8 个扁平命令(`rank`/`online`/`me`/`dex`/`help`/`whoami`/`whereami`/`confirm`)。所有指令以 `/pal` 前缀触发、返回纯文本。查询指令只读;**服务器管控为受控写**(默认全关、仅授权管理员、执行阶段写请求留痕,见[服务器管控](#server-admin))。带「功能组」的指令仅在对应组开启时可用(见下方矩阵);`core` 组指令恒可用。
 
 > **裸组 = 迷你帮助**:只发组名(如 `/pal world`、`/pal server`)返回该组可用子动作的迷你帮助(按当前功能开关与你的角色过滤——访客不会看到管控写子动作)。
 
+<a id="first-setup"></a>
 ## 首次使用(首次设置闸)
 
 **全新安装后须先在插件设置页完成一次运行模式选择并确认**(选单世界 / 多世界),命令才全部开放。未确认前(`routing.setup_confirmed` 非 `true`),除下列元命令外的所有 `/pal` 命令一律回引导语(「🔧 帕鲁世界终端尚未完成首次设置。请打开插件设置页,选择运行模式(单服务器 / 多服务器)并确认后即可使用。」):
@@ -12,10 +16,12 @@
 - `/pal whoami` —— 查看我的账号标识
 - `/pal whereami` —— 查看当前群标识
 
-> 设置页在未确认时以**首次引导屏**取代正常配置章节;选模式并确认即写入 `world_mode` + `routing.setup_confirmed=true` 并保存,命令闸随即解除、转入正常设置页。之后可在设置页「连接」章安全切换模式;AstrBot 齿轮配置中的裸字段只作应急直编,不会执行授权迁移或二次确认(见[运行模式](#运行模式单世界--多世界)与[配置项详解 · routing](configuration.md#routing访问控制))。
+> 设置页在未确认时以**首次引导屏**取代正常配置章节;选模式并确认即写入 `world_mode` + `routing.setup_confirmed=true` 并保存,命令闸随即解除、转入正常设置页。之后可在设置页「连接」章安全切换模式;AstrBot 齿轮配置中的裸字段只作应急直编,不会执行授权迁移或二次确认(见[运行模式](#world-modes)与[配置项详解 · routing](configuration.md#routing))。
 
+<a id="command-reference"></a>
 ## 指令详表
 
+<a id="world-commands"></a>
 ### `world` 组 —— 世界观测(查询)
 
 | 指令 | 参数 | 功能组 | 说明 |
@@ -26,6 +32,7 @@
 | `/pal world today` | — | `report` | 今日日报 / 在线统计 |
 | `/pal world events` | — | `events` | 世界事件记录 |
 
+<a id="guild-commands"></a>
 ### `guild` 组 —— 公会与据点(查询)
 
 > 本组依赖 `game-data`(PalGameDataBridge)派生公会/据点数据,随 game-data 稳定上线**默认开**;启用即轮询 `/game-data` 端点,归队至此的 `world overview` 同属本组。如不需要可在设置页「功能」章关掉对应命令。
@@ -37,6 +44,7 @@
 | `/pal guild bases` | — | `guilds_bases` | 据点列表 |
 | `/pal guild base` | `<名称\|#序号>` | `guilds_bases` | 据点详情:车间现场——行为分布/摸鱼率/氛围徽章 |
 
+<a id="player-commands"></a>
 ### `player` 组 —— 玩家档案(查询)
 
 | 指令 | 参数 | 功能组 | 说明 |
@@ -45,6 +53,7 @@
 | `/pal player bind` | `<玩家名>` | `players` | 绑定平台账号 ↔ 玩家(供 `/pal me` 识别本人) |
 | `/pal player unbind` | — | `players` | 解除我的玩家绑定(与 `bind` 对称) |
 
+<a id="flat-commands"></a>
 ### 扁平命令 —— 常用查询与元命令
 
 | 指令 | 参数 | 功能组 | 权限 / 场景 | 说明 |
@@ -60,21 +69,24 @@
 
 > **`rank` 变体与隐私**:`today` / `total` 均为**在线时长**榜,`strict` 隐私模式下**两者一并停用**(回提示);`total` 只累计**留存期内**(非全时段)且同样尊重排除名单与 `/pal me hide`——被隐藏玩家的整组名字从榜单消失,不泄露其存在。`level` 为等级榜;`climb` 为**飞升榜**——近 7 天等级涨幅(历史不足 7 天时脚注诚实标「自 bot 记录以来」)。
 
+<a id="server-commands"></a>
 ### `server` 组 —— 服务器管控(受控写)
 
-见下节[服务器管控](#服务器管控受控写)。命令:`/pal server announce`、`/pal server save`、`/pal server kick`、`/pal server unban`、`/pal server ban`、`/pal server shutdown`、`/pal server stop`(均**仅授权管理员**)。
+见下节[服务器管控](#server-admin)。命令:`/pal server announce`、`/pal server save`、`/pal server kick`、`/pal server unban`、`/pal server ban`、`/pal server shutdown`、`/pal server stop`(均**仅授权管理员**)。
 
+<a id="link-commands"></a>
 ### `link` 组 —— 服务器选择与群授权(仅多世界模式)
 
-见下节[多世界模式与群授权](#多世界模式与群授权)。命令:`/pal link list`、`/pal link add <名称>`、`/pal link remove <名称>`。**单世界模式下 `link` 组隐藏且运行时拒绝**(无需选择服务器)。
+见下节[多世界模式与群授权](#multi-world-routing)。命令:`/pal link list`、`/pal link add <名称>`、`/pal link remove <名称>`。**单世界模式下 `link` 组隐藏且运行时拒绝**(无需选择服务器)。
 
 任意查询指令末尾可加 **`@<服务器名>`** 单次指定目标服务器(详见下文「多世界模式与群授权」)。
 
 > **管控命令不支持 `@server` 临时覆盖**:单世界固定使用唯一就绪服务器;多世界使用本群当前活动服务器。需要切换目标时,请先执行 `/pal link add <服务器名>`。不要在管控命令末尾附加 `@词`,它不会切换执行目标;公告和理由中的连续空格/换行会折叠为单空格,也不保证逐字保留。
 
+<a id="feature-matrix"></a>
 ## 功能开关 → 可用指令矩阵
 
-功能按组可插拔(v0.9.6 起由设置页「权限」章的命令树控制,落盘为 `command_permissions`;详见[配置项详解 · 命令树权限模型](configuration.md#features功能开关))。**关闭某命令/组:其指令回「未开启」、`/pal help` 里不再列出**(可配置组代码保留、改开即恢复);`guild` 组与归队至此的 `world overview` 属 `guilds_bases` 组、随 game-data 上线**默认开**,启用任一 `guilds_bases` 命令后 `/game-data` 端点即轮询(观测只读端点恒采集)。
+功能按组可插拔(v0.9.6 起由设置页「权限」章的命令树控制,落盘为 `command_permissions`;详见[配置项详解 · 命令树权限模型](configuration.md#command-tree-permissions))。**关闭某命令/组:其指令回「未开启」、`/pal help` 里不再列出**(可配置组代码保留、改开即恢复);`guild` 组与归队至此的 `world overview` 属 `guilds_bases` 组、随 game-data 上线**默认开**,启用任一 `guilds_bases` 命令后 `/game-data` 端点即轮询(观测只读端点恒采集)。
 
 | 功能组 | 默认 | 对应指令(完整路径) | 开启时 | 关闭时指令行为 |
 |--------|------|----------|--------|----------------|
@@ -86,12 +98,13 @@
 | `server_admin_basic` | **关** | `server announce` `server save` `server kick` `server unban` | ✅ 仅授权管理员可用 | ❌ 管理员回「未开启」、help 隐藏;非管理员一律「需要管理员权限」 |
 | `server_admin_danger` | **关** | `server ban` `server shutdown` `server stop` | ✅ 仅授权管理员可用(可选二次确认) | ❌ 管理员回「未开启」、help 隐藏;非管理员一律「需要管理员权限」 |
 
-> `server_admin_basic` / `server_admin_danger` 默认关闭:属**受控写**,详见下节[服务器管控](#服务器管控受控写)。非管理员对写命令**一律**回「需要管理员权限」(与组开关状态无关,避免据回执反推危险组是否开启)。
+> `server_admin_basic` / `server_admin_danger` 默认关闭:属**受控写**,详见下节[服务器管控](#server-admin)。非管理员对写命令**一律**回「需要管理员权限」(与组开关状态无关,避免据回执反推危险组是否开启)。
 
 > `players` 默认关闭:玩家个体查询含隐私考量。时长榜仅统计**今日/留存期内**在线时长、等级榜含离线全体;`strict` 隐私模式下更保守(时长榜停用、玩家档案隐藏坐标等)。支持管理员排除名单与玩家自助 `/pal me hide`——被排除或隐藏者不出现在排行/查询中,且不泄露其存在。
 
-> `guilds_bases` 默认开:公会/据点/PalBox 及归队至此的 `world overview` 依赖 `game-data`(PalGameDataBridge)派生数据,随 game-data 上线**默认开启**;某条 `guilds_bases` 命令生效启用时 `/game-data` 端点即轮询。如不需要可在设置页「功能」章关掉对应命令,详见[配置项详解](configuration.md#features功能开关)。
+> `guilds_bases` 默认开:公会/据点/PalBox 及归队至此的 `world overview` 依赖 `game-data`(PalGameDataBridge)派生数据,随 game-data 上线**默认开启**;某条 `guilds_bases` 命令生效启用时 `/game-data` 端点即轮询。如不需要可在设置页「功能」章关掉对应命令,详见[配置项详解](configuration.md#features)。
 
+<a id="world-modes"></a>
 ## 运行模式:单世界 / 多世界
 
 `routing.world_mode` 决定服务器路由方式,**默认 `single` 单世界**。首次设置由插件页面引导选择;之后在设置页「连接」章使用带预览、授权迁移和残留清理的切换控件。AstrBot 齿轮配置中的裸字段只作应急直编,会跳过迁移与确认。
@@ -99,6 +112,7 @@
 - **`single` 单世界(默认)**:所有操作对应**唯一**服务器(取第一台就绪服务器)。`link` 组**隐藏且运行时拒绝**(无需选择),`@server` 覆盖与群绑定被忽略。读授权见下方 restricted 说明。
 - **`multi` 多世界**:一个插件监测多台服务器,按群授权、按群切换活动服务器。`link` 组用于选择/授权;查询可用 `@<服务器名>` 单次覆盖。读授权走 `/pal link` 的群授权(DB 名单)。
 
+<a id="single-world-access"></a>
 ### 单世界的读授权(restricted)与写命令
 
 - **读命令**:`access_mode=restricted` 时按**授权群名单**(顶层配置 `single_allowed_groups`)放行——**仅名单内会话(群/私聊)**可查询唯一服务器,名单外一律拒(回文案指向 `/pal whereami` + 设置页名单)。`access_mode=open` 则对所有会话开放,忽略名单。
@@ -106,6 +120,7 @@
 - **⚠️ 空名单 = 全群不可读**:`single` + `restricted` + 空名单是安全默认(fail-closed),**当前无人可查询**——插件启动日志会告警提示补名单。全新装机是此状态,需管理员用 `/pal whereami` 完成一次授权引导。
 - **写命令不受读名单约束**:`server` 组 7 条写命令**不查授权群名单**,仅受**管理员硬门**(`permission_admins` 管理员名单)把守——授权管理员可从任意群/私聊管理唯一服务器(与模式无关)。
 
+<a id="mode-transfer"></a>
 ### 在设置页切换模式（single ↔ multi）
 
 除首次设置外,运行模式可在插件设置页「连接」章的**切换控件**随时更改(齿轮裸切仍容忍,但无引导、无迁移):
@@ -118,10 +133,12 @@
 - **未保存的更改**会禁用切换入口——请先保存再切换(转移只读最后保存的配置)。
 - 切换失败(如群数超上限、预绑定失败、重载回滚)**不改变模式**、仅提示错误;成功但清理未尽时会切换并提示人工核查。
 
+<a id="orphan-cleanup"></a>
 ### 残留数据清理（孤儿服务器）
 
 从配置中移除服务器(或多台切单台时选择删除)后,数据库可能仍残留其历史数据。**残留数据清理**位于切换运行模式流程的**完成步**:切换完成后会列出孤儿服务器,勾选「我了解此操作不可恢复」后点击「清理残留数据」即可清除。清理为服务端现场重算孤儿集执行(不信任前端列表),仅删除确实已不在配置中的服务器数据,不会误删在册服务器。该入口暂不常驻设置页;若仅移除了服务器而未切换模式,可在下次进入切换流程时于完成步一并清除。
 
+<a id="multi-world-routing"></a>
 ## 多世界模式与群授权
 
 > 以下 `link` 组仅在 **`world_mode=multi`** 下可用。
@@ -131,6 +148,7 @@
 - `/pal link remove <名称>`(管理员,仅群聊):撤销本群对该服务器的授权。
 - **@server 尾缀**:任意查询指令可在末尾加 `@<服务器名>` 单次指定目标服务器,如 `/pal world status @alpha`、`/pal guild info 晨曦联盟 @beta`(服务器名不含空格,公会/据点名可含空格)。
 
+<a id="permissions"></a>
 ## 权限管理
 
 本插件用**两层权限模型**,与 AstrBot 全局管理员(`admins_id`)相互独立——`_is_admin` **只认**插件自己的管理员名单,不认 AstrBot 的 `admins_id`,也不看 `event.role`。
@@ -139,12 +157,14 @@
 - **内置管理门**:`server` 组全部写命令、`/pal link add`、`/pal link remove`、`/pal confirm` 恒需管理员,由管理员名单判定(名单外成员执行会被拒)。
 - **命令权限树(`command_permissions`)**:在设置页分别控制每条命令或整组命令的 `enabled`(是否启用)与 `admin_only`(是否仅管理员),两轴都支持继承。命令行使用**完整路径**(如 `player info`、`world status`、`rank`),组行使用组名。名单外成员执行仅管理员命令时会收到「该命令需要管理员权限。」。**不可锁集** = `server` 组写命令、`link` 组命令和 `help`/`whoami`/`whereami`/`confirm`;它们分别由内置管理门控制或恒对所有人开放。
 
+<a id="legacy-permission-migration"></a>
 ### 从旧版权限配置自动迁移
 
-v0.9.5 及更早版本使用 `features` 与 `admin_only_commands`;v0.9.6 起统一为 `command_permissions`。插件首次装载旧配置时会自动转换为三态权限行并删除旧键,无需手工维护旧名单。能够识别的完整命令路径会保留原权限;旧扁平值或不可锁命令会作为无效锁写入启动告警,不会被静默套用。升级后请在设置页「权限」章核对迁移结果,详细对照见[配置项详解 · 从旧版迁移](configuration.md#从旧版features--admin_only_commands迁移)。
+v0.9.5 及更早版本使用 `features` 与 `admin_only_commands`;v0.9.6 起统一为 `command_permissions`。插件首次装载旧配置时会自动转换为三态权限行并删除旧键,无需手工维护旧名单。能够识别的完整命令路径会保留原权限;旧扁平值或不可锁命令会作为无效锁写入启动告警,不会被静默套用。升级后请在设置页「权限」章核对迁移结果,详细对照见[配置项详解 · 从旧版迁移](configuration.md#legacy-permission-migration)。
 
-> **安全告知**:管理员名单是**全局**的——加入者在其所在的**每个群**都拥有管理员权(含对任意群执行 `link add`/`link remove` 与 `server` 组写命令)。多适配器实例 / 多群共用同一 bot 时共享同一**命名空间**,请谨慎授权。`id`/`note` 以**明文**落盘到 `data/config/`,`note` 勿填真实姓名、联系方式等 PII。详见[配置项详解 · 权限](configuration.md#permissions权限管理)。
+> **安全告知**:管理员名单是**全局**的——加入者在其所在的**每个群**都拥有管理员权(含对任意群执行 `link add`/`link remove` 与 `server` 组写命令)。多适配器实例 / 多群共用同一 bot 时共享同一**命名空间**,请谨慎授权。`id`/`note` 以**明文**落盘到 `data/config/`,`note` 勿填真实姓名、联系方式等 PII。详见[配置项详解 · 权限](configuration.md#permissions)。
 
+<a id="server-admin"></a>
 ## 服务器管控(受控写)
 
 插件从**只读监测**跨入**受控写管控**:`server` 组提供 7 条对官方 REST 写端点的管理命令(`announce`/`save`/`kick`/`unban`/`ban`/`shutdown`/`stop`)+ `/pal confirm` 二次确认。承诺从「绝不写」转为「受控写:默认全关、仅授权管理员、进入实际执行阶段后留痕」。
@@ -159,6 +179,7 @@ v0.9.5 及更早版本使用 `features` 与 `admin_only_commands`;v0.9.6 起统�
 | `/pal server shutdown` | `<秒> [公告]` | `server_admin_danger` | **仅授权管理员** · 高危 | 倒计时关服;秒数为正整数(1–86400),公告为剩余整串(可选二次确认) |
 | `/pal server stop` | — | `server_admin_danger` | **仅授权管理员** · 高危 | 立即停服,**不存档(丢档风险)**(可选二次确认) |
 
+<a id="three-layer-safety"></a>
 ### 三层安全模型
 
 写命令经**单一中央门**把守,按序判定(任一不过即拦截):
@@ -167,18 +188,22 @@ v0.9.5 及更早版本使用 `features` 与 `admin_only_commands`;v0.9.6 起统�
 2. **功能组门**:命令按组归属——`server_admin_basic` = {announce, save, kick, unban}、`server_admin_danger` = {ban, shutdown, stop},**默认全关**。运营者可只开 basic 不暴露 danger。
 3. **服务器授权门**:单世界写命令固定指向唯一就绪服务器,不查 `single_allowed_groups` 读名单;多世界写命令沿用群绑定授权,RESTRICTED 下私聊拒绝,也不接受 `@server` 临时覆盖。**注意 OPEN 访问模式的爆炸半径**(见下)。
 
+<a id="confirmation"></a>
 ### 二次确认(仅 danger 组,可选)
 
 配置 `require_confirmation`(默认关)。开启后 `ban`/`shutdown`/`stop` 首发**不执行**,回预览(含目标角色名 + userid 尾段 + 摘要),须在 `confirmation_timeout` 秒(默认 30)内回 `/pal confirm` 确认。确认时**重新复检**权限/组状态/服务器授权,任一变更则丢弃待确认操作。每管理员同时只保留一条待确认操作,新的覆盖旧的;配置热重载会清空所有待确认操作。`basic` 组**永不**需确认。
 
+<a id="target-player-resolution"></a>
 ### 目标玩家解析(kick / ban)
 
 目标可传 **userid**(如 `steam_<17位数字>`,直接使用)或**角色名**(执行时实时 `GET /players` 按名精确匹配求 userid):唯一命中即用;同名多个回候选列表提示改用精确 userid;零命中回「未找到在线玩家」。该实时解析**绕过隐私过滤**读取真 userid(写操作必需),对服务器运营者合理——**不影响** `/pal me hide` 对同侪玩家的存在性保护。明文 userid 用完即弃、不落库、不进日志。
 
+<a id="audit"></a>
 ### 审计(落库 + 前端只读查看)
 
 进入实际执行阶段的写操作会在审计存储正常时落一行到 `admin_audit` 表:时间、管理员标识、动作、服务器、目标(角色名 + userid **哈希**,不存明文)、结果/错误类别。审计可在设置页「审计」章只读查看(最近 N 条,倒序)。`audit_retention_days`(默认 180 天)当前只是留存目标,尚未由调度器自动清理旧行。审计表含明文 `admin_id`/`target_name`,属受控 PII。
 
+<a id="security-notice"></a>
 ### ⚠️ 安全告知(务必阅读)
 
 - **OPEN 访问模式爆炸半径**:`access_mode=open` 下 `_authorized` 恒真,写命令**不再受群授权名单约束**——任一授权管理员可从任意群/私聊对任意就绪服务器 `server stop`/`server ban`。强烈劝阻「OPEN + `server_admin_danger` 同开」;多群共享同一 bot 时尤须谨慎。
@@ -186,6 +211,7 @@ v0.9.5 及更早版本使用 `features` 与 `admin_only_commands`;v0.9.6 起统�
 - **冒充/归属**:Palworld REST 无操作者身份校验,审计记录的是「哪个授权管理员通过 bot 发起」,非游戏内身份。
 - **名字解析依赖 /players**:目标服务器不可达时无法按名解析,回明确错误,可直传 userid 兜底。
 
+<a id="degraded-behavior"></a>
 ## 降级行为
 
 API 不可达时显示「当前无法获取世界数据,最后成功更新 N 分钟前」,**绝不**臆断「服务器已关机」。部分端点失败时降级相关模块,其余照常。
