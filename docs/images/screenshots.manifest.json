@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "source_commit": "bf8b7091e003c8eaadcc08b8af3d70d557b2bebf",
+  "source_commit": "d5926159cf82c2f31f19d7ea6cfaf686467c2a5a",
   "tools": {
     "python": "3.12.10",
     "vite": "7.3.6",
@@ -10,7 +10,7 @@
   "images": [
     {
       "path": "docs/images/settings-servers.png",
-      "source_commit": "bf8b7091e003c8eaadcc08b8af3d70d557b2bebf",
+      "source_commit": "d5926159cf82c2f31f19d7ea6cfaf686467c2a5a",
       "kind": "settings",
       "locale": "zh-CN",
       "scenario": "multi",
@@ -28,7 +28,7 @@
     },
     {
       "path": "docs/images/settings-features.png",
-      "source_commit": "bf8b7091e003c8eaadcc08b8af3d70d557b2bebf",
+      "source_commit": "d5926159cf82c2f31f19d7ea6cfaf686467c2a5a",
       "kind": "settings",
       "locale": "zh-CN",
       "scenario": "multi",
@@ -46,7 +46,7 @@
     },
     {
       "path": "docs/images/settings-permissions.png",
-      "source_commit": "bf8b7091e003c8eaadcc08b8af3d70d557b2bebf",
+      "source_commit": "d5926159cf82c2f31f19d7ea6cfaf686467c2a5a",
       "kind": "settings",
       "locale": "zh-CN",
       "scenario": "multi",
@@ -64,7 +64,7 @@
     },
     {
       "path": "docs/images/settings-onboarding.png",
-      "source_commit": "bf8b7091e003c8eaadcc08b8af3d70d557b2bebf",
+      "source_commit": "d5926159cf82c2f31f19d7ea6cfaf686467c2a5a",
       "kind": "settings",
       "locale": "zh-CN",
       "scenario": "first",
@@ -78,11 +78,11 @@
       "zoom": 1,
       "width": 2200,
       "height": 1200,
-      "sha256": "f33fb51979e0db4a47f36fe56ae95cc17ae8f38830fedbaabd7bd3cdc0d6f96c"
+      "sha256": "165e409170830ef59add426b698f3db069e36b9f8de7f1e84a0eada4c3234c91"
     },
     {
       "path": "docs/images/me-card-light.png",
-      "source_commit": "bf8b7091e003c8eaadcc08b8af3d70d557b2bebf",
+      "source_commit": "d5926159cf82c2f31f19d7ea6cfaf686467c2a5a",
       "kind": "card",
       "locale": "zh-CN",
       "theme": "light",
@@ -99,7 +99,7 @@
     },
     {
       "path": "docs/images/me-card-dark.png",
-      "source_commit": "bf8b7091e003c8eaadcc08b8af3d70d557b2bebf",
+      "source_commit": "d5926159cf82c2f31f19d7ea6cfaf686467c2a5a",
       "kind": "card",
       "locale": "zh-CN",
       "theme": "dark",
@@ -116,7 +116,7 @@
     },
     {
       "path": "docs/images/ja/settings-servers.png",
-      "source_commit": "bf8b7091e003c8eaadcc08b8af3d70d557b2bebf",
+      "source_commit": "d5926159cf82c2f31f19d7ea6cfaf686467c2a5a",
       "kind": "settings",
       "locale": "ja",
       "scenario": "multi",
@@ -134,7 +134,7 @@
     },
     {
       "path": "docs/images/ja/settings-features.png",
-      "source_commit": "bf8b7091e003c8eaadcc08b8af3d70d557b2bebf",
+      "source_commit": "d5926159cf82c2f31f19d7ea6cfaf686467c2a5a",
       "kind": "settings",
       "locale": "ja",
       "scenario": "multi",
@@ -152,7 +152,7 @@
     },
     {
       "path": "docs/images/ja/settings-permissions.png",
-      "source_commit": "bf8b7091e003c8eaadcc08b8af3d70d557b2bebf",
+      "source_commit": "d5926159cf82c2f31f19d7ea6cfaf686467c2a5a",
       "kind": "settings",
       "locale": "ja",
       "scenario": "multi",
@@ -170,7 +170,7 @@
     },
     {
       "path": "docs/images/ja/settings-onboarding.png",
-      "source_commit": "bf8b7091e003c8eaadcc08b8af3d70d557b2bebf",
+      "source_commit": "d5926159cf82c2f31f19d7ea6cfaf686467c2a5a",
       "kind": "settings",
       "locale": "ja",
       "scenario": "first",
@@ -184,11 +184,11 @@
       "zoom": 1,
       "width": 2200,
       "height": 1200,
-      "sha256": "9946388111aaa8a011673b688a7549d4b5927e32ab702ee3aa3da52b19228f64"
+      "sha256": "d7185f1d75a9ddd205a17b15e82dcd8b97c39a7ef479d6cad33462ca9a733bf3"
     },
     {
       "path": "docs/images/ja/me-card-light.png",
-      "source_commit": "bf8b7091e003c8eaadcc08b8af3d70d557b2bebf",
+      "source_commit": "d5926159cf82c2f31f19d7ea6cfaf686467c2a5a",
       "kind": "card",
       "locale": "ja",
       "theme": "light",
@@ -205,7 +205,7 @@
     },
     {
       "path": "docs/images/ja/me-card-dark.png",
-      "source_commit": "bf8b7091e003c8eaadcc08b8af3d70d557b2bebf",
+      "source_commit": "d5926159cf82c2f31f19d7ea6cfaf686467c2a5a",
       "kind": "card",
       "locale": "ja",
       "theme": "dark",
@@ -222,7 +222,7 @@
     },
     {
       "path": "docs/images/en/settings-servers.png",
-      "source_commit": "bf8b7091e003c8eaadcc08b8af3d70d557b2bebf",
+      "source_commit": "d5926159cf82c2f31f19d7ea6cfaf686467c2a5a",
       "kind": "settings",
       "locale": "en",
       "scenario": "multi",
@@ -240,7 +240,7 @@
     },
     {
       "path": "docs/images/en/settings-features.png",
-      "source_commit": "bf8b7091e003c8eaadcc08b8af3d70d557b2bebf",
+      "source_commit": "d5926159cf82c2f31f19d7ea6cfaf686467c2a5a",
       "kind": "settings",
       "locale": "en",
       "scenario": "multi",
@@ -258,7 +258,7 @@
     },
     {
       "path": "docs/images/en/settings-permissions.png",
-      "source_commit": "bf8b7091e003c8eaadcc08b8af3d70d557b2bebf",
+      "source_commit": "d5926159cf82c2f31f19d7ea6cfaf686467c2a5a",
       "kind": "settings",
       "locale": "en",
       "scenario": "multi",
@@ -276,7 +276,7 @@
     },
     {
       "path": "docs/images/en/settings-onboarding.png",
-      "source_commit": "bf8b7091e003c8eaadcc08b8af3d70d557b2bebf",
+      "source_commit": "d5926159cf82c2f31f19d7ea6cfaf686467c2a5a",
       "kind": "settings",
       "locale": "en",
       "scenario": "first",
@@ -290,11 +290,11 @@
       "zoom": 1,
       "width": 2200,
       "height": 1200,
-      "sha256": "3aa40f6223c0054543b38466dfdce9ed488b693958e995141405874b788c29c0"
+      "sha256": "9ab65ccd1e771fa336137414fc41e73cadbd090129b6fce280ac77cff2d1bbac"
     },
     {
       "path": "docs/images/en/me-card-light.png",
-      "source_commit": "bf8b7091e003c8eaadcc08b8af3d70d557b2bebf",
+      "source_commit": "d5926159cf82c2f31f19d7ea6cfaf686467c2a5a",
       "kind": "card",
       "locale": "en",
       "theme": "light",
@@ -311,7 +311,7 @@
     },
     {
       "path": "docs/images/en/me-card-dark.png",
-      "source_commit": "bf8b7091e003c8eaadcc08b8af3d70d557b2bebf",
+      "source_commit": "d5926159cf82c2f31f19d7ea6cfaf686467c2a5a",
       "kind": "card",
       "locale": "en",
       "theme": "dark",
