@@ -501,10 +501,12 @@ def test_readme_language_badges_and_tagline_share_one_paragraph(locale: str, rel
     text = _read_utf8_lf(ROOT / relative)
     nav = _expected_nav(FAMILY_BY_PATH[relative][0], locale)
     header = next(block for block in re.split(r"\n[ \t]*\n", text) if nav in block)
+    lines = header.splitlines()
 
-    assert header.splitlines()[0] == f"{nav}<br>"
+    assert lines[0] == f"{nav}<br>"
     assert header.count("[![") == 6
-    assert header.count("<br>") == 3
+    for badge in ("[![CI]", "[![License]"):
+        assert next(line for line in lines if line.startswith(badge)).endswith("<br>")
     assert tagline in header
 
 
