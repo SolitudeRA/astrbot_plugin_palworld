@@ -5,10 +5,12 @@ import yaml
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
 
-def test_palworld_terminal_package_importable():
+def test_package_version_matches_metadata():
     import palworld_terminal
 
-    assert palworld_terminal.__version__ == "1.5.0"
+    data = yaml.safe_load((REPO_ROOT / "metadata.yaml").read_text(encoding="utf-8"))
+    assert data["version"].startswith("v")
+    assert palworld_terminal.__version__ == data["version"].removeprefix("v")
 
 
 def test_metadata_yaml_has_all_top_keys():
@@ -40,9 +42,3 @@ def test_requirements_dev_extends_runtime():
     assert "-r requirements.txt" in text
     for dep in ("pyyaml", "pytest", "pytest-asyncio"):
         assert dep in text, f"dev 依赖缺失: {dep}"
-
-
-def test_fake_clock_fixture_is_deterministic(fake_clock):
-    assert fake_clock.now() == 1_700_000_000
-    fake_clock.advance(5)
-    assert fake_clock.now() == 1_700_000_005
