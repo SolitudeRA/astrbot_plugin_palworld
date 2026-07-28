@@ -22,13 +22,20 @@ const SCREENSHOTS = [
   { id: 'settings-servers', scenario: 'multi', chapter: 'access', height: 960 },
   { id: 'settings-features', scenario: 'multi', chapter: 'features', height: 960 },
   { id: 'settings-permissions', scenario: 'multi', chapter: 'permissions', height: 960 },
-  { id: 'settings-onboarding', scenario: 'first', chapter: null, height: 600 },
+  {
+    id: 'settings-onboarding',
+    scenario: 'first',
+    preparedView: 'onboarding-mode',
+    chapter: null,
+    height: 600,
+  },
 ]
 
 export const CAPTURE_CASES = LOCALES.flatMap((locale) => SCREENSHOTS.map((shot) => {
   const prefix = locale === 'zh-CN' ? '' : `${locale}/`
   return {
     ...shot,
+    preparedView: shot.preparedView ?? null,
     locale,
     theme: 'dark',
     viewport: { width: 1100, height: shot.height },
@@ -37,6 +44,17 @@ export const CAPTURE_CASES = LOCALES.flatMap((locale) => SCREENSHOTS.map((shot) 
     output: `${prefix}${shot.id}.png`,
   }
 }))
+
+export async function prepareCaptureView(page, item) {
+  if (item.preparedView === null) return
+  if (item.preparedView !== 'onboarding-mode') {
+    throw new Error(`unknown prepared view: ${item.preparedView}`)
+  }
+
+  await page.locator('[data-act="next"]').click()
+  await page.locator('[data-mode="single"]').waitFor({ state: 'visible' })
+  await page.locator('[data-mode="multi"]').waitFor({ state: 'visible' })
+}
 
 export function captureUrl(baseUrl, item) {
   const url = new URL('/dev.html', `${baseUrl.replace(/\/+$/, '')}/`)
@@ -101,6 +119,8 @@ async function assertCaptureState(page, item) {
       theme: root.getAttribute('data-theme'),
       ready: root.dataset.docsCaptureReady,
       toolbarHidden: toolbar?.hidden === true || (toolbar ? getComputedStyle(toolbar).display === 'none' : true),
+      languageNextPresent: document.querySelector('[data-act="next"]') !== null,
+      modeChoiceCount: document.querySelectorAll('[data-mode="single"], [data-mode="multi"]').length,
     }
   })
   if (state.devicePixelRatio !== 2) throw new Error(`unexpected DPR: ${state.devicePixelRatio}`)
@@ -110,6 +130,10 @@ async function assertCaptureState(page, item) {
   if (state.theme !== 'dark') throw new Error(`unexpected theme: ${state.theme}`)
   if (state.ready !== 'true') throw new Error('capture ready marker is missing')
   if (!state.toolbarHidden) throw new Error('dev scenario toolbar is visible')
+  if (item.preparedView === 'onboarding-mode') {
+    if (state.languageNextPresent) throw new Error('onboarding language step is still visible')
+    if (state.modeChoiceCount !== 2) throw new Error('onboarding mode choices are not both visible')
+  }
 }
 
 export async function captureSettings({ outputDir, baseUrl }) {
@@ -134,6 +158,7 @@ export async function captureSettings({ outputDir, baseUrl }) {
         const page = await context.newPage()
         await page.goto(captureUrl(baseUrl, item), { waitUntil: 'domcontentloaded' })
         await page.waitForFunction(() => document.documentElement.dataset.docsCaptureReady === 'true')
+        await prepareCaptureView(page, item)
         if (item.chapter) {
           const chapter = page.locator(`[data-chapter="${item.chapter}"]`)
           await chapter.click()
@@ -142,8 +167,8 @@ export async function captureSettings({ outputDir, baseUrl }) {
             (id) => document.querySelector(`[data-chapter="${id}"]`)?.getAttribute('aria-current') === 'true',
             item.chapter,
           )
-          await page.mouse.move(0, 0)
         }
+        await page.mouse.move(0, 0)
         await page.evaluate(() => document.fonts.ready)
         await page.evaluate(() => new Promise((resolve) => {
           requestAnimationFrame(() => requestAnimationFrame(resolve))

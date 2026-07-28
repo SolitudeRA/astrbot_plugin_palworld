@@ -7,6 +7,7 @@ import {
   CAPTURE_SEED,
   captureUrl,
   parseArgs,
+  prepareCaptureView,
 } from './capture-docs-screenshots.mjs'
 
 test('capture manifest has 12 unique locale-scoped outputs', () => {
@@ -28,7 +29,7 @@ test('capture manifest has 12 unique locale-scoped outputs', () => {
   }
 })
 
-test('capture cases pin CSS viewport, DPR, scenario, chapter, clock, and seed', () => {
+test('capture cases pin CSS viewport, DPR, scenario, prepared view, chapter, clock, and seed', () => {
   assert.equal(CAPTURE_REDUCED_MOTION, 'reduce')
   for (const item of CAPTURE_CASES) {
     assert.equal(item.deviceScaleFactor, 2)
@@ -37,6 +38,7 @@ test('capture cases pin CSS viewport, DPR, scenario, chapter, clock, and seed', 
     assert.equal(item.expectedPixels.width, 2200)
     assert.equal(item.expectedPixels.height, item.id === 'settings-onboarding' ? 1200 : 1920)
     assert.equal(item.scenario, item.id === 'settings-onboarding' ? 'first' : 'multi')
+    assert.equal(item.preparedView, item.id === 'settings-onboarding' ? 'onboarding-mode' : null)
     assert.equal(item.chapter, item.id === 'settings-onboarding' ? null : {
       'settings-servers': 'access',
       'settings-features': 'features',
@@ -66,4 +68,31 @@ test('CLI parser supports output, base URL, and dry-run manifest', () => {
     dryRunManifest: true,
   })
   assert.throws(() => parseArgs(['--unknown']), /unknown argument/)
+})
+
+test('onboarding prepared view advances to both mode choices', async () => {
+  const calls = []
+  const page = {
+    locator(selector) {
+      return {
+        async click() {
+          calls.push(['click', selector])
+        },
+        async waitFor(options) {
+          calls.push(['waitFor', selector, options])
+        },
+      }
+    },
+  }
+
+  await prepareCaptureView(page, { preparedView: 'onboarding-mode' })
+  assert.deepEqual(calls, [
+    ['click', '[data-act="next"]'],
+    ['waitFor', '[data-mode="single"]', { state: 'visible' }],
+    ['waitFor', '[data-mode="multi"]', { state: 'visible' }],
+  ])
+  await assert.rejects(
+    prepareCaptureView(page, { preparedView: 'unknown' }),
+    /unknown prepared view/,
+  )
 })
