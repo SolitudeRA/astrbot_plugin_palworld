@@ -14,6 +14,7 @@ const FRONTEND_DIR = path.resolve(SCRIPT_DIR, '..')
 export const CAPTURE_NOW_MS = 1785196800000
 export const CAPTURE_SEED = 20260728
 export const PLAYWRIGHT_VERSION = playwrightPackage.version
+export const CAPTURE_REDUCED_MOTION = 'reduce'
 
 const LOCALES = ['zh-CN', 'ja', 'en']
 const BROWSER_LOCALES = { 'zh-CN': 'zh-CN', ja: 'ja-JP', en: 'en-US' }
@@ -127,6 +128,7 @@ export async function captureSettings({ outputDir, baseUrl }) {
         deviceScaleFactor: item.deviceScaleFactor,
         colorScheme: 'dark',
         locale: BROWSER_LOCALES[item.locale],
+        reducedMotion: CAPTURE_REDUCED_MOTION,
       })
       try {
         const page = await context.newPage()
@@ -140,8 +142,12 @@ export async function captureSettings({ outputDir, baseUrl }) {
             (id) => document.querySelector(`[data-chapter="${id}"]`)?.getAttribute('aria-current') === 'true',
             item.chapter,
           )
+          await page.mouse.move(0, 0)
         }
         await page.evaluate(() => document.fonts.ready)
+        await page.evaluate(() => new Promise((resolve) => {
+          requestAnimationFrame(() => requestAnimationFrame(resolve))
+        }))
         await assertCaptureState(page, item)
 
         const destination = path.join(staging, ...item.output.split('/'))

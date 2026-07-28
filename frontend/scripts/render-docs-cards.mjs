@@ -57,6 +57,7 @@ export async function renderCards(jobs) {
         deviceScaleFactor: CARD_DPR,
         colorScheme: job.theme,
         locale: BROWSER_LOCALES[job.locale],
+        reducedMotion: 'reduce',
       })
       try {
         const page = await context.newPage()

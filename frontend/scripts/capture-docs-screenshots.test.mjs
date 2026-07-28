@@ -3,6 +3,7 @@ import test from 'node:test'
 import {
   CAPTURE_CASES,
   CAPTURE_NOW_MS,
+  CAPTURE_REDUCED_MOTION,
   CAPTURE_SEED,
   captureUrl,
   parseArgs,
@@ -28,6 +29,7 @@ test('capture manifest has 12 unique locale-scoped outputs', () => {
 })
 
 test('capture cases pin CSS viewport, DPR, scenario, chapter, clock, and seed', () => {
+  assert.equal(CAPTURE_REDUCED_MOTION, 'reduce')
   for (const item of CAPTURE_CASES) {
     assert.equal(item.deviceScaleFactor, 2)
     assert.equal(item.viewport.width, 1100)
