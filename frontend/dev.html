@@ -13,6 +13,7 @@
         border-radius: 10px; box-shadow: 0 6px 24px rgba(0,0,0,.35);
         width: 190px; overflow: hidden; user-select: none;
       }
+      #dev-scenario[hidden] { display: none !important; }
       #dev-scenario .hd {
         display: flex; align-items: center; justify-content: space-between;
         padding: 8px 10px; background: #26262e; cursor: pointer; font-weight: 600;
@@ -55,6 +56,10 @@
         var KEY = 'pw-dev-scenario', DEFAULT = 'multi';
         var COLLAPSE_KEY = 'pw-dev-scenario-collapsed';
         var panel = document.getElementById('dev-scenario');
+        if (new URLSearchParams(location.search).get('capture') === 'docs') {
+          panel.hidden = true;
+          return;
+        }
         var active = DEFAULT;
         try { active = sessionStorage.getItem(KEY) || DEFAULT; } catch (e) {}
         // 折叠态记忆（默认折叠，避免遮挡）

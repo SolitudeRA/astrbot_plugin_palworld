@@ -6,6 +6,8 @@ import ServerCard from './ServerCard.vue'
 import { collectBody } from '../lib/collect'
 import { locale, setLocale } from '../lib/i18n'
 import en from '../lib/locales/en'
+import ja from '../lib/locales/ja'
+import zhCN from '../lib/locales/zh-CN'
 
 const cfg = () => ({ ok: true, config: {
   servers: [{ __row_id: 'srv-0', name: 'a', enabled: true, base_url: 'http://x', username: 'admin',
@@ -195,6 +197,13 @@ describe('SettingsPanel', () => {
       expect(text).toContain('administrator; Locked commands determines')
     } finally {
       setLocale('zh-CN')
+    }
+  })
+
+  it('三语权限安全警告引用真实的 link add/remove 命令', () => {
+    for (const dict of [zhCN, ja, en]) {
+      expect(dict['settings.permissions.callout_warn']).toContain('/pal link add/remove')
+      expect(dict['settings.permissions.callout_warn']).not.toContain('server add/remove')
     }
   })
 

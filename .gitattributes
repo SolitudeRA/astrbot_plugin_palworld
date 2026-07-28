@@ -3,3 +3,11 @@
 
 tests/golden/*.txt text eol=lf
 pages/settings/** text eol=lf
+
+# Phase 3 文档测试按原始字节校验行尾；Windows checkout 也必须保持 LF。
+README*.md text eol=lf
+CONTRIBUTING*.md text eol=lf
+docs/commands*.md text eol=lf
+docs/configuration*.md text eol=lf
+docs/images/README.md text eol=lf
+docs/images/screenshots.manifest.json text eol=lf

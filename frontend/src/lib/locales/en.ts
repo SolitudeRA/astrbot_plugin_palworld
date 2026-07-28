@@ -252,7 +252,7 @@ const dict: Record<string, string> = {
   'settings.permissions.callout_after_admin': '\u00a0determines who is an administrator;\u00a0',
   'settings.permissions.locked_commands_term': 'Locked commands',
   'settings.permissions.callout_after_commands': '\u00a0determines which commands require an administrator. Every group member can use commands that are not locked.',
-  'settings.permissions.callout_warn': 'The list is global: a listed user has administrator access in every group they belong to, including server add/remove for any group. Take care when one bot serves multiple groups.',
+  'settings.permissions.callout_warn': 'The list is global: a listed user has administrator access in every group they belong to, including /pal link add/remove for any group. Take care when one bot serves multiple groups.',
   'settings.admins.title': 'Administrators',
   'settings.admins.subtitle': 'Listed members can run the locked commands below',
   'settings.admins.empty': 'The list is empty → nobody in the group can run administrator commands',

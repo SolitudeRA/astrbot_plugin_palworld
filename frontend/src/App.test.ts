@@ -22,6 +22,8 @@ describe('App', () => {
     const rail = w.findAll('.rail button')
     expect(rail.some((b) => b.text().includes('状态'))).toBe(true)
     expect(rail.some((b) => b.text().includes('连接'))).toBe(true)
+    expect(w.get('[data-chapter="status"]').attributes('aria-current')).toBe('false')
+    expect(w.get('[data-chapter="access"]').attributes('aria-current')).toBe('true')
     const obs = rail.find((b) => b.text().includes('状态'))!
     await obs.trigger('click'); await flushPromises()
     expect(w.text()).toContain('刷新') // 进入 StatusPanel
