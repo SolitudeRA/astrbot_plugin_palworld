@@ -377,8 +377,8 @@ function scenarioMulti(runtime: MockRuntime, neutralFixtures = false): Db {
     ],
     group_bindings: [],
     permission_admins: [
-      { id: neutralFixtures ? 'operator-01' : 'aiocqhttp:10001', note: neutralFixtures ? 'Primary operator' : '主管理员' },
-      { id: neutralFixtures ? 'operator-02' : 'aiocqhttp:10002', note: neutralFixtures ? 'Backup operator' : '副管理员' },
+      { id: neutralFixtures ? 'operator-01' : 'aiocqhttp:10001', note: neutralFixtures ? 'Ops A' : '主管理员' },
+      { id: neutralFixtures ? 'operator-02' : 'aiocqhttp:10002', note: neutralFixtures ? 'Ops B' : '副管理员' },
     ],
     command_permissions: [
       { command: 'guild list', enabled: 'inherit', admin_only: 'on' },
@@ -415,7 +415,7 @@ function scenarioSingle(runtime: MockRuntime, neutralFixtures = false): Db {
     ],
     custom_headers: [],
     group_bindings: [],
-    permission_admins: [{ id: neutralFixtures ? 'operator-01' : 'aiocqhttp:20001', note: neutralFixtures ? 'Primary operator' : '服主' }],
+    permission_admins: [{ id: neutralFixtures ? 'operator-01' : 'aiocqhttp:20001', note: neutralFixtures ? 'Ops A' : '服主' }],
     command_permissions: [{ command: 'server shutdown', enabled: 'inherit', admin_only: 'on' }],
     single_allowed_groups: [
       { umo: 'demo:Group:701', note: neutralFixtures ? 'Primary group' : '核心群' },

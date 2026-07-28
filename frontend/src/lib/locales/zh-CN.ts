@@ -264,7 +264,7 @@ const dict: Record<string, string> = {
   'settings.permissions.callout_after_admin': '决定谁有管理员身份，',
   'settings.permissions.locked_commands_term': '锁定命令',
   'settings.permissions.callout_after_commands': '决定哪些命令只有管理员能用。未锁定的命令所有群成员都能用。',
-  'settings.permissions.callout_warn': '名单全局：加入者在其所在每个群都有管理员权，含对任意群 server add/remove；多群共用同一 bot 请谨慎。',
+  'settings.permissions.callout_warn': '名单全局：加入者在其所在每个群都有管理员权，含对任意群执行 /pal link add/remove；多群共用同一 bot 请谨慎。',
   'settings.admins.title': '管理员名单',
   'settings.admins.subtitle': '名单内成员可执行下方锁定的命令',
   'settings.admins.empty': '名单为空 → 群里暂无人可执行管理员命令',

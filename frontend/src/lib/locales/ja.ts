@@ -252,7 +252,7 @@ const dict: Record<string, string> = {
   'settings.permissions.callout_after_admin': 'で管理者になるユーザーを決め、',
   'settings.permissions.locked_commands_term': 'ロックされたコマンド',
   'settings.permissions.callout_after_commands': 'で管理者だけが使えるコマンドを決めます。ロックされていないコマンドは全グループメンバーが利用できます。',
-  'settings.permissions.callout_warn': '一覧は全体に適用されます。登録されたユーザーは、所属するすべてのグループで管理者権限を持ち、任意のグループに対する server add/remove も実行できます。1 つの Bot を複数グループで共有する場合は注意してください。',
+  'settings.permissions.callout_warn': '一覧は全体に適用されます。登録されたユーザーは、所属するすべてのグループで管理者権限を持ち、任意のグループに対する /pal link add/remove も実行できます。1 つの Bot を複数グループで共有する場合は注意してください。',
   'settings.admins.title': '管理者一覧',
   'settings.admins.subtitle': '一覧のメンバーは、下でロックされたコマンドを実行できます',
   'settings.admins.empty': '一覧が空です → グループ内で管理者コマンドを実行できるユーザーはいません',
