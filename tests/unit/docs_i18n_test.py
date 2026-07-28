@@ -489,6 +489,25 @@ def test_navigation_and_heading_contract(family: DocFamily, locale: str, relativ
     assert _heading_contract(text) == family.headings, f"{family.key}/{locale} heading/anchor contract drift"
 
 
+@pytest.mark.parametrize(
+    ("locale", "relative", "tagline"),
+    (
+        ("zh-CN", "README.md", "让服主统一管理 Palworld 单服或多服"),
+        ("ja", "README.ja.md", "単一サーバーまたは複数サーバーを一元管理"),
+        ("en", "README.en.md", "Manage one or many Palworld servers"),
+    ),
+)
+def test_readme_language_badges_and_tagline_share_one_paragraph(locale: str, relative: str, tagline: str):
+    text = _read_utf8_lf(ROOT / relative)
+    nav = _expected_nav(FAMILY_BY_PATH[relative][0], locale)
+    header = next(block for block in re.split(r"\n[ \t]*\n", text) if nav in block)
+
+    assert header.splitlines()[0] == f"{nav}<br>"
+    assert header.count("[![") == 6
+    assert header.count("<br>") == 3
+    assert tagline in header
+
+
 @pytest.mark.parametrize("family", DOC_FAMILIES, ids=lambda family: family.key)
 def test_fences_and_tables_are_parallel(family: DocFamily):
     texts = {locale: _read_utf8_lf(ROOT / relative) for locale, relative in family.paths.items()}

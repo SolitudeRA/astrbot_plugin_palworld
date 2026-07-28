@@ -5,15 +5,13 @@
 <a id="readme"></a>
 # PalWorldTerminal · 帕鲁世界终端
 
-**简体中文** | [日本語](README.ja.md) | [English](README.en.md)
-
+**简体中文** | [日本語](README.ja.md) | [English](README.en.md)<br>
 [![AstrBot Market](https://img.shields.io/badge/AstrBot_Market-Available-279642?style=flat-square)](https://plugins.astrbot.app/)
 [![Plugin Version](https://img.shields.io/badge/dynamic/yaml?url=https%3A%2F%2Fraw.githubusercontent.com%2FSolitudeRA%2Fastrbot_plugin_palworld%2Fmain%2Fmetadata.yaml&query=%24.version&label=Plugin&color=1D80D9&style=flat-square)](https://github.com/SolitudeRA/astrbot_plugin_palworld/blob/main/metadata.yaml)
 [![CI](https://img.shields.io/github/actions/workflow/status/SolitudeRA/astrbot_plugin_palworld/ci.yml?branch=main&style=flat-square&label=CI&logo=githubactions&logoColor=white)](https://github.com/SolitudeRA/astrbot_plugin_palworld/actions/workflows/ci.yml)<br>
 [![AstrBot](https://img.shields.io/badge/AstrBot-4.24.1%E2%80%934.x-F5910E?style=flat-square)](https://github.com/AstrBotDevs/AstrBot)
 [![Palworld REST API](https://img.shields.io/badge/Palworld_REST_API-1.0-3F6EC6?style=flat-square)](https://docs.palworldgame.com/category/rest-api/)
-[![License](https://img.shields.io/badge/License-GPL--3.0-97CA00?style=flat-square)](https://github.com/SolitudeRA/astrbot_plugin_palworld/blob/main/LICENSE)
-
+[![License](https://img.shields.io/badge/License-GPL--3.0-97CA00?style=flat-square)](https://github.com/SolitudeRA/astrbot_plugin_palworld/blob/main/LICENSE)<br>
 **在 AstrBot 中，让服主统一管理 Palworld 单服或多服，也让群友通过状态、日报、事件与排行参与服内日常。**
 
 服主管理：可视化设置 · 功能与权限分开 · 多服按群授权 · 危险操作二次确认<br>

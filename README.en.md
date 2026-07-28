@@ -5,15 +5,13 @@
 <a id="readme"></a>
 # PalWorldTerminal
 
-[简体中文](README.md) | [日本語](README.ja.md) | **English**
-
+[简体中文](README.md) | [日本語](README.ja.md) | **English**<br>
 [![AstrBot Market](https://img.shields.io/badge/AstrBot_Market-Available-279642?style=flat-square)](https://plugins.astrbot.app/)
 [![Plugin Version](https://img.shields.io/badge/dynamic/yaml?url=https%3A%2F%2Fraw.githubusercontent.com%2FSolitudeRA%2Fastrbot_plugin_palworld%2Fmain%2Fmetadata.yaml&query=%24.version&label=Plugin&color=1D80D9&style=flat-square)](https://github.com/SolitudeRA/astrbot_plugin_palworld/blob/main/metadata.yaml)
 [![CI](https://img.shields.io/github/actions/workflow/status/SolitudeRA/astrbot_plugin_palworld/ci.yml?branch=main&style=flat-square&label=CI&logo=githubactions&logoColor=white)](https://github.com/SolitudeRA/astrbot_plugin_palworld/actions/workflows/ci.yml)<br>
 [![AstrBot](https://img.shields.io/badge/AstrBot-4.24.1%E2%80%934.x-F5910E?style=flat-square)](https://github.com/AstrBotDevs/AstrBot)
 [![Palworld REST API](https://img.shields.io/badge/Palworld_REST_API-1.0-3F6EC6?style=flat-square)](https://docs.palworldgame.com/category/rest-api/)
-[![License](https://img.shields.io/badge/License-GPL--3.0-97CA00?style=flat-square)](https://github.com/SolitudeRA/astrbot_plugin_palworld/blob/main/LICENSE)
-
+[![License](https://img.shields.io/badge/License-GPL--3.0-97CA00?style=flat-square)](https://github.com/SolitudeRA/astrbot_plugin_palworld/blob/main/LICENSE)<br>
 **Manage one or many Palworld servers from AstrBot, while letting group members take part through live status,
 daily reports, events, and rankings.**
 
