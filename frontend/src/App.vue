@@ -80,11 +80,11 @@ async function onLocaleChange(event: Event) {
       </header>
       <div class="layout">
         <nav v-if="!onboarding" class="rail" :aria-label="t('app.chapter_index')">
-          <button v-for="c in observeChapters" :key="c.id" :aria-current="chapter === c.id ? 'true' : 'false'" @click="chapter = c.id">
+          <button v-for="c in observeChapters" :key="c.id" :data-chapter="c.id" :aria-current="chapter === c.id ? 'true' : 'false'" @click="chapter = c.id">
             {{ t(`chapter.${c.id}.label`) }}<span v-if="c.kind === 'status'" class="dot" aria-hidden="true"></span>
           </button>
           <div class="rail-sep" aria-hidden="true"></div>
-          <button v-for="c in configChapters" :key="c.id" :aria-current="chapter === c.id ? 'true' : 'false'" @click="chapter = c.id">{{ t(`chapter.${c.id}.label`) }}</button>
+          <button v-for="c in configChapters" :key="c.id" :data-chapter="c.id" :aria-current="chapter === c.id ? 'true' : 'false'" @click="chapter = c.id">{{ t(`chapter.${c.id}.label`) }}</button>
         </nav>
         <div class="pane">
           <SettingsPanel ref="settingsPanelRef" v-show="currentKind === 'settings'" :chapter="chapter" @onboarding="onboarding = $event" />

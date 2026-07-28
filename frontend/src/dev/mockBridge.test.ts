@@ -51,3 +51,46 @@ describe('dev mock bridge locale patch', () => {
     expect(after).toMatchObject({ ok: true, config: { world: { locale: 'zh-CN' } } })
   })
 })
+
+describe('dev mock bridge docs capture determinism', () => {
+  it('returns identical config, status, and audit for the same clock and seed', async () => {
+    const options = {
+      nowMs: 1785196800000,
+      seed: 42,
+      locale: 'en' as const,
+      neutralFixtures: true,
+      latencyMs: 0,
+    }
+    const first = createMockBridge('multi', options)
+    const second = createMockBridge('multi', options)
+
+    for (const path of ['config/get', 'status/overview', 'audit/list']) {
+      expect(await first.apiGet(path)).toEqual(await second.apiGet(path))
+    }
+  })
+
+  it('uses the requested locale and neutral non-PII fixture names', async () => {
+    const bridge = createMockBridge('multi', {
+      nowMs: 1785196800000,
+      seed: 7,
+      locale: 'ja',
+      neutralFixtures: true,
+      latencyMs: 0,
+    })
+
+    const config = await bridge.apiGet('config/get') as any
+    const audit = await bridge.apiGet('audit/list') as any
+
+    expect(config.config.world.locale).toBe('ja')
+    expect(config.config.servers.map((server: any) => server.name)).toEqual([
+      'Tokyo-01',
+      'Osaka-02',
+      'Seoul-03',
+    ])
+    expect(config.config.permission_admins).toMatchObject([
+      { id: 'operator-01' },
+      { id: 'operator-02' },
+    ])
+    expect(audit.audits[0]).toMatchObject({ server: 'Tokyo-01', admin: 'operator-01' })
+  })
+})
