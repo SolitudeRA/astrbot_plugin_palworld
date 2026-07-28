@@ -105,7 +105,10 @@ def test_manifest_has_single_source_commit_hashes_dimensions_and_scale():
         pytest.skip("formal Phase 3 assets are generated in Task 8")
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     sha = manifest["source_commit"]
-    capture_docs_assets.validate_source_commit(ROOT, sha)
+    # source_commit 的存在性、祖先关系与 clean source 在生成入口中强制，并由上面的 fake-git
+    # 单测覆盖。仓库使用 squash merge；合并后的全新 checkout 不保证仍下载 PR 分支 commit
+    # 对象，因此永久 CI 不应尝试 cat-file/merge-base 解引用它。
+    assert len(sha) == 40 and all(char in "0123456789abcdef" for char in sha)
     assert len(manifest["images"]) == 18
     assert {item["source_commit"] for item in manifest["images"]} == {sha}
     for item in manifest["images"]:

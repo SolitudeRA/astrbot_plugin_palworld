@@ -34,7 +34,8 @@ $sourceCommit = git rev-parse HEAD
 当前正式资产统一来自 source commit
 `bf8b7091e003c8eaadcc08b8af3d70d557b2bebf`。完整文件清单、SHA-256、实际尺寸、场景参数及
 Playwright/Chromium/Vite 版本记录在 `screenshots.manifest.json`。CI 只核对 manifest、哈希与
-PNG IHDR，不在不同平台重建像素。
+PNG IHDR，不在不同平台重建像素，也不要求 squash merge 后的主干 checkout 仍包含生成分支的
+commit 对象；commit 的存在性、祖先关系与 source clean 状态由生成入口在替换资产前强制检查。
 
 生成器先在临时目录完成全部 18 张图片及 manifest，全部校验通过后再替换本目录；失败时保留上一组
 正式资产。不要手工修图、缩放或只替换其中一张。
