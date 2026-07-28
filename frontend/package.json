@@ -9,7 +9,7 @@
     "typecheck": "vue-tsc --noEmit",
     "test": "vitest",
     "test:run": "vitest run",
-    "test:capture:docs": "node --test scripts/capture-docs-screenshots.test.mjs",
+    "test:capture:docs": "node --test scripts/capture-docs-screenshots.test.mjs scripts/render-docs-cards.test.mjs",
     "verify:bundle": "node scripts/verify-bundle.mjs"
   },
   "dependencies": {
