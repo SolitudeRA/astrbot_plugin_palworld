@@ -1,0 +1,330 @@
+{
+  "schema_version": 1,
+  "source_commit": "bf8b7091e003c8eaadcc08b8af3d70d557b2bebf",
+  "tools": {
+    "python": "3.12.10",
+    "vite": "7.3.6",
+    "playwright": "1.62.0",
+    "chromium": "151.0.7922.34"
+  },
+  "images": [
+    {
+      "path": "docs/images/settings-servers.png",
+      "source_commit": "bf8b7091e003c8eaadcc08b8af3d70d557b2bebf",
+      "kind": "settings",
+      "locale": "zh-CN",
+      "scenario": "multi",
+      "chapter": "access",
+      "theme": "dark",
+      "viewport": {
+        "width": 1100,
+        "height": 960
+      },
+      "dpr": 2,
+      "zoom": 1,
+      "width": 2200,
+      "height": 1920,
+      "sha256": "a539c87fb4db5baad84154a595183b6e7c6fbddd2eac9cdbe8d242e6e8cbf69e"
+    },
+    {
+      "path": "docs/images/settings-features.png",
+      "source_commit": "bf8b7091e003c8eaadcc08b8af3d70d557b2bebf",
+      "kind": "settings",
+      "locale": "zh-CN",
+      "scenario": "multi",
+      "chapter": "features",
+      "theme": "dark",
+      "viewport": {
+        "width": 1100,
+        "height": 960
+      },
+      "dpr": 2,
+      "zoom": 1,
+      "width": 2200,
+      "height": 1920,
+      "sha256": "67183903cba54d58ee28f71ef50452e4cb2cb9859ed2fa7aae13f171e7e2a2ac"
+    },
+    {
+      "path": "docs/images/settings-permissions.png",
+      "source_commit": "bf8b7091e003c8eaadcc08b8af3d70d557b2bebf",
+      "kind": "settings",
+      "locale": "zh-CN",
+      "scenario": "multi",
+      "chapter": "permissions",
+      "theme": "dark",
+      "viewport": {
+        "width": 1100,
+        "height": 960
+      },
+      "dpr": 2,
+      "zoom": 1,
+      "width": 2200,
+      "height": 1920,
+      "sha256": "2f38e501410fdf98b26bc910226a102bfd9207d55fbb2d594555c07d967f9405"
+    },
+    {
+      "path": "docs/images/settings-onboarding.png",
+      "source_commit": "bf8b7091e003c8eaadcc08b8af3d70d557b2bebf",
+      "kind": "settings",
+      "locale": "zh-CN",
+      "scenario": "first",
+      "chapter": null,
+      "theme": "dark",
+      "viewport": {
+        "width": 1100,
+        "height": 600
+      },
+      "dpr": 2,
+      "zoom": 1,
+      "width": 2200,
+      "height": 1200,
+      "sha256": "f33fb51979e0db4a47f36fe56ae95cc17ae8f38830fedbaabd7bd3cdc0d6f96c"
+    },
+    {
+      "path": "docs/images/me-card-light.png",
+      "source_commit": "bf8b7091e003c8eaadcc08b8af3d70d557b2bebf",
+      "kind": "card",
+      "locale": "zh-CN",
+      "theme": "light",
+      "viewport": {
+        "width": 600,
+        "height": 400
+      },
+      "dpr": 1,
+      "zoom": 2,
+      "renderer_scale": 2,
+      "width": 1008,
+      "height": 859,
+      "sha256": "0487f7677849e45a5ac1d04b7afb0e718cf7f89c06f16360900270d28520f74c"
+    },
+    {
+      "path": "docs/images/me-card-dark.png",
+      "source_commit": "bf8b7091e003c8eaadcc08b8af3d70d557b2bebf",
+      "kind": "card",
+      "locale": "zh-CN",
+      "theme": "dark",
+      "viewport": {
+        "width": 600,
+        "height": 400
+      },
+      "dpr": 1,
+      "zoom": 2,
+      "renderer_scale": 2,
+      "width": 1008,
+      "height": 859,
+      "sha256": "edda56bf8bbff05e91a0daa49768ce1be7a0251329a1f70e72e2c133f325d469"
+    },
+    {
+      "path": "docs/images/ja/settings-servers.png",
+      "source_commit": "bf8b7091e003c8eaadcc08b8af3d70d557b2bebf",
+      "kind": "settings",
+      "locale": "ja",
+      "scenario": "multi",
+      "chapter": "access",
+      "theme": "dark",
+      "viewport": {
+        "width": 1100,
+        "height": 960
+      },
+      "dpr": 2,
+      "zoom": 1,
+      "width": 2200,
+      "height": 1920,
+      "sha256": "c7d96861837fe0086ad3692d3c1bdbd0cc6158cbe61c265a9a50ec32614aa4ed"
+    },
+    {
+      "path": "docs/images/ja/settings-features.png",
+      "source_commit": "bf8b7091e003c8eaadcc08b8af3d70d557b2bebf",
+      "kind": "settings",
+      "locale": "ja",
+      "scenario": "multi",
+      "chapter": "features",
+      "theme": "dark",
+      "viewport": {
+        "width": 1100,
+        "height": 960
+      },
+      "dpr": 2,
+      "zoom": 1,
+      "width": 2200,
+      "height": 1920,
+      "sha256": "abe5afd69bd01d651f8cbb845db9b0013268201fc78b277f097c5bc3f5ee5e84"
+    },
+    {
+      "path": "docs/images/ja/settings-permissions.png",
+      "source_commit": "bf8b7091e003c8eaadcc08b8af3d70d557b2bebf",
+      "kind": "settings",
+      "locale": "ja",
+      "scenario": "multi",
+      "chapter": "permissions",
+      "theme": "dark",
+      "viewport": {
+        "width": 1100,
+        "height": 960
+      },
+      "dpr": 2,
+      "zoom": 1,
+      "width": 2200,
+      "height": 1920,
+      "sha256": "c40655dfff536658f6c017465f66af6e85545469f9b9d7f6107ddd61c6671b3f"
+    },
+    {
+      "path": "docs/images/ja/settings-onboarding.png",
+      "source_commit": "bf8b7091e003c8eaadcc08b8af3d70d557b2bebf",
+      "kind": "settings",
+      "locale": "ja",
+      "scenario": "first",
+      "chapter": null,
+      "theme": "dark",
+      "viewport": {
+        "width": 1100,
+        "height": 600
+      },
+      "dpr": 2,
+      "zoom": 1,
+      "width": 2200,
+      "height": 1200,
+      "sha256": "9946388111aaa8a011673b688a7549d4b5927e32ab702ee3aa3da52b19228f64"
+    },
+    {
+      "path": "docs/images/ja/me-card-light.png",
+      "source_commit": "bf8b7091e003c8eaadcc08b8af3d70d557b2bebf",
+      "kind": "card",
+      "locale": "ja",
+      "theme": "light",
+      "viewport": {
+        "width": 600,
+        "height": 400
+      },
+      "dpr": 1,
+      "zoom": 2,
+      "renderer_scale": 2,
+      "width": 1008,
+      "height": 876,
+      "sha256": "fd520908952f3697d4d342c3bec9c84f12c8c0e00e7f6566d57988d95142b225"
+    },
+    {
+      "path": "docs/images/ja/me-card-dark.png",
+      "source_commit": "bf8b7091e003c8eaadcc08b8af3d70d557b2bebf",
+      "kind": "card",
+      "locale": "ja",
+      "theme": "dark",
+      "viewport": {
+        "width": 600,
+        "height": 400
+      },
+      "dpr": 1,
+      "zoom": 2,
+      "renderer_scale": 2,
+      "width": 1008,
+      "height": 876,
+      "sha256": "c45efb230d763ca6c90485479ebb92130f372db31ba63a2a97d17f4636b21556"
+    },
+    {
+      "path": "docs/images/en/settings-servers.png",
+      "source_commit": "bf8b7091e003c8eaadcc08b8af3d70d557b2bebf",
+      "kind": "settings",
+      "locale": "en",
+      "scenario": "multi",
+      "chapter": "access",
+      "theme": "dark",
+      "viewport": {
+        "width": 1100,
+        "height": 960
+      },
+      "dpr": 2,
+      "zoom": 1,
+      "width": 2200,
+      "height": 1920,
+      "sha256": "f43f539108aa73516aefdeb1ad18d518c823b3ae3a2eaf2e39c610faa3b75c7e"
+    },
+    {
+      "path": "docs/images/en/settings-features.png",
+      "source_commit": "bf8b7091e003c8eaadcc08b8af3d70d557b2bebf",
+      "kind": "settings",
+      "locale": "en",
+      "scenario": "multi",
+      "chapter": "features",
+      "theme": "dark",
+      "viewport": {
+        "width": 1100,
+        "height": 960
+      },
+      "dpr": 2,
+      "zoom": 1,
+      "width": 2200,
+      "height": 1920,
+      "sha256": "bd22be1b2979942f910f500a878b5c8a1b0ec702dd6a86bb89b4908e64d5af4d"
+    },
+    {
+      "path": "docs/images/en/settings-permissions.png",
+      "source_commit": "bf8b7091e003c8eaadcc08b8af3d70d557b2bebf",
+      "kind": "settings",
+      "locale": "en",
+      "scenario": "multi",
+      "chapter": "permissions",
+      "theme": "dark",
+      "viewport": {
+        "width": 1100,
+        "height": 960
+      },
+      "dpr": 2,
+      "zoom": 1,
+      "width": 2200,
+      "height": 1920,
+      "sha256": "2e726b1bf15b7696851828d19ab845dc23bc6a4dd31b84eaa002e67ac1d0cde5"
+    },
+    {
+      "path": "docs/images/en/settings-onboarding.png",
+      "source_commit": "bf8b7091e003c8eaadcc08b8af3d70d557b2bebf",
+      "kind": "settings",
+      "locale": "en",
+      "scenario": "first",
+      "chapter": null,
+      "theme": "dark",
+      "viewport": {
+        "width": 1100,
+        "height": 600
+      },
+      "dpr": 2,
+      "zoom": 1,
+      "width": 2200,
+      "height": 1200,
+      "sha256": "3aa40f6223c0054543b38466dfdce9ed488b693958e995141405874b788c29c0"
+    },
+    {
+      "path": "docs/images/en/me-card-light.png",
+      "source_commit": "bf8b7091e003c8eaadcc08b8af3d70d557b2bebf",
+      "kind": "card",
+      "locale": "en",
+      "theme": "light",
+      "viewport": {
+        "width": 600,
+        "height": 400
+      },
+      "dpr": 1,
+      "zoom": 2,
+      "renderer_scale": 2,
+      "width": 1008,
+      "height": 859,
+      "sha256": "caa989da5f3919f2b2aefc3bb30f69f04f735846a759940e6d6288c1d4d7d791"
+    },
+    {
+      "path": "docs/images/en/me-card-dark.png",
+      "source_commit": "bf8b7091e003c8eaadcc08b8af3d70d557b2bebf",
+      "kind": "card",
+      "locale": "en",
+      "theme": "dark",
+      "viewport": {
+        "width": 600,
+        "height": 400
+      },
+      "dpr": 1,
+      "zoom": 2,
+      "renderer_scale": 2,
+      "width": 1008,
+      "height": 859,
+      "sha256": "c05720e3c53fd5763f1a994aed42d42da0737dc404830d68e1cd9250ad5dc4ef"
+    }
+  ]
+}
