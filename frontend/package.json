@@ -5,9 +5,11 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build && node scripts/normalize-eol.mjs",
+    "capture:docs:settings": "node scripts/capture-docs-screenshots.mjs",
     "typecheck": "vue-tsc --noEmit",
     "test": "vitest",
     "test:run": "vitest run",
+    "test:capture:docs": "node --test scripts/capture-docs-screenshots.test.mjs",
     "verify:bundle": "node scripts/verify-bundle.mjs"
   },
   "dependencies": {
@@ -19,6 +21,7 @@
     "@vitejs/plugin-vue": "6.0.7",
     "@vue/test-utils": "2.4.11",
     "jsdom": "29.1.1",
+    "playwright": "1.62.0",
     "typescript": "5.9.2",
     "vite": "7.3.6",
     "vitest": "3.2.7",
