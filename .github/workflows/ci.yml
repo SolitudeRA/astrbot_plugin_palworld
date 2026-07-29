@@ -1,4 +1,4 @@
-# CI：lint（ruff + mypy）与测试矩阵（ubuntu 3.11/3.12/3.13 + windows 3.12）
+# CI：lint（ruff + mypy）与测试矩阵（ubuntu 3.11/3.13 + windows 3.12）
 name: CI
 
 on:
@@ -36,8 +36,6 @@ jobs:
           - os: ubuntu-latest
             python-version: "3.11"
           - os: ubuntu-latest
-            python-version: "3.12"
-          - os: ubuntu-latest
             python-version: "3.13"
           - os: windows-latest
             python-version: "3.12"
@@ -67,6 +65,9 @@ jobs:
       - name: Unit tests
         working-directory: frontend
         run: npm run test:run
+      - name: Type check
+        working-directory: frontend
+        run: npm run typecheck
       - name: Docs capture contract tests
         working-directory: frontend
         run: npm run test:capture:docs

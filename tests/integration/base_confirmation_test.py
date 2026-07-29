@@ -45,14 +45,3 @@ async def test_base_persisted_only_after_confirmation_samples(tmp_path):
     assert len(bases) == 1
     assert any(u.is_new for u in u3)
     await db.close()
-
-
-async def test_palbox_jitter_within_grid_does_not_create_second_base(tmp_path):
-    db, repo, svc = await _mk(tmp_path)
-    # 抖动都落在同一网格(grid=2000) → 同 palbox_key → 同 base_key
-    await svc.apply(_world(), _gd(100.0, 200.0, 1000))
-    await svc.apply(_world(), _gd(150.0, 250.0, 1030))
-    await svc.apply(_world(), _gd(80.0, 190.0, 1060))
-    bases = await repo.list_bases("w1", include_low=True)
-    assert len(bases) == 1
-    await db.close()

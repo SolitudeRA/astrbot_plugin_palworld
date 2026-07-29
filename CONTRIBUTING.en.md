@@ -38,7 +38,8 @@ not require this step.
 cd frontend && npm run test:run && npm run typecheck
 ```
 
-CI runs the same checks on Linux and Windows. A change may be merged only when all checks pass.
+CI runs static analysis, frontend checks, and backend tests on Linux, and repeats the backend tests on Windows. A
+change may be merged only when all checks pass.
 
 <a id="commit-conventions"></a>
 ## Commit conventions

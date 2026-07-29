@@ -38,7 +38,8 @@ cd frontend && npm run build
 cd frontend && npm run test:run && npm run typecheck
 ```
 
-CI は Linux と Windows で同じチェックを実行します。すべて成功した変更だけをマージできます。
+CI は Linux で静的解析・フロントエンド検査・バックエンドテストを実行し、Windows でもバックエンドテストを
+実行します。すべての検査が成功した変更のみマージできます。
 
 <a id="commit-conventions"></a>
 ## コミット規約

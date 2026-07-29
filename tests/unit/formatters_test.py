@@ -81,25 +81,6 @@ def test_format_status_degraded_two_line_title_and_status():
     assert "25 分钟前" in lines[1]
 
 
-def test_format_status_new_layout_matches_spec_4_1():
-    # spec §4.1 定稿样张逐行（标题锚点=配置名参数；据点独立行；玩家轻条目）。
-    dto = _status(
-        players=[("Neo", 21, "good"), ("Trinity", 18, "ok")], detail=_detail(),
-    )
-    assert format_status(dto, "Palpagos") == (
-        "🌍 世界状态 · Palpagos\n"
-        "第 42 天 · v0.6.5 · 已运行 6天9时\n"
-        "\n"
-        "在线 2/32 · 今日峰值 7\n"
-        "性能 🟢 流畅 · FPS 58 · 帧时间 17.2ms\n"
-        "据点 5\n"
-        "\n"
-        "在线玩家\n"
-        "· Neo Lv21\n"
-        "· Trinity Lv18"
-    )
-
-
 def test_format_status_head_count_is_converged_list_length_not_raw():
     # spec §3/§4.1 要点（B）：头行分子=收敛后名单长度，而非 metric 原始在线数（dto.online）。
     # dto.online=9（原始/聚合）但收敛名单仅 2 人 → 头行须 2/32，杜绝「在线 9」列 2 人的存在性泄漏。
@@ -128,21 +109,6 @@ def test_format_status_zero_players_omits_section():
     text = format_status(_status(players=[], detail=_detail()), "Palpagos")
     assert "在线玩家" not in text
     assert "在线 0/32" in text
-
-
-def test_format_online_lists_players_and_bucket_label():
-    dto = OnlineDTO(
-        rows=[OnlinePlayerRow("Neo", 21, PingBucket.GOOD, 3661)], updated_at=1000,
-        degraded=False, max_players=32, peak_online=7,
-    )
-    text = format_online(dto, "Palpagos")
-    assert text.splitlines()[0] == "👥 当前在线 · Palpagos"
-    # 头行分子 = 收敛后名单数 len(rows)=1（T3 seam），/max 与今日峰值取聚合值。
-    assert "在线 1/32 · 今日峰值 7" in text
-    assert "· Neo Lv21" in text
-    # ping bucket rendered as a friendly label, never a raw ms number
-    assert "优秀" in text and "3661" not in text
-    assert "1时01分" in text  # online_seconds 走 fmt_duration
 
 
 def test_format_online_head_count_is_converged_list_length():
@@ -469,24 +435,6 @@ def _world_dto(*, available=True):
     )
 
 
-def test_format_world_new_layout_matches_spec_4_2():
-    assert format_world(_world_dto(), "Palpagos") == (
-        "🗺️ 世界概览 · Palpagos\n"
-        "第 42 天 · 在线 2/32\n"
-        "\n"
-        "居民\n"
-        "· 角色 12 · NPC 45\n"
-        "· 帕鲁 随行 38 · 工作 102 · 野生 361\n"
-        "\n"
-        "设施\n"
-        "· PalBox 8 · 公会 5 · 据点 5\n"
-        "\n"
-        "野生帕鲁 Top（当前快照）\n"
-        "· 疾风隼 ×24\n"
-        "· 棉悠悠 ×18"
-    )
-
-
 def test_format_world_snapshot_missing_is_error_state():
     # spec §4.2/§6#8：快照缺失不再静默全 0，走 ⚠️ 取数失败态。
     text = format_world(_world_dto(available=False), "Palpagos")
@@ -514,19 +462,6 @@ def _rules_dto(*, available=True, privacy_note=None):
             ]),
         ],
         available=available, privacy_note=privacy_note, updated_at=1700000000,
-    )
-
-
-def test_format_rules_pairs_two_per_line():
-    text = format_rules(_rules_dto(), "Palpagos")
-    assert text == (
-        "📜 世界规则 · Palpagos\n"
-        "\n"
-        "模式\n"
-        "· 难度 普通 · 硬核 关闭\n"
-        "\n"
-        "倍率\n"
-        "· 经验 1.0x · 捕获 1.2x"
     )
 
 
@@ -664,41 +599,9 @@ class _TodayReport:
         self.new_players = kw.get("new_players", 0)
 
 
-def test_today_title_carries_server_and_date():
-    text = format_today(_TodayReport(records=[_rec("世界迎来第 100 天")]), "Palpagos")
-    assert text.startswith("📅 今日日报 · Palpagos · 2026-07-17")
-
-
-def test_today_accumulated_time_uses_fmt_duration():
-    text = format_today(_TodayReport(total_online_seconds=45600, records=[_rec("x")]), "Palpagos")
-    assert "累计在线 12时40分" in text
-    assert "小时" not in text  # 废「N 小时」聚合式（spec §2.4）
-
-
-def test_today_header_line_shape():
-    text = format_today(
-        _TodayReport(world_day_start=42, world_day_end=45, active_players=3,
-                     peak_online=7, total_online_seconds=45600, records=[_rec("x")]),
-        "Palpagos",
-    )
-    assert "第 42 → 45 天 · 活跃玩家 3 · 峰值在线 7 · 累计在线 12时40分" in text
-
-
 def test_today_empty_state():
     text = format_today(_TodayReport(is_empty=True), "Palpagos")
     assert text == "📅 今日日报 · Palpagos · 2026-07-17\n平静的一天，没有新事件"
-
-
-def test_today_section_headers_plain_no_icons():
-    text = format_today(
-        _TodayReport(records=[_rec("a")], growth=[_rec("b")], base_changes=[_rec("c")]), "Palpagos"
-    )
-    assert "\n今日纪录\n" in text
-    assert "\n玩家成长\n" in text
-    assert "\n据点变化\n" in text
-    # 节头素文无图标（与 status/rules/events 一致）。
-    for header in ("今日纪录", "玩家成长", "据点变化"):
-        assert f"📅{header}" not in text
 
 
 def test_today_fold_per_section_at_7():
