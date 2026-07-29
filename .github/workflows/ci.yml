@@ -65,6 +65,9 @@ jobs:
       - name: Unit tests
         working-directory: frontend
         run: npm run test:run
+      - name: Type check
+        working-directory: frontend
+        run: npm run typecheck
       - name: Docs capture contract tests
         working-directory: frontend
         run: npm run test:capture:docs

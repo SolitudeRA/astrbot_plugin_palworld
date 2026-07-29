@@ -36,7 +36,7 @@ Windows 上也不会产生 CRLF 幻影脏;`verify-bundle` 会在 CI 校验产物
 cd frontend && npm run test:run && npm run typecheck
 ```
 
-CI 会在 Linux/Windows 双平台跑同样的检查,全绿才可合并。
+CI 在 Linux 上运行静态检查、前端检查和后端测试，并在 Windows 上重复后端测试；所有检查通过后方可合并。
 
 <a id="commit-conventions"></a>
 ## 提交约定
