@@ -44,15 +44,17 @@ class SpyPlayers:
 
 
 class SpyAgg:
-    def __init__(self):
+    def __init__(self, result=None):
         self.applied = []
+        self.base_event_updates = []
+        self.result = [] if result is None else result
 
     async def apply(self, world, gd):
         self.applied.append((world.world_id, gd))
-        return []
+        return self.result
 
     async def base_events(self, world, updates):
-        return None
+        self.base_event_updates.append((world.world_id, updates))
 
 
 def _cfg(mode="balanced"):
@@ -89,14 +91,15 @@ async def make_svc(tmp_path):
         meta.load()
         players = SpyPlayers()
         guilds = SpyAgg()
-        bases = SpyAgg()
+        bases = SpyAgg(result=["base-update"])
+        events = SpyAgg()
         svc = SnapshotService(
             repo=Repository(db, clock), normalizer_mod=normalizer_mod,
             privacy_mod=privacy_mod, meta=meta, salt=b"\x02" * 32, cfg=_cfg(mode),
-            clock=clock, players=players, guilds=guilds, bases=bases, events=SpyAgg(),
+            clock=clock, players=players, guilds=guilds, bases=bases, events=events,
         )
         created["db"] = db
-        return svc, players, guilds, bases
+        return svc, players, guilds, bases, events
 
     yield _factory
     if "db" in created:
@@ -129,7 +132,7 @@ def _game_data_resp(ok=True):
 
 
 async def test_ingest_players_delegates_redacted_snapshot(make_svc):
-    svc, players, _, _ = await make_svc("balanced")
+    svc, players, _, _, _ = await make_svc("balanced")
     await svc.ingest_players(_world(), _players_resp())
     assert len(players.applied) == 1
     world_id, snap = players.applied[0]
@@ -143,17 +146,18 @@ async def test_ingest_players_delegates_redacted_snapshot(make_svc):
 
 
 async def test_ingest_players_failure_marks_uncertain(make_svc):
-    svc, players, _, _ = await make_svc("balanced")
+    svc, players, _, _, _ = await make_svc("balanced")
     await svc.ingest_players(_world(), _players_resp(ok=False))
     assert players.applied == []
     assert players.uncertain == ["s1:GUID-A:0"]
 
 
 async def test_ingest_game_data_delegates_to_guilds_and_bases(make_svc):
-    svc, _, guilds, bases = await make_svc("balanced")
+    svc, _, guilds, bases, events = await make_svc("balanced")
     await svc.ingest_game_data(_world(), _game_data_resp())
     assert len(guilds.applied) == 1
     assert len(bases.applied) == 1
+    assert events.base_event_updates == [("s1:GUID-A:0", ["base-update"])]
     _, gd = guilds.applied[0]
     assert len(gd.characters) == 1
     # 身份脱敏发生在委托前
@@ -161,7 +165,7 @@ async def test_ingest_game_data_delegates_to_guilds_and_bases(make_svc):
 
 
 async def test_ingest_game_data_strict_drops_palboxes_before_delegate(make_svc):
-    svc, _, guilds, bases = await make_svc("strict")
+    svc, _, guilds, bases, _ = await make_svc("strict")
     await svc.ingest_game_data(_world(), _game_data_resp())
     _, gd = bases.applied[0]
     assert gd.palboxes == []
@@ -169,10 +173,11 @@ async def test_ingest_game_data_strict_drops_palboxes_before_delegate(make_svc):
 
 
 async def test_ingest_game_data_failure_no_delegate(make_svc):
-    svc, _, guilds, bases = await make_svc("balanced")
+    svc, _, guilds, bases, events = await make_svc("balanced")
     await svc.ingest_game_data(_world(), _game_data_resp(ok=False))
     assert guilds.applied == []
     assert bases.applied == []
+    assert events.base_event_updates == []
 
 
 def _server():
@@ -190,7 +195,7 @@ def _info_resp(worldguid):
 
 async def test_ingest_players_stale_world_skips_delegation(make_svc):
     """竞态防护: 传入 world 已非该服务器当前世界时, 不 apply 也不丢 prev 记录。"""
-    svc, players, _, _ = await make_svc("balanced")
+    svc, players, _, _, _ = await make_svc("balanced")
     world_a = await svc.ingest_info(_server(), _info_resp("GUID-A"))
     await svc.ingest_info(_server(), _info_resp("GUID-B"))
     await svc.ingest_players(world_a, _players_resp())
@@ -200,7 +205,7 @@ async def test_ingest_players_stale_world_skips_delegation(make_svc):
 
 async def test_world_switch_prev_world_swept_then_forgotten(make_svc):
     """换世界后, 新世界的 players tick 委托 sweep 旧世界; 旧世界无未决会话即遗忘。"""
-    svc, players, _, _ = await make_svc("balanced")
+    svc, players, _, _, _ = await make_svc("balanced")
     await svc.ingest_info(_server(), _info_resp("GUID-A"))
     world_b = await svc.ingest_info(_server(), _info_resp("GUID-B"))
     assert players.uncertain == ["s1:GUID-A:0"]

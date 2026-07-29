@@ -24,10 +24,8 @@ GOLDEN = Path(__file__).resolve().parents[1] / "golden"
 
 
 def _check_golden(name: str, actual: str) -> None:
-    GOLDEN.mkdir(parents=True, exist_ok=True)
     path = GOLDEN / name
-    if not path.exists():
-        path.write_text(actual, encoding="utf-8")  # first run: generate
+    assert path.is_file(), f"missing golden fixture: {path}"
     expected = path.read_text(encoding="utf-8")
     assert actual == expected, f"golden mismatch for {name}"
 
